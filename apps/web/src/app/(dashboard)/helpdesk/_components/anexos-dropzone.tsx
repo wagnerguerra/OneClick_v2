@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Loader2, Paperclip, X, Upload, FileText, Image as ImageIcon } from 'lucide-react'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
 
@@ -247,13 +248,13 @@ export function AnexosDropzone({
                 <p className="truncate font-medium">{item.fileName}</p>
                 <p className="text-[10px] text-muted-foreground">{fmtBytes(item.tamanho)}</p>
               </div>
-              {item.status === 'uploading' && <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-600" />}
-              {item.status === 'error' && <span className="text-[10px] text-rose-600 font-medium">erro</span>}
-              {item.status === 'ready' && <Paperclip className="h-3 w-3 text-emerald-600" />}
+              {item.status === 'uploading' && <Loader2 className={cn('h-3.5 w-3.5 animate-spin', TEXT.cyan)} />}
+              {item.status === 'error' && <span className={cn('text-[10px] font-medium', TEXT.rose)}>erro</span>}
+              {item.status === 'ready' && <Paperclip className={cn('h-3 w-3', TEXT.emerald)} />}
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); remove(item.id) }}
-                className="text-muted-foreground hover:text-rose-600 transition-colors"
+                className="text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
                 title="Remover"
               >
                 <X className="h-3.5 w-3.5" />

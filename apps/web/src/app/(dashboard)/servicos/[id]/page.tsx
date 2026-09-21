@@ -24,7 +24,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
-  RichEditor, Checkbox,
+  RichEditor, Checkbox, Switch, Textarea,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -32,6 +32,7 @@ import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
 // Rótulos dos tipos de chamado — serviço interno declara quais atende, e o
 // seletor de serviço do HelpDesk filtra por isso.
 import { HELPDESK_TIPO_LABELS } from '@saas/types'
@@ -1297,7 +1298,7 @@ export default function ServicoDetailPage() {
             </CardHeader>
             <div className="flex min-h-[500px]">
               {/* Pills verticais à esquerda */}
-              <div className="w-[180px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+              <div className="w-[180px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
                 <div className="space-y-1">
                   {([
                     { id: 'identificacao' as const, label: 'Identificação', icon: FileText },
@@ -1321,7 +1322,7 @@ export default function ServicoDetailPage() {
                         onClick={() => setVisaoPill(p.id)}
                         className={cn(
                           'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
-                          active ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-white hover:text-foreground',
+                          active ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-white dark:hover:bg-accent hover:text-foreground',
                         )}
                         style={active ? { backgroundColor: MODULE_COLOR } : undefined}
                       >
@@ -1336,13 +1337,13 @@ export default function ServicoDetailPage() {
               {/* Conteúdo da pill */}
               <div
                 key={visaoPill}
-                className="flex-1 min-w-0 overflow-y-auto flex flex-col"
+                className="flex-1 min-w-0 overflow-y-auto flex flex-col nice-scrollbar"
                 style={{ animation: 'fadeSlideIn 0.25s ease-out' }}
               >
                 {/* ── PILL: Identificação ───────────────────── */}
                 {visaoPill === 'identificacao' && (
                   <div>
-                    <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                    <div className="px-5 py-3 border-b border-border">
                       <h4 className="text-[13px] font-semibold text-foreground">Identificação</h4>
                     </div>
                     <div className="p-5 space-y-4">
@@ -1552,11 +1553,11 @@ export default function ServicoDetailPage() {
                               (atribuicaoUsaOrcamento ? 1 : 0) +
                               (atribuicaoUsaClienteArea ? 1 : 0)
                             return totalFontes === 0 ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900 shrink-0">
+                              <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0', BADGE.rose)}>
                                 ⚠ Sem fonte definida
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900 shrink-0">
+                              <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0', BADGE.emerald)}>
                                 {totalFontes} fonte{totalFontes > 1 ? 's' : ''}
                               </span>
                             )
@@ -1594,7 +1595,7 @@ export default function ServicoDetailPage() {
                                 {atribuicaoColaboradores.map(uid => {
                                   const u = usuariosForSelect.find(x => x.id === uid)
                                   return (
-                                    <span key={uid} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-900">
+                                    <span key={uid} className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border', BADGE.sky)}>
                                       {u?.name ?? uid}
                                       <button
                                         type="button"
@@ -1637,7 +1638,7 @@ export default function ServicoDetailPage() {
                                 {atribuicaoAreas.map(aid => {
                                   const a = areas.find(x => x.id === aid)
                                   return (
-                                    <span key={aid} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900">
+                                    <span key={aid} className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border', BADGE.emerald)}>
                                       {a?.name ?? aid}
                                       <button
                                         type="button"
@@ -1656,11 +1657,10 @@ export default function ServicoDetailPage() {
                         {/* Flags */}
                         <div className="grid grid-cols-12 gap-3">
                           <label className="col-span-12 flex items-center gap-2 cursor-pointer select-none rounded-md border bg-card px-3 py-2 hover:bg-muted/40 transition-colors">
-                            <input
-                              type="checkbox"
+                            <Checkbox
                               checked={atribuicaoUsaClienteArea}
-                              onChange={e => setAtribuicaoUsaClienteArea(e.target.checked)}
-                              className="h-3.5 w-3.5 cursor-pointer"
+                              onCheckedChange={v => setAtribuicaoUsaClienteArea(v === true)}
+                              className="cursor-pointer"
                             />
                             <span className="text-[12px] font-medium">Responsável pelo cliente na área</span>
                           </label>
@@ -1672,7 +1672,7 @@ export default function ServicoDetailPage() {
                 {/* ── PILL: Descrição ──────────────────────── */}
                 {visaoPill === 'descricao' && (
                   <div>
-                    <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                    <div className="px-5 py-3 border-b border-border">
                       <h4 className="text-[13px] font-semibold text-foreground">Descrição</h4>
                     </div>
                     <div className="p-5">
@@ -1693,7 +1693,7 @@ export default function ServicoDetailPage() {
                 {/* ── PILL: Comercial ──────────────────────── */}
                 {visaoPill === 'comercial' && (
                   <div>
-                    <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                    <div className="px-5 py-3 border-b border-border">
                       <h4 className="text-[13px] font-semibold text-foreground">Comercial &amp; Operacional</h4>
                     </div>
                     <div className="p-5 space-y-4">
@@ -1741,24 +1741,12 @@ export default function ServicoDetailPage() {
                       </div>
 
                       <div className="flex items-center gap-3 pt-2 border-t">
-                        <button
+                        <Switch
                           id="disp-orc"
-                          type="button"
-                          role="switch"
-                          aria-checked={disponivelOrcamento}
-                          onClick={() => setDisponivelOrcamento(!disponivelOrcamento)}
-                          className={cn(
-                            'relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2',
-                            disponivelOrcamento ? 'bg-emerald-600' : 'bg-muted-foreground/30',
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              'inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform',
-                              disponivelOrcamento ? 'translate-x-5' : 'translate-x-0',
-                            )}
-                          />
-                        </button>
+                          checked={disponivelOrcamento}
+                          onCheckedChange={setDisponivelOrcamento}
+                          className={cn(disponivelOrcamento && 'bg-emerald-600')}
+                        />
                         <Label htmlFor="disp-orc" className="text-[13px] font-medium cursor-pointer select-none">
                           Disponibilizar para inclusão em orçamentos
                         </Label>
@@ -1797,7 +1785,7 @@ export default function ServicoDetailPage() {
                                 >
                                   <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: g.cor || '#94a3b8' }} />
                                   <span className="truncate max-w-[200px]">{g.nome}</span>
-                                  {selected && <Check className="h-3 w-3 text-emerald-600" />}
+                                  {selected && <Check className={cn('h-3 w-3', TEXT.emerald)} />}
                                 </button>
                               )
                             })}
@@ -1810,7 +1798,7 @@ export default function ServicoDetailPage() {
                 {/* ── PILL: Avançado ──────────────────────────── */}
                 {visaoPill === 'avancado' && (
                   <div>
-                    <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                    <div className="px-5 py-3 border-b border-border">
                       <h4 className="text-[13px] font-semibold text-foreground">Configurações avançadas</h4>
                     </div>
                     <div className="p-5 grid grid-cols-12 gap-3">
@@ -1839,7 +1827,7 @@ export default function ServicoDetailPage() {
                       </div>
 
                       {/* Linha 2: Lembrete (dias + tipo) */}
-                      <div className="col-span-12 border-t border-[rgba(0,0,0,0.08)] -mx-5 mt-2" />
+                      <div className="col-span-12 border-t border-border -mx-5 mt-2" />
                       <div className="col-span-12">
                         <h6 className="text-[12px] uppercase tracking-wider font-semibold text-muted-foreground">Lembrete antes do vencimento</h6>
                       </div>
@@ -1866,7 +1854,7 @@ export default function ServicoDetailPage() {
                       </div>
 
                       {/* Linha 3: Flags booleanos */}
-                      <div className="col-span-12 border-t border-[rgba(0,0,0,0.08)] -mx-5 mt-2" />
+                      <div className="col-span-12 border-t border-border -mx-5 mt-2" />
                       <div className="col-span-12">
                         <h6 className="text-[12px] uppercase tracking-wider font-semibold text-muted-foreground">Comportamento</h6>
                       </div>
@@ -1908,16 +1896,16 @@ export default function ServicoDetailPage() {
                       </div>
 
                       {/* Comentário padrão */}
-                      <div className="col-span-12 border-t border-[rgba(0,0,0,0.08)] -mx-5 mt-2" />
+                      <div className="col-span-12 border-t border-border -mx-5 mt-2" />
                       <div className="col-span-12 space-y-1.5">
                         <Label className="text-[13px] font-semibold">Comentário padrão</Label>
-                        <textarea
+                        <Textarea
                           value={comentarioPadrao}
                           onChange={(e) => setComentarioPadrao(e.target.value)}
                           placeholder="Texto pré-carregado no campo de comentário do anexo na entrega manual."
                           maxLength={300}
                           rows={2}
-                          className="w-full rounded-[4px] border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                          className="resize-none"
                         />
                         <p className="text-[11px] text-muted-foreground">{comentarioPadrao.length} / 300 caracteres</p>
                       </div>
@@ -1928,7 +1916,7 @@ export default function ServicoDetailPage() {
                 {/* ── PILL: Vencimentos por mês ──────────────── */}
                 {visaoPill === 'vencimentosMensais' && (
                   <div>
-                    <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                    <div className="px-5 py-3 border-b border-border">
                       <h4 className="text-[13px] font-semibold text-foreground">Vencimentos por mês</h4>
                     </div>
                     <div className="p-5 space-y-3">
@@ -1996,7 +1984,7 @@ export default function ServicoDetailPage() {
                           )
                         })}
                       </div>
-                      <div className="rounded border border-sky-200 bg-sky-50 p-3 text-[11px] text-sky-900">
+                      <div className={cn('rounded border p-3 text-[11px] text-sky-900 dark:text-sky-300', SURFACE.sky)}>
                         <strong>Encoding:</strong> 0 = "Não tem" · 1-31 = Dia fixo · 51-70 = 1º a 20º dia útil · 90 = Último dia útil.
                         Espelha exatamente os campos <code>ObrD01..ObrD12</code> do Acessórias.
                       </div>
@@ -2005,7 +1993,7 @@ export default function ServicoDetailPage() {
                 )}
 
                 {/* Rodapé fixo com botão Salvar — vale pra qualquer pill */}
-                <div className="mt-auto border-t border-[rgba(0,0,0,0.08)] px-5 py-3 bg-card flex justify-end">
+                <div className="mt-auto border-t border-border px-5 py-3 bg-card flex justify-end">
                   <Button onClick={salvarVisao} disabled={saving} className="gap-1.5" style={{ backgroundColor: MODULE_COLOR }}>
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Salvar alterações
@@ -2136,7 +2124,7 @@ export default function ServicoDetailPage() {
                             if (trilhos <= 1) return null
                             return (
                               <div
-                                className="flex items-center justify-center gap-1 shrink-0 h-9 px-2 rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-[11px] font-medium text-emerald-700 dark:text-emerald-300"
+                                className={cn('flex items-center justify-center gap-1 shrink-0 h-9 px-2 rounded-md border text-[11px] font-medium', BADGE.emerald)}
                                 title={`${trilhos} trilhos paralelos — passos no mesmo trilho rodam simultaneamente`}
                               >
                                 <GitBranch className="h-3 w-3" />
@@ -2358,21 +2346,21 @@ export default function ServicoDetailPage() {
                                     key: 'email',
                                     icon: Mail,
                                     label: 'E-mail de conclusão',
-                                    iconClassName: 'text-indigo-600',
+                                    iconClassName: TEXT.indigo,
                                     onSelect: () => setOpenEmailsPasso(p.id!),
                                   },
                                   {
                                     key: 'lembrete',
                                     icon: Bell,
                                     label: 'Agendar lembrete',
-                                    iconClassName: 'text-amber-600',
+                                    iconClassName: TEXT.amber,
                                     onSelect: () => setOpenLembretesPasso(p.id!),
                                   },
                                   {
                                     key: 'campo-cliente',
                                     icon: Database,
                                     label: 'Vincular campo',
-                                    iconClassName: 'text-sky-600',
+                                    iconClassName: TEXT.sky,
                                     onSelect: () => setOpenCamposClientePasso(p.id!),
                                   },
                                 ]}
@@ -2562,7 +2550,7 @@ export default function ServicoDetailPage() {
                 <div className="space-y-2">
                   {encadeamentos.map(enc => (
                     <div key={enc.id} className="flex items-center gap-3 rounded-lg border bg-card p-3 hover:shadow-sm transition-shadow">
-                      <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 text-xs font-bold">
+                      <div className={cn('shrink-0 flex h-8 w-8 items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-xs font-bold', TEXT.emerald)}>
                         {enc.ordem + 1}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -2575,23 +2563,23 @@ export default function ServicoDetailPage() {
                             {enc.servicoDestino.nome}
                           </button>
                           {enc.iniciaAuto && enc.obrigatorio && (
-                            <Badge variant="outline" className="text-[10px] h-5 bg-emerald-50 border-emerald-200 text-emerald-700">
+                            <Badge variant="outline" className={cn('text-[10px] h-5', BADGE.emerald)}>
                               <Play className="h-2.5 w-2.5 mr-0.5" /> Auto
                             </Badge>
                           )}
                           {!enc.iniciaAuto && (
-                            <Badge variant="outline" className="text-[10px] h-5 bg-amber-50 border-amber-200 text-amber-700">
+                            <Badge variant="outline" className={cn('text-[10px] h-5', BADGE.amber)}>
                               <Pause className="h-2.5 w-2.5 mr-0.5" /> Manual
                             </Badge>
                           )}
                           {!enc.obrigatorio && (
-                            <Badge variant="outline" className="text-[10px] h-5 bg-sky-50 border-sky-200 text-sky-700">
+                            <Badge variant="outline" className={cn('text-[10px] h-5', BADGE.sky)}>
                               Opcional
                             </Badge>
                           )}
                           {enc.herdaResponsavel && <Badge variant="outline" className="text-[10px] h-5">Herda resp.</Badge>}
                           {enc.condicao != null && (
-                            <Badge variant="outline" className="text-[10px] h-5 bg-violet-50 border-violet-200 text-violet-700">
+                            <Badge variant="outline" className={cn('text-[10px] h-5', BADGE.violet)}>
                               <AlertCircle className="h-2.5 w-2.5 mr-0.5" /> Condicional
                             </Badge>
                           )}
@@ -2650,7 +2638,7 @@ export default function ServicoDetailPage() {
                   {ehSubservicoDe.map((p, i) => (
                     <span key={p.id}>
                       {i > 0 && ', '}
-                      <Link href={`/servicos/${p.id}`} className="text-sky-600 hover:underline">{p.nome}</Link>
+                      <Link href={`/servicos/${p.id}`} className={cn(TEXT.sky, 'hover:underline')}>{p.nome}</Link>
                     </span>
                   ))}
                   . Por isso ele não pode ter subserviços próprios — o catálogo trabalha com dois níveis.
@@ -2685,8 +2673,8 @@ export default function ServicoDetailPage() {
                         const marcado = subservicos.includes(sv.id)
                         return (
                           <label key={sv.id} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-muted/30">
-                            <input type="checkbox" checked={marcado} className="h-4 w-4"
-                              onChange={() => setSubservicos(l => marcado ? l.filter(x => x !== sv.id) : [...l, sv.id])} />
+                            <Checkbox checked={marcado}
+                              onCheckedChange={() => setSubservicos(l => marcado ? l.filter(x => x !== sv.id) : [...l, sv.id])} />
                             <span className="flex-1 text-[13px] truncate">{sv.nome}</span>
                           </label>
                         )
@@ -2848,25 +2836,25 @@ export default function ServicoDetailPage() {
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
-                <input id="enc-auto" type="checkbox" checked={encIniciaAuto} onChange={e => setEncIniciaAuto(e.target.checked)} className="h-4 w-4 accent-emerald-600" />
+                <Checkbox id="enc-auto" checked={encIniciaAuto} onCheckedChange={v => setEncIniciaAuto(v === true)} />
                 <Label htmlFor="enc-auto" className="text-xs font-medium">Inicia automaticamente</Label>
               </div>
               <div className="flex items-center gap-2">
-                <input id="enc-obr" type="checkbox" checked={encObrigatorio} onChange={e => setEncObrigatorio(e.target.checked)} className="h-4 w-4 accent-emerald-600" />
+                <Checkbox id="enc-obr" checked={encObrigatorio} onCheckedChange={v => setEncObrigatorio(v === true)} />
                 <Label htmlFor="enc-obr" className="text-xs font-medium">Obrigatório (não pode ser pulado)</Label>
               </div>
               <div className="flex items-center gap-2">
-                <input id="enc-herda" type="checkbox" checked={encHerdaResponsavel} onChange={e => setEncHerdaResponsavel(e.target.checked)} className="h-4 w-4 accent-emerald-600" />
+                <Checkbox id="enc-herda" checked={encHerdaResponsavel} onCheckedChange={v => setEncHerdaResponsavel(v === true)} />
                 <Label htmlFor="enc-herda" className="text-xs font-medium">Herda responsável do anterior</Label>
               </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Observação</Label>
-              <textarea
+              <Textarea
                 value={encObservacao}
                 onChange={e => setEncObservacao(e.target.value)}
                 rows={2}
-                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs resize-y"
+                className="text-xs resize-y"
               />
             </div>
           </DialogBody>

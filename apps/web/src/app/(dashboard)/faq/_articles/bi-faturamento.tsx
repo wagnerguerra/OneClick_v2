@@ -8,7 +8,7 @@ import { ArticleShell } from '../_components/article-shell'
 import { Section, Step, Callout, QuickLink, DefRow } from '../_components/article-blocks'
 
 const MODULO_COLOR = 'var(--mod-contabil, #8b5cf6)'
-const FAQ_COLOR = '#0891b2'
+const FAQ_COLOR = 'var(--mod-ajuda, #0891b2)'
 
 export default function FaqBiFaturamentoPage() {
   return (

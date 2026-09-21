@@ -5,10 +5,11 @@ import {
   Users, Plus, Loader2, Pencil, Trash2, ShieldCheck, Building2, MailWarning, Send,
 } from 'lucide-react'
 import {
-  Button, Card, Input, Label, Badge, cn,
+  Button, Card, Input, Label, Badge, cn, Checkbox,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@saas/ui'
+import { BADGE, BORDER, TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -36,8 +37,8 @@ const NIVEIS: Array<{ valor: PortalNivel; rotulo: string; descricao: string }> =
 ]
 
 const COR_NIVEL: Record<PortalNivel, string> = {
-  ADMINISTRADOR: 'border-violet-300 text-violet-700 dark:border-violet-800 dark:text-violet-400',
-  OPERACIONAL:   'border-sky-300 text-sky-700 dark:border-sky-800 dark:text-sky-400',
+  ADMINISTRADOR: cn(BORDER.violet, TEXT.violet),
+  OPERACIONAL:   cn(BORDER.sky, TEXT.sky),
   CONSULTA:      'border-border text-muted-foreground',
 }
 
@@ -382,7 +383,7 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
                     )}
                     {/* Convite ainda não aceito: a pessoa existe, mas não entra. */}
                     {u.ativo && !u.user.emailVerified && (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400" title="Ainda não definiu a senha">
+                      <span className={cn('inline-flex items-center gap-1 text-[10px]', TEXT.amber)} title="Ainda não definiu a senha">
                         <MailWarning className="h-3 w-3" /> convite pendente
                       </span>
                     )}
@@ -403,7 +404,7 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
                     {u.user.email}
                     {u.areas.length > 0
                       ? <> · {u.areas.map(nomeArea).join(', ')}</>
-                      : <> · <span className="text-amber-600 dark:text-amber-400">sem área liberada</span></>}
+                      : <> · <span className={TEXT.amber}>sem área liberada</span></>}
                   </p>
                 </div>
 
@@ -445,7 +446,7 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
         )}
 
         {areas.length === 0 && !carregando && (
-          <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+          <p className={cn('mt-3 rounded-md border px-3 py-2 text-[11px]', BADGE.amber)}>
             Este cliente não tem nenhuma área contratada. Sem isso, o usuário entra no portal
             e não enxerga nada — marque os serviços contratados na aba <b>Serviços</b> antes.
           </p>
@@ -539,11 +540,9 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
               onToggle={(campo, v) => setEditando(u => (u ? { ...u, [campo]: v } : u))}
             />
             <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={editando?.ativo ?? false}
-                onChange={e => setEditando(u => (u ? { ...u, ativo: e.target.checked } : u))}
-                className="h-4 w-4 rounded border-border"
+                onCheckedChange={c => setEditando(u => (u ? { ...u, ativo: c === true } : u))}
               />
               Acesso ativo
             </label>
@@ -574,13 +573,11 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
                       key={e.id}
                       className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[13px] hover:bg-muted/50"
                     >
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={grupoMarcado.includes(e.id)}
-                        onChange={ev => setGrupoMarcado(m => (
-                          ev.target.checked ? [...m, e.id] : m.filter(x => x !== e.id)
+                        onCheckedChange={checked => setGrupoMarcado(m => (
+                          checked ? [...m, e.id] : m.filter(x => x !== e.id)
                         ))}
-                        className="h-4 w-4 rounded border-border"
                       />
                       <span className="min-w-0 flex-1 truncate">{e.razaoSocial}</span>
                       {e.documento && (
@@ -618,7 +615,7 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
               O mesmo login enxerga todas. Marque para revogar.
             </DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="max-h-[50vh] overflow-y-auto nice-scrollbar">
+          <DialogBody className="max-h-[50vh]">
             {acessos.length === 0 ? (
               <div className="flex h-24 items-center justify-center">
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -633,14 +630,13 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
                       !a.ativo && 'opacity-50',
                     )}
                   >
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       disabled={!a.ativo}
                       checked={aRevogar.includes(a.cliente.id)}
-                      onChange={() => setARevogar(l => (
+                      onCheckedChange={() => setARevogar(l => (
                         l.includes(a.cliente.id) ? l.filter(x => x !== a.cliente.id) : [...l, a.cliente.id]
                       ))}
-                      className="h-4 w-4 shrink-0 rounded border-border"
+                      className="shrink-0"
                     />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[13px] text-foreground">
@@ -736,11 +732,10 @@ function CampoGrupo({ grupo, marcadas, onToggle }: {
       <div className="mt-1.5 max-h-[180px] space-y-1 overflow-y-auto nice-scrollbar rounded-lg border border-border p-2.5">
         {grupo.empresas.map(e => (
           <label key={e.id} className="flex cursor-pointer items-center gap-2">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={marcadas.includes(e.id)}
-              onChange={() => onToggle(e.id)}
-              className="h-4 w-4 shrink-0 rounded border-border"
+              onCheckedChange={() => onToggle(e.id)}
+              className="shrink-0"
             />
             <span className="min-w-0 truncate text-[13px] text-foreground">{e.razaoSocial}</span>
           </label>
@@ -774,11 +769,10 @@ function CampoPermissoes({ valores, onToggle }: {
       <div className="mt-1.5 space-y-1.5 rounded-lg border border-border p-2.5">
         {PERMISSOES.map(p => (
           <label key={p.campo} className="flex cursor-pointer items-start gap-2">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={valores[p.campo]}
-              onChange={e => onToggle(p.campo, e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-border"
+              onCheckedChange={v => onToggle(p.campo, v === true)}
+              className="mt-0.5"
             />
             <span className="min-w-0">
               <span className="block text-[13px] text-foreground">{p.rotulo}</span>

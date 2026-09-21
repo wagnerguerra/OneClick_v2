@@ -2,7 +2,7 @@
 import { Factory } from 'lucide-react'
 import { SegmentoShell } from '../_components/segmento-shell'
 
-const COR = 'var(--mod-comercial, #fb7185)'
+const COR = '#fb7185'
 
 export default function FaqSegmentoIndustriaPage() {
   return (

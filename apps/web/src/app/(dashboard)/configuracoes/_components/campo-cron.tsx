@@ -17,6 +17,7 @@
 
 import { useMemo } from 'react'
 import { Input, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 
 const DIAS = [
   { n: 1, curto: 'Seg', longo: 'segunda' },
@@ -153,7 +154,7 @@ export function CampoCron({ valor, onChange, placeholder }: {
           </p>
         </>
       ) : (
-        <p className="text-[11px] text-amber-700 dark:text-amber-400">
+        <p className={cn('text-[11px]', TEXT.amber)}>
           Expressão avançada — fora do que os controles representam. Edite abaixo.
         </p>
       )}

@@ -5,12 +5,13 @@ import {
   Bell, Repeat, Trash2, Save, Loader2, Mail, Power, X,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Card, CardHeader, Badge,
+  Button, Input, Label, Card, CardHeader, Badge, Checkbox,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   RichEditor, cn,
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { BADGE, STRONG, TEXT } from '@/lib/color-styles'
 import {
   RECORRENCIA_FREQUENCIA, RECORRENCIA_FREQUENCIA_LABELS,
   RECORRENCIA_ANCORAGEM, RECORRENCIA_ANCORAGEM_LABELS,
@@ -357,7 +358,7 @@ export function NotificacoesSection({
       <div className="flex min-h-[500px]">
         {/* Pills verticais à esquerda — só no modo standalone (compat legado). */}
         {standalone && (
-          <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+          <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
             <div className="space-y-1">
               {pills.map(p => {
                 const Icon = p.icon
@@ -370,9 +371,9 @@ export function NotificacoesSection({
                       'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                       active
                         ? 'text-white shadow-sm'
-                        : 'text-muted-foreground hover:bg-white hover:text-foreground',
+                        : 'text-muted-foreground hover:bg-white dark:hover:bg-accent hover:text-foreground',
                     )}
-                    style={active ? { backgroundColor: '#10b981' } : undefined}
+                    style={active ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0" />
                     <span className="flex-1">{p.label}</span>
@@ -380,7 +381,7 @@ export function NotificacoesSection({
                       <span
                         className={cn(
                           'text-[10px] px-1.5 py-0.5 rounded-full tabular-nums',
-                          active ? 'bg-white/20' : 'bg-emerald-100 text-emerald-700',
+                          active ? 'bg-white/20' : STRONG.emerald,
                         )}
                       >
                         {p.badge}
@@ -396,18 +397,18 @@ export function NotificacoesSection({
         {/* Conteúdo das pills */}
         <div
           key={activePill}
-          className="flex-1 overflow-y-auto"
+          className="flex-1 overflow-y-auto nice-scrollbar"
           style={{ animation: 'fadeSlideIn 0.25s ease-out' }}
         >
           {/* ── PILL: Recorrência ───────────────────────────── */}
           {activePill === 'recorrencia' && (
             <div>
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center gap-2">
+              <div className="px-5 py-3 border-b border-border flex items-center gap-2">
                 <h4 className="text-[13px] font-semibold text-foreground">Recorrência automática</h4>
                 {recorrenciaDisponivel && recorrencia && (
                   <Badge
                     variant="outline"
-                    className={`ml-auto text-[10px] ${recAtiva ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-gray-50 border-gray-200 text-gray-600'}`}
+                    className={cn('ml-auto text-[10px]', recAtiva ? BADGE.emerald : 'bg-muted border-border text-muted-foreground')}
                   >
                     <Power className="h-2.5 w-2.5 mr-1" />
                     {recAtiva ? 'Ativa' : 'Desativada'}
@@ -417,8 +418,8 @@ export function NotificacoesSection({
 
               {!recorrenciaDisponivel ? (
                 <div className="p-5">
-                  <div className="rounded-lg border border-dashed border-amber-200 bg-amber-50/40 dark:bg-amber-950/20 p-4 flex items-start gap-3">
-                    <Repeat className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="rounded-lg border border-dashed border-amber-200 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20 p-4 flex items-start gap-3">
+                    <Repeat className={cn('h-5 w-5 shrink-0 mt-0.5', TEXT.amber)} />
                     <div>
                       <p className="text-sm font-semibold text-amber-900 dark:text-amber-200 mb-1">
                         Recorrência indisponível
@@ -440,13 +441,11 @@ export function NotificacoesSection({
                   </p>
 
                   {/* Toggle: modo simples vs personalizado (composto) */}
-                  <div className="flex items-center gap-2 p-3 rounded border bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200">
+                  <div className="flex items-center gap-2 p-3 rounded border bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={recPersonalizado}
-                        onChange={e => setRecPersonalizado(e.target.checked)}
-                        className="h-4 w-4"
+                        onCheckedChange={v => setRecPersonalizado(v === true)}
                       />
                       <span className="text-[12.5px] font-semibold">Modo personalizado</span>
                     </label>
@@ -544,7 +543,7 @@ export function NotificacoesSection({
                                     ? 'text-white border-transparent shadow-sm'
                                     : 'bg-card hover:bg-muted text-foreground',
                                 )}
-                                style={ativo ? { backgroundColor: '#10b981' } : undefined}
+                                style={ativo ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
                               >
                                 {d}
                               </button>
@@ -563,7 +562,7 @@ export function NotificacoesSection({
                                     ? 'text-white border-transparent shadow-sm'
                                     : 'bg-card hover:bg-muted text-foreground',
                                 )}
-                                style={ativo ? { backgroundColor: '#10b981' } : undefined}
+                                style={ativo ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
                                 title="Sempre o último dia do mês (28/29/30/31 conforme o mês)"
                               >
                                 Último
@@ -593,7 +592,7 @@ export function NotificacoesSection({
                                     ? 'text-white border-transparent shadow-sm'
                                     : 'bg-card hover:bg-muted text-foreground',
                                 )}
-                                style={ativo ? { backgroundColor: '#10b981' } : undefined}
+                                style={ativo ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
                               >
                                 {label}
                               </button>
@@ -611,7 +610,7 @@ export function NotificacoesSection({
                       <span className="text-[10px] font-normal text-muted-foreground">— quando cair em final de semana ou feriado nacional</span>
                     </Label>
                     <Select value={recAjuste} onValueChange={(v) => setRecAjuste(v as typeof recAjuste)}>
-                      <SelectTrigger className="h-9 text-sm bg-card max-w-md">
+                      <SelectTrigger className="h-9 text-sm max-w-md">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -645,7 +644,7 @@ export function NotificacoesSection({
                               variant="outline"
                               className={cn(
                                 'text-[10.5px]',
-                                i === 0 ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : '',
+                                i === 0 ? BADGE.emerald : '',
                               )}
                             >
                               {label}
@@ -658,11 +657,9 @@ export function NotificacoesSection({
 
                   <div className="flex items-center gap-3 mt-4 pt-3 border-t">
                     <label className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={recAtiva}
-                        onChange={e => setRecAtiva(e.target.checked)}
-                        className="h-4 w-4"
+                        onCheckedChange={v => setRecAtiva(v === true)}
                       />
                       <span className="font-medium">Ativa</span>
                     </label>
@@ -673,11 +670,11 @@ export function NotificacoesSection({
                     )}
                     <div className="ml-auto flex gap-2">
                       {recorrencia && (
-                        <Button variant="outline" size="sm" onClick={removerRecorrencia} className="gap-1.5 text-rose-600">
+                        <Button variant="outline" size="sm" onClick={removerRecorrencia} className={cn('gap-1.5', TEXT.rose)}>
                           <Trash2 className="h-3.5 w-3.5" /> Remover
                         </Button>
                       )}
-                      <Button size="sm" onClick={salvarRecorrencia} disabled={savingRec} className="gap-1.5" style={{ backgroundColor: '#10b981' }}>
+                      <Button size="sm" onClick={salvarRecorrencia} disabled={savingRec} className="gap-1.5" style={{ backgroundColor: 'var(--mod-cadastros, #10b981)' }}>
                         {savingRec ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                         Salvar
                       </Button>
@@ -691,7 +688,7 @@ export function NotificacoesSection({
           {/* ── PILL: Regras de e-mail ──────────────────────── */}
           {activePill === 'regras' && (
             <div>
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center gap-2">
+              <div className="px-5 py-3 border-b border-border flex items-center gap-2">
                 <h4 className="text-[13px] font-semibold text-foreground">Regras de notificação</h4>
                 <Badge variant="outline" className="ml-auto text-[10px]">
                   {regras.length} regra{regras.length === 1 ? '' : 's'}
@@ -749,7 +746,7 @@ export function NotificacoesSection({
                         {NOTIFICACAO_DESTINATARIO_LABELS[r.destinatariosTipo as keyof typeof NOTIFICACAO_DESTINATARIO_LABELS] ?? r.destinatariosTipo}
                       </Badge>
                       {!r.ativa && (
-                        <Badge variant="outline" className="text-[10px] h-5 bg-gray-50 border-gray-200 text-gray-600">
+                        <Badge variant="outline" className="text-[10px] h-5 bg-muted border-border text-muted-foreground">
                           Desativada
                         </Badge>
                       )}
@@ -759,7 +756,7 @@ export function NotificacoesSection({
                   <Button size="sm" variant="ghost" onClick={() => editarRegra(r)} className="h-7 text-xs">
                     Editar
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => deletarRegra(r.id)} className="h-7 text-xs text-rose-600">
+                  <Button size="sm" variant="ghost" onClick={() => deletarRegra(r.id)} className={cn('h-7 text-xs', TEXT.rose)}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -844,7 +841,7 @@ export function NotificacoesSection({
               <div className="col-span-12 md:col-span-4 space-y-1.5">
                 <Label className="text-[13px] font-semibold">Variáveis disponíveis</Label>
                 <p className="text-[10.5px] text-muted-foreground">Clique para copiar e cole no editor.</p>
-                <div className="border rounded bg-muted/30 max-h-[260px] overflow-y-auto p-1.5 space-y-0.5">
+                <div className="border rounded bg-muted/30 max-h-[260px] overflow-y-auto nice-scrollbar p-1.5 space-y-0.5">
                   {NOTIFICACAO_VARIAVEIS.map(v => (
                     <button
                       key={v.key}
@@ -863,11 +860,9 @@ export function NotificacoesSection({
                 </div>
               </div>
               <label className="col-span-12 flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={editAtiva}
-                  onChange={e => setEditAtiva(e.target.checked)}
-                  className="h-4 w-4"
+                  onCheckedChange={v => setEditAtiva(v === true)}
                 />
                 <span className="font-medium">Ativa</span>
               </label>
@@ -891,7 +886,7 @@ export function NotificacoesSection({
                 {testandoEnvio ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
                 Enviar teste
               </Button>
-              <Button size="sm" onClick={salvarRegra} disabled={savingRegra} className="gap-1.5" style={{ backgroundColor: '#10b981' }}>
+              <Button size="sm" onClick={salvarRegra} disabled={savingRegra} className="gap-1.5" style={{ backgroundColor: 'var(--mod-cadastros, #10b981)' }}>
                 {savingRegra ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                 {editingId ? 'Atualizar regra' : 'Criar regra'}
               </Button>

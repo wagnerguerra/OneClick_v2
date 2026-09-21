@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { FileText, Send, Clock, AlertTriangle, Lock, CalendarClock } from 'lucide-react'
-import { Card, CardContent } from '@saas/ui'
+import { Card, CardContent, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
+import { TEXT } from '@/lib/color-styles'
 import { EmptyState } from './empty-state'
 import { KpiPill } from './kpi-pill'
 
@@ -49,7 +50,7 @@ export function OrcamentosWidget({ title, bloco }: { canRead?: boolean; title?: 
           <div className="flex items-center justify-between gap-3 h-full">
             <div className="flex items-center gap-3 min-w-0">
               <div className="flex h-9 w-9 @sm:h-10 @sm:w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-900/20">
-                <Lock className="h-4 w-4 @sm:h-5 @sm:w-5 text-amber-600" />
+                <Lock className={cn('h-4 w-4 @sm:h-5 @sm:w-5', TEXT.amber)} />
               </div>
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold truncate">{title ?? 'Orçamentos'}</h3>
@@ -88,7 +89,7 @@ export function OrcamentosWidget({ title, bloco }: { canRead?: boolean; title?: 
         <div className="flex flex-col @[460px]:flex-row @[460px]:items-center @[460px]:justify-between gap-3">
           <Link href="/orcamentos" className="flex items-center gap-3 hover:opacity-80 transition-opacity min-w-0">
             <div className="flex h-9 w-9 @sm:h-10 @sm:w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-900/20">
-              <FileText className="h-4 w-4 @sm:h-5 @sm:w-5 text-amber-600" />
+              <FileText className={cn('h-4 w-4 @sm:h-5 @sm:w-5', TEXT.amber)} />
             </div>
             <div className="min-w-0">
               <h3 className="text-sm font-semibold truncate">{title ?? 'Orçamentos'}</h3>

@@ -41,7 +41,7 @@ const GROUP_SLUG: Record<string, string> = {
   'TI': 'ti',
   'Qualidade': 'qualidade',
   'Configurações': 'configuracoes',
-  'Ajuda': 'faq',
+  'Ajuda': 'ajuda',
 }
 
 /** Retorna a cor do grupo via CSS var (`var(--mod-<slug>, <fallback>)`).

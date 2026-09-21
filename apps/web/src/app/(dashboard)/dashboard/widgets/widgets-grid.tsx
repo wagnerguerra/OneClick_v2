@@ -6,6 +6,7 @@ import type { Layout } from 'react-grid-layout'
 import { Pencil, Save, X, Plus, Loader2, Maximize2 } from 'lucide-react'
 import { Button, cn, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, Dialog, DialogContent, DialogTitle, DialogDescription, DialogFooter, DialogBody, Input, Label } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { TEXT, SURFACE } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
@@ -656,7 +657,7 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
               Personalize o título e defina quem enxerga esse widget no dashboard.
             </DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-5 overflow-y-auto">
+          <DialogBody className="space-y-5">
             {/* Título */}
             <div className="space-y-1.5">
               <Label className="text-[13px] font-semibold">Título do widget</Label>
@@ -683,7 +684,7 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
                 <div className="space-y-2">
                   <Label className="text-[13px] font-semibold">Quem pode ver este widget</Label>
                   {hasModule ? (
-                    <div className="rounded-md border border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-950/30 px-3 py-2.5 text-[11px] text-amber-800 dark:text-amber-200">
+                    <div className={cn('rounded-md border px-3 py-2.5 text-[11px]', SURFACE.amber, TEXT.amber)}>
                       <strong>Controlado pela permissão de módulo.</strong> O acesso a este widget é definido pela permissão do módulo <span className="font-mono text-[10px] bg-amber-100 dark:bg-amber-900/50 px-1 py-0.5 rounded">{moduleSlug}</span> no cadastro de cada usuário. Para liberar ou bloquear, vá em <span className="font-medium">Usuários → Permissões</span>.
                     </div>
                   ) : (
@@ -743,7 +744,7 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
                     className="h-8 pl-8 text-xs"
                   />
                 </div>
-                <div className="rounded border border-border/60 max-h-[220px] overflow-y-auto divide-y divide-border/40">
+                <div className="rounded border border-border/60 max-h-[220px] overflow-y-auto nice-scrollbar divide-y divide-border/40">
                   {!pickersLoaded ? (
                     <div className="py-6 text-center text-xs text-muted-foreground">Carregando...</div>
                   ) : usuariosOpcoes.length === 0 ? (
@@ -811,7 +812,7 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
                     className="h-8 pl-8 text-xs"
                   />
                 </div>
-                <div className="rounded border border-border/60 max-h-[220px] overflow-y-auto divide-y divide-border/40">
+                <div className="rounded border border-border/60 max-h-[220px] overflow-y-auto nice-scrollbar divide-y divide-border/40">
                   {!pickersLoaded ? (
                     <div className="py-6 text-center text-xs text-muted-foreground">Carregando...</div>
                   ) : areasOpcoes.length === 0 ? (

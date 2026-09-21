@@ -153,7 +153,7 @@ export default function NovaReuniaoPage() {
             <Label className="text-[13px] font-semibold">Participantes (colaboradores)</Label>
             <div className="mt-1.5">
               <UserMultiPicker users={usuarios} value={participantes} onChange={setParticipantes}
-                placeholder="Quem participou" accentClass="bg-amber-500 border-amber-500" />
+                placeholder="Quem participou" accentClass="bg-[var(--mod-qualidade,#fbbf24)] border-[var(--mod-qualidade,#fbbf24)]" />
             </div>
           </div>
           <div className="col-span-12">

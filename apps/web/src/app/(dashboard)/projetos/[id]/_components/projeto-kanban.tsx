@@ -181,7 +181,7 @@ export function ProjetoKanban({ projetoId, projetoCor, tarefas, onChange, onOpen
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      <div className="nice-scrollbar flex gap-3 overflow-x-auto pb-2">
         {TAREFA_STATUS_ORDEM.map((status) => (
           <KanbanColuna
             key={status}
@@ -239,7 +239,7 @@ function KanbanColuna({
       </div>
 
       <SortableContext items={tarefas.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex-1 p-2 space-y-2 overflow-y-auto min-h-[100px]">
+        <div className="nice-scrollbar flex-1 p-2 space-y-2 overflow-y-auto min-h-[100px]">
           {tarefas.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhuma tarefa</p>
           )}

@@ -20,8 +20,11 @@ import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { corSaldo, corSaldoTexto } from '../_lib/cores'
 import { InlineEditCell } from '@/components/ui/inline-edit-cell'
+import { BADGE } from '@/lib/color-styles'
 
 const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
+// Tom escurecido p/ preenchimento sólido com texto branco (robusto p/ qualquer cor do bloco em prod).
+const MODULE_FILL = 'color-mix(in srgb, var(--mod-trabalhista, #a3e635) 50%, black)'
 
 interface Evento {
   id: string; ordem: number; dataInicio: string; dataFim: string
@@ -267,7 +270,7 @@ export default function ControleFeriasDetalhePage() {
       <PageHeaderBar actions={<>
           {podeEscrever && (
             <>
-              <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={() => setGozoAberto(true)}>
+              <Button size="sm" style={{ backgroundColor: MODULE_FILL }} className="text-white hover:opacity-90" onClick={() => setGozoAberto(true)}>
                 <Plus className="h-4 w-4" />Lançar gozo
               </Button>
               <Button variant="outline" size="sm" onClick={alternarHistorico}>
@@ -303,7 +306,7 @@ export default function ControleFeriasDetalhePage() {
           {p.colaboradorNomeResolvido ?? 'Colaborador'}
         </p>
         {p.pago && (
-          <Badge variant="outline" className="text-[11px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">
+          <Badge variant="outline" className={cn('text-[11px]', BADGE.emerald)}>
             <Check className="h-3 w-3 mr-0.5" />Pago
           </Badge>
         )}
@@ -489,7 +492,7 @@ export default function ControleFeriasDetalhePage() {
                         <td className="text-muted-foreground tabular-nums">{dataBR(h.previsao)}</td>
                         <td>
                           <span className="flex items-center gap-1">
-                            {h.pago && <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">Pago</Badge>}
+                            {h.pago && <Badge variant="outline" className={cn('text-[10px]', BADGE.emerald)}>Pago</Badge>}
                             {h.historico && <Badge variant="outline" className="text-[10px]">Histórico</Badge>}
                           </span>
                         </td>

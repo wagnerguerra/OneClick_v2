@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Loader2, Save, Plus, Settings2, FileSpreadsheet, Mail, Lock, Unlock, ArrowLeft, Trash2, CreditCard, Printer, BellRing, CheckCheck } from 'lucide-react'
-import { Button, Card, Input, Label, Switch } from '@saas/ui'
+import { Loader2, Save, Plus, Settings2, FileSpreadsheet, Mail, Lock, Unlock, Trash2, CreditCard, Printer, BellRing, CheckCheck, ChevronRight } from 'lucide-react'
+import { Button, Card, Input, Label, Switch, cn, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@saas/ui'
+import { STRONG, BADGE } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -13,6 +14,8 @@ import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { BackButton } from '@/components/ui/back-button'
 
 const COR = 'var(--mod-trabalhista, #a3e635)'
+// Tom escurecido p/ botões sólidos com texto branco (robusto p/ qualquer cor do bloco em prod).
+const COR_FILL = 'color-mix(in srgb, var(--mod-trabalhista, #a3e635) 50%, black)'
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 const brl = (n: number) => (n ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -59,28 +62,36 @@ export default function BeneficiosPage() {
 
   return (
     <div className="space-y-6">
-      {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar actions={<>
-          <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={empresaId} onChange={e => { setEmpresaId(e.target.value); setSelId(null) }}>
-            {empresas.map(e => <option key={e.id} value={e.id}>{e.nomeFantasia || e.razaoSocial}</option>)}
-          </select>
-          {podeGerir && (
-            <Button variant={view === 'config' ? 'success' : 'outline'} size="sm" className="gap-1.5" onClick={() => { setView(view === 'config' ? 'competencias' : 'config'); setSelId(null) }}>
-              <Settings2 className="h-4 w-4" /> Configurações
-            </Button>
-          )}
-          <BackButton href="/dashboard" label="Voltar" />
-        </>}
-      >
-        <h1 className="truncate">Benefícios</h1>
-        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
-          <span className="text-muted-foreground/50">›</span>
-          <span>Trabalhista</span>
-          <span className="text-muted-foreground/50">›</span>
-          <span>Benefícios</span>
-        </p>
-      </PageHeaderBar>
+      {/* Topo — PADRAO_PAGINAS §1.1. No detalhe de uma competência o próprio
+          CompetenciaDetail renderiza o header (título + ações), então aqui só
+          mostramos o header da home (Empresa + Configurações). */}
+      {!selId && (
+        <PageHeaderBar actions={<>
+            <Select value={empresaId} onValueChange={v => { setEmpresaId(v); setSelId(null) }}>
+              <SelectTrigger className="h-9 w-auto gap-1 rounded-md px-3 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {empresas.map(e => <SelectItem key={e.id} value={e.id}>{e.nomeFantasia || e.razaoSocial}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {podeGerir && (
+              <Button variant={view === 'config' ? 'success' : 'outline'} size="sm" className="gap-1.5" onClick={() => { setView(view === 'config' ? 'competencias' : 'config'); setSelId(null) }}>
+                <Settings2 className="h-4 w-4" /> Configurações
+              </Button>
+            )}
+          </>}
+        >
+          <h1 className="truncate">Benefícios</h1>
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Trabalhista</span>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Benefícios</span>
+          </p>
+        </PageHeaderBar>
+      )}
 
       {!empresaId ? <p className="text-sm text-muted-foreground">Nenhuma empresa disponível.</p>
         : view === 'config' && podeGerir ? <ConfigView empresaId={empresaId} />
@@ -115,9 +126,9 @@ function CompetenciasList({ competencias, loading, empresaId, podeGerir, onOpen,
   }
 
   const STATUS: Record<string, { label: string; cls: string }> = {
-    ABERTA: { label: 'Aberta', cls: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
-    EM_APONTAMENTO: { label: 'Em apontamento', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-    FECHADA: { label: 'Fechada', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
+    ABERTA: { label: 'Aberta', cls: STRONG.sky },
+    EM_APONTAMENTO: { label: 'Em apontamento', cls: STRONG.amber },
+    FECHADA: { label: 'Fechada', cls: STRONG.emerald },
   }
 
   const aberta = competencias.find(c => c.status === 'ABERTA' || c.status === 'EM_APONTAMENTO')
@@ -134,28 +145,34 @@ function CompetenciasList({ competencias, loading, empresaId, podeGerir, onOpen,
         <Card className="p-4">
           <div className="grid grid-cols-12 gap-3 items-end">
             <div className="col-span-6 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">Mês</Label>
-              <select className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm" value={form.mes} onChange={e => setForm(f => ({ ...f, mes: +e.target.value }))}>{MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}</select></div>
+              <Select value={String(form.mes)} onValueChange={v => setForm(f => ({ ...f, mes: +v }))}>
+                <SelectTrigger className="h-9 w-full rounded-md px-2 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>{MESES.map((m, i) => <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>)}</SelectContent>
+              </Select></div>
             <div className="col-span-6 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">Ano</Label><Input type="number" className="h-9 text-sm" value={form.ano} onChange={e => setForm(f => ({ ...f, ano: +e.target.value }))} /></div>
             <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">Dias úteis</Label><Input type="number" className="h-9 text-sm" value={form.diasUteis} onChange={e => setForm(f => ({ ...f, diasUteis: +e.target.value }))} /></div>
             <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">Diária VA</Label><Input type="number" step="0.01" className="h-9 text-sm" value={form.diariaVA} onChange={e => setForm(f => ({ ...f, diariaVA: +e.target.value }))} /></div>
             <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">Diária VT</Label><Input type="number" step="0.01" className="h-9 text-sm" value={form.diariaVT} onChange={e => setForm(f => ({ ...f, diariaVT: +e.target.value }))} /></div>
-            <div className="col-span-12 sm:col-span-2"><Button size="sm" className="w-full gap-1.5 text-white" style={{ background: COR }} onClick={abrir} disabled={abrindo}>{abrindo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Abrir competência</Button></div>
+            <div className="col-span-12 sm:col-span-2"><Button size="sm" className="w-full gap-1.5 text-white hover:opacity-90" style={{ background: COR_FILL }} onClick={abrir} disabled={abrindo}>{abrindo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Abrir competência</Button></div>
           </div>
         </Card>
       )}
 
       {loading ? <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         : competencias.length === 0 ? <p className="text-sm text-muted-foreground text-center py-8">Nenhuma competência ainda.</p>
-        : <div className="border rounded-lg divide-y">
+        : <div className="border rounded-lg divide-y bg-card overflow-hidden">
             {competencias.map(c => {
               const s = STATUS[c.status] || { label: c.status, cls: 'bg-muted text-muted-foreground' }
               return (
-                <button key={c.id} onClick={() => onOpen(c.id)} className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/40 transition-colors text-left">
+                <button key={c.id} onClick={() => onOpen(c.id)} className="group w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/40 transition-colors text-left cursor-pointer">
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold">{MESES[c.mes - 1]}/{c.ano}</span>
+                    <span className="text-sm font-semibold transition-colors group-hover:text-[color-mix(in_srgb,var(--mod-trabalhista,#a3e635)_55%,var(--color-foreground))]">{MESES[c.mes - 1]}/{c.ano}</span>
                     <span className="text-[11px] text-muted-foreground">{c.diasUteis} dias úteis · VA {brl(Number(c.diariaVA))}/dia · VT {brl(Number(c.diariaVT))}/dia</span>
                   </div>
-                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${s.cls}`}>{s.label}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${s.cls}`}>{s.label}</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/50 transition-all group-hover:translate-x-0.5 group-hover:text-foreground" />
+                  </div>
                 </button>
               )
             })}
@@ -238,12 +255,12 @@ function ConfigView({ empresaId }: { empresaId: string }) {
           )}
         </div>
 
-        <Button size="sm" className="gap-1.5 text-white" style={{ background: COR }} onClick={salvarCfg} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar</Button>
+        <Button size="sm" className="gap-1.5 text-white hover:opacity-90" style={{ background: COR_FILL }} onClick={salvarCfg} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar</Button>
       </Card>
 
       <Card className="p-0 overflow-hidden">
         <div className="px-4 py-3 border-b"><h3 className="text-sm font-semibold">Fichas de benefício por colaborador</h3></div>
-        <div className="overflow-x-auto max-h-[480px]">
+        <div className="nice-scrollbar overflow-x-auto max-h-[480px]">
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-[11px] uppercase text-muted-foreground sticky top-0"><tr>
               <th className="text-left px-4 py-2 font-semibold">Colaborador</th><th className="text-left px-2 py-2 font-semibold">Setor</th>
@@ -288,7 +305,7 @@ function ConfigView({ empresaId }: { empresaId: string }) {
           <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">VA</Label><Input type="number" step="0.01" className="h-9 text-sm" value={novoCartao.valorVA} onChange={e => setNovoCartao(c => ({ ...c, valorVA: +e.target.value }))} /></div>
           <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">VT</Label><Input type="number" step="0.01" className="h-9 text-sm" value={novoCartao.valorVT} onChange={e => setNovoCartao(c => ({ ...c, valorVT: +e.target.value }))} /></div>
           <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">Mobilidade</Label><Input type="number" step="0.01" className="h-9 text-sm" value={novoCartao.valorMobilidade} onChange={e => setNovoCartao(c => ({ ...c, valorMobilidade: +e.target.value }))} /></div>
-          <div className="col-span-12 sm:col-span-2"><Button size="sm" className="w-full gap-1.5 text-white" style={{ background: COR }} onClick={addCartao}><Plus className="h-4 w-4" /> Adicionar</Button></div>
+          <div className="col-span-12 sm:col-span-2"><Button size="sm" className="w-full gap-1.5 text-white hover:opacity-90" style={{ background: COR_FILL }} onClick={addCartao}><Plus className="h-4 w-4" /> Adicionar</Button></div>
         </div>
       </Card>
     </div>
@@ -401,19 +418,29 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <button onClick={onBack} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> {MESES[comp.mes - 1]}/{comp.ano} · {comp.diasUteis} dias úteis</button>
-        {podeGerir && (
-          <div className="flex items-center gap-2">
-            {!fechada && <Button variant="outline" size="sm" className="gap-1.5" onClick={notificar} disabled={acao}><Mail className="h-4 w-4" /> Notificar líderes</Button>}
-            {!fechada && <Button variant="outline" size="sm" className="gap-1.5" onClick={cobrar} disabled={acao}><BellRing className="h-4 w-4" /> Cobrar pendentes</Button>}
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={exportar}><FileSpreadsheet className="h-4 w-4" /> Exportar XLSX</Button>
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={imprimir} disabled={acao}><Printer className="h-4 w-4" /> Imprimir / PDF</Button>
-            {fechada ? <Button variant="outline" size="sm" className="gap-1.5" onClick={reabrir} disabled={acao}><Unlock className="h-4 w-4" /> Reabrir</Button>
-              : <Button size="sm" className="gap-1.5 text-white" style={{ background: COR }} onClick={fechar} disabled={acao}>{acao ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Fechar</Button>}
-          </div>
-        )}
-      </div>
+      <PageHeaderBar actions={<>
+          {podeGerir && (
+            <>
+              {!fechada && <Button variant="outline" size="sm" className="gap-1.5" onClick={notificar} disabled={acao}><Mail className="h-4 w-4" /> Notificar líderes</Button>}
+              {!fechada && <Button variant="outline" size="sm" className="gap-1.5" onClick={cobrar} disabled={acao}><BellRing className="h-4 w-4" /> Cobrar pendentes</Button>}
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={exportar}><FileSpreadsheet className="h-4 w-4" /> Exportar XLSX</Button>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={imprimir} disabled={acao}><Printer className="h-4 w-4" /> Imprimir / PDF</Button>
+              {fechada ? <Button variant="outline" size="sm" className="gap-1.5" onClick={reabrir} disabled={acao}><Unlock className="h-4 w-4" /> Reabrir</Button>
+                : <Button size="sm" className="gap-1.5 text-white hover:opacity-90" style={{ background: COR_FILL }} onClick={fechar} disabled={acao}>{acao ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Fechar</Button>}
+            </>
+          )}
+          <BackButton onClick={onBack} title="Voltar para a lista" />
+        </>}
+      >
+        <h1 className="truncate">{MESES[comp.mes - 1]}/{comp.ano} <span className="ml-1 text-sm font-normal text-muted-foreground">· {comp.diasUteis} dias úteis</span></h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Trabalhista</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Benefícios</span>
+        </p>
+      </PageHeaderBar>
 
       <div className="flex gap-4 border-b">
         {([['apontamentos', 'Apontamentos'], ...(podeGerir ? [['saldo', 'Saldo VT'], ['fechamento', 'Fechamento']] : [])] as [string, string][]).map(([k, l]) => (
@@ -433,7 +460,7 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
                 const ativo = filtroSetor === p.setor
                 return (
                   <button key={p.setor} onClick={() => setFiltroSetor(ativo ? '' : p.setor)}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${ativo ? 'ring-2 ring-offset-1' : ''} ${done ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300' : 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300'}`}>
+                    className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors', ativo && 'ring-2 ring-offset-1', done ? BADGE.emerald : BADGE.amber)}>
                     {done ? <CheckCheck className="h-3 w-3" /> : <BellRing className="h-3 w-3" />} {p.setor} {p.lancados}/{p.total}
                   </button>
                 )
@@ -443,16 +470,19 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
           {!fechada && itens.length > 0 && (
             <div className="flex items-center justify-between gap-2 flex-wrap">
               {setores.length > 1 ? (
-                <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={filtroSetor} onChange={e => setFiltroSetor(e.target.value)}>
-                  <option value="">Todos os setores ({itens.length})</option>
-                  {setores.map(s => <option key={s} value={s}>{s} ({itens.filter(i => i.setor === s).length})</option>)}
-                </select>
+                <Select value={filtroSetor || '__all__'} onValueChange={v => setFiltroSetor(v === '__all__' ? '' : v)}>
+                  <SelectTrigger className="h-9 w-auto gap-1 rounded-md px-3 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">Todos os setores ({itens.length})</SelectItem>
+                    {setores.map(s => <SelectItem key={s} value={s}>{s} ({itens.filter(i => i.setor === s).length})</SelectItem>)}
+                  </SelectContent>
+                </Select>
               ) : <span />}
               <Button variant="outline" size="sm" className="gap-1.5" onClick={confirmarSetor} disabled={acao}><CheckCheck className="h-4 w-4" /> Confirmar setor sem alterações</Button>
             </div>
           )}
           <Card className="p-0 overflow-hidden">
-          <div className="overflow-x-auto max-h-[520px]">
+          <div className="nice-scrollbar overflow-x-auto max-h-[520px]">
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-[11px] uppercase text-muted-foreground sticky top-0"><tr>
                 <th className="text-left px-3 py-2 font-semibold">Colaborador</th><th className="text-left px-2 py-2 font-semibold">Setor</th>
@@ -483,7 +513,7 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
       {tab === 'saldo' && podeGerir && (
         <Card className="p-0 overflow-hidden">
           <div className="px-4 py-2.5 border-b text-[11px] text-muted-foreground">Saldo restante no cartão de VT (do extrato do operador). Reduz a recarga (complemento).</div>
-          <div className="overflow-x-auto max-h-[520px]">
+          <div className="nice-scrollbar overflow-x-auto max-h-[520px]">
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-[11px] uppercase text-muted-foreground sticky top-0"><tr><th className="text-left px-3 py-2 font-semibold">Colaborador (VT)</th><th className="text-left px-2 py-2 font-semibold">Setor</th><th className="text-right px-4 py-2 font-semibold">Saldo cartão</th></tr></thead>
               <tbody className="divide-y">
@@ -504,7 +534,7 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
 
       {tab === 'fechamento' && podeGerir && (
         <Card className="p-0 overflow-hidden">
-          <div className="overflow-x-auto max-h-[520px]">
+          <div className="nice-scrollbar overflow-x-auto max-h-[520px]">
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-[11px] uppercase text-muted-foreground sticky top-0"><tr>
                 <th className="text-left px-3 py-2 font-semibold">Colaborador</th><th className="text-left px-2 py-2 font-semibold">Setor</th>

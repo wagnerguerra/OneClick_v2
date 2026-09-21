@@ -22,6 +22,7 @@ import {
   Printer, Pencil, Inbox, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { Button, Card, Input, Badge, cn, RichEditor, RichContent } from '@saas/ui'
+import { BADGE } from '@/lib/color-styles'
 import { MioloColapsavel } from './card-colapsavel'
 import { ProtocoloPrintModal } from './protocolo-print-modal'
 import { trpc } from '@/lib/trpc'
@@ -164,7 +165,7 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
             <Badge variant="secondary" className="h-4 px-1.5 text-[10px] tabular-nums">{items.length}</Badge>
           )}
           {pendentes > 0 && (
-            <Badge variant="outline" className="h-4 shrink-0 gap-1 border-amber-200 bg-amber-50 px-1.5 text-[10px] text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400">
+            <Badge variant="outline" className={cn('h-4 shrink-0 gap-1 px-1.5 text-[10px]', BADGE.amber)}>
               <Clock className="h-3 w-3" />{pendentes} a receber
             </Badge>
           )}
@@ -219,11 +220,11 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
                     <div className="flex items-center gap-3">
                       <span className="w-10 shrink-0 text-sm font-semibold tabular-nums text-muted-foreground">{p.numero}</span>
                       {p.recebido ? (
-                        <Badge variant="outline" className="h-5 shrink-0 gap-1 border-emerald-200 bg-emerald-50 text-[10px] text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400">
+                        <Badge variant="outline" className={cn('h-5 shrink-0 gap-1 text-[10px]', BADGE.emerald)}>
                           <Check className="h-3 w-3" />Recebido
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="h-5 shrink-0 gap-1 border-amber-200 bg-amber-50 text-[10px] text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400">
+                        <Badge variant="outline" className={cn('h-5 shrink-0 gap-1 text-[10px]', BADGE.amber)}>
                           <Clock className="h-3 w-3" />A receber
                         </Badge>
                       )}

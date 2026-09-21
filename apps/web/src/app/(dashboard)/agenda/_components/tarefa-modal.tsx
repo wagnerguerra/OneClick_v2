@@ -8,10 +8,11 @@ import {
 } from '@saas/ui'
 import { Plus, Edit2, Loader2, X, Bell, Mail, CheckSquare, Users, Briefcase } from 'lucide-react'
 import Link from 'next/link'
+import { PILL } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { resolveAssetUrl } from '@/lib/api-url'
 
 type LembreteForm = { canal: 'POPUP' | 'EMAIL'; minutosAntes: number }
 
@@ -198,7 +199,7 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved, oportunidadeI
                   const u = usuarios.find(x => x.id === id)
                   return (
                     <span key={id} className="flex items-center gap-1.5 text-[11px] pl-1 pr-2 py-0.5 rounded-full bg-muted">
-                      {u?.image ? <img src={resolveAssetUrl(u.image)} alt="" className="h-4 w-4 rounded-full object-cover" /> : <span className="h-4 w-4 rounded-full bg-emerald-500 text-white text-[8px] flex items-center justify-center">{(u?.name ?? '?')[0]}</span>}
+                      <UserAvatar user={u ? { name: u.name, image: u.image } : null} className="h-4 w-4 text-[8px]" bg="bg-emerald-500" />
                       {u?.name ?? id}
                       <button type="button" onClick={() => setParticipantes(arr => arr.filter(x => x !== id))} className="hover:text-red-500"><X className="h-3 w-3" /></button>
                     </span>
@@ -217,7 +218,7 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved, oportunidadeI
                 onBlur={() => setTimeout(() => setPartAberto(false), 150)}
               />
               {partAberto && (
-                <div className="absolute z-50 left-0 right-0 mt-1 max-h-52 overflow-y-auto rounded-md border border-border bg-popover shadow-md">
+                <div className="absolute z-50 left-0 right-0 mt-1 max-h-52 overflow-y-auto nice-scrollbar rounded-md border border-border bg-popover shadow-md">
                   {disponiveis.length === 0
                     ? <div className="px-3 py-2 text-xs text-muted-foreground">{buscaPart.trim() ? 'Nenhum usuário encontrado' : 'Nenhum usuário disponível'}</div>
                     : disponiveis.slice(0, 50).map(u => (
@@ -227,9 +228,7 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved, oportunidadeI
                           onMouseDown={(e) => { e.preventDefault(); setParticipantes(arr => [...arr, u.id]); setBuscaPart('') }}
                           className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-muted"
                         >
-                          {u.image
-                            ? <img src={resolveAssetUrl(u.image)} alt="" className="h-5 w-5 rounded-full object-cover" />
-                            : <span className="h-5 w-5 rounded-full bg-emerald-500 text-white text-[9px] flex items-center justify-center">{(u.name ?? '?')[0]}</span>}
+                          <UserAvatar user={{ name: u.name, image: u.image }} className="h-5 w-5 text-[9px]" bg="bg-emerald-500" />
                           <span className="truncate">{u.name}</span>
                         </button>
                       ))}
@@ -254,7 +253,7 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved, oportunidadeI
               <div className="flex flex-wrap gap-1.5 mb-1.5">
                 {lembretes.map((l, idx) => (
                   <span key={idx} className={cn('flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full',
-                    l.canal === 'EMAIL' ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400' : 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400')}>
+                    l.canal === 'EMAIL' ? PILL.violet : PILL.sky)}>
                     {l.canal === 'EMAIL' ? <Mail className="h-3 w-3" /> : <Bell className="h-3 w-3" />}
                     {formatarMinutosAntes(l.minutosAntes)}
                     <button type="button" onClick={() => setLembretes(arr => arr.filter((_, i) => i !== idx))} className="hover:text-red-500"><X className="h-3 w-3" /></button>

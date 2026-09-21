@@ -7,7 +7,7 @@ import {
   FileText, Package, MessageSquare, Printer,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Card, Badge, cn,
+  Button, Input, Label, Card, Badge, cn, Checkbox,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   RichEditor,
@@ -25,6 +25,7 @@ import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { AnexosCard } from '../_components/compra-tabs'
 import { MensagensTab } from '../_components/compra-mensagens'
+import { BADGE } from '@/lib/color-styles'
 
 const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
 const brl = (v: number) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -40,13 +41,13 @@ const PEDIDO_TABS = [
 ] as const
 
 const STATUS_COLORS: Record<string, string> = {
-  NOVO: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-  AGUARDANDO_APROVACAO: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
-  APROVADO: 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400',
-  REPROVADO: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400',
-  RECEBIDO: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400',
-  AVALIADO: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
-  CANCELADO: 'bg-muted text-muted-foreground',
+  NOVO: BADGE.slate,
+  AGUARDANDO_APROVACAO: BADGE.amber,
+  APROVADO: BADGE.sky,
+  REPROVADO: BADGE.rose,
+  RECEBIDO: BADGE.indigo,
+  AVALIADO: BADGE.emerald,
+  CANCELADO: 'bg-muted text-muted-foreground border-border',
 }
 const TIPO_FORN_OPCOES = ['NORMAL', 'CONTRATO_PERMANENTE', 'CONTRATO_TEMPORARIO', 'CURSO_TREINAMENTO', 'MANUTENCAO_SOFTWARE']
 
@@ -153,14 +154,14 @@ export default function PedidoDetalhePage() {
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           <div>
-              <Badge className={cn('text-[11px]', STATUS_COLORS[c.status])}>{STATUS_COMPRA_LABELS[c.status] ?? c.status}</Badge>
+              <Badge variant="outline" className={cn('text-[11px]', STATUS_COLORS[c.status])}>{STATUS_COMPRA_LABELS[c.status] ?? c.status}</Badge>
             <p className="text-sm text-muted-foreground">{c.fornecedor?.razaoSocial ?? '—'}</p>
           </div>
         </div>
       </PageHeaderBar>
 
       {c.status === 'REPROVADO' && c.motivoReprovacao && (
-        <Card className="p-3 border-rose-300 bg-rose-50 dark:bg-rose-950/20 text-sm text-rose-700 dark:text-rose-400"><strong>Reprovado:</strong> {c.motivoReprovacao}</Card>
+        <Card className={cn('p-3 text-sm', BADGE.rose)}><strong>Reprovado:</strong> {c.motivoReprovacao}</Card>
       )}
 
       {/* Conteúdo + coluna lateral, no mesmo grid da tela do cliente. */}
@@ -168,7 +169,7 @@ export default function PedidoDetalhePage() {
       {/* Card das abas do pedido, nas pills laterais */}
       <Card className="overflow-hidden">
         <div className="flex min-h-[450px]">
-          <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+          <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
             <div className="space-y-1">
               {PEDIDO_TABS.map((t) => {
                 const Icon = t.icon
@@ -268,7 +269,7 @@ export default function PedidoDetalhePage() {
           <DialogHeaderIcon icon={Ban} color="rose"><DialogTitle>Reprovar pedido #{c.code}</DialogTitle></DialogHeaderIcon>
           <DialogBody>
             <Label>Motivo da reprovação *</Label>
-            <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={3} className="mt-1.5 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" placeholder="Descreva o motivo..." />
+            <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={3} className="mt-1.5 w-full rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" placeholder="Descreva o motivo..." />
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setReprovarOpen(false)}>Cancelar</Button>
@@ -340,8 +341,8 @@ function AvaliarModal({ compra, onClose, onDone }: { compra: Compra; onClose: ()
                   ))}
                 </div>}
           </div>
-          <label className="flex items-center gap-2 cursor-pointer text-sm"><input type="checkbox" checked={melhoria} onChange={(e) => setMelhoria(e.target.checked)} className="h-4 w-4" />Abrir oportunidade de melhoria</label>
-          {melhoria && <textarea value={melhoriaObs} onChange={(e) => setMelhoriaObs(e.target.value)} rows={2} placeholder="Descrição da melhoria/não conformidade..." className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20" />}
+          <label className="flex items-center gap-2 cursor-pointer text-sm"><Checkbox checked={melhoria} onCheckedChange={(v) => setMelhoria(v === true)} />Abrir oportunidade de melhoria</label>
+          {melhoria && <textarea value={melhoriaObs} onChange={(e) => setMelhoriaObs(e.target.value)} rows={2} placeholder="Descrição da melhoria/não conformidade..." className="w-full rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20" />}
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>

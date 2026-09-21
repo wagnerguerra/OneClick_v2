@@ -2,7 +2,8 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Button, Card } from '@saas/ui'
+import { Button, Card, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { FileSpreadsheet, FileText, Printer, Loader2, AlertCircle, X } from 'lucide-react'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -76,7 +77,7 @@ function RelatorioInner() {
         {l.itens.map((it, i) => (
           <span key={i}>
             {it.servicoId ? (
-              <button type="button" onClick={() => setServicoModalId(it.servicoId)} className="text-sky-600 dark:text-sky-400 hover:underline" title="Editar serviço">{it.descricao}</button>
+              <button type="button" onClick={() => setServicoModalId(it.servicoId)} className={cn(TEXT.sky, 'hover:underline')} title="Editar serviço">{it.descricao}</button>
             ) : it.descricao}
             {i < l.itens.length - 1 ? '; ' : ''}
           </span>
@@ -217,7 +218,7 @@ function RelatorioInner() {
                 </div>
               )}
             </div>
-            <div className="overflow-auto">
+            <div className="overflow-auto nice-scrollbar">
               <table className="w-full text-xs">
                 <thead className="bg-muted/20">
                   <tr>{camposSel.map(c => <th key={c.key} className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-border uppercase tracking-wider">{c.label}</th>)}</tr>

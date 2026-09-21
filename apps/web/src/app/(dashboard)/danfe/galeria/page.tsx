@@ -15,6 +15,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { BADGE, STRONG, TEXT } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
@@ -62,13 +63,13 @@ interface DocumentoRow {
 /** Texto + cor pro badge de origem. */
 function origemBadge(origem: OrigemNota): { label: string; classes: string; title: string } {
   switch (origem) {
-    case 'drive':           return { label: 'Drive',     classes: 'bg-sky-100 text-sky-700',         title: 'Importado do Google Drive' }
-    case 'local':           return { label: 'Pasta',     classes: 'bg-amber-100 text-amber-800',     title: 'Importado da pasta local do PC' }
-    case 'nfe-sefaz':       return { label: 'SEFAZ',     classes: 'bg-violet-100 text-violet-700',   title: 'Baixado da API NFeDistribuicaoDFe da SEFAZ' }
-    case 'nfse-adn':        return { label: 'ADN',       classes: 'bg-emerald-100 text-emerald-700', title: 'Baixado do ADN gov.br (NFS-e Nacional)' }
-    case 'nfse-municipal':  return { label: 'Municipal', classes: 'bg-teal-100 text-teal-700',       title: 'NFS-e em leiaute municipal' }
-    case 'lote':            return { label: 'Lote',      classes: 'bg-indigo-100 text-indigo-700',   title: 'Upload em lote de XMLs' }
-    case 'manual':          return { label: 'Manual',    classes: 'bg-slate-100 text-slate-700',     title: 'Upload manual direto' }
+    case 'drive':           return { label: 'Drive',     classes: STRONG.sky,     title: 'Importado do Google Drive' }
+    case 'local':           return { label: 'Pasta',     classes: STRONG.amber,   title: 'Importado da pasta local do PC' }
+    case 'nfe-sefaz':       return { label: 'SEFAZ',     classes: STRONG.violet,  title: 'Baixado da API NFeDistribuicaoDFe da SEFAZ' }
+    case 'nfse-adn':        return { label: 'ADN',       classes: STRONG.emerald, title: 'Baixado do ADN gov.br (NFS-e Nacional)' }
+    case 'nfse-municipal':  return { label: 'Municipal', classes: STRONG.teal,    title: 'NFS-e em leiaute municipal' }
+    case 'lote':            return { label: 'Lote',      classes: STRONG.indigo,  title: 'Upload em lote de XMLs (cor do módulo Fiscal — retingida por .mod-fiscal)' }
+    case 'manual':          return { label: 'Manual',    classes: STRONG.slate,   title: 'Upload manual direto' }
   }
 }
 
@@ -79,12 +80,12 @@ interface CompetenciaInfo {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  AUTORIZADA: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300',
-  CANCELADA:  'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300',
-  DENEGADA:   'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300',
-  INUTILIZADA: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-950/30 dark:text-slate-300',
-  EMITIDA:     'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300',
-  SUBSTITUIDA: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300',
+  AUTORIZADA: BADGE.emerald,
+  CANCELADA:  BADGE.rose,
+  DENEGADA:   BADGE.amber,
+  INUTILIZADA: BADGE.slate,
+  EMITIDA:     BADGE.emerald,
+  SUBSTITUIDA: BADGE.amber,
 }
 
 function fmtBRL(v: string | number | null): string {
@@ -447,10 +448,10 @@ export default function DanfeGaleriaPage() {
   }
 
   return (
-    <div className="flex flex-col gap-3 h-[calc(100vh-140px)] overflow-hidden">
+    <div className="flex flex-col gap-3 h-[calc(100vh-140px)] min-h-0">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar className="shrink-0 mb-0 sm:mb-0" actions={<>
-          <BackButton href="/danfe" />
+          <BackButton href="/danfe" label="Voltar" />
       </>}>
         <h1 className="truncate">Galeria Fiscal</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -668,12 +669,12 @@ export default function DanfeGaleriaPage() {
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-semibold flex items-center gap-1.5 min-w-0">
                         {TipoIcon && (
-                          <TipoIcon className={cn('h-3 w-3 shrink-0', ativo ? 'text-white' : isEntrada ? 'text-emerald-600' : 'text-sky-600')} />
+                          <TipoIcon className={cn('h-3 w-3 shrink-0', ativo ? 'text-white' : isEntrada ? TEXT.emerald : TEXT.sky)} />
                         )}
                         <Badge className={cn(
                           'text-[8px] py-0 px-1 border-0 shrink-0',
                           ativo ? 'bg-white/20 text-white' :
-                            d.tipoDoc === 'nfe' ? 'bg-violet-100 text-violet-700' : 'bg-emerald-100 text-emerald-700',
+                            d.tipoDoc === 'nfe' ? STRONG.violet : STRONG.emerald,
                         )}>
                           {d.tipoDoc === 'nfe' ? 'NFe' : 'NFS-e'}
                         </Badge>
@@ -681,7 +682,7 @@ export default function DanfeGaleriaPage() {
                       </span>
                       <Badge className={cn(
                         'text-[9px] py-0 px-1 border-0 shrink-0',
-                        ativo ? 'bg-white/20 text-white' : STATUS_COLOR[d.status] ?? 'bg-slate-100',
+                        ativo ? 'bg-white/20 text-white' : STATUS_COLOR[d.status] ?? 'bg-muted',
                       )}>
                         {d.status}
                       </Badge>
@@ -694,7 +695,7 @@ export default function DanfeGaleriaPage() {
                         {(() => {
                           const o = origemBadge(d.origem)
                           return (
-                            <Badge className={cn('text-[8px] py-0 px-1 border-0', ativo ? 'bg-white/20 text-white' : o.classes)} title={o.title}>
+                            <Badge variant="outline" className={cn('text-[8px] py-0 px-1 border-0', ativo ? 'bg-white/20 text-white' : o.classes)} title={o.title}>
                               {o.label}
                             </Badge>
                           )
@@ -764,7 +765,7 @@ export default function DanfeGaleriaPage() {
                     <div className="text-sm font-semibold truncate flex items-center gap-2">
                       <Badge className={cn(
                         'text-[9px] py-0 px-1.5 border-0',
-                        selecionado.tipoDoc === 'nfe' ? 'bg-violet-100 text-violet-700' : 'bg-emerald-100 text-emerald-700',
+                        selecionado.tipoDoc === 'nfe' ? STRONG.violet : STRONG.emerald,
                       )}>
                         {selecionado.tipoDoc === 'nfe' ? 'NFe' : 'NFS-e'}
                       </Badge>
@@ -772,11 +773,11 @@ export default function DanfeGaleriaPage() {
                       {selecionado.serie && <span className="text-muted-foreground"> — Série {selecionado.serie}</span>}
                       {selecionado.tipoDoc === 'nfse' && (
                         selecionado.pdfOficial ? (
-                          <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[9px] py-0 px-1.5 flex items-center gap-1" title="DANFSe v1.0 oficial baixado da API gov.br — QR de verificação assinado pela União">
+                          <Badge className={cn('border-0 text-[9px] py-0 px-1.5 flex items-center gap-1', STRONG.emerald)} title="DANFSe v1.0 oficial baixado da API gov.br — QR de verificação assinado pela União">
                             <ShieldCheck className="h-2.5 w-2.5" /> Oficial
                           </Badge>
                         ) : (
-                          <Badge className="bg-sky-100 text-sky-700 border-0 text-[9px] py-0 px-1.5 flex items-center gap-1" title="DANFSe local seguindo NT 008/2026 (layout v1.0). Clique em ↻ pra tentar baixar o oficial quando a API gov.br voltar.">
+                          <Badge className={cn('border-0 text-[9px] py-0 px-1.5 flex items-center gap-1', STRONG.sky)} title="DANFSe local seguindo NT 008/2026 (layout v1.0). Clique em ↻ pra tentar baixar o oficial quando a API gov.br voltar.">
                             <AlertTriangle className="h-2.5 w-2.5" /> Local NT 008
                           </Badge>
                         )

@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Phone, Search, User } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, Input } from '@saas/ui'
+import { Phone, Search } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle, Input, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
-import { resolveAssetUrl } from '@/lib/api-url'
+import { TEXT, SURFACE } from '@/lib/color-styles'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { EmptyState } from './empty-state'
 
 interface Ramal {
@@ -17,10 +18,6 @@ interface Ramal {
   celular: string | null
   area: { name: string } | null
   cargo: { name: string } | null
-}
-
-function iniciais(nome: string): string {
-  return nome.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase()).join('')
 }
 
 export function RamaisWidget({ title, expanded, bloco }: { canRead?: boolean; title?: string; expanded?: boolean; bloco?: string } = {}) {
@@ -87,7 +84,7 @@ export function RamaisWidget({ title, expanded, bloco }: { canRead?: boolean; ti
             />
           </div>
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto -mx-1">
+        <div className="flex-1 min-h-0 overflow-y-auto nice-scrollbar -mx-1">
           {filtered.length === 0 ? (
             <p className="text-center text-xs text-muted-foreground py-12">Nenhum resultado</p>
           ) : (
@@ -98,14 +95,12 @@ export function RamaisWidget({ title, expanded, bloco }: { canRead?: boolean; ti
                   className="group relative flex items-center gap-3 rounded-lg border bg-card p-3 hover:shadow-md hover:border-emerald-300 dark:hover:border-emerald-800 transition-all"
                 >
                   <div className="shrink-0">
-                    {c.fotoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={resolveAssetUrl(c.fotoUrl)} alt={c.nomeCompleto} className="h-12 w-12 rounded-full object-cover ring-2 ring-emerald-100 dark:ring-emerald-900/40" />
-                    ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-900/60 dark:to-emerald-800/60 text-sm font-bold text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-100 dark:ring-emerald-900/40">
-                        {iniciais(c.nomeCompleto) || <User className="h-5 w-5" />}
-                      </div>
-                    )}
+                    <UserAvatar
+                      user={{ name: c.nomeCompleto, image: c.fotoUrl }}
+                      className="h-12 w-12 text-sm ring-2 ring-emerald-200 dark:ring-emerald-900/60"
+                      bg="bg-emerald-100 dark:bg-emerald-900/40"
+                      fg="text-emerald-700 dark:text-emerald-300"
+                    />
                   </div>
                   <div className="flex-1 min-w-0 space-y-0.5">
                     <p className="text-sm font-semibold leading-tight truncate" title={c.nomeCompleto}>
@@ -118,7 +113,7 @@ export function RamaisWidget({ title, expanded, bloco }: { canRead?: boolean; ti
                       <p className="text-[10px] text-muted-foreground truncate" title={c.area.name}>{c.area.name}</p>
                     )}
                     {c.email && (
-                      <a href={`mailto:${c.email}`} className="text-[10px] text-emerald-600 hover:underline truncate block" title={c.email}>{c.email}</a>
+                      <a href={`mailto:${c.email}`} className={cn('text-[10px] hover:underline truncate block', TEXT.emerald)} title={c.email}>{c.email}</a>
                     )}
                   </div>
                   <a
@@ -144,7 +139,7 @@ export function RamaisWidget({ title, expanded, bloco }: { canRead?: boolean; ti
       <CardHeader className="shrink-0 border-b-0 p-5 pb-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
+            <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10', TEXT.emerald)}>
               <Phone className="h-5 w-5" />
             </div>
             <div className="min-w-0">
@@ -173,14 +168,12 @@ export function RamaisWidget({ title, expanded, bloco }: { canRead?: boolean; ti
             {filtered.map(c => (
               <li key={c.id} className="flex items-center gap-3 px-3 py-2 hover:bg-muted/40 transition-colors">
                 <div className="shrink-0">
-                  {c.fotoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={resolveAssetUrl(c.fotoUrl)} alt={c.nomeCompleto} className="h-8 w-8 rounded-full object-cover" />
-                  ) : (
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
-                      {iniciais(c.nomeCompleto) || <User className="h-3.5 w-3.5" />}
-                    </div>
-                  )}
+                  <UserAvatar
+                    user={{ name: c.nomeCompleto, image: c.fotoUrl }}
+                    className="h-8 w-8 text-[10px]"
+                    bg="bg-emerald-100 dark:bg-emerald-900/40"
+                    fg="text-emerald-700 dark:text-emerald-300"
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[12px] font-semibold leading-tight truncate">{c.nomeCompleto}</p>
@@ -190,11 +183,11 @@ export function RamaisWidget({ title, expanded, bloco }: { canRead?: boolean; ti
                 </div>
                 <a
                   href={c.ramal ? `tel:${c.ramal.replace(/\D/g, '')}` : undefined}
-                  className="shrink-0 inline-flex items-center gap-1 rounded-md bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 border border-emerald-200 dark:border-emerald-800 hover:shadow-sm hover:scale-[1.02] transition-all"
+                  className={cn('shrink-0 inline-flex items-center gap-1 rounded-md px-2 py-1 border hover:shadow-sm hover:scale-[1.02] transition-all', SURFACE.emerald)}
                   title={c.ramal ? `Ligar para ${c.ramal}` : 'Sem ramal'}
                 >
-                  <Phone className="h-3 w-3 text-emerald-600" />
-                  <span className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                  <Phone className={cn('h-3 w-3', TEXT.emerald)} />
+                  <span className={cn('text-xs font-mono font-bold tabular-nums', TEXT.emerald)}>
                     {c.ramal}
                   </span>
                 </a>

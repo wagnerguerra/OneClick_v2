@@ -3,8 +3,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Card, CardContent, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@saas/ui'
-import { useTheme } from '@/hooks/use-theme'
 import { trpc } from '@/lib/trpc'
+import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 import {
   ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   Line, LabelList, BarChart, Cell,
@@ -55,9 +55,8 @@ export function BiAnalise({ clienteId, ano, meses }: BiAnaliseProps) {
   const [data, setData] = useState<AnaliseData | null>(null)
   const [loading, setLoading] = useState(true)
   const [indicadorSel, setIndicadorSel] = useState('faturamento')
-  const { theme } = useTheme()
-  // Cor da linha de variação: preto no light, branco no dark (hex porque Recharts não interpreta CSS vars)
-  const colorVariacao = theme === 'dark' ? '#ffffff' : '#000000'
+  // Cor da linha de variação — foreground do tema (adapta claro/dark nativamente).
+  const colorVariacao = 'var(--color-foreground)'
 
   useEffect(() => {
     if (!clienteId || !ano) return
@@ -128,27 +127,26 @@ export function BiAnalise({ clienteId, ano, meses }: BiAnaliseProps) {
           ) : (
             <ResponsiveContainer width="100%" height={Math.max(400, naturezaData.length * 24)}>
               <BarChart data={naturezaData} layout="vertical" margin={{ top: 5, right: 60, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.4} horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} tickFormatter={(v) => fmtCompact(v)} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.4} horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }} tickFormatter={(v) => fmtCompact(v)} />
                 <YAxis
                   type="category"
                   dataKey="nome"
-                  tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+                  tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
                   width={160}
                   interval={0}
                 />
                 <Tooltip
-                  formatter={(val) => [fmtCurrency(Number(val)), 'Valor']}
-                  labelFormatter={(label) => label}
-                  contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card)' }}
+                  content={<ChartTooltip format={(v) => fmtCurrency(Number(v))} />}
+                  cursor={{ fill: CHART_CURSOR_FILL }}
                 />
-                <Bar dataKey="valorAbs" radius={[0, 4, 4, 0]}>
+                <Bar dataKey="valorAbs" name="Valor" radius={[0, 4, 4, 0]}>
                   {naturezaData.map((row, i) => <Cell key={i} fill={row.cor} opacity={0.85} />)}
                   <LabelList
                     dataKey="valor"
                     position="right"
                     formatter={(v) => fmtCurrency(Number(v))}
-                    style={{ fontSize: 10, fill: 'var(--foreground)' }}
+                    style={{ fontSize: 10, fill: 'var(--color-foreground)' }}
                   />
                 </Bar>
               </BarChart>
@@ -178,28 +176,27 @@ export function BiAnalise({ clienteId, ano, meses }: BiAnaliseProps) {
               layout="vertical"
               margin={{ top: 24, right: 180, left: 0, bottom: 16 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.4} horizontal={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.4} horizontal={false} />
               <XAxis
                 type="number"
                 domain={[0, 100]}
                 tickFormatter={(v) => `${v}%`}
-                tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+                tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
                 orientation="top"
                 ticks={[0, 25, 50, 75, 100]}
               />
               <YAxis
                 type="category"
                 dataKey="label"
-                tick={{ fontSize: 10, fill: 'var(--muted-foreground)', fontWeight: 600 }}
+                tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)', fontWeight: 600 }}
                 width={210}
                 interval={0}
               />
               <Tooltip
-                formatter={(_v, _name, item) =>
-                  [`${fmtSigned(item.payload?.valor ?? 0)} (${(item.payload?.percentual ?? 0).toFixed(2)}%)`, 'Valor']}
-                contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card)' }}
+                content={<ChartTooltip format={(v) => `${Number(v).toFixed(1)}%`} />}
+                cursor={{ fill: CHART_CURSOR_FILL }}
               />
-              <Bar dataKey="pctAbs" radius={[0, 4, 4, 0]} barSize={18}>
+              <Bar dataKey="pctAbs" name="% da Receita Líquida" radius={[0, 4, 4, 0]} barSize={18}>
                 {verticalRows.map((r, i) => (
                   <Cell
                     key={i}
@@ -219,7 +216,7 @@ export function BiAnalise({ clienteId, ano, meses }: BiAnaliseProps) {
                         x={Number(x) + Number(width) + 8}
                         y={Number(y) + Number(height) / 2 + 4}
                         fontSize={10}
-                        fill={isNeg ? '#dc2626' : 'var(--foreground)'}
+                        fill={isNeg ? '#dc2626' : 'var(--color-foreground)'}
                         style={{ fontVariantNumeric: 'tabular-nums' }}
                       >
                         {`${fmtSigned(row.valor)} (${row.percentual.toFixed(2)}%)`}
@@ -253,31 +250,28 @@ export function BiAnalise({ clienteId, ano, meses }: BiAnaliseProps) {
           ) : (
             <ResponsiveContainer width="100%" height={320}>
               <ComposedChart data={horizontalData} margin={{ top: 28, right: 40, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
-                <XAxis dataKey="mes" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
-                <YAxis yAxisId="left" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} tickFormatter={v => fmtCompact(v)} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.5} />
+                <XAxis dataKey="mes" tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} />
+                <YAxis yAxisId="left" tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }} tickFormatter={v => fmtCompact(v)} />
                 <YAxis
                   yAxisId="right" orientation="right"
-                  tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+                  tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
                   tickFormatter={v => `${v}%`}
                 />
                 <Tooltip
-                  formatter={(val, name) => {
-                    if (name === 'variacao') return [`${val !== null && val !== undefined ? Number(val).toFixed(0) : '-'}%`, 'Variação Mensal']
-                    return [fmtCurrency(Number(val)), 'Indicador Selecionado']
-                  }}
-                  contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card)' }}
+                  content={<ChartTooltip format={(v, n) => n === 'Variação %' ? `${Number(v).toFixed(0)}%` : fmtCurrency(Number(v))} />}
+                  cursor={{ fill: CHART_CURSOR_FILL }}
                 />
-                <Bar yAxisId="left" dataKey="valor" fill={COLOR_POSITIVO} opacity={0.85} radius={[4, 4, 0, 0]}>
+                <Bar yAxisId="left" dataKey="valor" name="Indicador Selecionado" fill={COLOR_POSITIVO} opacity={0.85} radius={[4, 4, 0, 0]}>
                   <LabelList
                     dataKey="valor"
                     position="top"
                     formatter={(v) => Number(v) !== 0 ? `R$ ${fmtCompact(Number(v))}` : ''}
-                    style={{ fontSize: 9, fill: 'var(--foreground)' }}
+                    style={{ fontSize: 9, fill: 'var(--color-foreground)' }}
                   />
                 </Bar>
                 <Line
-                  yAxisId="right" type="monotone" dataKey="variacao"
+                  yAxisId="right" type="monotone" dataKey="variacao" name="Variação %"
                   stroke={colorVariacao} strokeWidth={2}
                   dot={{ r: 3, fill: colorVariacao }}
                   connectNulls

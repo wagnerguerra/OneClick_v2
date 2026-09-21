@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Building2, ChevronDown, Check, Loader2 } from 'lucide-react'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -113,7 +114,7 @@ export function TenantSwitcher() {
               value={busca}
               onChange={e => setBusca(e.target.value)}
               placeholder="Buscar empresa..."
-              className="h-8 w-full rounded border border-border bg-background px-2 text-xs"
+              className="h-8 w-full rounded px-2 text-xs"
             />
           </div>
           <div className="nice-scrollbar max-h-72 overflow-y-auto py-1">
@@ -137,7 +138,7 @@ export function TenantSwitcher() {
                   {trocando === e.id
                     ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
                     : atual
-                      ? <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                      ? <Check className={cn('h-3.5 w-3.5 shrink-0', TEXT.emerald)} />
                       : <span className="w-3.5 shrink-0" />}
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{e.razaoSocial}</span>

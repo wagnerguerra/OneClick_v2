@@ -18,6 +18,7 @@ import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { TEXT } from '@/lib/color-styles'
 import {
   ANALISE_CONTEXTO_ANALISE_LABEL, ANALISE_CONTEXTO_TIPO_LABEL, TIPOS_POR_ANALISE,
 } from '@saas/types'
@@ -175,7 +176,7 @@ export default function AnaliseContextoPage() {
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Select value={fAnalise || '__all__'} onValueChange={(v) => { setFAnalise(v === '__all__' ? '' : v); setFTipo(''); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[160px] text-xs bg-card"><SelectValue placeholder="Análise" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Análise" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Externa e Interna</SelectItem>
                 <SelectItem value="EXTERNA">Análise Externa</SelectItem>
@@ -183,7 +184,7 @@ export default function AnaliseContextoPage() {
               </SelectContent>
             </Select>
             <Select value={fTipo || '__all__'} onValueChange={(v) => { setFTipo(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[150px] text-xs bg-card"><SelectValue placeholder="Tipo" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os tipos</SelectItem>
                 {(fAnalise ? TIPOS_POR_ANALISE[fAnalise] ?? [] : Object.keys(ANALISE_CONTEXTO_TIPO_LABEL)).map((t) => (
@@ -192,7 +193,7 @@ export default function AnaliseContextoPage() {
               </SelectContent>
             </Select>
             <Select value={fSituacao || '__all__'} onValueChange={(v) => { setFSituacao(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[140px] text-xs bg-card"><SelectValue placeholder="Situação" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todas</SelectItem>
                 <SelectItem value="PENDENTE">Sem avaliação</SelectItem>
@@ -205,12 +206,12 @@ export default function AnaliseContextoPage() {
               </Button>
             )}
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="max-w-xs w-full sm:w-auto">
-            <Input placeholder="Buscar por identificação ou processo..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+            <Input placeholder="Buscar por identificação ou processo..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
 
@@ -245,7 +246,7 @@ export default function AnaliseContextoPage() {
                     <span className="block truncate" title={r.identificacao}>{r.identificacao}</span>
                     <span className="text-[11px] text-muted-foreground">
                       {r.processo ?? ''}{r.avaliado && (r.processo ? ' · ' : '')}{r.avaliado && (
-                        <span className={r.eficaz ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>
+                        <span className={r.eficaz ? TEXT.emerald : TEXT.rose}>
                           {r.eficaz ? 'Avaliado: eficaz' : 'Avaliado: não eficaz'}
                         </span>
                       )}
@@ -271,7 +272,7 @@ export default function AnaliseContextoPage() {
                   <TableCell className="hidden sm:table-cell text-xs text-muted-foreground tabular-nums">{dataBR(r.prazo)}</TableCell>
                   <TableCell className="text-center text-xs tabular-nums">
                     {r.acoesTotal === 0 ? '—' : (
-                      <span className={r.acoesAbertas > 0 ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-emerald-600 dark:text-emerald-400'}>
+                      <span className={r.acoesAbertas > 0 ? cn(TEXT.amber, 'font-medium') : TEXT.emerald}>
                         {r.acoesTotal - r.acoesAbertas}/{r.acoesTotal}
                         {r.acoesAbertas === 0 && <Check className="inline h-3 w-3 ml-0.5 -mt-0.5" />}
                       </span>
@@ -322,7 +323,7 @@ export default function AnaliseContextoPage() {
               Classifique o item na SWOT, estime o risco e indique o responsável. O plano de ação entra no detalhe.
             </DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-4 max-h-[65vh] overflow-y-auto nice-scrollbar">
+          <DialogBody className="space-y-4">
             <div className="grid grid-cols-12 gap-4">
               <div className="col-span-12 sm:col-span-6">
                 <Label className="text-[13px] font-semibold">Análise <span className="text-rose-500">*</span></Label>

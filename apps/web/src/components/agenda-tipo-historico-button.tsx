@@ -15,6 +15,7 @@ import {
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+import { TEXT } from '@/lib/color-styles'
 
 interface Evento {
   id: string
@@ -26,9 +27,9 @@ interface Evento {
 }
 
 const ACAO_META: Record<string, { label: string; icon: typeof PlusCircle; cls: string }> = {
-  CRIOU: { label: 'Criou', icon: PlusCircle, cls: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
-  EDITOU: { label: 'Editou', icon: Pencil, cls: 'border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400' },
-  EXCLUIU: { label: 'Excluiu', icon: Trash2, cls: 'border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400' },
+  CRIOU: { label: 'Criou', icon: PlusCircle, cls: cn('border-emerald-500/20 bg-emerald-500/10', TEXT.emerald) },
+  EDITOU: { label: 'Editou', icon: Pencil, cls: cn('border-sky-500/20 bg-sky-500/10', TEXT.sky) },
+  EXCLUIU: { label: 'Excluiu', icon: Trash2, cls: cn('border-rose-500/20 bg-rose-500/10', TEXT.rose) },
 }
 
 export function AgendaTipoHistoricoButton() {

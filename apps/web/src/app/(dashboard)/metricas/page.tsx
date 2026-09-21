@@ -5,8 +5,9 @@ import { Search, DollarSign, Hash, FileText, Save } from 'lucide-react'
 import {
   Button, Input, Label, Card, CardHeader,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
+  Table, TableHeader, TableBody, TableHead, TableRow, TableCell, cn,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -124,7 +125,7 @@ function MetricasPageInner() {
         </Card>
         <Card>
           <div className="p-4 flex items-center gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+            <div className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10', TEXT.emerald)}>
               <FileText className="h-6 w-6" />
             </div>
             <div>
@@ -135,7 +136,7 @@ function MetricasPageInner() {
         </Card>
         <Card>
           <div className="p-4 flex items-center gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+            <div className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-amber-500/10', TEXT.amber)}>
               <DollarSign className="h-6 w-6" />
             </div>
             <div>

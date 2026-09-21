@@ -6,6 +6,7 @@ import {
   CheckCircle2, AlertTriangle, Sparkles, ArrowRight,
 } from 'lucide-react'
 import { Button, Card, Badge, cn, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@saas/ui'
+import { SURFACE, TEXT } from '@/lib/color-styles'
 import { PageHeader } from '@/components/page-header'
 import { alerts } from '@/lib/alerts'
 import { generateDanfseZip, type GenResult } from './_lib/generateZip'
@@ -144,14 +145,14 @@ export default function NfsePdfPage() {
               )}
 
               {result && (
-                <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/60 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20 space-y-2">
-                  <p className="flex items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                <div className={cn('rounded-xl border p-4 space-y-2', SURFACE.emerald)}>
+                  <p className={cn('flex items-center gap-1.5 text-sm font-semibold', TEXT.emerald)}>
                     <CheckCircle2 className="h-4 w-4" />
                     {result.geradosNfse} DANFSe{result.geradosEvento > 0 ? ` + ${result.geradosEvento} evento(s)` : ''} gerado(s)
                   </p>
                   {result.ignorados.length > 0 && (
                     <details className="text-xs text-muted-foreground">
-                      <summary className="cursor-pointer text-amber-600 dark:text-amber-400">
+                      <summary className={cn('cursor-pointer', TEXT.amber)}>
                         <AlertTriangle className="inline h-3.5 w-3.5" /> {result.ignorados.length} ignorado(s)
                       </summary>
                       <ul className="mt-1 space-y-0.5 pl-4">

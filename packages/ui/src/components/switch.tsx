@@ -14,12 +14,20 @@ interface SwitchProps {
   className?: string
   id?: string
   name?: string
+  title?: string
+  /**
+   * Cor de destaque quando LIGADO (aceita qualquer valor CSS, inclusive var —
+   * ex.: `var(--mod-x)` ou um tom semantico como emerald). Aplicada via style
+   * so no estado ligado; desligado segue o off theme-aware. Ausente = primaria.
+   */
+  accentColor?: string
+  style?: React.CSSProperties
   'aria-label'?: string
   'aria-labelledby'?: string
 }
 
 const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
-  ({ checked, defaultChecked, onCheckedChange, disabled, className, ...props }, ref) => {
+  ({ checked, defaultChecked, onCheckedChange, disabled, className, accentColor, style, ...props }, ref) => {
     const isControlled = checked !== undefined
     const [internal, setInternal] = React.useState(!!defaultChecked)
     const value = isControlled ? !!checked : internal
@@ -36,16 +44,22 @@ const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
           if (!isControlled) setInternal(v => !v)
           onCheckedChange?.(!value)
         }}
+        // accentColor so pinta o estado ligado (inline vence a classe bg-primary);
+        // desligado nao recebe style e mantem o off theme-aware.
+        style={value && accentColor ? { ...style, backgroundColor: accentColor } : style}
         className={cn(
-          'peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50',
-          value ? 'bg-primary' : 'bg-input',
+          // Espelha o toggle de /usuarios (aba Permissões), eleito o melhor: sem
+          // border-2 (que desalinhava o thumb), off theme-aware, thumb branco.
+          // Padding do thumb via px-0.5 + items-center (mais robusto que mt-0.5).
+          'peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full px-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50',
+          value ? 'bg-primary' : 'bg-muted-foreground/25',
           className,
         )}
         {...props}
       >
         <span
           className={cn(
-            'pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform',
+            'pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform',
             value ? 'translate-x-4' : 'translate-x-0',
           )}
         />

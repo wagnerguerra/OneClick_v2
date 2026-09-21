@@ -3,15 +3,17 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft, Mail, Loader2, Bell, Clock, Inbox, Users, AlertTriangle,
+  Mail, Loader2, Bell, Clock, Inbox, Users, AlertTriangle,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Card, Switch,
+  Input, Label, Card, Switch,
 } from '@saas/ui'
 import { EmailChipsInput } from '@/components/ui/email-chips-input'
+import { BackButton } from '@/components/ui/back-button'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
+import { BADGE } from '@/lib/color-styles'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
@@ -125,14 +127,7 @@ export default function HelpdeskConfiguracoesPage() {
       {/* Header */}
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-        <Button
-          variant="outline" size="icon"
-          onClick={() => router.push('/helpdesk')}
-          title="Voltar pra HelpDesk"
-          className="h-9 w-9"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        <BackButton href="/helpdesk" title="Voltar pra HelpDesk" />
       </>}>
         <h1 className="truncate">Configurações do HelpDesk</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -171,7 +166,7 @@ export default function HelpdeskConfiguracoesPage() {
 
             {/* Aviso: sem agentes = ninguém é notificado nem pode atender */}
             {config && !config.temAgentes && (
-              <div className="mx-4 mt-4 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-3 py-2 text-[12px] text-amber-800 dark:text-amber-200">
+              <div className={`mx-4 mt-4 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px] ${BADGE.amber}`}>
                 <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>
                   <strong>Nenhum usuário é agente do HelpDesk.</strong> Isso significa que ninguém será

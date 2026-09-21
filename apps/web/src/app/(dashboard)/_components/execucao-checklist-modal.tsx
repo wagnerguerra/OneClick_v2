@@ -813,7 +813,7 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
               rows={3}
               placeholder="Ex: aguardando documentação do cliente..."
               autoFocus
-              className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="w-full rounded-md px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </DialogBody>
           <DialogFooter>

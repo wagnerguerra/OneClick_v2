@@ -12,6 +12,7 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -143,28 +144,28 @@ export default function NaoConformidadesPage() {
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Select value={fSituacao || '__all__'} onValueChange={(v) => { setFSituacao(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[170px] text-xs bg-card"><SelectValue placeholder="Situação" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[170px] text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todas as situações</SelectItem>
                 {NC_SITUACOES.map((s) => <SelectItem key={s} value={s}>{NC_SITUACAO_LABEL[s]}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={fOrigem || '__all__'} onValueChange={(v) => { setFOrigem(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[160px] text-xs bg-card"><SelectValue placeholder="Origem" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Origem" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todas as origens</SelectItem>
                 {origens.map((o) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={fArea || '__all__'} onValueChange={(v) => { setFArea(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[150px] text-xs bg-card"><SelectValue placeholder="Área" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue placeholder="Área" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todas as áreas</SelectItem>
                 {areas.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={fReincidencia || '__all__'} onValueChange={(v) => { setFReincidencia(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[140px] text-xs bg-card"><SelectValue placeholder="Reincidência" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue placeholder="Reincidência" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Reincidência: todas</SelectItem>
                 <SelectItem value="sim">Só reincidências</SelectItem>
@@ -177,12 +178,12 @@ export default function NaoConformidadesPage() {
               </Button>
             )}
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="max-w-xs w-full sm:w-auto">
-            <Input placeholder="Buscar por fato gerador ou cliente..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+            <Input placeholder="Buscar por fato gerador ou cliente..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
 
@@ -218,11 +219,11 @@ export default function NaoConformidadesPage() {
                     <span className="text-[11px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
                       {r.origem?.nome && <span>{r.origem.nome}</span>}
                       {r.reincidencia && (
-                        <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400 font-medium">
+                        <span className={cn('inline-flex items-center gap-0.5 font-medium', TEXT.amber)}>
                           <RotateCcw className="h-3 w-3" />Reincidência
                         </span>
                       )}
-                      {r.eficaz === false && <span className="text-rose-600 dark:text-rose-400">Não eficaz</span>}
+                      {r.eficaz === false && <span className={TEXT.rose}>Não eficaz</span>}
                     </span>
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-xs text-muted-foreground truncate">{r.clienteNomeResolvido ?? '—'}</TableCell>
@@ -236,7 +237,7 @@ export default function NaoConformidadesPage() {
                   <TableCell className="hidden sm:table-cell text-xs text-muted-foreground tabular-nums">{dataBR(r.prazo)}</TableCell>
                   <TableCell className="text-center text-xs tabular-nums">
                     {r.acoesTotal === 0 ? '—' : (
-                      <span className={r.acoesAbertas > 0 ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-emerald-600 dark:text-emerald-400'}>
+                      <span className={r.acoesAbertas > 0 ? cn('font-medium', TEXT.amber) : TEXT.emerald}>
                         {r.acoesTotal - r.acoesAbertas}/{r.acoesTotal}
                       </span>
                     )}

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription, Badge, RichContent } from '@saas/ui'
+import { Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription, Badge, RichContent, cn } from '@saas/ui'
+import { BADGE } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { Target, Loader2 } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
@@ -39,7 +40,7 @@ export function CrmResumoModal({ oportunidadeId, open, onClose }: { oportunidade
 
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) onClose() }}>
-      <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[560px] max-h-[90vh]">
         <DialogHeaderIcon icon={Target} color="fuchsia">
           <DialogTitle>Resumo do CRM</DialogTitle>
           <DialogDescription>Card de CRM vinculado a este orçamento.</DialogDescription>
@@ -54,7 +55,7 @@ export function CrmResumoModal({ oportunidadeId, open, onClose }: { oportunidade
               <div>
                 <h3 className="text-base font-semibold">{r.numero != null ? `#${r.numero} · ` : ''}{r.titulo}</h3>
                 {r.etapa && (
-                  <Badge variant="outline" className={`mt-1 text-[10px] ${r.ehGanho ? 'border-emerald-300 text-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400' : r.ehPerda ? 'border-rose-300 text-rose-700 bg-rose-50 dark:bg-rose-900/20 dark:text-rose-400' : ''}`}>
+                  <Badge variant="outline" className={cn('mt-1 text-[10px]', r.ehGanho ? BADGE.emerald : r.ehPerda ? BADGE.rose : '')}>
                     {r.etapa}
                   </Badge>
                 )}

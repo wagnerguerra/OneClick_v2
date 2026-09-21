@@ -20,7 +20,6 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { exportToExcel, exportToCsv, type ExportColumn } from '@/lib/export-data'
 import { TIPO_CONTRATO_LABELS } from '@saas/types'
-import { BackButton } from '@/components/ui/back-button'
 import { ImportModal } from './_components/import-modal'
 
 interface Colaborador {
@@ -165,7 +164,6 @@ export default function ColaboradoresPage() {
           <Button variant="outline" size="sm" onClick={() => handleExport('excel')}>
             <Download className="h-4 w-4" />Excel
           </Button>
-          <BackButton href="/dashboard" label="Voltar" />
         </>}
       >
         <h1 className="truncate">Colaboradores</h1>
@@ -185,13 +183,13 @@ export default function ColaboradoresPage() {
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="hidden sm:inline">Exibir</span>
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
             <span className="hidden sm:inline">registros</span>
           </div>
           <div className="max-w-xs w-full sm:w-auto">
-            <Input placeholder="Buscar por nome, CPF, e-mail, cargo ou área..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+            <Input placeholder="Buscar por nome, CPF, e-mail, cargo ou área..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
 

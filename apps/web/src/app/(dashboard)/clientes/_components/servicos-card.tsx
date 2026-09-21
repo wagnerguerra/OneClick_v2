@@ -6,7 +6,7 @@ import {
   Plus, Trash2, Copy, ChevronDown,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Card,
+  Button, Input, Label, Card, Textarea,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Checkbox,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
@@ -22,6 +22,7 @@ import { alerts } from '@/lib/alerts'
 import { toDateInputValue } from '@/lib/date'
 import { useSession } from '@/lib/auth-client'
 import { useClientesPerms } from './use-clientes-perms'
+import { STRONG, TEXT, BADGE } from '@/lib/color-styles'
 
 // ============================================================
 // Types
@@ -207,7 +208,7 @@ export function ServicosCard({ clienteId, registrarSalvar }: {
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <div>
               <h4 className="text-sm font-semibold flex items-center gap-2">
-                <Briefcase className="h-4 w-4 text-emerald-600" /> Servicos Contratados
+                <Briefcase className={cn('h-4 w-4', TEXT.emerald)} /> Servicos Contratados
               </h4>
               <p className="text-[11px] text-muted-foreground mt-0.5">Gerencie as areas contratadas, responsaveis e parametros.</p>
             </div>
@@ -236,7 +237,7 @@ export function ServicosCard({ clienteId, registrarSalvar }: {
 
         <MioloColapsavel aberto={cardAberto}>
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto nice-scrollbar">
           <Table>
             <TableHeader>
               <TableRow>
@@ -270,7 +271,7 @@ export function ServicosCard({ clienteId, registrarSalvar }: {
                         />
                         <span className="text-sm font-medium">{row.areaNome}</span>
                         {hasEncerramento && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 text-[9px] font-medium">
+                          <span className={cn('inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-medium', BADGE.amber)}>
                             <CalendarOff className="h-2.5 w-2.5" /> Encerrado
                           </span>
                         )}
@@ -330,9 +331,9 @@ export function ServicosCard({ clienteId, registrarSalvar }: {
                       {row.complexidadePeso > 0 ? (
                         <span className={cn(
                           'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                          row.complexidadePeso <= 2 ? 'bg-emerald-100 text-emerald-700' :
-                          row.complexidadePeso <= 3.5 ? 'bg-amber-100 text-amber-700' :
-                          'bg-red-100 text-red-700',
+                          row.complexidadePeso <= 2 ? BADGE.emerald :
+                          row.complexidadePeso <= 3.5 ? STRONG.amber :
+                          STRONG.red,
                         )}>
                           {row.complexidadePeso.toFixed(1)}
                         </span>
@@ -370,7 +371,7 @@ export function ServicosCard({ clienteId, registrarSalvar }: {
         <div className="border-t border-border/60 bg-muted/20 px-5 py-2.5">
           <p className="text-[11px] text-muted-foreground">
             {rows.filter(r => r.contratado).length} de {rows.length} areas contratadas
-            {dirty && <span className="ml-2 text-amber-600 font-medium">Alteracoes nao salvas</span>}
+            {dirty && <span className={cn('ml-2 font-medium', TEXT.amber)}>Alteracoes nao salvas</span>}
           </p>
         </div>
         </MioloColapsavel>
@@ -519,7 +520,7 @@ function ParametrosDialog({ open, onClose, clienteAreaContratadaId, areaNome, cl
         <DialogHeaderIcon icon={Settings} color="violet">
           <DialogTitle>Parametros — {areaNome}</DialogTitle>
           <DialogDescription>
-            Media geral: <span className="font-semibold text-emerald-600">{calcMedia}</span> | {params.length} parametro(s)
+            Media geral: <span className={cn('font-semibold', TEXT.emerald)}>{calcMedia}</span> | {params.length} parametro(s)
           </DialogDescription>
         </DialogHeaderIcon>
 
@@ -684,12 +685,12 @@ function EncerramentoDialog({ open, onClose, row, onSave }: {
           </div>
           <div className="space-y-1.5">
             <Label>Observacoes</Label>
-            <textarea
+            <Textarea
               value={obs}
               onChange={e => setObs(e.target.value)}
               maxLength={1000}
               rows={4}
-              className="w-full rounded-md border bg-card px-3 py-2 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+              className="resize-y"
               placeholder="Motivo do encerramento, detalhes..."
             />
             <p className="text-[10px] text-muted-foreground text-right">{obs.length}/1000</p>

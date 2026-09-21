@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Sparkles, Send, Loader2, Wand2, Copy, Check, FileText, RotateCcw, Paperclip, X, Image as ImageIcon } from 'lucide-react'
 import { marked } from 'marked'
 import { Button, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { alerts } from '@/lib/alerts'
 import { trpc } from '@/lib/trpc'
 import { MarkdownView } from '@/components/ui/markdown-view'
@@ -267,7 +268,7 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
       </div>
 
       {/* Conversa */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto chat-scrollbar px-4 py-4 space-y-4">
         {carregando ? (
           <div className="h-full flex items-center justify-center">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -320,7 +321,7 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
                               <FileText className="h-3.5 w-3.5" /> Aplicar à proposta
                             </Button>
                             <Button size="sm" variant="ghost" className="h-7 gap-1.5" onClick={() => copiar(m.content, i)}>
-                              {copiado === i ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                              {copiado === i ? <Check className={cn('h-3.5 w-3.5', TEXT.emerald)} /> : <Copy className="h-3.5 w-3.5" />}
                               {copiado === i ? 'Copiado' : 'Copiar'}
                             </Button>
                           </div>
@@ -381,7 +382,7 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
           placeholder="Peça uma análise ou ajuste no texto…  (Enter envia, Shift+Enter quebra linha)"
           rows={1}
           disabled={streaming}
-          className="flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60 max-h-32"
+          className="flex-1 resize-none rounded-md px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60 max-h-32"
         />
         <Button size="icon" onClick={() => enviar(input)} disabled={streaming || (!input.trim() && anexos.length === 0)} className="shrink-0 text-white" style={{ backgroundColor: MOD }}>
           {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

@@ -306,7 +306,7 @@ export default function TratamentoLancamentosPage() {
           {/* 2. Modelo */}
           <StepBlock num={2} icon={FileCog} title="Modelo de Tratamento" color="#8b5cf6" className="py-6">
             <Select value={modelId} onValueChange={(v) => { setModelId(v); setResult(null) }} disabled={models.length === 0}>
-              <SelectTrigger className="h-9 text-sm bg-card max-w-md"><SelectValue placeholder={models.length === 0 ? 'Nenhum modelo cadastrado' : 'Selecione o modelo'} /></SelectTrigger>
+              <SelectTrigger className="h-9 text-sm max-w-md"><SelectValue placeholder={models.length === 0 ? 'Nenhum modelo cadastrado' : 'Selecione o modelo'} /></SelectTrigger>
               <SelectContent>
                 {models.map((m) => <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>)}
               </SelectContent>

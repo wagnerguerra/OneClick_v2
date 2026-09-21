@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { Clock, ArrowRight } from 'lucide-react'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 
 /**
  * Faixa de aviso do período de teste, exibida no topo do dashboard enquanto o
@@ -17,8 +18,8 @@ export function TrialBanner({ daysRemaining }: { daysRemaining: number }) {
       className={cn(
         'flex items-center justify-between gap-3 px-4 py-2 text-sm border-b sm:px-6',
         urgent
-          ? 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-300'
-          : 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300',
+          ? cn('bg-rose-500/10 border-rose-500/20', TEXT.rose)
+          : cn('bg-amber-500/10 border-amber-500/20', TEXT.amber),
       )}
     >
       <div className="flex items-center gap-2">

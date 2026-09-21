@@ -13,9 +13,10 @@ import {
   Upload, X, Eye, AlertTriangle,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Card, CardHeader, CardContent,
-  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
+  Button, Input, Label, Card, CardHeader, CardContent, Checkbox,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn,
 } from '@saas/ui'
+import { TEXT, SURFACE } from '@/lib/color-styles'
 import { useSession } from '@/lib/auth-client'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -86,6 +87,17 @@ export default function AssinaturaTemplatePage() {
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState<'visual' | 'html'>('visual')
   const [empresaData, setEmpresaData] = useState<SignatureData['empresa']>(null)
+  // Tema do editor Monaco (HTML) segue o tema do app — classe .dark no <html>,
+  // reativa ao evento oc-prefs (toggle de tema) e ao prefers-color-scheme.
+  const [isDark, setIsDark] = useState(false)
+  useEffect(() => {
+    const update = () => setIsDark(document.documentElement.classList.contains('dark'))
+    update()
+    window.addEventListener('oc-prefs', update)
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    mq.addEventListener('change', update)
+    return () => { window.removeEventListener('oc-prefs', update); mq.removeEventListener('change', update) }
+  }, [])
 
   const bgImageInputRef = useRef<HTMLInputElement>(null)
   const [uploadingBgImage, setUploadingBgImage] = useState(false)
@@ -348,7 +360,7 @@ export default function AssinaturaTemplatePage() {
                         Útil quando a imagem de fundo já tem a decoração/foto embutida.
                       </div>
                     </div>
-                    <input type="checkbox" checked={template.showPhotoBackground} onChange={e => setField('showPhotoBackground', e.target.checked)} className="h-4 w-4" />
+                    <Checkbox checked={template.showPhotoBackground} onCheckedChange={v => setField('showPhotoBackground', v === true)} />
                   </label>
                 </div>
 
@@ -370,7 +382,7 @@ export default function AssinaturaTemplatePage() {
                         {template.backgroundImageUrl ? 'Trocar' : 'Subir imagem'}
                       </Button>
                       {template.backgroundImageUrl && (
-                        <Button size="sm" variant="ghost" className="gap-1.5 text-rose-600" onClick={() => setField('backgroundImageUrl', null)}>
+                        <Button size="sm" variant="ghost" className={cn('gap-1.5', TEXT.rose)} onClick={() => setField('backgroundImageUrl', null)}>
                           <X className="h-3.5 w-3.5" /> Remover
                         </Button>
                       )}
@@ -409,7 +421,7 @@ export default function AssinaturaTemplatePage() {
                   ['showIcons', 'Ícones (☎ ⚑ 🌐 📷)'],
                 ] as const).map(([key, label]) => (
                   <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="checkbox" checked={template[key]} onChange={e => setField(key, e.target.checked)} className="h-4 w-4" />
+                    <Checkbox checked={template[key]} onCheckedChange={v => setField(key, v === true)} />
                     {label}
                   </label>
                 ))}
@@ -426,13 +438,13 @@ export default function AssinaturaTemplatePage() {
                   <h3 className="text-sm font-semibold">HTML customizado</h3>
                 </div>
                 <label className="flex items-center gap-2 text-[12px] font-semibold cursor-pointer">
-                  <input type="checkbox" checked={template.customHtmlEnabled} onChange={e => setField('customHtmlEnabled', e.target.checked)} className="h-4 w-4" />
+                  <Checkbox checked={template.customHtmlEnabled} onCheckedChange={v => setField('customHtmlEnabled', v === true)} />
                   Usar HTML custom
                 </label>
               </CardHeader>
               <CardContent className="p-0">
                 {template.customHtmlEnabled && (
-                  <div className="bg-amber-50 dark:bg-amber-950/30 px-5 py-2 border-b border-amber-200 dark:border-amber-900 text-[11px] text-amber-900 dark:text-amber-200 flex items-start gap-2">
+                  <div className={cn('px-5 py-2 border-b text-[11px] flex items-start gap-2', SURFACE.amber, TEXT.amber)}>
                     <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                     <span>HTML custom ATIVO. Cores, visibilidade e logo override do tab Visual são ignorados — o HTML abaixo é a fonte da verdade. Não use <code>position:absolute</code>, <code>flex</code>, <code>grid</code> ou <code>&lt;style&gt;</code> — use só inline styles + tabelas.</span>
                   </div>
@@ -442,7 +454,7 @@ export default function AssinaturaTemplatePage() {
                   defaultLanguage="html"
                   value={template.customHtml ?? ''}
                   onChange={v => setField('customHtml', v ?? null)}
-                  theme="vs-dark"
+                  theme={isDark ? 'vs-dark' : 'vs'}
                   options={{
                     minimap: { enabled: false },
                     fontSize: 13,
@@ -459,7 +471,7 @@ export default function AssinaturaTemplatePage() {
                 <h3 className="text-sm font-semibold">Placeholders disponíveis</h3>
                 <p className="text-[11px] text-muted-foreground mt-1">Clique pra copiar. Use no HTML acima.</p>
               </CardHeader>
-              <CardContent className="p-3 max-h-[260px] overflow-y-auto">
+              <CardContent className="p-3 max-h-[260px] overflow-y-auto nice-scrollbar">
                 <div className="grid grid-cols-1 gap-1">
                   {SIGNATURE_PLACEHOLDERS.map(p => (
                     <button

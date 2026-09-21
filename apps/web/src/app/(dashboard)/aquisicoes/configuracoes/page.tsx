@@ -6,13 +6,15 @@ import {
   ShieldCheck, ClipboardList, Loader2, Plus, Trash2, Pencil, X, Check,
   AlertTriangle,
 } from 'lucide-react'
-import { Button, Card, Input, Avatar, AvatarImage, AvatarFallback, Badge, cn } from '@saas/ui'
+import { Button, Card, Input, Badge, Switch, cn } from '@saas/ui'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { BackButton } from '@/components/ui/back-button'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { TEXT } from '@/lib/color-styles'
 
 const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
 
@@ -33,8 +35,6 @@ interface Aprovador {
 }
 interface Criterio { id: string; criterio: string; ordem: number; isActive: boolean }
 
-const iniciais = (nome: string) =>
-  nome.trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('')
 
 export default function AquisicoesConfiguracoesPage() {
   const router = useRouter()
@@ -74,7 +74,7 @@ export default function AquisicoesConfiguracoesPage() {
 
       <Card className="overflow-hidden">
         <div className="flex min-h-[450px]">
-          <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+          <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
             <div className="space-y-1">
               {CONFIG_TABS.map((t) => {
                 const Icon = t.icon
@@ -170,40 +170,32 @@ function AprovadoresTab() {
         <div className="divide-y divide-border/60 rounded-lg border border-border">
           {filtrados.map((u) => (
             <div key={u.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/30">
-              <Avatar className="h-8 w-8 shrink-0">
-                {u.image && <AvatarImage src={u.image} alt={u.name} />}
-                <AvatarFallback className="text-[11px]">{iniciais(u.name)}</AvatarFallback>
-              </Avatar>
+              <UserAvatar
+                user={{ name: u.name, image: u.image }}
+                bg="bg-muted"
+                fg="text-muted-foreground"
+                className="h-8 w-8 shrink-0 text-[11px]"
+              />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{u.name}</p>
                 <p className="truncate text-[11px] text-muted-foreground">{u.email}</p>
               </div>
               {u.aprovador && !u.temAcesso && !u.implicito && (
-                <span className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-500" title="Sem acesso de leitura ao módulo">
+                <span className={cn('flex items-center gap-1 text-[11px]', TEXT.amber)} title="Sem acesso de leitura ao módulo">
                   <AlertTriangle className="h-3.5 w-3.5" /> sem acesso ao módulo
                 </span>
               )}
               {u.implicito ? (
                 <Badge variant="secondary" className="shrink-0 text-[10px]">aprova sempre</Badge>
               ) : (
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={u.aprovador}
+                <Switch
+                  checked={u.aprovador}
                   disabled={salvando === u.id}
-                  onClick={() => alternar(u)}
-                  className={cn(
-                    'relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-60',
-                    u.aprovador ? '' : 'bg-muted-foreground/30',
-                  )}
-                  style={u.aprovador ? { backgroundColor: MODULE_COLOR } : undefined}
+                  onCheckedChange={() => alternar(u)}
+                  accentColor={MODULE_COLOR}
+                  className="shrink-0"
                   title={u.aprovador ? 'Remover como aprovador' : 'Tornar aprovador'}
-                >
-                  <span className={cn(
-                    'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all',
-                    u.aprovador ? 'left-[18px]' : 'left-0.5',
-                  )} />
-                </button>
+                />
               )}
             </div>
           ))}

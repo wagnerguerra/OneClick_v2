@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { Loader2, Save, Plus, X, ExternalLink, ChevronRight, ChevronDown, AlertTriangle, FileText, CheckCircle2, XCircle } from 'lucide-react'
-import { Button, Input, Label, Badge, cn } from '@saas/ui'
+import { Button, Input, Label, Badge, cn, Switch } from '@saas/ui'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { BADGE, TEXT, DOT, FILL } from '@/lib/color-styles'
+import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 import { MarkdownView } from '@/components/ui/markdown-view'
 
 interface Faixa { min: number; max: number | null; pontos: number }
@@ -181,7 +183,7 @@ export function HelpdeskIaSection() {
 
   const cap = Number(cfg.capUsdMensal)
   const pct = cap > 0 ? Math.min(100, (cfg.gastoUsdMesAtual / cap) * 100) : 0
-  const cor = pct < 60 ? 'bg-emerald-500' : pct < 90 ? 'bg-amber-500' : 'bg-rose-500'
+  const cor = pct < 60 ? FILL.emerald : pct < 90 ? FILL.amber : FILL.rose
 
   return (
     <div className="space-y-5">
@@ -218,15 +220,12 @@ export function HelpdeskIaSection() {
             Desligue pra pausar imediatamente — tickets novos vão direto pra coluna &quot;Novo&quot; sem passar pela IA.
           </p>
         </div>
-        <label className="inline-flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            checked={cfg.enabled}
-            onChange={e => setCfg({ ...cfg, enabled: e.target.checked })}
-            className="sr-only peer"
-          />
-          <div className="w-11 h-6 bg-muted-foreground/30 peer-checked:bg-emerald-500 rounded-full peer-checked:after:translate-x-full after:content-[''] after:absolute after:bg-white after:rounded-full after:h-5 after:w-5 after:top-0.5 after:left-0.5 after:transition-all relative" />
-        </label>
+        <Switch
+          checked={cfg.enabled}
+          onCheckedChange={(v) => setCfg({ ...cfg, enabled: v })}
+          className={cn(cfg.enabled && 'bg-emerald-500')}
+          aria-label="Triagem IA ativa"
+        />
       </section>
 
       {/* Cap mensal */}
@@ -410,25 +409,21 @@ export function HelpdeskIaSection() {
           <div className="rounded-lg border border-border p-3 bg-card">
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={estatisticas}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.5} />
                 <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
                 <YAxis yAxisId="left" tick={{ fontSize: 11 }} tickFormatter={v => `$${v.toFixed(2)}`} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} />
                 <Tooltip
-                  formatter={(value, name) => {
-                    if (name === 'totalUsd') return [`US$ ${Number(value).toFixed(4)}`, 'Gasto']
-                    if (name === 'tickets') return [value, 'Tickets']
-                    return [value, name]
-                  }}
-                  contentStyle={{ fontSize: 12 }}
+                  content={<ChartTooltip format={(value, name) => name === 'Gasto' ? `US$ ${Number(value).toFixed(4)}` : value} />}
+                  cursor={{ fill: CHART_CURSOR_FILL }}
                 />
-                <Bar yAxisId="left" dataKey="totalUsd" fill="#8b5cf6" name="totalUsd" radius={[4, 4, 0, 0]} />
-                <Bar yAxisId="right" dataKey="tickets" fill="#06b6d4" name="tickets" radius={[4, 4, 0, 0]} />
+                <Bar yAxisId="left" dataKey="totalUsd" fill="#8b5cf6" name="Gasto" radius={[4, 4, 0, 0]} />
+                <Bar yAxisId="right" dataKey="tickets" fill="#06b6d4" name="Tickets" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
             <div className="flex items-center gap-4 mt-2 text-[10px] text-muted-foreground justify-center">
-              <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-violet-500" /> Custo USD</span>
-              <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-cyan-500" /> Tickets processados</span>
+              <span className="inline-flex items-center gap-1"><span className={cn('h-2 w-2 rounded-sm', DOT.violet)} /> Custo USD</span>
+              <span className="inline-flex items-center gap-1"><span className={cn('h-2 w-2 rounded-sm', DOT.cyan)} /> Tickets processados</span>
             </div>
           </div>
         )}
@@ -555,20 +550,20 @@ function PlanoStatusBadge({ status }: { status?: 'pendente' | 'aprovado' | 'reje
   if (!status) return <span className="text-muted-foreground/60">—</span>
   if (status === 'pendente') {
     return (
-      <Badge variant="outline" className="text-[10px] h-5 bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-900/30 dark:text-violet-300">
+      <Badge variant="outline" className={cn('text-[10px] h-5', BADGE.violet)}>
         Pendente
       </Badge>
     )
   }
   if (status === 'aprovado') {
     return (
-      <Badge variant="outline" className="text-[10px] h-5 bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 gap-0.5">
+      <Badge variant="outline" className={cn('text-[10px] h-5 gap-0.5', BADGE.emerald)}>
         <CheckCircle2 className="h-2.5 w-2.5" /> Aprovado
       </Badge>
     )
   }
   return (
-    <Badge variant="outline" className="text-[10px] h-5 bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900/30 dark:text-rose-300 gap-0.5">
+    <Badge variant="outline" className={cn('text-[10px] h-5 gap-0.5', BADGE.rose)}>
       <XCircle className="h-2.5 w-2.5" /> Rejeitado
     </Badge>
   )
@@ -605,7 +600,7 @@ function DecisaoLinha({ decisao: d, aberto, planoStatus, onToggle }: {
               target="_blank"
               rel="noreferrer"
               onClick={e => e.stopPropagation()}
-              className="text-sky-600 hover:underline inline-flex items-center gap-1"
+              className={cn('hover:underline inline-flex items-center gap-1', TEXT.sky)}
             >
               #HLP{String(d.ticket.numero).padStart(4, '0')}
               <ExternalLink className="h-3 w-3" />
@@ -617,9 +612,9 @@ function DecisaoLinha({ decisao: d, aberto, planoStatus, onToggle }: {
             variant="outline"
             className={cn(
               'text-[10px] h-5',
-              d.complexidade === 'plano' && 'bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-900/30 dark:text-violet-300',
-              d.complexidade === 'complexo' && 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-300',
-              d.complexidade === 'erro' && 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900/30 dark:text-rose-300',
+              d.complexidade === 'plano' && BADGE.violet,
+              d.complexidade === 'complexo' && BADGE.amber,
+              d.complexidade === 'erro' && BADGE.rose,
             )}
           >
             {d.complexidade}
@@ -663,7 +658,7 @@ function DecisaoLinha({ decisao: d, aberto, planoStatus, onToggle }: {
               {planoTexto && (
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Plano gerado</p>
-                  <div className="bg-card border border-border rounded p-3 max-h-[320px] overflow-auto">
+                  <div className="bg-card border border-border rounded p-3 max-h-[320px] overflow-auto nice-scrollbar">
                     <MarkdownView source={planoTexto} className="text-[12px]" />
                   </div>
                 </div>
@@ -703,13 +698,13 @@ function DecisaoLinha({ decisao: d, aberto, planoStatus, onToggle }: {
                     Auditoria humana
                   </p>
                   {planoStatus === 'aprovado' && (
-                    <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
+                    <p className={cn('text-[11px]', TEXT.emerald)}>
                       ✓ Plano aprovado{d.ticket?.aiPlanoAprovadoEm && ` em ${new Date(d.ticket.aiPlanoAprovadoEm).toLocaleString('pt-BR')}`}
                     </p>
                   )}
                   {planoStatus === 'rejeitado' && (
                     <>
-                      <p className="text-[11px] text-rose-700 dark:text-rose-300">✗ Plano rejeitado</p>
+                      <p className={cn('text-[11px]', TEXT.rose)}>✗ Plano rejeitado</p>
                       {d.ticket?.aiPlanoMotivoRejeicao && (
                         <p className="text-[11px] text-rose-700/80 dark:text-rose-300/80 mt-1">
                           <strong>Motivo:</strong> {d.ticket.aiPlanoMotivoRejeicao}
@@ -725,7 +720,7 @@ function DecisaoLinha({ decisao: d, aberto, planoStatus, onToggle }: {
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5 flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3 text-rose-500" /> Erro
                   </p>
-                  <p className="text-[11px] font-mono text-rose-700 dark:text-rose-300 whitespace-pre-wrap">{d.erro}</p>
+                  <p className={cn('text-[11px] font-mono whitespace-pre-wrap', TEXT.rose)}>{d.erro}</p>
                 </div>
               )}
 

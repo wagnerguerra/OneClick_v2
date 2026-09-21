@@ -6,12 +6,13 @@ import {
   Monitor, Plus, MoreVertical, Pencil, Trash2, Tv, Loader2,
 } from 'lucide-react'
 import {
-  Button, Input, Card, Badge,
+  Button, Input, Card, Badge, cn,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { BADGE } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -140,7 +141,7 @@ export default function PaineisPage() {
                   <TableCell className="hidden lg:table-cell text-xs text-muted-foreground font-mono">/tv/{p.slug}</TableCell>
                   <TableCell className="hidden sm:table-cell text-xs text-center">{p.folhasCount}</TableCell>
                   <TableCell className="text-center">
-                    <Badge variant="secondary" className={`text-[10px] ${p.ativo ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : ''}`}>
+                    <Badge variant="secondary" className={cn('text-[10px]', p.ativo && BADGE.emerald)}>
                       {p.ativo ? 'Ativo' : 'Inativo'}
                     </Badge>
                   </TableCell>

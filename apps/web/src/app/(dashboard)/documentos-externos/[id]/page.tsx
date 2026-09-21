@@ -11,6 +11,7 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
+import { SURFACE } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -172,7 +173,7 @@ export default function DocumentoExternoDetalhePage() {
               return (
                 <div key={v.id} className={cn(
                   'rounded-lg border p-3 transition-colors',
-                  ehVigente ? 'border-amber-300/70 bg-amber-50/40 dark:border-amber-700/50 dark:bg-amber-950/10' : 'border-border bg-muted/20',
+                  ehVigente ? SURFACE.amber : 'border-border bg-muted/20',
                 )}>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-semibold tabular-nums">Revisão {v.revisao}</span>
@@ -269,7 +270,7 @@ export default function DocumentoExternoDetalhePage() {
               Os campos vêm preenchidos com a revisão vigente — ajuste o que mudou. A nova revisão passa a valer e a anterior fica no histórico.
             </DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-4 max-h-[60vh] overflow-y-auto nice-scrollbar">
+          <DialogBody className="space-y-4">
             <div className="grid grid-cols-12 gap-4">
               <div className="col-span-12 sm:col-span-4">
                 <Label className="text-[13px] font-semibold">Data do registro</Label>

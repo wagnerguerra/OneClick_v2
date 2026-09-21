@@ -9,7 +9,8 @@ import {
   Sparkles, PanelRightClose, PanelRightOpen, RefreshCw, Eye,
   CheckCircle2, AlertCircle, X, UploadCloud,
 } from 'lucide-react'
-import { Button, Badge, cn } from '@saas/ui'
+import { Button, Badge, Checkbox, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 
 /**
  * Explorador de arquivos no modelo do Windows Explorer.
@@ -349,15 +350,15 @@ function SeletorDeArea({
  * escolhido só para o claro some no escuro.
  */
 const VISUAL_DO_TIPO: Record<TipoDeArquivo, { Icone: typeof FileText; cor: string }> = {
-  planilha:     { Icone: FileSpreadsheet, cor: 'text-emerald-600 dark:text-emerald-400' },
-  pdf:          { Icone: FileText,        cor: 'text-rose-600 dark:text-rose-400' },
-  documento:    { Icone: FileText,        cor: 'text-blue-600 dark:text-blue-400' },
-  apresentacao: { Icone: Presentation,    cor: 'text-orange-600 dark:text-orange-400' },
-  imagem:       { Icone: FileImage,       cor: 'text-violet-600 dark:text-violet-400' },
-  codigo:       { Icone: FileCode,        cor: 'text-cyan-600 dark:text-cyan-400' },
-  zip:          { Icone: FileArchive,     cor: 'text-amber-600 dark:text-amber-400' },
-  video:        { Icone: FileVideo,       cor: 'text-fuchsia-600 dark:text-fuchsia-400' },
-  audio:        { Icone: FileAudio,       cor: 'text-indigo-600 dark:text-indigo-400' },
+  planilha:     { Icone: FileSpreadsheet, cor: TEXT.emerald },
+  pdf:          { Icone: FileText,        cor: TEXT.rose },
+  documento:    { Icone: FileText,        cor: TEXT.blue },
+  apresentacao: { Icone: Presentation,    cor: TEXT.orange },
+  imagem:       { Icone: FileImage,       cor: TEXT.violet },
+  codigo:       { Icone: FileCode,        cor: TEXT.cyan },
+  zip:          { Icone: FileArchive,     cor: TEXT.amber },
+  video:        { Icone: FileVideo,       cor: TEXT.fuchsia },
+  audio:        { Icone: FileAudio,       cor: TEXT.indigo },
   texto:        { Icone: FileText,        cor: 'text-slate-500 dark:text-slate-400' },
   outro:        { Icone: FileGenerico,    cor: 'text-muted-foreground' },
 }
@@ -791,10 +792,10 @@ function FilaDeEnvio({ fila, onFechar }: { fila: EnvioEmCurso[]; onFechar: () =>
             <div className="flex items-center gap-2">
               <span className="min-w-0 flex-1 truncate text-[12px] text-foreground">{f.nome}</span>
               {f.situacao === 'concluido' && (
-                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <CheckCircle2 className={cn('h-3.5 w-3.5 shrink-0', TEXT.emerald)} />
               )}
               {f.situacao === 'erro' && (
-                <AlertCircle className="h-3.5 w-3.5 shrink-0 text-rose-600 dark:text-rose-400" />
+                <AlertCircle className={cn('h-3.5 w-3.5 shrink-0', TEXT.rose)} />
               )}
               {f.situacao === 'enviando' && (
                 <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
@@ -812,7 +813,7 @@ function FilaDeEnvio({ fila, onFechar }: { fila: EnvioEmCurso[]; onFechar: () =>
               </div>
             )}
             {f.situacao === 'erro' && (
-              <p className="mt-0.5 text-[11px] text-rose-600 dark:text-rose-400">{f.erro}</p>
+              <p className={cn('mt-0.5 text-[11px]', TEXT.rose)}>{f.erro}</p>
             )}
           </div>
         ))}
@@ -1399,14 +1400,13 @@ export function Explorador({
                 <tr className="border-b border-border bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
                   {podeSelecionar && (
                     <th className="w-[36px] px-2 py-1.5">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={todosMarcados}
-                        onChange={alternarTodos}
+                        onCheckedChange={alternarTodos}
                         disabled={arquivosDaPasta.length === 0}
                         aria-label="Marcar todos os arquivos desta pasta"
-                        className="h-3.5 w-3.5 cursor-pointer accent-current align-middle"
-                        style={{ color: cor }}
+                        accentColor={cor}
+                        className="h-3.5 w-3.5 cursor-pointer align-middle"
                       />
                     </th>
                   )}
@@ -1479,13 +1479,12 @@ export function Explorador({
                   >
                     {podeSelecionar && (
                       <td className="px-2 py-1.5" onClick={e => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={marcados.has(a.id)}
-                          onChange={() => alternarMarca(a.id)}
+                          onCheckedChange={() => alternarMarca(a.id)}
                           aria-label={`Marcar ${a.nome}`}
-                          className="h-3.5 w-3.5 cursor-pointer accent-current align-middle"
-                          style={{ color: cor }}
+                          accentColor={cor}
+                          className="h-3.5 w-3.5 cursor-pointer align-middle"
                         />
                       </td>
                     )}

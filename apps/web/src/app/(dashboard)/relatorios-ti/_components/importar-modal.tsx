@@ -5,7 +5,9 @@ import { FolderUp, Loader2, Upload, X, AlertCircle } from 'lucide-react'
 import {
   Button, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
+import { TEXT, SURFACE, FILL } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -219,7 +221,7 @@ export function ImportarModal({ pessoas, onClose, onPronto }: {
           </DialogDescription>
         </DialogHeaderIcon>
 
-        <DialogBody className="nice-scrollbar max-h-[65vh] space-y-3 overflow-y-auto">
+        <DialogBody className="max-h-[65vh] space-y-3 overflow-y-auto">
           <div
             onClick={() => !lendo && inputRef.current?.click()}
             className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border px-6 py-8 text-center hover:bg-muted/20"
@@ -263,9 +265,9 @@ export function ImportarModal({ pessoas, onClose, onPronto }: {
           )}
 
           {semAutor > 0 && (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 dark:border-amber-900/50 dark:bg-amber-950/20">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-              <p className="text-[12.5px] text-amber-900 dark:text-amber-300">
+            <div className={cn('flex items-start gap-2 rounded-lg border px-3 py-2', SURFACE.amber)}>
+              <AlertCircle className={cn('mt-0.5 h-4 w-4 shrink-0', TEXT.amber)} />
+              <p className={cn('text-[12.5px]', TEXT.amber)}>
                 <b>{semAutor}</b> arquivo(s) sem autor reconhecido. Escolha quem escreveu, ou
                 remova da lista — eles não serão importados em branco.
               </p>
@@ -290,21 +292,23 @@ export function ImportarModal({ pessoas, onClose, onPronto }: {
                         {a.data.split('-').reverse().join('/')}
                       </td>
                       <td className="px-3 py-2 align-top">
-                        <select
-                          value={a.autorId}
-                          onChange={e => setAchados(l => l.map(x =>
-                            x.chave === a.chave ? { ...x, autorId: e.target.value } : x))}
-                          className={cn('h-9 w-full rounded-md border bg-background px-2 text-sm',
-                            a.autorId ? 'border-border' : 'border-amber-400')}
+                        <Select
+                          value={a.autorId || undefined}
+                          onValueChange={v => setAchados(l => l.map(x =>
+                            x.chave === a.chave ? { ...x, autorId: v } : x))}
                         >
-                          <option value="">— escolha —</option>
-                          {pessoas.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        </select>
+                          <SelectTrigger className={cn('h-9 w-full text-sm', !a.autorId && 'border-amber-400')}>
+                            <SelectValue placeholder="— escolha —" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {pessoas.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                         {/* Sem casar, diz o que LEU — "não reconheci" sozinho
                             deixa a pessoa sem saber se o problema é o arquivo
                             ou o cadastro. */}
                         {!a.autorId && (
-                          <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">
+                          <p className={cn('mt-1 text-[11px]', TEXT.amber)}>
                             {a.prefixo ? <>li &quot;<b>{a.prefixo}</b>&quot;</> : 'sem nome no arquivo'}
                           </p>
                         )}
@@ -314,7 +318,7 @@ export function ImportarModal({ pessoas, onClose, onPronto }: {
                           value={a.titulo}
                           onChange={e => setAchados(l => l.map(x =>
                             x.chave === a.chave ? { ...x, titulo: e.target.value } : x))}
-                          className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+                          className="h-9 w-full rounded-md px-2 text-sm"
                         />
                         {/* O caminho de origem embaixo: dois arquivos podem gerar
                             o mesmo título, e sem ele as linhas ficam idênticas. */}
@@ -343,7 +347,7 @@ export function ImportarModal({ pessoas, onClose, onPronto }: {
                 <span className="tabular-nums">{progresso} de {achados.filter(a => a.autorId).length}</span>
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                <div className="h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+                <div className={cn('h-full rounded-full transition-[width] duration-300', FILL.emerald)}
                   style={{ width: `${(progresso / Math.max(1, achados.filter(a => a.autorId).length)) * 100}%` }} />
               </div>
             </div>

@@ -22,8 +22,8 @@ import {
 import { Card, CardContent, Badge } from '@saas/ui'
 import { PageHeaderBar } from '@/components/page-header-bar'
 
-// Cor de acento do bloco "Ajuda" (cyan), via token coerente com a sidebar.
-const ACCENT = '#0891b2'
+// Cor de acento do bloco "Ajuda" (cyan), via a var editável do módulo.
+const ACCENT = 'var(--mod-ajuda, #0891b2)'
 
 // Versão atual do sistema web — fonte: apps/web/package.json (campo "version").
 const VERSAO_WEB = '0.1.0'

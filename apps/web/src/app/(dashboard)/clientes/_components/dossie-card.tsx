@@ -22,6 +22,7 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { getApiUrl } from '@/lib/api-url'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -109,9 +110,9 @@ function momentoBr(iso: string | null | undefined): string {
 /** Verde para ativa; âmbar/vermelho quando a empresa não está regular. */
 function corDaSituacao(v: string | null): string {
   const s = (v || '').toLowerCase()
-  if (s.includes('ativa')) return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300'
-  if (s.includes('suspensa') || s.includes('inapta')) return 'bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-300'
-  if (s.includes('baixada') || s.includes('nula')) return 'bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300'
+  if (s.includes('ativa')) return BADGE.emerald
+  if (s.includes('suspensa') || s.includes('inapta')) return BADGE.amber
+  if (s.includes('baixada') || s.includes('nula')) return BADGE.rose
   return 'bg-muted text-muted-foreground'
 }
 
@@ -586,7 +587,7 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
                           {s.participacao != null && <> · {s.participacao}%</>}
                           {s.documentoCompleto && (
                             <span
-                              className="rounded-full bg-emerald-100 px-1.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300"
+                              className={cn('rounded-full px-1.5 text-[10px] font-semibold', BADGE.emerald)}
                               title="CPF completo, obtido da Situação Fiscal na aba Legalização"
                             >
                               completo
@@ -642,7 +643,7 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
                             )}
                             {!x.porCpf && (
                               <span
-                                className="rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300"
+                                className={cn('rounded-full px-1.5 text-[10px] font-semibold', BADGE.amber)}
                                 title="Casou pelo nome, não pelo CPF — pode ser homônimo"
                               >
                                 por nome
@@ -801,7 +802,7 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
                             </a>
                             {!perfil.confirmado && (
                               <>
-                                <span className="shrink-0 rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+                                <span className={cn('shrink-0 rounded-full px-1.5 text-[10px] font-semibold', BADGE.amber)}>
                                   a conferir
                                 </span>
                                 {podeAtualizar && (
@@ -838,7 +839,7 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
                               onChange={e => setUrlNova(e.target.value)}
                               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void adicionarPerfil(socio.id) } }}
                               placeholder="https://instagram.com/perfil"
-                              className="h-8 min-w-[220px] flex-1 rounded-md border border-border bg-background px-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                              className="h-8 min-w-[220px] flex-1 rounded-md px-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
                             />
                             <Button
                               size="sm" variant="outline" className="h-8"
@@ -906,8 +907,8 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
               <div key={p.chave} className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/20 px-3 py-2">
                 <span className="mt-0.5 shrink-0">
                   {p.status === 'rodando' && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                  {p.status === 'ok' && <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
-                  {p.status === 'erro' && <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
+                  {p.status === 'ok' && <Check className={cn('h-4 w-4', TEXT.emerald)} />}
+                  {p.status === 'erro' && <AlertTriangle className={cn('h-4 w-4', TEXT.amber)} />}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-foreground">{p.rotulo}</p>

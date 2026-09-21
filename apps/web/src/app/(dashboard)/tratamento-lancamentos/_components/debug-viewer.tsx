@@ -16,6 +16,7 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   cn,
 } from '@saas/ui'
+import { TEXT, BADGE, type ColorName } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { extractClient } from '../lib/extract-client'
 
@@ -31,11 +32,12 @@ const STATUS_LABEL: Record<TraceRow['status'], string> = {
   'pulada-regra': 'Pulada (regra)',
   'ignorada-zero': 'Ignorada (zero)',
 }
-const STATUS_CLASS: Record<TraceRow['status'], string> = {
-  ok: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
-  pendencia: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400',
-  'pulada-regra': 'bg-slate-200 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300',
-  'ignorada-zero': 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
+// Cor de conceito por status → papel BADGE do helper (fonte única).
+const STATUS_TONE: Record<TraceRow['status'], ColorName> = {
+  ok: 'emerald',
+  pendencia: 'rose',
+  'pulada-regra': 'slate',
+  'ignorada-zero': 'amber',
 }
 
 const cellText = (v: unknown): string => (v === null || v === undefined || v === '' ? '' : String(v))
@@ -98,7 +100,7 @@ export function DebugViewer({ fileBase64, filename, modelId, competenciaAno }: P
         </Button>
       </div>
 
-      {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
+      {error && <p className={cn('text-xs', TEXT.rose)}>{error}</p>}
 
       {data && (
         <Tabs defaultValue="raw">
@@ -139,7 +141,7 @@ function ScrollFrame({ children }: { children: React.ReactNode }) {
     <div className="rounded-[2px] border border-border/60 overflow-hidden">
       {/* overflow-auto nativo (mesmo padrão da tabela de pendências): barra
           sempre visível e scroll confiável, ao contrário do ScrollArea/Radix. */}
-      <div className="max-h-[460px] overflow-auto">
+      <div className="nice-scrollbar max-h-[460px] overflow-auto">
         {children}
       </div>
     </div>
@@ -224,7 +226,7 @@ function PendTable({ trace, pendencias }: { trace: TraceRow[]; pendencias: Debug
   for (const p of pendencias) if (!motivoPorLinha.has(p.linha)) motivoPorLinha.set(p.linha, p.mensagem)
 
   if (problemas.length === 0) {
-    return <p className="text-xs text-emerald-600 dark:text-emerald-400 py-4">Nenhuma pendência ou linha pulada — todas as linhas viraram lançamento.</p>
+    return <p className={cn('text-xs py-4', TEXT.emerald)}>Nenhuma pendência ou linha pulada — todas as linhas viraram lançamento.</p>
   }
   return (
     <ScrollFrame>
@@ -257,5 +259,5 @@ function PendTable({ trace, pendencias }: { trace: TraceRow[]; pendencias: Debug
 }
 
 function StatusBadge({ status }: { status: TraceRow['status'] }) {
-  return <Badge variant="secondary" className={cn('text-[10px] font-medium', STATUS_CLASS[status])}>{STATUS_LABEL[status]}</Badge>
+  return <Badge variant="outline" className={cn('text-[10px] font-medium', BADGE[STATUS_TONE[status]])}>{STATUS_LABEL[status]}</Badge>
 }

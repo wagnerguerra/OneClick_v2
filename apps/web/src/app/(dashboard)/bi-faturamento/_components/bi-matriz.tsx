@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Loader2, Plus, Minus } from 'lucide-react'
 import { Input, Checkbox, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
+import { TEXT } from '@/lib/color-styles'
 
 const MESES_LABELS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 
@@ -127,7 +128,7 @@ export function BiMatriz({ clienteId, ano }: { clienteId: string; ano: number })
         .mz-cell-sel-cross-r { background-color: rgba(255, 180, 40, 0.35) !important; box-shadow: inset 0 2px 0 rgba(154,114,0,0.5), inset -2px 0 0 rgba(154,114,0,0.5), inset 0 -2px 0 rgba(154,114,0,0.5); }
         .mz-cat-sel { background-color: rgba(255, 180, 40, 0.3) !important; border-left: 3px solid #9a7200 !important; }
         .mz-head-sel { background-color: rgba(255, 180, 40, 0.4) !important; color: #1e293b !important; }
-        .mz-sticky-conta { position: sticky; left: 0; z-index: 15; background-color: #fff; box-shadow: 6px 0 10px -4px rgba(0,0,0,0.15); }
+        .mz-sticky-conta { position: sticky; left: 0; z-index: 15; background-color: var(--color-card); box-shadow: 6px 0 10px -4px rgba(0,0,0,0.15); }
         .mz-sticky-conta.mz-cat-sel { background-color: rgba(255, 180, 40, 0.3); }
       `}</style>
       {/* Toolbar */}
@@ -145,7 +146,7 @@ export function BiMatriz({ clienteId, ano }: { clienteId: string; ano: number })
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-md border" style={{ maxHeight: '70vh' }}>
+      <div className="overflow-x-auto nice-scrollbar rounded-md border" style={{ maxHeight: '70vh' }}>
         <table className="w-full text-xs border-collapse">
           <thead className="sticky top-0 z-10">
             {/* Row 1: Month headers */}
@@ -194,8 +195,8 @@ export function BiMatriz({ clienteId, ano }: { clienteId: string; ano: number })
               const isGroup = row.level === 0
               const rowType = getRowType(row.conta, row.nomeConta)
 
-              const valColor = rowType === 'receita' ? 'text-emerald-700 dark:text-emerald-400'
-                : rowType === 'despesa' ? 'text-red-800 dark:text-red-400'
+              const valColor = rowType === 'receita' ? TEXT.emerald
+                : rowType === 'despesa' ? TEXT.red
                 : ''
               const isRowSel = selRow === row.id
 
@@ -231,13 +232,13 @@ export function BiMatriz({ clienteId, ano }: { clienteId: string; ano: number })
                     return (
                       <React.Fragment key={ref}>
                         <td
-                          className={cn('px-2 py-1.5 text-right tabular-nums border-l border-border/10 cursor-pointer', isNeg ? 'text-red-600' : valColor, isGroup && 'font-semibold', hlL)}
+                          className={cn('px-2 py-1.5 text-right tabular-nums border-l border-border/10 cursor-pointer', isNeg ? TEXT.red : valColor, isGroup && 'font-semibold', hlL)}
                           onClick={() => handleCellClick(row.id, ref)}
                         >
                           {fmtNum(cell.realizado)}
                         </td>
                         <td
-                          className={cn('px-1 py-1.5 text-right tabular-nums text-muted-foreground cursor-pointer', cell.pct_av < 0 && 'text-red-500', hlR)}
+                          className={cn('px-1 py-1.5 text-right tabular-nums text-muted-foreground cursor-pointer', cell.pct_av < 0 && TEXT.red, hlR)}
                           onClick={() => handleCellClick(row.id, ref)}
                         >
                           {fmtPct(cell.pct_av)}
@@ -247,10 +248,10 @@ export function BiMatriz({ clienteId, ano }: { clienteId: string; ano: number })
                   })}
 
                   {/* Total */}
-                  <td className={cn('px-2 py-1.5 text-right tabular-nums border-l-2 border-border/40 bg-muted/20', row.total.realizado < 0 ? 'text-red-600 font-semibold' : `${valColor} font-semibold`)}>
+                  <td className={cn('px-2 py-1.5 text-right tabular-nums border-l-2 border-border/40 bg-muted/20', row.total.realizado < 0 ? cn(TEXT.red, 'font-semibold') : `${valColor} font-semibold`)}>
                     {fmtNum(row.total.realizado)}
                   </td>
-                  <td className={cn('px-1 py-1.5 text-right tabular-nums bg-muted/20 text-muted-foreground font-semibold', row.total.pct_av < 0 && 'text-red-500')}>
+                  <td className={cn('px-1 py-1.5 text-right tabular-nums bg-muted/20 text-muted-foreground font-semibold', row.total.pct_av < 0 && TEXT.red)}>
                     {fmtPct(row.total.pct_av)}
                   </td>
                 </tr>

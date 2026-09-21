@@ -11,7 +11,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import {
-  Button, Input, Badge, Card,
+  Button, Input, Badge, Card, Checkbox,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
@@ -25,6 +25,7 @@ import { CatalogoCombobox } from './_components/catalogo-combobox'
 import { RelatorioColunaModal } from './_components/relatorio-coluna-modal'
 import { ReprocessarServicosModal } from './_components/reprocessar-servicos-modal'
 import { cn } from '@saas/ui'
+import { TEXT, BADGE, DOT } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { useAutoHideScrollbar } from '@/hooks/use-autohide-scrollbar'
@@ -102,6 +103,7 @@ interface OrcamentoRow {
   createdAt: string
   updatedAt: string
   arquivado?: boolean
+  paralizado?: boolean
   // Datas dedicadas + validade — usadas para calcular prazo no card
   dtEnviado?: string | null
   dtAprovado?: string | null
@@ -881,7 +883,7 @@ export default function OrcamentosPage() {
             className={cn(
               'h-9 px-3 rounded-lg text-xs font-medium border transition-colors shrink-0',
               arquivado
-                ? 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400'
+                ? BADGE.amber
                 : 'bg-card border-border text-muted-foreground hover:bg-muted/50',
             )}
             title={arquivado ? 'Mostrando arquivados' : 'Mostrando ativos'}
@@ -980,7 +982,7 @@ export default function OrcamentosPage() {
               </div>
               <div className="flex items-end">
                 <label className="inline-flex items-center gap-2 h-9 cursor-pointer select-none">
-                  <input type="checkbox" className="h-4 w-4 rounded border-border cursor-pointer" style={{ accentColor: MODULE_COLOR }} checked={incluirParalizados} onChange={e => { setIncluirParalizados(e.target.checked); setPage(1) }} />
+                  <Checkbox className="cursor-pointer" accentColor={MODULE_COLOR} checked={incluirParalizados} onCheckedChange={v => { setIncluirParalizados(v === true); setPage(1) }} />
                   <span className="text-sm text-foreground">Incluir paralizados</span>
                 </label>
               </div>
@@ -1061,7 +1063,7 @@ export default function OrcamentosPage() {
           <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3 flex-1">
               <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}>
-                <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>{PAGE_SIZES.map(s => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
               </Select>
               {/* #HLP0266: no escopo "Para liberação do financeiro" a lista é
@@ -1072,7 +1074,7 @@ export default function OrcamentosPage() {
                 </span>
               ) : (
                 <Select value={statusFilter || '__all__'} onValueChange={v => { setStatusFilter(v === '__all__' ? '' : v); setPage(1) }}>
-                  <SelectTrigger className="h-8 w-full text-xs bg-card sm:w-[140px]"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectTrigger className="h-8 w-full text-xs sm:w-[140px]"><SelectValue placeholder="Status" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__all__">Todos os status</SelectItem>
                     {Object.entries(STATUS_LABELS).map(([k, v]) => (
@@ -1088,7 +1090,7 @@ export default function OrcamentosPage() {
                 className={cn(
                   'inline-flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-md border transition-colors',
                   comReaberturas
-                    ? 'bg-amber-100 border-amber-300 text-amber-800 dark:bg-amber-900/40 dark:border-amber-800 dark:text-amber-200'
+                    ? BADGE.amber
                     : 'bg-card border-border text-muted-foreground hover:text-foreground hover:bg-muted/40',
                 )}
               >
@@ -1159,7 +1161,12 @@ export default function OrcamentosPage() {
                   <TableCell className="hidden sm:table-cell font-mono text-xs font-medium">{orc.numero}</TableCell>
                   <TableCell className="hidden sm:table-cell"><StatusBadge status={orc.status} /></TableCell>
                   <TableCell className="text-sm">
-                    <span className="block truncate">{getClienteNome(orc) || '—'}</span>
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <span className="truncate">{getClienteNome(orc) || '—'}</span>
+                      {orc.paralizado && (
+                        <Badge variant="outline" className={cn('shrink-0 text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.amber)}>Paralizado</Badge>
+                      )}
+                    </span>
                     {/* Número e status, que ganham coluna a partir de `sm` */}
                     <span className="mt-1 flex items-center gap-1.5 sm:hidden">
                       <span className="font-mono text-[11px] text-muted-foreground">#{orc.numero}</span>
@@ -1182,7 +1189,7 @@ export default function OrcamentosPage() {
                         <DropdownMenuItem onClick={() => router.push(`/orcamentos/${orc.id}`)}><FileText className="h-4 w-4" />Detalhes</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleDuplicar(orc.id)}><Copy className="h-4 w-4" />Duplicar</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleArquivar(orc.id)}><Archive className="h-4 w-4" />Arquivar</DropdownMenuItem>
-                        <DropdownMenuItem className="text-amber-600 dark:text-amber-500" onClick={() => handleCancelar(orc.id)}><Ban className="h-4 w-4" />Cancelar</DropdownMenuItem>
+                        <DropdownMenuItem className={TEXT.amber} onClick={() => handleCancelar(orc.id)}><Ban className="h-4 w-4" />Cancelar</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -1648,6 +1655,9 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
       <div className="flex items-start justify-between gap-1 px-3 pt-2.5 pb-1">
         <h4 className="min-w-0 text-[13px] font-semibold leading-tight line-clamp-2">
           <span className="shrink-0">#{orc.numero}</span> {clienteNome || 'Sem cliente'}
+          {orc.paralizado && (
+            <Badge variant="outline" className={cn('ml-1 align-middle text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.amber)}>Paralizado</Badge>
+          )}
         </h4>
         <div className="h-6 w-6 shrink-0 -mr-1 -mt-0.5">
           {showMenu && (
@@ -1661,7 +1671,7 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
                 <DropdownMenuItem onClick={() => onOpenDetail(orc.id)}><Eye className="h-3.5 w-3.5 mr-2" /> Detalhes</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onDuplicar(orc.id)}><Copy className="h-3.5 w-3.5 mr-2" /> Duplicar</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onArquivar(orc.id)}><Archive className="h-3.5 w-3.5 mr-2" /> Arquivar</DropdownMenuItem>
-                <DropdownMenuItem className="text-amber-600 dark:text-amber-500" onClick={() => onCancelar(orc.id)}><Ban className="h-3.5 w-3.5 mr-2" /> Cancelar</DropdownMenuItem>
+                <DropdownMenuItem className={TEXT.amber} onClick={() => onCancelar(orc.id)}><Ban className="h-3.5 w-3.5 mr-2" /> Cancelar</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -1670,10 +1680,10 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
       {/* Resposta do cliente pelo link — faixa de destaque pra ninguém deixar passar */}
       {orc.decisaoTipo && (() => {
         const meta = orc.decisaoTipo === 'APROVADO'
-          ? { label: 'Cliente aprovou pelo link', Icon: CheckCircle2, cls: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300', dot: 'bg-emerald-500' }
+          ? { label: 'Cliente aprovou pelo link', Icon: CheckCircle2, cls: BADGE.emerald, dot: DOT.emerald }
           : orc.decisaoTipo === 'REVISAO_SOLICITADA'
-          ? { label: 'Cliente pediu revisão', Icon: Pencil, cls: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300', dot: 'bg-amber-500' }
-          : { label: 'Cliente recusou pelo link', Icon: ThumbsDown, cls: 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300', dot: 'bg-rose-500' }
+          ? { label: 'Cliente pediu revisão', Icon: Pencil, cls: BADGE.amber, dot: DOT.amber }
+          : { label: 'Cliente recusou pelo link', Icon: ThumbsDown, cls: BADGE.rose, dot: DOT.rose }
         const Icon = meta.Icon
         return (
           <div className={cn('mx-3 mb-1.5 flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium', meta.cls)}
@@ -1737,7 +1747,7 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
         </div>
         <div className="flex items-center gap-2">
           {orc.oportunidadeId && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-fuchsia-700 bg-fuchsia-50 dark:bg-fuchsia-900/30 dark:text-fuchsia-400 rounded-sm px-1.5 py-0.5" title="Card de CRM vinculado">
+            <span className={cn('inline-flex items-center gap-1 text-[10px] font-medium rounded-sm px-1.5 py-0.5', BADGE.fuchsia)} title="Card de CRM vinculado">
               <Target className="h-3 w-3" /> CRM{orc.oportunidadeNumero != null ? ` #${orc.oportunidadeNumero}` : ''}
             </span>
           )}
@@ -1772,9 +1782,9 @@ function PrazoBadge({ orc }: { orc: OrcamentoRow }) {
   const config = useContext(OrcConfigContext)
   const prazo = calcularPrazoCard(orc, config)
   const colorClasses: Record<typeof prazo.variant, string> = {
-    ok: 'text-emerald-600 dark:text-emerald-400',
-    warning: 'text-amber-600 dark:text-amber-400',
-    danger: 'text-rose-600 dark:text-rose-400 font-semibold',
+    ok: TEXT.emerald,
+    warning: TEXT.amber,
+    danger: cn(TEXT.rose, 'font-semibold'),
     neutral: 'text-muted-foreground',
   }
   return (

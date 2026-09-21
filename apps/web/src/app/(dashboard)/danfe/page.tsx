@@ -15,6 +15,7 @@ import {
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { BuscarNotasModal } from './_components/buscar-notas-modal'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -140,7 +141,7 @@ export default function DanfePage() {
           </div>
           <div className="relative">
             <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input placeholder="Buscar cliente, CNPJ..." value={busca} onChange={e => setBusca(e.target.value)} className="h-8 pl-8 w-full sm:w-[280px] text-xs bg-card" />
+            <Input placeholder="Buscar cliente, CNPJ..." value={busca} onChange={e => setBusca(e.target.value)} className="h-8 pl-8 w-full sm:w-[280px] text-xs" />
           </div>
         </div>
 
@@ -225,10 +226,10 @@ export default function DanfePage() {
 // ─────────────────────────────────────────────────────────────
 function KpiCard({ icon: Icon, label, value, color }: { icon: typeof FileText; label: string; value: number; color: string }) {
   const map: Record<string, string> = {
-    rose:    'text-rose-700 bg-rose-50 dark:bg-rose-950/30 dark:text-rose-300',
-    amber:   'text-amber-700 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-300',
-    emerald: 'text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-300',
-    sky:     'text-sky-700 bg-sky-50 dark:bg-sky-950/30 dark:text-sky-300',
+    rose:    BADGE.rose,
+    amber:   BADGE.amber,
+    emerald: BADGE.emerald,
+    sky:     BADGE.sky,
   }
   return (
     <div className="flex items-center gap-2 rounded-md border bg-card p-2.5">
@@ -306,12 +307,12 @@ function UploadModal({ open, onClose, onSuccess }: { open: boolean; onClose: () 
             onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files) }}
             className={cn(
               'border-2 border-dashed rounded-md p-6 text-center transition-colors',
-              dragOver ? 'border-sky-400 bg-sky-50/50' : 'border-border',
+              dragOver ? 'border-sky-400 bg-sky-50/50 dark:bg-sky-950/30' : 'border-border',
             )}
           >
             <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
             <p className="text-sm font-medium">Arraste arquivos aqui ou</p>
-            <label className="text-xs text-sky-600 cursor-pointer hover:underline">
+            <label className={cn('text-xs cursor-pointer hover:underline', TEXT.sky)}>
               clique para selecionar
               <input type="file" multiple accept=".xml,.zip" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
             </label>
@@ -322,7 +323,7 @@ function UploadModal({ open, onClose, onSuccess }: { open: boolean; onClose: () 
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => { reset(); onClose() }}>Cancelar</Button>
-          <Button onClick={handleUpload} disabled={uploading || files.length === 0} className="bg-sky-600 hover:bg-sky-700">
+          <Button onClick={handleUpload} disabled={uploading || files.length === 0} className="text-white" style={{ backgroundColor: MODULE_COLOR }}>
             {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             {uploading ? 'Enviando...' : 'Enviar'}
           </Button>

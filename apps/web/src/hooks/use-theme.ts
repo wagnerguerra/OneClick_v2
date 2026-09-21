@@ -14,6 +14,12 @@ function getSystemTheme(): 'light' | 'dark' {
 function applyTheme(theme: Theme) {
   const resolved = theme === 'system' ? getSystemTheme() : theme
   document.documentElement.classList.toggle('dark', resolved === 'dark')
+  // SweetAlert2 tema-a-partir-do-atributo: a lib estiliza o popup por
+  // `[data-swal2-theme=dark]` (var `--swal2-*`). Nossos Swals não passam
+  // `theme`, então o container fica sem tema próprio e HERDA daqui — pôr o
+  // atributo no <html> sincroniza TODOS os popups (alerts.ts + Swal.fire
+  // inline) com o tema do app, sem tocar call site algum.
+  document.documentElement.dataset['swal2Theme'] = resolved
 }
 
 export function useTheme() {
@@ -53,15 +59,18 @@ export function useTheme() {
   }, [])
 
   const toggleTheme = useCallback(() => {
-    setThemeState((prev) => {
-      const resolved = prev === 'system' ? getSystemTheme() : prev
-      const next = resolved === 'dark' ? 'light' : 'dark'
-      localStorage.setItem(THEME_KEY, next)
-      applyTheme(next)
-      window.dispatchEvent(new CustomEvent('oc-prefs', { detail: { chave: 'theme' } }))
-      return next
-    })
-  }, [])
+    // Efeitos (localStorage/applyTheme/dispatch) FORA do updater: dispará-los
+    // dentro do updater de setState os executa na fase de render, e o
+    // dispatch de `oc-prefs` é síncrono → o listener do LayoutCustomizer daria
+    // setState durante o render do Header ("Cannot update a component while
+    // rendering a different component"). Espelha o setTheme acima.
+    const resolved = theme === 'system' ? getSystemTheme() : theme
+    const next = resolved === 'dark' ? 'light' : 'dark'
+    setThemeState(next)
+    localStorage.setItem(THEME_KEY, next)
+    applyTheme(next)
+    window.dispatchEvent(new CustomEvent('oc-prefs', { detail: { chave: 'theme' } }))
+  }, [theme])
 
   return { theme, setTheme, toggleTheme, mounted }
 }

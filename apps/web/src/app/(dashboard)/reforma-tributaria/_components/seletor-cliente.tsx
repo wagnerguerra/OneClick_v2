@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Search, Loader2, Check, ChevronDown, X } from 'lucide-react'
 import { Input, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 
 export interface ClienteSimulador {
@@ -83,8 +84,9 @@ export function SeletorCliente({ selecionado, onSelecionar }: {
       {selecionado && !aberto ? (
         <button
           type="button"
+          role="combobox"
           onClick={() => { setAberto(true); setBusca('') }}
-          className="flex h-10 w-full items-center gap-2 rounded-lg border border-border bg-card px-3 text-left transition-colors hover:bg-muted/40"
+          className="flex h-10 w-full items-center gap-2 rounded-lg border border-border px-3 text-left transition-colors hover:bg-muted/40"
         >
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-foreground">{selecionado.razaoSocial}</p>
@@ -148,7 +150,7 @@ export function SeletorCliente({ selecionado, onSelecionar }: {
                       .filter(Boolean).join(' · ')}
                   </p>
                 </div>
-                {selecionado?.id === c.id && <Check className="h-4 w-4 shrink-0 text-emerald-600" />}
+                {selecionado?.id === c.id && <Check className={cn('h-4 w-4 shrink-0', TEXT.emerald)} />}
               </button>
             ))
           )}

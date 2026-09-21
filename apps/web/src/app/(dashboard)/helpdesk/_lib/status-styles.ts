@@ -1,4 +1,5 @@
 import type { HelpdeskStatus } from '@saas/types'
+import { STRONG } from '@/lib/color-styles'
 
 /**
  * Fonte única das cores do HelpDesk — status do chamado e tipo de conteúdo
@@ -6,10 +7,12 @@ import type { HelpdeskStatus } from '@saas/types'
  * [id]/page.tsx (detalhe) e indicadores/page.tsx (gráficos), pra que as mesmas
  * coisas tenham sempre a mesma cor.
  *
- * São dois "formatos" do mesmo conceito porque o Tailwind precisa de classes
- * estáticas (não dá pra derivar `bg-blue-100` do hex em runtime):
+ * Camada 2 do padrão de cores: cada status mapeia para uma ColorName da casa e
+ * as classes do badge derivam do papel `STRONG` de `@/lib/color-styles` (fonte
+ * única) — não repetimos os literais aqui. O hex (para estilo inline em
+ * gráficos) fica no mapa próprio, porque o Tailwind não deriva classe de hex.
  *   - HELPDESK_STATUS_COR   → hex, pra estilo inline (barras, células de gráfico)
- *   - HELPDESK_STATUS_BADGE → classes do badge (fundo sólido, claro + escuro)
+ *   - HELPDESK_STATUS_BADGE → classes do badge (papel STRONG, claro + escuro)
  */
 
 // Cor semântica (hex) de cada status — cada uma reflete a função do estado:
@@ -29,14 +32,15 @@ export const HELPDESK_STATUS_COR: Record<HelpdeskStatus, string> = {
   CANCELADO: '#ef4444',            // red-500
 }
 
-// Classes do badge de status (fundo sólido, com variantes claro/escuro).
+// Classes do badge de status — derivam do papel STRONG (fundo sólido, com borda,
+// claro + escuro). O mapa status → ColorName espelha HELPDESK_STATUS_COR acima.
 export const HELPDESK_STATUS_BADGE: Record<HelpdeskStatus, string> = {
-  NOVO: 'bg-blue-100 dark:bg-blue-900 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-200',
-  AGUARDANDO_AUDITORIA: 'bg-cyan-100 dark:bg-cyan-900 border-cyan-200 dark:border-cyan-700 text-cyan-700 dark:text-cyan-200',
-  EM_ANDAMENTO: 'bg-amber-100 dark:bg-amber-900 border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-200',
-  RESOLVIDO: 'bg-purple-100 dark:bg-purple-900 border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-200',
-  CONCLUIDO: 'bg-emerald-100 dark:bg-emerald-900 border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-200',
-  CANCELADO: 'bg-red-100 dark:bg-red-900 border-red-200 dark:border-red-700 text-red-700 dark:text-red-200',
+  NOVO: STRONG.blue,
+  AGUARDANDO_AUDITORIA: STRONG.cyan,
+  EM_ANDAMENTO: STRONG.amber,
+  RESOLVIDO: STRONG.purple,
+  CONCLUIDO: STRONG.emerald,
+  CANCELADO: STRONG.red,
 }
 
 // Classes por tipo de conteúdo/mensagem: pública (e descrição inicial) = ciano,

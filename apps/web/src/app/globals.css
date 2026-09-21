@@ -27,6 +27,7 @@
   --color-destructive: #ef4444;
   --color-destructive-foreground: #ffffff;
   --color-border: #e5e8ee;  /* a borda suave do LuminAux */
+  --color-hairline: rgba(0,0,0,0.08);  /* divisória fininha (era border-[rgba(0,0,0,0.08)] hardcoded); no dark vira branca translúcida */
   --color-input: #e5e8ee;
   --color-ring: #0067ff;
   --radius: 0.5rem;
@@ -106,9 +107,31 @@
 /* CRM Kanban drag-and-drop */
 .crm-column-over { background-color: rgba(251, 113, 133, 0.06) !important; }
 
+/* Recharts — rótulos e eixos tema-aware. O default do recharts é #666 (fixo),
+   que fica escuro demais no dark. `fill`/`stroke` via CSS vencem os atributos
+   de apresentação que o recharts põe no <text>/<line>. Rótulos usam
+   muted-foreground (dark = #9ca3af, mais claro); eixos/traços usam a borda. */
+.recharts-cartesian-axis-tick-value { fill: var(--color-muted-foreground) !important; }
+.recharts-cartesian-axis-line,
+.recharts-cartesian-axis-tick line { stroke: var(--color-muted-foreground) !important; }
+
 /* SweetAlert2 acima do Radix Dialog focus trap */
 .swal2-container { z-index: 9999 !important; pointer-events: auto !important; }
 .swal2-popup { pointer-events: auto !important; }
+
+/* ── Backdrop do SweetAlert2 igual ao overlay dos modais do app
+   (DialogOverlay = bg-black/60 + backdrop-blur-[2px]). O `--swal2-backdrop`
+   é setado em `html[data-swal2-theme]` (0,1,1) p/ vencer o `:root` da lib;
+   o blur é propriedade no container (a lib não tem var pra isso). */
+html[data-swal2-theme] { --swal2-backdrop: rgba(0, 0, 0, 0.6); }
+/* fundo do popup dark = o mesmo token do DialogContent (bg-card = #1a1d27),
+   pra ficar idêntico ao modal do design system e seguir o token se ele mudar */
+html[data-swal2-theme="dark"] { --swal2-background: var(--color-card); }
+/* Blur via @apply da utility do Tailwind (não `backdrop-filter: blur(2px)` cru):
+   o lightningcss REMOVE o valor literal estático no build (targets), mas a
+   utility compila pra `backdrop-filter: var(--tw-backdrop-blur,) …` (valor via
+   var, que ele não descarta). Mesmo motivo pelo qual o DialogOverlay funciona. */
+.swal2-container.swal2-backdrop-show { @apply backdrop-blur-[2px]; }
 
 /* Sidebar group/item hover — usa CSS variable --gc para cor dinâmica */
 .sidebar-group-btn:hover {
@@ -262,7 +285,7 @@ html:has([data-portal-root]) { scroll-behavior: smooth; }
 .mod-comercial .to-rose-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-comercial, #fb7185) 80%, black) var(--tw-gradient-to-position); }
 .mod-comercial .from-rose-500 { --tw-gradient-from: var(--mod-comercial, #fb7185) var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
 .dark .mod-comercial .dark\:bg-rose-950\/30, .dark .mod-comercial .dark\:bg-rose-900\/40 { background-color: color-mix(in srgb, var(--mod-comercial, #fb7185) 18%, transparent); }
-.dark .mod-comercial .dark\:text-rose-400, .dark .mod-comercial .dark\:text-rose-300 { color: color-mix(in srgb, var(--mod-comercial, #fb7185) 80%, white); }
+.dark .mod-comercial .dark\:text-rose-400, .dark .mod-comercial .dark\:text-rose-300 { color: color-mix(in srgb, var(--mod-comercial, #fb7185) 90%, white); }
 .dark .mod-comercial .dark\:border-rose-800, .dark .mod-comercial .dark\:border-rose-900 { border-color: color-mix(in srgb, var(--mod-comercial, #fb7185) 35%, transparent); }
 
 /* === Corporativo / Administrativo / Perfil → sky === */
@@ -291,17 +314,29 @@ html:has([data-portal-root]) { scroll-behavior: smooth; }
 .dark .mod-administrativo .dark\:text-sky-400, .dark .mod-administrativo .dark\:text-sky-300,
 .dark .mod-perfil .dark\:text-sky-400, .dark .mod-perfil .dark\:text-sky-300 { color: color-mix(in srgb, var(--mod-corporativo, #0ea5e9) 80%, white); }
 
-/* === TI / FAQ → cyan === */
-.mod-ti .bg-cyan-500, .mod-ti .bg-cyan-600, .mod-faq .bg-cyan-500, .mod-faq .bg-cyan-600 { background-color: var(--mod-ti, #22d3ee); }
-.mod-ti .hover\:bg-cyan-600:hover, .mod-ti .hover\:bg-cyan-700:hover, .mod-faq .hover\:bg-cyan-600:hover, .mod-faq .hover\:bg-cyan-700:hover { background-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 87%, black); }
-.mod-ti .text-cyan-500, .mod-ti .text-cyan-600, .mod-ti .text-cyan-700, .mod-faq .text-cyan-500, .mod-faq .text-cyan-600, .mod-faq .text-cyan-700 { color: var(--mod-ti, #22d3ee); }
-.mod-ti .border-cyan-200, .mod-ti .border-cyan-300, .mod-ti .border-cyan-400, .mod-ti .border-cyan-500, .mod-faq .border-cyan-200, .mod-faq .border-cyan-300, .mod-faq .border-cyan-400, .mod-faq .border-cyan-500 { border-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 40%, transparent); }
-.mod-ti .bg-cyan-50, .mod-ti .bg-cyan-100, .mod-faq .bg-cyan-50, .mod-faq .bg-cyan-100 { background-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 12%, transparent); }
-.mod-ti .from-cyan-400, .mod-faq .from-cyan-400 { --tw-gradient-from: color-mix(in srgb, var(--mod-ti, #22d3ee) 92%, white) var(--tw-gradient-from-position); --tw-gradient-to: rgb(34 211 238 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
-.mod-ti .to-cyan-600, .mod-faq .to-cyan-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-ti, #22d3ee) 80%, black) var(--tw-gradient-to-position); }
-.mod-ti .from-cyan-500, .mod-faq .from-cyan-500 { --tw-gradient-from: var(--mod-ti, #22d3ee) var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
-.dark .mod-ti .dark\:bg-cyan-950\/30, .dark .mod-ti .dark\:bg-cyan-900\/40, .dark .mod-faq .dark\:bg-cyan-950\/30, .dark .mod-faq .dark\:bg-cyan-900\/40 { background-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 18%, transparent); }
-.dark .mod-ti .dark\:text-cyan-400, .dark .mod-ti .dark\:text-cyan-300, .dark .mod-faq .dark\:text-cyan-400, .dark .mod-faq .dark\:text-cyan-300 { color: color-mix(in srgb, var(--mod-ti, #22d3ee) 80%, white); }
+/* === TI → cyan === */
+.mod-ti .bg-cyan-500, .mod-ti .bg-cyan-600 { background-color: var(--mod-ti, #22d3ee); }
+.mod-ti .hover\:bg-cyan-600:hover, .mod-ti .hover\:bg-cyan-700:hover { background-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 87%, black); }
+.mod-ti .text-cyan-500, .mod-ti .text-cyan-600, .mod-ti .text-cyan-700 { color: var(--mod-ti, #22d3ee); }
+.mod-ti .border-cyan-200, .mod-ti .border-cyan-300, .mod-ti .border-cyan-400, .mod-ti .border-cyan-500 { border-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 40%, transparent); }
+.mod-ti .bg-cyan-50, .mod-ti .bg-cyan-100 { background-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 12%, transparent); }
+.mod-ti .from-cyan-400 { --tw-gradient-from: color-mix(in srgb, var(--mod-ti, #22d3ee) 92%, white) var(--tw-gradient-from-position); --tw-gradient-to: rgb(34 211 238 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.mod-ti .to-cyan-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-ti, #22d3ee) 80%, black) var(--tw-gradient-to-position); }
+.mod-ti .from-cyan-500 { --tw-gradient-from: var(--mod-ti, #22d3ee) var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.dark .mod-ti .dark\:bg-cyan-950\/30, .dark .mod-ti .dark\:bg-cyan-900\/40 { background-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 18%, transparent); }
+.dark .mod-ti .dark\:text-cyan-400, .dark .mod-ti .dark\:text-cyan-300 { color: color-mix(in srgb, var(--mod-ti, #22d3ee) 80%, white); }
+
+/* === Ajuda (FAQ) → cyan proprio (#0891b2) === */
+.mod-ajuda .bg-cyan-500, .mod-ajuda .bg-cyan-600 { background-color: var(--mod-ajuda, #0891b2); }
+.mod-ajuda .hover\:bg-cyan-600:hover, .mod-ajuda .hover\:bg-cyan-700:hover { background-color: color-mix(in srgb, var(--mod-ajuda, #0891b2) 87%, black); }
+.mod-ajuda .text-cyan-500, .mod-ajuda .text-cyan-600, .mod-ajuda .text-cyan-700 { color: var(--mod-ajuda, #0891b2); }
+.mod-ajuda .border-cyan-200, .mod-ajuda .border-cyan-300, .mod-ajuda .border-cyan-400, .mod-ajuda .border-cyan-500 { border-color: color-mix(in srgb, var(--mod-ajuda, #0891b2) 40%, transparent); }
+.mod-ajuda .bg-cyan-50, .mod-ajuda .bg-cyan-100 { background-color: color-mix(in srgb, var(--mod-ajuda, #0891b2) 12%, transparent); }
+.mod-ajuda .from-cyan-400 { --tw-gradient-from: color-mix(in srgb, var(--mod-ajuda, #0891b2) 92%, white) var(--tw-gradient-from-position); --tw-gradient-to: rgb(8 145 178 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.mod-ajuda .to-cyan-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-ajuda, #0891b2) 80%, black) var(--tw-gradient-to-position); }
+.mod-ajuda .from-cyan-500 { --tw-gradient-from: var(--mod-ajuda, #0891b2) var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.dark .mod-ajuda .dark\:bg-cyan-950\/30, .dark .mod-ajuda .dark\:bg-cyan-900\/40 { background-color: color-mix(in srgb, var(--mod-ajuda, #0891b2) 18%, transparent); }
+.dark .mod-ajuda .dark\:text-cyan-400, .dark .mod-ajuda .dark\:text-cyan-300 { color: color-mix(in srgb, var(--mod-ajuda, #0891b2) 80%, white); }
 
 /* === Trabalhista → lime === */
 .mod-trabalhista .bg-lime-500, .mod-trabalhista .bg-lime-600 { background-color: var(--mod-trabalhista, #a3e635); }
@@ -359,6 +394,48 @@ html:has([data-portal-root]) { scroll-behavior: smooth; }
 .dark .mod-configuracoes .dark\:bg-orange-950\/30, .dark .mod-configuracoes .dark\:bg-orange-900\/40 { background-color: color-mix(in srgb, var(--mod-configuracoes, #f97316) 18%, transparent); }
 .dark .mod-configuracoes .dark\:text-orange-400, .dark .mod-configuracoes .dark\:text-orange-300 { color: color-mix(in srgb, var(--mod-configuracoes, #f97316) 80%, white); }
 
+/* === Cobertura dark do papel STRONG ===
+   O STRONG (badge sólido do color-styles) usa shades dark próprios
+   (dark:bg-<c>-900 / dark:text-<c>-200 / dark:border-<c>-700) que as regras acima
+   (que miram os shades de BADGE/TEXT/SURFACE) não pegavam. Sem isso, no dark a
+   regra CLARA do retint (`.mod-<slug> .bg-<c>-100`, espec. 0,2,0, sem `.dark`)
+   vencia o `dark:bg-<c>-900` (0,1,0 por causa do `:where()` do Tailwind v4) e o
+   STRONG na cor do próprio módulo "sumia". Estas regras levam `.dark` na frente
+   (0,3,0) → vencem no dark. ADITIVO: não altera nenhum shade já coberto. */
+.dark .mod-cadastros .dark\:bg-emerald-900 { background-color: color-mix(in srgb, var(--mod-cadastros, #10b981) 18%, transparent); }
+.dark .mod-cadastros .dark\:text-emerald-200 { color: color-mix(in srgb, var(--mod-cadastros, #10b981) 80%, white); }
+.dark .mod-cadastros .dark\:border-emerald-700 { border-color: color-mix(in srgb, var(--mod-cadastros, #10b981) 35%, transparent); }
+.dark .mod-comercial .dark\:bg-rose-900 { background-color: color-mix(in srgb, var(--mod-comercial, #fb7185) 18%, transparent); }
+.dark .mod-comercial .dark\:text-rose-200 { color: color-mix(in srgb, var(--mod-comercial, #fb7185) 90%, white); }
+.dark .mod-comercial .dark\:border-rose-700 { border-color: color-mix(in srgb, var(--mod-comercial, #fb7185) 35%, transparent); }
+.dark .mod-legalizacao .dark\:bg-fuchsia-900 { background-color: color-mix(in srgb, var(--mod-legalizacao, #e879f9) 18%, transparent); }
+.dark .mod-legalizacao .dark\:text-fuchsia-200 { color: color-mix(in srgb, var(--mod-legalizacao, #e879f9) 80%, white); }
+.dark .mod-legalizacao .dark\:border-fuchsia-700 { border-color: color-mix(in srgb, var(--mod-legalizacao, #e879f9) 35%, transparent); }
+.dark .mod-corporativo .dark\:bg-sky-900, .dark .mod-administrativo .dark\:bg-sky-900, .dark .mod-perfil .dark\:bg-sky-900 { background-color: color-mix(in srgb, var(--mod-corporativo, #0ea5e9) 18%, transparent); }
+.dark .mod-corporativo .dark\:text-sky-200, .dark .mod-administrativo .dark\:text-sky-200, .dark .mod-perfil .dark\:text-sky-200 { color: color-mix(in srgb, var(--mod-corporativo, #0ea5e9) 80%, white); }
+.dark .mod-corporativo .dark\:border-sky-700, .dark .mod-administrativo .dark\:border-sky-700, .dark .mod-perfil .dark\:border-sky-700 { border-color: color-mix(in srgb, var(--mod-corporativo, #0ea5e9) 35%, transparent); }
+.dark .mod-ti .dark\:bg-cyan-900 { background-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 18%, transparent); }
+.dark .mod-ti .dark\:text-cyan-200 { color: color-mix(in srgb, var(--mod-ti, #22d3ee) 80%, white); }
+.dark .mod-ti .dark\:border-cyan-700 { border-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 35%, transparent); }
+.dark .mod-ajuda .dark\:bg-cyan-900 { background-color: color-mix(in srgb, var(--mod-ajuda, #0891b2) 18%, transparent); }
+.dark .mod-ajuda .dark\:text-cyan-200 { color: color-mix(in srgb, var(--mod-ajuda, #0891b2) 80%, white); }
+.dark .mod-ajuda .dark\:border-cyan-700 { border-color: color-mix(in srgb, var(--mod-ajuda, #0891b2) 35%, transparent); }
+.dark .mod-trabalhista .dark\:bg-lime-900 { background-color: color-mix(in srgb, var(--mod-trabalhista, #a3e635) 18%, transparent); }
+.dark .mod-trabalhista .dark\:text-lime-200 { color: color-mix(in srgb, var(--mod-trabalhista, #a3e635) 80%, white); }
+.dark .mod-trabalhista .dark\:border-lime-700 { border-color: color-mix(in srgb, var(--mod-trabalhista, #a3e635) 35%, transparent); }
+.dark .mod-fiscal .dark\:bg-indigo-900 { background-color: color-mix(in srgb, var(--mod-fiscal, #0369a1) 18%, transparent); }
+.dark .mod-fiscal .dark\:text-indigo-200 { color: color-mix(in srgb, var(--mod-fiscal, #0369a1) 80%, white); }
+.dark .mod-fiscal .dark\:border-indigo-700 { border-color: color-mix(in srgb, var(--mod-fiscal, #0369a1) 35%, transparent); }
+.dark .mod-contabil .dark\:bg-violet-900 { background-color: color-mix(in srgb, var(--mod-contabil, #a78bfa) 18%, transparent); }
+.dark .mod-contabil .dark\:text-violet-200 { color: color-mix(in srgb, var(--mod-contabil, #a78bfa) 80%, white); }
+.dark .mod-contabil .dark\:border-violet-700 { border-color: color-mix(in srgb, var(--mod-contabil, #a78bfa) 35%, transparent); }
+.dark .mod-qualidade .dark\:bg-amber-900 { background-color: color-mix(in srgb, var(--mod-qualidade, #f59e0b) 18%, transparent); }
+.dark .mod-qualidade .dark\:text-amber-200 { color: color-mix(in srgb, var(--mod-qualidade, #f59e0b) 80%, white); }
+.dark .mod-qualidade .dark\:border-amber-700 { border-color: color-mix(in srgb, var(--mod-qualidade, #f59e0b) 35%, transparent); }
+.dark .mod-configuracoes .dark\:bg-orange-900 { background-color: color-mix(in srgb, var(--mod-configuracoes, #f97316) 18%, transparent); }
+.dark .mod-configuracoes .dark\:text-orange-200 { color: color-mix(in srgb, var(--mod-configuracoes, #f97316) 80%, white); }
+.dark .mod-configuracoes .dark\:border-orange-700 { border-color: color-mix(in srgb, var(--mod-configuracoes, #f97316) 35%, transparent); }
+
 /* Richtext renderizado (fora do editor): o TipTap salva linhas em branco como
    parágrafos vazios <p></p>, que colapsam ao renderizar via dangerouslySetInnerHTML.
    Preserva a altura de 1 linha para manter o espaçamento que o usuário digitou. */
@@ -389,7 +466,12 @@ html:has([data-portal-root]) { scroll-behavior: smooth; }
   animation: dialog-fade-out 150ms ease-in forwards;
 }
 .dialog-content[data-state="open"] {
-  animation: dialog-zoom-in 250ms cubic-bezier(0, 0, 0.2, 1) forwards;
+  /* SEM `forwards`: a animação com fill retinha `transform: matrix(1,0,0,1,0,0)`
+     (identidade) no fim, e QUALQUER transform ≠ none cria containing block — o que
+     fazia um `position: fixed` interno (dropdown de combobox) se posicionar relativo
+     ao modal, não à viewport. Sem fill, ao terminar o transform volta ao base (none).
+     O estado final da animação (scale 1, opacity 1) == base, então não há flash. */
+  animation: dialog-zoom-in 250ms cubic-bezier(0, 0, 0.2, 1);
 }
 .dialog-content[data-state="closed"] {
   animation: dialog-zoom-out 200ms cubic-bezier(0.4, 0, 1, 1) forwards;
@@ -506,6 +588,15 @@ html:has([data-portal-root]) { scroll-behavior: smooth; }
   }
   html body[data-scroll-locked] {
     margin-right: 0 !important;
+    /* O react-remove-scroll (Radix Select/Dialog/etc.) põe `overflow: hidden` no
+       body ao travar o scroll. Como o scroller da app é o `html` (`overflow-y:
+       scroll` acima), isso transforma o body num container de scroll novo (scrollTop
+       0) e ROUBA o contexto do `position: sticky` — a barra de página (título +
+       trilha) desgruda pro topo do documento e some, só voltando ao fechar. Aqui o
+       lock real vem do bloqueio de wheel/touch por JS, não desse overflow; então
+       revertê-lo conserta o sticky SEM destravar o scroll. `html body[...]` vence a
+       regra injetada pelo Radix (mesma especificidade, `html` na frente desempata). */
+    overflow: visible !important;
   }
   /* Mesma história com o SweetAlert2, que é outra biblioteca e compensa de
      outro jeito: ele mexe só no `body` (`overflow: hidden` + `padding-right`
@@ -644,7 +735,7 @@ html:has([data-portal-root]) { scroll-behavior: smooth; }
   /* Scrollbar do chat: mais discreta no desktop/dark, sem a barra branca
      nativa do Windows contrastando com o painel de mensagens. */
   .chat-scrollbar {
-    scrollbar-color: rgba(100, 116, 139, 0.78) rgba(30, 35, 48, 0.92);
+    scrollbar-color: rgba(100, 116, 139, 0.5) rgba(148, 163, 184, 0.12);
     scrollbar-width: thin;
     scrollbar-gutter: stable;
   }
@@ -653,22 +744,22 @@ html:has([data-portal-root]) { scroll-behavior: smooth; }
     height: 14px;
   }
   .chat-scrollbar::-webkit-scrollbar-track {
-    background: rgba(30, 35, 48, 0.92);
-    border-left: 1px solid rgba(148, 163, 184, 0.08);
+    background: rgba(148, 163, 184, 0.12);
+    border-left: 1px solid rgba(15, 23, 42, 0.08);
     border-radius: 0;
   }
   .chat-scrollbar::-webkit-scrollbar-thumb {
-    background-color: rgba(100, 116, 139, 0.78);
-    border: 5px solid rgba(30, 35, 48, 0.92);
+    background-color: rgba(100, 116, 139, 0.5);
+    border: 5px solid transparent;
     border-radius: 999px;
     background-clip: padding-box;
     min-height: 44px;
   }
   .chat-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(148, 163, 184, 0.9);
+    background-color: rgba(71, 85, 105, 0.65);
   }
   .chat-scrollbar::-webkit-scrollbar-thumb:active {
-    background-color: rgba(203, 213, 225, 0.95);
+    background-color: rgba(51, 65, 85, 0.8);
   }
   .chat-scrollbar::-webkit-scrollbar-button {
     display: none;
@@ -826,7 +917,10 @@ html:has([data-portal-root]) { scroll-behavior: smooth; }
     opacity: 1;
   }
   .dark input:disabled, .dark input[readonly], .dark textarea:disabled, .dark textarea[readonly] {
-    background-color: #151820 !important;
+    /* Recuo SUTIL a partir do input padrão (#262a33), espelhando o claro
+       (#f3f6f9 é só um degrau abaixo do card). O #151820 antigo saltava quase
+       pro fundo da página e destoava. */
+    background-color: #20242e !important;
   }
 
   textarea {
@@ -926,6 +1020,7 @@ html:has([data-portal-root]) { scroll-behavior: smooth; }
     --color-destructive: #ef4444;
     --color-destructive-foreground: #ffffff;
     --color-border: #2d3040;
+    --color-hairline: rgba(255,255,255,0.08);  /* divisória fininha no dark (o preto 8% sumia) */
     --color-input: #2d3040;
     --color-ring: #2b7fff;
     --color-sidebar: #111827;  /* surface dark do LuminAux (sidebar do modelo) */
@@ -947,4 +1042,51 @@ html:has([data-portal-root]) { scroll-behavior: smooth; }
 @keyframes fluxo-orfao-pulse {
   0%, 100% { outline-color: #f59e0b; }
   50%      { outline-color: #fbbf24; }
+}
+
+/* ===========================================================================
+   Controles NATIVOS seguem o dark — spinners de <input type=number>, date/time
+   pickers etc. — via `color-scheme: dark`.
+
+   ESCOPADO A INPUTS, nunca no :root/html. `color-scheme` é HERDADA: no :root ela
+   atinge todo texto da página e, ao mudar junto do toggle de tema, reinicia a
+   transição de `color` de tudo → dessincronia texto×fundo em dev (regressão
+   isolada por bisect no commit 98b12117; lightningcss a mascarava em prod).
+   Nos inputs ela não sobe para o body, então a página não dessincroniza.
+   (Autofill e scrollbars já são tematizados sem color-scheme — máscara de
+   autofill abaixo e .nice-scrollbar.) =========================================================================== */
+.dark input,
+.dark select,
+.dark textarea {
+  color-scheme: dark;
+}
+
+/* Autofill (Chrome/WebKit): em vez de imitar o fundo do campo (o amarelo cru do
+   Chrome não combina com o tema), damos um TINT DE DESTAQUE proposital na cor
+   primária — sinaliza "preenchido automaticamente" e é próprio por tema.
+   Técnica: box-shadow inset cobre o fundo forçado pelo browser. IMPORTANTE:
+   var() muitas vezes NÃO resolve no contexto de autofill do Chrome → hex fixo
+   por tema. A `transition` longa evita o flash amarelo no momento do preenchimento. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #e6f0ff inset !important;
+  box-shadow: 0 0 0 1000px #e6f0ff inset !important;
+  -webkit-text-fill-color: #0f172a !important;
+  caret-color: #2b7fff;
+  transition: background-color 9999s ease-in-out 0s;
+}
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus,
+.dark input:-webkit-autofill:active,
+.dark textarea:-webkit-autofill,
+.dark select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #26374f inset !important;
+  box-shadow: 0 0 0 1000px #26374f inset !important;
+  -webkit-text-fill-color: #e8eaed !important;
+  caret-color: #5aa2ff;
 }

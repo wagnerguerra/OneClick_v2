@@ -35,7 +35,7 @@ export function StatCard({ icon: Icon, label, value, color, sub, loading, onClic
         // única de seleção não diria qual recorte está no ar.
         active && 'shadow-md',
       )}
-      style={active ? { boxShadow: `0 0 0 2px ${color}, 0 4px 12px ${color}25` } : undefined}
+      style={active ? { boxShadow: `0 0 0 2px ${color}, 0 4px 12px color-mix(in srgb, ${color} 15%, transparent)` } : undefined}
       onClick={onClick}
       onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } } : undefined}
       role={onClick ? 'button' : undefined}
@@ -44,7 +44,7 @@ export function StatCard({ icon: Icon, label, value, color, sub, loading, onClic
       title={title}
     >
       <div className="p-4 flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${color}18` }}>
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `color-mix(in srgb, ${color} 9%, transparent)` }}>
           <Icon className="h-5 w-5" style={{ color }} />
         </div>
         <div className="min-w-0">

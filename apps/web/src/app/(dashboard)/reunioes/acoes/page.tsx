@@ -13,6 +13,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { BADGE } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { BackButton } from '@/components/ui/back-button'
@@ -103,7 +104,7 @@ export default function AcoesReunioesPage() {
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Select value={status || '__all__'} onValueChange={(v) => { setStatus(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[150px] text-xs bg-card"><SelectValue placeholder="Situação" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todas</SelectItem>
                 <SelectItem value="PENDENTE">Pendentes</SelectItem>
@@ -125,7 +126,7 @@ export default function AcoesReunioesPage() {
               </Button>
             )}
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>
@@ -171,9 +172,7 @@ export default function AcoesReunioesPage() {
                     <TableCell>
                       {a.prazo ? (
                         <Badge variant="outline" className={cn('text-[10px] tabular-nums',
-                          vencida
-                            ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800'
-                            : 'bg-muted text-muted-foreground border-border')}>
+                          vencida ? BADGE.rose : 'bg-muted text-muted-foreground border-border')}>
                           {vencida && <AlertTriangle className="h-3 w-3 mr-0.5" />}{dataBR(a.prazo)}
                         </Badge>
                       ) : <span className="text-xs text-muted-foreground">—</span>}

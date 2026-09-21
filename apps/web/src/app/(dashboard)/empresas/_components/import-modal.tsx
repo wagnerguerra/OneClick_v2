@@ -8,6 +8,7 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -114,13 +115,13 @@ export function ImportModal({ open, onClose, onSuccess }: ImportModalProps) {
           {step === 'preview' && (
             <div className="space-y-3 py-2">
               <div className="flex items-center gap-3 text-sm">
-                <div className="flex items-center gap-1.5 text-emerald-600"><CheckCircle className="h-4 w-4" /><span className="font-medium">{validRows.length} válidos</span></div>
+                <div className={cn('flex items-center gap-1.5', TEXT.emerald)}><CheckCircle className="h-4 w-4" /><span className="font-medium">{validRows.length} válidos</span></div>
                 {invalidRows.length > 0 && <div className="flex items-center gap-1.5 text-destructive"><XCircle className="h-4 w-4" /><span className="font-medium">{invalidRows.length} erros</span></div>}
               </div>
               <div className="rounded-[2px] border"><Table><TableHeader><TableRow><TableHead className="w-[50px]">Linha</TableHead><TableHead>Razão Social</TableHead><TableHead className="hidden sm:table-cell">CNPJ</TableHead><TableHead className="w-[80px]">Status</TableHead></TableRow></TableHeader><TableBody>
                 {rows.map(row => (<TableRow key={row.rowIndex} className={cn(row.valid ? 'bg-emerald-50/30 dark:bg-emerald-950/10' : 'bg-destructive/5')}><TableCell className="text-xs font-mono">{row.rowIndex}</TableCell><TableCell className="text-sm font-medium">{row.data.razaoSocial || '—'}</TableCell><TableCell className="hidden sm:table-cell text-sm text-muted-foreground">{row.data.cnpj || '—'}</TableCell><TableCell>{row.valid ? <Badge variant="success" className="text-[10px]">OK</Badge> : <Badge variant="destructive" className="text-[10px]">Erro</Badge>}</TableCell></TableRow>))}
               </TableBody></Table></div>
-              {invalidRows.length > 0 && <div className="flex items-start gap-2 rounded-[2px] bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400"><AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" /><span>Registros com erros serão ignorados.</span></div>}
+              {invalidRows.length > 0 && <div className={cn('flex items-start gap-2 rounded-[2px] bg-amber-500/10 px-3 py-2 text-xs', TEXT.amber)}><AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" /><span>Registros com erros serão ignorados.</span></div>}
             </div>
           )}
         </DialogBody>

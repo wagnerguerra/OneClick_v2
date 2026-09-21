@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { Download, Upload, Loader2, CheckCircle, FileArchive, AlertTriangle, X, Trash2 } from 'lucide-react'
-import { Button, Card, CardHeader, Checkbox, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@saas/ui'
+import { Button, Card, CardHeader, Checkbox, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -142,11 +143,11 @@ function BackupRestorePageInner() {
                 <Checkbox checked={includeUploads} onCheckedChange={(v) => setIncludeUploads(!!v)} /><span>Arquivos enviados (uploads/)</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer text-sm">
-                <Checkbox checked={includeSource} onCheckedChange={(v) => setIncludeSource(!!v)} /><span>Código-fonte do projeto <span className="text-amber-600 text-xs">(pesado — só p/ restore self-hosted)</span></span>
+                <Checkbox checked={includeSource} onCheckedChange={(v) => setIncludeSource(!!v)} /><span>Código-fonte do projeto <span className={cn('text-xs', TEXT.amber)}>(pesado — só p/ restore self-hosted)</span></span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer text-sm">
                 <Checkbox checked={includeEnv} onCheckedChange={(v) => setIncludeEnv(!!v)} />
-                <span>Incluir arquivo .env <span className="text-amber-600 text-xs">(contem credenciais)</span></span>
+                <span>Incluir arquivo .env <span className={cn('text-xs', TEXT.amber)}>(contem credenciais)</span></span>
               </label>
             </div>
             <Button variant="success" className="w-full" onClick={handleGenerate} disabled={generating}>
@@ -164,7 +165,7 @@ function BackupRestorePageInner() {
             </h5>
           </CardHeader>
           <div className="p-4 space-y-4">
-            <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+            <div className={cn('flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 px-3 py-2 text-sm', TEXT.amber)}>
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
               <span>A restauracao do banco de dados <strong>sobrescreve todos os dados atuais</strong>. Gere um backup antes de restaurar.</span>
             </div>
@@ -259,7 +260,7 @@ function BackupRestorePageInner() {
                   <div className="rounded-lg bg-muted/30 p-3 space-y-1">
                     <p className="text-xs"><strong>Arquivo:</strong> {result.filename}</p>
                     <p className="text-xs"><strong>Tamanho:</strong> {formatBytes(result.size)}</p>
-                    <p className="text-xs"><strong>Banco de dados:</strong> {result.dbDumpOk ? <span className="text-emerald-600">Dump OK</span> : <span className="text-amber-600">pg_dump nao disponivel</span>}</p>
+                    <p className="text-xs"><strong>Banco de dados:</strong> {result.dbDumpOk ? <span className={TEXT.emerald}>Dump OK</span> : <span className={TEXT.amber}>pg_dump nao disponivel</span>}</p>
                   </div>
                   <Button variant="success" className="w-full" onClick={() => { downloadBackup(result.filename); setShowModal(false) }}>
                     <Download className="h-4 w-4" /> Baixar Backup

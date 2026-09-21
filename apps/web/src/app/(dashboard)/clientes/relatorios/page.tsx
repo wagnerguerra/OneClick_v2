@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button, Card, Input, Label, Badge, cn } from '@saas/ui'
+import { Button, Card, Input, Label, Badge, cn, Checkbox } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
@@ -14,6 +14,8 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { SITUACAO_LABELS } from '@saas/types'
 import { exportToExcel, exportToCsv, type ExportColumn } from '@/lib/export-data'
+import { TEXT } from '@/lib/color-styles'
+import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 
 const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
 const COR_ENTRADA = '#10b981'
@@ -67,7 +69,7 @@ function TabelaRelatorio<T>({ titulo, cols, rows, nomeArquivo, onRowClick, rowKe
       </div>
       <div className="grid transition-all duration-300 ease-out motion-reduce:transition-none" style={{ gridTemplateRows: aberto ? '1fr' : '0fr' }} aria-hidden={!aberto}>
         <div className="min-h-0 overflow-hidden">
-          <div className="overflow-auto max-h-[360px]">
+          <div className="nice-scrollbar overflow-auto max-h-[360px]">
             <table className="w-full text-xs">
               <thead className="bg-muted/20 sticky top-0"><tr>{cols.map(c => <th key={c.label} className="text-left font-semibold px-3 py-2 uppercase tracking-wider whitespace-nowrap">{c.label}</th>)}</tr></thead>
               <tbody>
@@ -99,20 +101,20 @@ function MultiSelect({ label, options, selected, onChange }: {
   const toggle = (v: string) => { const n = new Set(selected); if (n.has(v)) n.delete(v); else n.add(v); onChange(n) }
   return (
     <div className="relative" ref={ref}>
-      <button type="button" onClick={() => setOpen(o => !o)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-sm border border-border bg-card hover:bg-muted/50">
+      <button type="button" role="combobox" aria-expanded={open} onClick={() => setOpen(o => !o)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-sm border border-border hover:bg-muted/50">
         <span className="text-muted-foreground">{label}:</span>
         <span className="font-medium">{selected.size === 0 ? 'Todos' : `${selected.size} selec.`}</span>
         <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-180')} />
       </button>
       {open && (
-        <div className="absolute z-50 mt-1 min-w-[230px] max-h-[300px] overflow-auto rounded-md border border-border bg-popover shadow-lg p-1">
+        <div className="nice-scrollbar absolute z-50 mt-1 min-w-[230px] max-h-[300px] overflow-auto rounded-md border border-border bg-popover shadow-lg p-1">
           <div className="flex items-center justify-between px-2 py-1 border-b border-border/50 mb-1">
             <span className="text-[11px] text-muted-foreground">{options.length} opções</span>
             {selected.size > 0 && <button type="button" onClick={() => onChange(new Set())} className="text-[11px] text-muted-foreground hover:text-foreground underline">Limpar</button>}
           </div>
           {options.map(o => (
             <label key={o.value} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer text-sm">
-              <input type="checkbox" className="h-3.5 w-3.5" style={{ accentColor: MODULE_COLOR }} checked={selected.has(o.value)} onChange={() => toggle(o.value)} />
+              <Checkbox accentColor={MODULE_COLOR} checked={selected.has(o.value)} onCheckedChange={() => toggle(o.value)} />
               <span className="truncate">{o.label}</span>
             </label>
           ))}
@@ -249,11 +251,11 @@ export default function RelatoriosClientesPage() {
                 <div className="ml-auto flex items-center gap-2">
                   <div className="rounded-md border border-border px-3 py-1.5 flex items-center gap-2">
                     <ArrowUpCircle className="h-4 w-4 text-emerald-500" />
-                    <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none">Entradas</p><p className="text-lg font-bold tabular-nums leading-tight text-emerald-600 dark:text-emerald-400">{mov.totalEntradas}</p></div>
+                    <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none">Entradas</p><p className={cn('text-lg font-bold tabular-nums leading-tight', TEXT.emerald)}>{mov.totalEntradas}</p></div>
                   </div>
                   <div className="rounded-md border border-border px-3 py-1.5 flex items-center gap-2">
                     <ArrowDownCircle className="h-4 w-4 text-rose-500" />
-                    <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none">Saídas</p><p className="text-lg font-bold tabular-nums leading-tight text-rose-600 dark:text-rose-400">{mov.totalSaidas}</p></div>
+                    <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none">Saídas</p><p className={cn('text-lg font-bold tabular-nums leading-tight', TEXT.rose)}>{mov.totalSaidas}</p></div>
                   </div>
                 </div>
               )}
@@ -272,7 +274,7 @@ export default function RelatoriosClientesPage() {
                       <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={40} outerRadius={70} label>
                         <Cell fill={COR_ENTRADA} /><Cell fill={COR_SAIDA} />
                       </Pie>
-                      <Tooltip /><Legend />
+                      <Tooltip content={<ChartTooltip />} /><Legend />
                     </PieChart>
                   </ResponsiveContainer>
                 </Card>
@@ -280,9 +282,9 @@ export default function RelatoriosClientesPage() {
                   <p className="text-[13px] font-semibold mb-2">Acompanhamento mensal</p>
                   <ResponsiveContainer width="100%" height={190}>
                     <BarChart data={barData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                       <XAxis dataKey="mes" tick={{ fontSize: 11 }} /><YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                      <Tooltip /><Legend />
+                      <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} /><Legend />
                       <Bar dataKey="Entradas" fill={COR_ENTRADA} radius={[3, 3, 0, 0]} />
                       <Bar dataKey="Saídas" fill={COR_SAIDA} radius={[3, 3, 0, 0]} />
                     </BarChart>

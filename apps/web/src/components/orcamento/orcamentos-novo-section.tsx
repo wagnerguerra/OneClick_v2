@@ -90,7 +90,7 @@ export function OrcamentosNovoSection({ clienteId }: { clienteId?: string | null
         {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
         <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">todos os status</span>
       </div>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto nice-scrollbar">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border/60 text-[11px] uppercase tracking-wide text-muted-foreground">

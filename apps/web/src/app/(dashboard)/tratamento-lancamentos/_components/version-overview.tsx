@@ -3,6 +3,7 @@
 import { Landmark, Columns3, ArrowLeftRight, Network, type LucideIcon } from 'lucide-react'
 import { Badge } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import type { TreatmentDefinition, Direcao } from '@saas/types'
 
 // ============================================================
@@ -259,7 +260,7 @@ function ReadField({ label, value, current, hasCompare, compareLabel }: { label:
       <p className={cn('text-sm', diff ? 'rounded-[3px] bg-amber-50 px-1.5 py-0.5 font-medium text-amber-800 dark:bg-amber-950/30 dark:text-amber-300' : 'text-foreground')}>
         {txt(value)}
       </p>
-      {diff && <p className="text-[10px] text-muted-foreground">{compareLabel}: <span className="text-rose-600 dark:text-rose-400">{txt(current)}</span></p>}
+      {diff && <p className="text-[10px] text-muted-foreground">{compareLabel}: <span className={TEXT.rose}>{txt(current)}</span></p>}
     </div>
   )
 }
@@ -270,7 +271,7 @@ function Cell({ value, current, hasCompare, compareLabel }: { value?: string | n
   return (
     <td className={cn('px-2 py-1.5', diff && 'bg-amber-50/70 dark:bg-amber-950/20')}>
       <span className={cn(diff && 'font-medium text-amber-800 dark:text-amber-300')}>{txt(value)}</span>
-      {diff && <span className="block text-[10px] text-muted-foreground">{compareLabel}: <span className="text-rose-600 dark:text-rose-400">{txt(current)}</span></span>}
+      {diff && <span className="block text-[10px] text-muted-foreground">{compareLabel}: <span className={TEXT.rose}>{txt(current)}</span></span>}
     </td>
   )
 }
@@ -303,7 +304,7 @@ function KeyedList({ items, current, hasCompare, compareLabel, defIsNewer, empty
             <span className={cn('min-w-0 flex-1 truncate', kind === 'remove' && 'line-through')} title={it.label}>{it.label}</span>
             <span className={cn('shrink-0 font-medium', kind === 'remove' && 'line-through', diff && 'text-amber-800 dark:text-amber-300')}>{it.value}</span>
             {kind && <ChangeBadge kind={kind} />}
-            {diff && <span className="text-[10px] text-muted-foreground">({compareLabel}: <span className="text-rose-600 dark:text-rose-400">{txt(curVal)}</span>)</span>}
+            {diff && <span className="text-[10px] text-muted-foreground">({compareLabel}: <span className={TEXT.rose}>{txt(curVal)}</span>)</span>}
           </div>
         )
       })}

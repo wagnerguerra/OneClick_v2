@@ -17,17 +17,18 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT, STRONG, BADGE, SURFACE } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { resolveAssetUrl } from '@/lib/api-url'
 import { useSession } from '@/lib/auth-client'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { PRIORIDADE_LABELS, PRIORIDADE_COLORS, type PrioridadeServico } from '@saas/types'
 import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
 import { ExecucaoChecklistModal } from '../_components/execucao-checklist-modal'
 
-const MODULE_COLOR = 'var(--mod-corporativo, #38bdf8)' // Administrativo (sky)
+const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)' // sky (bloco Administrativo)
 
 interface ExecucaoMinha {
   id: string
@@ -102,17 +103,9 @@ function ResponsavelChip({ user, size = 'sm' }: {
       </span>
     )
   }
-  const initials = user.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
   return (
     <span className={cn('inline-flex items-center gap-1', txt)} title={`Responsável: ${user.name}`}>
-      {user.image ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={resolveAssetUrl(user.image)} alt={user.name} className={cn('rounded-full object-cover border border-background shrink-0', dim)} />
-      ) : (
-        <span className={cn('rounded-full bg-[#5ea3cb] text-white flex items-center justify-center font-bold border border-background shrink-0', dim)}>
-          {initials}
-        </span>
-      )}
+      <UserAvatar user={user} className={cn('border border-background shrink-0', dim)} bg="bg-sky-500" />
       <span className="font-medium text-foreground/80 truncate max-w-[140px]">{user.name}</span>
     </span>
   )
@@ -237,7 +230,7 @@ function ResponsavelEditor({
           className="h-7 text-xs border-0 px-1 focus-visible:ring-0"
         />
       </div>
-      <div className="overflow-y-auto py-1" style={{ maxHeight: POPOVER_MAX_H - 44 }}>
+      <div className="overflow-y-auto nice-scrollbar py-1" style={{ maxHeight: POPOVER_MAX_H - 44 }}>
         {/* Opção: remover responsável */}
         {exec.responsavelUsuario && (
           <button
@@ -255,7 +248,6 @@ function ResponsavelEditor({
         {filtered.length === 0 ? (
           <p className="px-3 py-3 text-xs text-muted-foreground text-center">Nenhuma pessoa encontrada</p>
         ) : filtered.map(c => {
-          const inicialOpcao = c.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
           const ehAtual = c.id === (exec.responsavelUsuario?.id ?? null)
           return (
             <button
@@ -270,13 +262,8 @@ function ResponsavelEditor({
             >
               {salvando === c.id ? (
                 <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-              ) : c.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={resolveAssetUrl(c.image)} alt={c.name} className="h-5 w-5 rounded-full object-cover shrink-0" />
               ) : (
-                <span className="h-5 w-5 rounded-full bg-[#5ea3cb] text-white text-[8px] flex items-center justify-center font-bold shrink-0">
-                  {inicialOpcao}
-                </span>
+                <UserAvatar user={c} className="h-5 w-5 text-[8px] shrink-0" bg="bg-sky-500" />
               )}
               <span className="flex-1 min-w-0">
                 <span className="block truncate font-medium text-foreground">{c.name}</span>
@@ -285,7 +272,7 @@ function ResponsavelEditor({
                 )}
               </span>
               {ehAtual && (
-                <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+                <CheckCircle2 className={cn('h-3 w-3 shrink-0', TEXT.emerald)} />
               )}
             </button>
           )
@@ -345,8 +332,9 @@ function ServicoCombobox({ servicos, value, onSelect, placeholder }: {
     <div ref={ref} className="relative w-full">
       <button
         type="button"
+        role="combobox"
         onClick={() => setOpen(o => !o)}
-        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+        className="flex h-9 w-full items-center justify-between rounded-md border border-input px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
       >
         {selected ? (
           <span className="flex flex-col items-start min-w-0 flex-1 truncate">
@@ -371,7 +359,7 @@ function ServicoCombobox({ servicos, value, onSelect, placeholder }: {
               className="h-7 text-xs"
             />
           </div>
-          <div className="max-h-64 overflow-y-auto py-1">
+          <div className="max-h-64 overflow-y-auto nice-scrollbar py-1">
             {filtered.length === 0 ? (
               <p className="px-3 py-3 text-xs text-muted-foreground text-center">Nenhum serviço encontrado</p>
             ) : filtered.map(s => (
@@ -741,7 +729,7 @@ export default function MeusServicosPage() {
   const colunasKanban: KanbanCol[] = useMemo(() => {
     const agora = Date.now()
     const cols: Record<string, KanbanCol> = {
-      em_andamento: { key: 'em_andamento', titulo: 'Em Andamento', cor: '#38bdf8', items: [] },
+      em_andamento: { key: 'em_andamento', titulo: 'Em Andamento', cor: MODULE_COLOR, items: [] },
       atrasados: { key: 'atrasados', titulo: 'Atrasados', cor: '#ef4444', items: [] },
       pausados: { key: 'pausados', titulo: 'Pausados', cor: '#f59e0b', items: [] },
     }
@@ -760,7 +748,7 @@ export default function MeusServicosPage() {
   // Lista de filtros (chips) — mantém função de filtragem mas no padrão visual CRM/Orçamentos:
   // barra horizontal de chips em vez de KPIs em cards grandes.
   const filtros: Array<{ key: FilterKind; label: string; icon: typeof Play; cor: string; count: number }> = [
-    { key: 'em_andamento', label: 'Em Andamento', icon: Play, cor: '#38bdf8', count: kpis.emAndamento },
+    { key: 'em_andamento', label: 'Em Andamento', icon: Play, cor: MODULE_COLOR, count: kpis.emAndamento },
     { key: 'atrasados', label: 'Atrasados', icon: AlertTriangle, cor: '#ef4444', count: kpis.atrasados },
     { key: 'pausados', label: 'Pausados', icon: Pause, cor: '#f59e0b', count: kpis.pausados },
     { key: 'todos', label: 'Ativos', icon: ListChecks, cor: '#94a3b8', count: kpis.ativos },
@@ -935,7 +923,7 @@ export default function MeusServicosPage() {
                       <div
                         key={exec.id}
                         onClick={() => abrirChecklist(exec.id)}
-                        className="rounded-sm bg-white dark:bg-card cursor-pointer group overflow-hidden border border-border/50 hover:shadow-md transition-shadow"
+                        className="rounded-sm bg-card cursor-pointer group overflow-hidden border border-border/50 hover:shadow-md transition-shadow"
                         title={exec.pausado && exec.pausadoMotivo ? `Pausado — ${exec.pausadoMotivo}` : undefined}
                       >
                         <div className="flex">
@@ -1003,7 +991,7 @@ export default function MeusServicosPage() {
                                 )}
                                 {exec.status === 'CONCLUIDO' && exec.concluidoEm && (
                                   <span className="inline-flex flex-wrap items-center gap-1 sm:shrink-0">
-                                    <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+                                    <CheckCircle2 className={cn('h-3 w-3 shrink-0', TEXT.emerald)} />
                                     Concluído: <span className="font-medium text-foreground/80">{formatDateTime(exec.concluidoEm)}</span>
                                   </span>
                                 )}
@@ -1082,7 +1070,7 @@ export default function MeusServicosPage() {
       ) : (
         // Lista — Card limpo com scroll interno (filtros e header já estão acima)
         <Card className="flex-1 overflow-hidden flex flex-col">
-          <div className="flex-1 overflow-y-auto divide-y divide-border/60">
+          <div className="flex-1 overflow-y-auto nice-scrollbar divide-y divide-border/60">
             {execFiltradas.map(exec => {
               // ── PERGUNTA — card destacado em laranja pra responder no lugar ──
               if (exec.status === 'AGUARDANDO_RESPOSTA' && exec.servico.tipo === 'PERGUNTA') {
@@ -1102,15 +1090,15 @@ export default function MeusServicosPage() {
                   })
                 }
                 return (
-                  <div key={exec.id} className="border-l-4 border-l-orange-400 bg-orange-50/30 dark:bg-orange-900/10 px-4 py-3 space-y-3">
+                  <div key={exec.id} className="border-l-4 border-l-orange-400 dark:border-l-orange-700 bg-orange-50/30 dark:bg-orange-900/10 px-4 py-3 space-y-3">
                     <div className="flex items-start gap-3">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/40">
-                        <HelpCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                        <HelpCircle className={cn('h-4 w-4', TEXT.orange)} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
                           <span className="text-sm font-semibold">{sv.nome}</span>
-                          <Badge variant="outline" className="text-[10px] h-5 bg-orange-50 dark:bg-orange-900/30 border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-400">
+                          <Badge variant="outline" className={cn('text-[10px] h-5', BADGE.orange)}>
                             Aguardando resposta
                           </Badge>
                           <Badge variant="outline" className="text-[10px] h-5">
@@ -1136,7 +1124,7 @@ export default function MeusServicosPage() {
                             className={cn(
                               'flex items-center gap-2 px-3 py-2 rounded border cursor-pointer text-sm transition-colors',
                               checked
-                                ? 'bg-orange-50 dark:bg-orange-950/30 border-orange-300 dark:border-orange-700'
+                                ? SURFACE.orange
                                 : 'bg-card border-border hover:bg-muted/50',
                             )}
                           >
@@ -1162,7 +1150,7 @@ export default function MeusServicosPage() {
                         value={respostaObs[exec.id] ?? ''}
                         onChange={e => setRespostaObs(prev => ({ ...prev, [exec.id]: e.target.value }))}
                         placeholder="Adicione contexto da decisão (opcional)"
-                        className="w-full text-sm border rounded px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-orange-400"
+                        className="w-full text-sm rounded px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-orange-400"
                       />
                     </div>
                     <div className="flex justify-end pl-11">
@@ -1295,14 +1283,14 @@ export default function MeusServicosPage() {
                           <>
                             <span className="text-muted-foreground/40">•</span>
                             <span title="Data de conclusão">
-                              <CheckCircle2 className="inline h-3 w-3 mr-0.5 -mt-0.5 text-emerald-600" />
+                              <CheckCircle2 className={cn('inline h-3 w-3 mr-0.5 -mt-0.5', TEXT.emerald)} />
                               Concluído em: <span className="font-medium text-foreground/80">{formatDateTime(exec.concluidoEm)}</span>
                             </span>
                           </>
                         )}
                         {totalComentarios > 0 && (
                           <span
-                            className="inline-flex items-center gap-0.5 text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/20 rounded px-1.5 py-0.5 font-medium"
+                            className={cn('inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 font-medium', BADGE.sky)}
                             title={`${totalComentarios} comentário${totalComentarios > 1 ? 's' : ''} no serviço`}
                           >
                             <MessageSquare className="h-3 w-3" /> {totalComentarios}
@@ -1310,7 +1298,7 @@ export default function MeusServicosPage() {
                         )}
                         {totalAnexos > 0 && (
                           <span
-                            className="inline-flex items-center gap-0.5 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded px-1.5 py-0.5 font-medium"
+                            className={cn('inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 font-medium', BADGE.amber)}
                             title={`${totalAnexos} anexo${totalAnexos > 1 ? 's' : ''} no serviço`}
                           >
                             <Paperclip className="h-3 w-3" /> {totalAnexos}
@@ -1355,7 +1343,7 @@ export default function MeusServicosPage() {
                     {/* Prazo */}
                     <div className="col-span-12 sm:col-span-3 min-w-0 flex items-center justify-end gap-2">
                       {exec.status === 'CONCLUIDO' ? (
-                        <Badge className="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 h-5 gap-1">
+                        <Badge variant="outline" className={cn('text-[10px] px-2 py-0.5 h-5 gap-1', STRONG.emerald)}>
                           <CheckCircle2 className="h-3 w-3" /> Concluído
                         </Badge>
                       ) : exec.status === 'PULADO' ? (
@@ -1363,14 +1351,15 @@ export default function MeusServicosPage() {
                         // ela caía no cálculo de prazo abaixo e aparecia em
                         // vermelho, como se estivesse atrasada.
                         <Badge
-                          className="bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 text-[10px] px-2 py-0.5 h-5 gap-1"
+                          variant="outline"
+                          className={cn('text-[10px] px-2 py-0.5 h-5 gap-1', STRONG.violet)}
                           title="Obrigação dispensada no Acessórias — não é devida por este cliente"
                         >
                           Dispensado
                         </Badge>
                       ) : exec.pausado ? (
                         <span
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-800"
+                          className={cn('inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded border', STRONG.amber)}
                           title={exec.pausadoMotivo ? `Motivo: ${exec.pausadoMotivo}` : 'Execução pausada — SLA não corre'}
                         >
                           <Pause className="h-3 w-3" /> Pausado
@@ -1381,7 +1370,7 @@ export default function MeusServicosPage() {
                         // cálculo abaixo pintaria de vermelho algo que a origem
                         // não considera atrasado.
                         <span
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded text-sky-700 bg-sky-50 dark:bg-sky-900/20 dark:text-sky-300"
+                          className={cn('inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded', BADGE.sky)}
                           title={`No Acessórias: ${exec.acessoriasStatus}. O prazo interno passou, o legal ainda não.`}
                         >
                           {exec.acessoriasStatus}
@@ -1390,10 +1379,10 @@ export default function MeusServicosPage() {
                         <span
                           className={cn(
                             'inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded',
-                            tempo.cor === 'red' && 'text-rose-700 bg-rose-50 dark:bg-rose-900/20',
-                            tempo.cor === 'amber' && 'text-amber-700 bg-amber-50 dark:bg-amber-900/20',
-                            tempo.cor === 'emerald' && 'text-emerald-700 bg-emerald-50 dark:bg-emerald-900/20',
-                            tempo.cor === 'slate' && 'text-slate-600 bg-muted',
+                            tempo.cor === 'red' && BADGE.rose,
+                            tempo.cor === 'amber' && BADGE.amber,
+                            tempo.cor === 'emerald' && BADGE.emerald,
+                            tempo.cor === 'slate' && cn('bg-muted', TEXT.slate),
                           )}
                         >
                           <Clock className="h-3 w-3" /> {tempo.texto}

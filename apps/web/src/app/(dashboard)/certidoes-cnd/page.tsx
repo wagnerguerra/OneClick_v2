@@ -9,7 +9,7 @@ import {
   MoreVertical, RefreshCw, Shield, DollarSign, MapPin, Flame, Landmark, Mail,
 } from 'lucide-react'
 import {
-  Button, Input, Badge, Card,
+  Button, Input, Badge, Card, Switch,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -17,6 +17,7 @@ import {
   Checkbox,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { BADGE, TEXT, SURFACE, type ColorName } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import Link from 'next/link'
@@ -40,17 +41,17 @@ function MunValidade({ data }: { data: string }) {
   }, [data])
   if (!info) return <span className="text-muted-foreground text-[10px]">—</span>
   if (info.diffDias < 0) return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-2 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-400">
+    <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.red)}>
       <XCircle className="h-3 w-3" />{info.formatted}
     </span>
   )
   if (info.diffDias <= 15) return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+    <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.amber)}>
       <Clock className="h-3 w-3" />{info.formatted} <span className="text-[9px] opacity-70">({info.diffDias}d)</span>
     </span>
   )
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+    <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.emerald)}>
       <CheckCircle2 className="h-3 w-3" />{info.formatted}
     </span>
   )
@@ -92,10 +93,10 @@ interface ClienteMensal {
 // Helpers
 // ============================================================
 
-const CERTIDAO_COLORS: Record<string, { bg: string; text: string; border: string; icon: typeof CheckCircle2 }> = {
-  'Negativa': { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-800', icon: CheckCircle2 },
-  'Positiva com Efeitos de Negativa': { bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-400', border: 'border-amber-200 dark:border-amber-800', icon: AlertTriangle },
-  'Pendente': { bg: 'bg-gray-50 dark:bg-gray-800/50', text: 'text-gray-500 dark:text-gray-400', border: 'border-gray-200 dark:border-gray-700', icon: Clock },
+const CERTIDAO_COLORS: Record<string, { tone: ColorName; icon: typeof CheckCircle2 }> = {
+  'Negativa': { tone: 'emerald', icon: CheckCircle2 },
+  'Positiva com Efeitos de Negativa': { tone: 'amber', icon: AlertTriangle },
+  'Pendente': { tone: 'slate', icon: Clock },
 }
 
 function CertidaoBadge({ tipo }: { tipo: string | null }) {
@@ -103,7 +104,7 @@ function CertidaoBadge({ tipo }: { tipo: string | null }) {
   const c = CERTIDAO_COLORS[tipo] || CERTIDAO_COLORS['Pendente']!
   const Icon = c.icon
   return (
-    <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', c.bg, c.text, c.border)}>
+    <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE[c.tone])}>
       <Icon className="h-3 w-3" />{tipo}
     </span>
   )
@@ -1117,7 +1118,7 @@ export default function CertidoesCndPage() {
           return (
             <button key={f.key} type="button" onClick={() => { setFiltroTipo(f.key); setLixeira(false); setPage(1) }}
               className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all',
-                isActive ? 'bg-fuchsia-50 dark:bg-fuchsia-950/30 border-fuchsia-200 dark:border-fuchsia-800 text-fuchsia-700 dark:text-fuchsia-400 shadow-sm'
+                isActive ? cn(BADGE.fuchsia, 'shadow-sm')
                   : 'border-border/40 text-muted-foreground hover:border-fuchsia-200 hover:text-foreground bg-card',
               )}>
               <Icon className="h-3.5 w-3.5" />{f.label}
@@ -1129,11 +1130,11 @@ export default function CertidoesCndPage() {
         })}
         <button type="button" onClick={() => { setLixeira(!lixeira); setFiltroTipo(''); setPage(1) }}
           className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all ml-auto',
-            lixeira ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 shadow-sm'
+            lixeira ? cn(BADGE.red, 'shadow-sm')
               : 'border-border/40 text-muted-foreground hover:border-red-200 hover:text-foreground bg-card',
           )}>
           <Trash2 className="h-3.5 w-3.5" />Lixeira
-          {totais.lixeira > 0 && <span className={cn('text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none', lixeira ? 'bg-red-200/60 text-red-700' : 'bg-muted text-muted-foreground')}>{totais.lixeira}</span>}
+          {totais.lixeira > 0 && <span className={cn('text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none', lixeira ? 'bg-red-200/60 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-muted text-muted-foreground')}>{totais.lixeira}</span>}
         </button>
       </div>
 
@@ -1214,7 +1215,7 @@ export default function CertidoesCndPage() {
                     {r.sucesso ? (
                       <CertidaoBadge tipo={r.tipoCertidao} />
                     ) : r.etapa === 'concluido' && !r.sucesso ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-400" title={r.mensagemApi || r.erro || ''}>
+                      <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.red)} title={r.mensagemApi || r.erro || ''}>
                         <XCircle className="h-3 w-3" />{r.mensagemApi || r.erro || 'Certidão não emitida'}
                       </span>
                     ) : r.etapa === 'erro' ? (
@@ -1227,9 +1228,9 @@ export default function CertidoesCndPage() {
                   <TableCell className="hidden sm:table-cell text-center">
                     {r.dataValidade ? (
                       <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium',
-                        vencida ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' :
-                        proxVencer ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' :
-                        'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800',
+                        vencida ? BADGE.red :
+                        proxVencer ? BADGE.amber :
+                        BADGE.emerald,
                       )}>
                         {vencida ? <XCircle className="h-3 w-3" /> : proxVencer ? <AlertTriangle className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
                         {formatDate(r.dataValidade)}
@@ -1310,13 +1311,13 @@ export default function CertidoesCndPage() {
             <div className="space-y-1.5">
               <label className="text-xs font-medium">Selecione um cliente mensal</label>
               <Input placeholder="Buscar cliente..." value={clienteSearch} onChange={e => setClienteSearch(e.target.value)} className="h-8 text-xs" />
-              <div className="border rounded-lg max-h-[200px] overflow-y-auto">
+              <div className="border rounded-lg max-h-[200px] overflow-y-auto nice-scrollbar">
                 {clientes.filter(c => {
                   if (!clienteSearch) return true
                   const t = clienteSearch.toLowerCase()
                   return c.razaoSocial.toLowerCase().includes(t) || c.documento.includes(t)
                 }).map(c => (
-                  <div key={c.id} className={cn('flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/30 border-b last:border-b-0', clienteSelecionado === c.id && 'bg-fuchsia-50/40')}>
+                  <div key={c.id} className={cn('flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/30 border-b last:border-b-0', clienteSelecionado === c.id && 'bg-fuchsia-50/40 dark:bg-fuchsia-950/20')}>
                     <input type="radio" name="cliente-cnd" checked={clienteSelecionado === c.id} onChange={() => { setClienteSelecionado(c.id); setConsultaDoc(c.documento) }} className="h-3.5 w-3.5 accent-fuchsia-500 cursor-pointer" />
                     <span className="flex-1 truncate cursor-pointer" onClick={() => { setClienteSelecionado(c.id); setConsultaDoc(c.documento) }}>{c.razaoSocial}</span>
                     <span className="font-mono text-[10px] text-muted-foreground shrink-0">{formatDoc(c.documento)}</span>
@@ -1357,12 +1358,12 @@ export default function CertidoesCndPage() {
               </div>
             </div>
             <Input placeholder="Buscar..." value={loteSearch} onChange={e => setLoteSearch(e.target.value)} className="h-8 text-xs" />
-            <div className="border rounded-lg max-h-[250px] overflow-y-auto">
+            <div className="border rounded-lg max-h-[250px] overflow-y-auto nice-scrollbar">
               {clientes.filter(c => !loteSearch || c.razaoSocial.toLowerCase().includes(loteSearch.toLowerCase())).map(c => (
-                <div key={c.id} className={cn('flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/30 border-b last:border-b-0', loteSelecionados.has(c.id) && 'bg-fuchsia-50/40')}>
-                  <input type="checkbox" checked={loteSelecionados.has(c.id)} onChange={() => {
+                <div key={c.id} className={cn('flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/30 border-b last:border-b-0', loteSelecionados.has(c.id) && 'bg-fuchsia-50/40 dark:bg-fuchsia-950/20')}>
+                  <Checkbox checked={loteSelecionados.has(c.id)} onCheckedChange={() => {
                     setLoteSelecionados(prev => { const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n })
-                  }} className="h-3.5 w-3.5 rounded accent-fuchsia-500 cursor-pointer" />
+                  }} className="cursor-pointer" />
                   <span className="flex-1 truncate cursor-pointer" onClick={() => setLoteSelecionados(prev => { const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n })}>{c.razaoSocial}</span>
                   <span className="font-mono text-[10px] text-muted-foreground shrink-0">{formatDoc(c.documento)}</span>
                 </div>
@@ -1373,7 +1374,7 @@ export default function CertidoesCndPage() {
                 <div className="px-3 py-2 bg-muted/20 border-b text-[11px] font-medium">
                   Resultado: {loteProgresso.filter(r => r.sucesso).length} sucesso, {loteProgresso.filter(r => !r.sucesso).length} falha(s)
                 </div>
-                <div className="max-h-[150px] overflow-y-auto divide-y">
+                <div className="max-h-[150px] overflow-y-auto divide-y nice-scrollbar">
                   {loteProgresso.filter(r => !r.sucesso).map((r, i) => (
                     <div key={i} className="flex items-center gap-2 px-3 py-1.5 text-[11px]">
                       <XCircle className="h-3 w-3 text-red-500 shrink-0" />
@@ -1413,10 +1414,11 @@ export default function CertidoesCndPage() {
                 <div className="space-y-5">
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-2.5 text-sm font-medium">
-                      <button type="button" onClick={() => setCfg({ enabled: !cfg.enabled })}
-                        className={cn('relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors', cfg.enabled ? 'bg-fuchsia-500' : 'bg-gray-300 dark:bg-gray-600')}>
-                        <span className={cn('inline-block h-4 w-4 rounded-full bg-white shadow transition-transform mt-0.5', cfg.enabled ? 'translate-x-4 ml-0.5' : 'translate-x-0.5')} />
-                      </button>
+                      <Switch
+                        checked={cfg.enabled}
+                        onCheckedChange={(v) => setCfg({ enabled: v })}
+                        className={cn(cfg.enabled && 'bg-fuchsia-500')}
+                      />
                       Agendamento {cfg.enabled ? 'ativado' : 'desativado'}
                     </label>
                   </div>
@@ -1466,9 +1468,9 @@ export default function CertidoesCndPage() {
                         <div className="flex items-center gap-2 text-xs"><Loader2 className="h-3.5 w-3.5 animate-spin text-fuchsia-500" /><span className="font-medium">Processando {scheduleProgress.current}/{scheduleProgress.total}</span></div>
                       </div>
                       <div className="h-1.5 bg-muted"><div className="h-full bg-fuchsia-500 transition-all duration-500" style={{ width: `${scheduleProgress.total > 0 ? (scheduleProgress.current / scheduleProgress.total) * 100 : 0}%` }} /></div>
-                      <div className="max-h-[200px] overflow-y-auto divide-y">
+                      <div className="max-h-[200px] overflow-y-auto divide-y nice-scrollbar">
                         {scheduleProgress.items.map((item, idx) => (
-                          <div key={idx} className={cn('flex items-center gap-2 px-3 py-1.5 text-[11px]', item.status === 'processando' && 'bg-fuchsia-50/50')}>
+                          <div key={idx} className={cn('flex items-center gap-2 px-3 py-1.5 text-[11px]', item.status === 'processando' && 'bg-fuchsia-50/50 dark:bg-fuchsia-950/20')}>
                             {item.status === 'pendente' && <Clock className="h-3 w-3 text-muted-foreground/40" />}
                             {item.status === 'processando' && <Loader2 className="h-3 w-3 text-fuchsia-500 animate-spin" />}
                             {item.status === 'ok' && <CheckCircle2 className="h-3 w-3 text-fuchsia-500" />}
@@ -1605,12 +1607,12 @@ export default function CertidoesCndPage() {
               {pdfTab === 'darf' && (
                 <div className="flex h-full">
                   {/* Formulário à esquerda */}
-                  <div className="w-[340px] shrink-0 border-r overflow-y-auto p-4 space-y-4">
+                  <div className="w-[340px] shrink-0 border-r overflow-y-auto p-4 space-y-4 nice-scrollbar">
                     <div>
                       <h4 className="text-sm font-semibold mb-1">Emitir DARF</h4>
                       <p className="text-[11px] text-muted-foreground">Informe o código de receita, período e valor para gerar a guia de pagamento (DARF) via SICALC/SERPRO. O sistema calculará multa e juros automaticamente.</p>
                     </div>
-                    <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-900/10 p-2.5 text-[11px] text-amber-700 dark:text-amber-400">
+                    <div className={cn('rounded-md border p-2.5 text-[11px]', BADGE.amber)}>
                       <strong>Dica:</strong> Consulte a aba "Situação Fiscal" para identificar os códigos de receita e valores pendentes do contribuinte.
                     </div>
 
@@ -1618,7 +1620,7 @@ export default function CertidoesCndPage() {
                       <label className="text-xs font-medium">Código de Receita *</label>
                       <input type="text" placeholder="Ex: 0220, 6106..." value={darfForm.codigoReceita}
                         onChange={e => setDarfForm(prev => ({ ...prev, codigoReceita: e.target.value }))}
-                        className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono" />
+                        className="w-full h-9 rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono" />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
@@ -1626,20 +1628,22 @@ export default function CertidoesCndPage() {
                         <label className="text-xs font-medium">Período (PA) *</label>
                         <input type="text" placeholder="MM/YYYY" value={darfForm.dataPA}
                           onChange={e => setDarfForm(prev => ({ ...prev, dataPA: e.target.value }))}
-                          className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono" />
+                          className="w-full h-9 rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono" />
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs font-medium">Tipo Período</label>
-                        <select value={darfForm.tipoPA} onChange={e => setDarfForm(prev => ({ ...prev, tipoPA: e.target.value }))}
-                          className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring">
-                          <option value="ME">Mensal</option>
-                          <option value="TR">Trimestral</option>
-                          <option value="SE">Semestral</option>
-                          <option value="AN">Anual</option>
-                          <option value="DE">Decendial</option>
-                          <option value="QU">Quinzenal</option>
-                          <option value="SM">Semanal</option>
-                        </select>
+                        <Select value={darfForm.tipoPA} onValueChange={v => setDarfForm(prev => ({ ...prev, tipoPA: v }))}>
+                          <SelectTrigger className="w-full h-9 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ME">Mensal</SelectItem>
+                            <SelectItem value="TR">Trimestral</SelectItem>
+                            <SelectItem value="SE">Semestral</SelectItem>
+                            <SelectItem value="AN">Anual</SelectItem>
+                            <SelectItem value="DE">Decendial</SelectItem>
+                            <SelectItem value="QU">Quinzenal</SelectItem>
+                            <SelectItem value="SM">Semanal</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
 
@@ -1647,21 +1651,21 @@ export default function CertidoesCndPage() {
                       <label className="text-xs font-medium">Valor do Imposto (R$) *</label>
                       <input type="text" placeholder="0,00" value={darfForm.valorImposto}
                         onChange={e => setDarfForm(prev => ({ ...prev, valorImposto: e.target.value }))}
-                        className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono" />
+                        className="w-full h-9 rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono" />
                     </div>
 
                     <div className="space-y-1">
                       <label className="text-xs font-medium">Data de Consolidação</label>
                       <input type="date" value={darfForm.dataConsolidacao}
                         onChange={e => setDarfForm(prev => ({ ...prev, dataConsolidacao: e.target.value }))}
-                        className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                        className="w-full h-9 rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
                     </div>
 
                     <div className="space-y-1">
                       <label className="text-xs font-medium">Observação</label>
                       <input type="text" placeholder="Opcional" value={darfForm.observacao}
                         onChange={e => setDarfForm(prev => ({ ...prev, observacao: e.target.value }))}
-                        className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                        className="w-full h-9 rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
                     </div>
 
                     <Button className="w-full gap-1.5 bg-fuchsia-500 hover:bg-fuchsia-600 text-white" onClick={handleEmitirDarf} disabled={darfLoading}>
@@ -1670,23 +1674,23 @@ export default function CertidoesCndPage() {
                     </Button>
 
                     {darfErro && (
-                      <div className="rounded-md border border-red-200 bg-red-50 dark:bg-red-900/10 p-3 text-xs text-red-700 dark:text-red-400">
+                      <div className={cn('rounded-md border p-3 text-xs', BADGE.red)}>
                         <p className="font-medium mb-1">Erro na emissão</p>
                         <p>{darfErro}</p>
                       </div>
                     )}
 
                     {darfConsolidado && (
-                      <div className="rounded-md border border-fuchsia-200 bg-fuchsia-50 dark:bg-fuchsia-900/10 p-3 space-y-1.5 text-xs">
-                        <p className="font-semibold text-fuchsia-700 dark:text-fuchsia-400 mb-2">Valores Consolidados</p>
+                      <div className={cn('rounded-md border p-3 space-y-1.5 text-xs', SURFACE.fuchsia)}>
+                        <p className={cn('font-semibold mb-2', TEXT.fuchsia)}>Valores Consolidados</p>
                         {typeof darfConsolidado.valorPrincipalMoedaCorrente === 'number' && (
                           <div className="flex justify-between"><span className="text-muted-foreground">Principal</span><span className="font-mono font-medium">R$ {Number(darfConsolidado.valorPrincipalMoedaCorrente).toFixed(2)}</span></div>
                         )}
                         {typeof darfConsolidado.valorMultaMora === 'number' && Number(darfConsolidado.valorMultaMora) > 0 && (
-                          <div className="flex justify-between"><span className="text-muted-foreground">Multa ({String(darfConsolidado.percentualMultaMora)}%)</span><span className="font-mono font-medium text-red-600">R$ {Number(darfConsolidado.valorMultaMora).toFixed(2)}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Multa ({String(darfConsolidado.percentualMultaMora)}%)</span><span className={cn('font-mono font-medium', TEXT.red)}>R$ {Number(darfConsolidado.valorMultaMora).toFixed(2)}</span></div>
                         )}
                         {typeof darfConsolidado.valorJuros === 'number' && Number(darfConsolidado.valorJuros) > 0 && (
-                          <div className="flex justify-between"><span className="text-muted-foreground">Juros ({String(darfConsolidado.percentualJuros)}%)</span><span className="font-mono font-medium text-amber-600">R$ {Number(darfConsolidado.valorJuros).toFixed(2)}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Juros ({String(darfConsolidado.percentualJuros)}%)</span><span className={cn('font-mono font-medium', TEXT.amber)}>R$ {Number(darfConsolidado.valorJuros).toFixed(2)}</span></div>
                         )}
                         {typeof darfConsolidado.valorTotalConsolidado === 'number' && (
                           <div className="flex justify-between border-t pt-1.5 mt-1.5"><span className="font-semibold">Total</span><span className="font-mono font-bold">R$ {Number(darfConsolidado.valorTotalConsolidado).toFixed(2)}</span></div>
@@ -1736,14 +1740,14 @@ export default function CertidoesCndPage() {
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => { setEstSearch(''); setEstPage(1) }}
               className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all',
-                'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400')}>
+                BADGE.emerald)}>
               <Shield className="h-3 w-3" />{estTotais.total} Total
             </button>
-            <div className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium bg-emerald-50/50 border-emerald-200/50 text-emerald-600">
+            <div className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200/50 dark:border-emerald-800/50', TEXT.emerald)}>
               <CheckCircle2 className="h-3 w-3" />{estTotais.emitidas} Emitidas
             </div>
             {estTotais.naoEmitidas > 0 && (
-              <div className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium bg-red-50 border-red-200 text-red-600">
+              <div className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium', SURFACE.red, TEXT.red)}>
                 <XCircle className="h-3 w-3" />{estTotais.naoEmitidas} Não emitida
               </div>
             )}
@@ -1847,11 +1851,11 @@ export default function CertidoesCndPage() {
                     </TableCell>
                     <TableCell>
                       {r.sucesso ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                        <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.emerald)}>
                           <CheckCircle2 className="h-3 w-3" />Emitida
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-2 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-400">
+                        <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.red)}>
                           <XCircle className="h-3 w-3" />Não emitida
                         </span>
                       )}
@@ -1918,21 +1922,21 @@ export default function CertidoesCndPage() {
                     {/* KPIs */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                       <div className="rounded-lg border bg-emerald-50 dark:bg-emerald-950/20 p-2 text-center">
-                        <p className="text-lg font-bold text-emerald-600">{estLoteProgress.emitidas}</p>
+                        <p className={cn('text-lg font-bold', TEXT.emerald)}>{estLoteProgress.emitidas}</p>
                         <p className="text-[10px] text-muted-foreground">Emitidas</p>
                       </div>
                       <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/20 p-2 text-center">
-                        <p className="text-lg font-bold text-amber-600">{estLoteProgress.naoEmitidas}</p>
+                        <p className={cn('text-lg font-bold', TEXT.amber)}>{estLoteProgress.naoEmitidas}</p>
                         <p className="text-[10px] text-muted-foreground">Não emitidas</p>
                       </div>
                       <div className="rounded-lg border bg-red-50 dark:bg-red-950/20 p-2 text-center">
-                        <p className="text-lg font-bold text-red-600">{estLoteProgress.erros}</p>
+                        <p className={cn('text-lg font-bold', TEXT.red)}>{estLoteProgress.erros}</p>
                         <p className="text-[10px] text-muted-foreground">Erros</p>
                       </div>
                     </div>
 
                     {/* Log */}
-                    <div className="max-h-[250px] overflow-y-auto space-y-0.5 border rounded-lg p-2">
+                    <div className="max-h-[250px] overflow-y-auto space-y-0.5 border rounded-lg p-2 nice-scrollbar">
                       {estLoteProgress.items.length === 0 ? (
                         <p className="text-xs text-muted-foreground text-center py-4">Aguardando...</p>
                       ) : (
@@ -1945,7 +1949,7 @@ export default function CertidoesCndPage() {
                             {item.status === 'pendente' && <span className="h-3 w-3 text-muted-foreground shrink-0 text-center">·</span>}
                             <span className={cn('truncate',
                               item.status === 'pendente' && 'text-muted-foreground',
-                              item.status === 'erro' && 'text-red-600',
+                              item.status === 'erro' && TEXT.red,
                             )}>
                               {item.razaoSocial}
                               {item.erro && <span className="ml-1 text-[10px] text-red-400">({item.erro})</span>}
@@ -2150,15 +2154,15 @@ export default function CertidoesCndPage() {
                     </TableCell>
                     <TableCell>
                       {r.sucesso && r.tipoCertidao === 'Negativa' ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                        <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.emerald)}>
                           <CheckCircle2 className="h-3 w-3" />Negativa
                         </span>
                       ) : r.sucesso ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                        <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.amber)}>
                           <AlertTriangle className="h-3 w-3" />{r.tipoCertidao || 'Positiva'}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-2 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-400">
+                        <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.red)}>
                           <XCircle className="h-3 w-3" />Não emitida
                         </span>
                       )}
@@ -2232,7 +2236,7 @@ export default function CertidoesCndPage() {
                     <button onClick={() => munConsultaStatus !== 'loading' && setMunConsultaOpen(false)} className="ml-auto rounded-md p-1.5 hover:bg-muted transition-colors"><X className="h-4 w-4" /></button>
                   </div>
                   {/* Body */}
-                  <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                  <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 nice-scrollbar">
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium">Selecione um cliente mensal de {munMunicipio}</label>
                       <input
@@ -2244,9 +2248,9 @@ export default function CertidoesCndPage() {
                           console.log('[FILTER] value:', v, 'test:', 'ACBL INFORMACOES LTDA'.toLowerCase().includes(v.toLowerCase()), 'clients:', munConsultaClientes.length)
                           setMunConsultaSearch(v)
                         }}
-                        className="flex w-full rounded-[2px] border border-input bg-background px-3 py-1.5 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring h-8"
+                        className="flex w-full rounded-[2px] px-3 py-1.5 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring h-8"
                       />
-                      <div className="border rounded-lg max-h-[200px] overflow-y-auto">
+                      <div className="border rounded-lg max-h-[200px] overflow-y-auto nice-scrollbar">
                         {munConsultaClientes.filter(c => {
                           if (!munConsultaSearch.trim()) return true
                           const t = munConsultaSearch.trim().toLowerCase()
@@ -2271,15 +2275,15 @@ export default function CertidoesCndPage() {
                       </div>
                     )}
                     {munConsultaStatus === 'success' && (
-                      <div className="flex items-center gap-3 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20 px-4 py-3">
+                      <div className={cn('flex items-center gap-3 rounded-lg border px-4 py-3', SURFACE.emerald)}>
                         <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
-                        <div><p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Consulta concluída</p><p className="text-[10px] text-muted-foreground">{munConsultaMsg}</p></div>
+                        <div><p className={cn('text-xs font-medium', TEXT.emerald)}>Consulta concluída</p><p className="text-[10px] text-muted-foreground">{munConsultaMsg}</p></div>
                       </div>
                     )}
                     {munConsultaStatus === 'error' && (
-                      <div className="flex items-center gap-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 px-4 py-3">
+                      <div className={cn('flex items-center gap-3 rounded-lg border px-4 py-3', SURFACE.red)}>
                         <XCircle className="h-5 w-5 text-red-500 shrink-0" />
-                        <div><p className="text-xs font-medium text-red-700 dark:text-red-400">Falha na consulta</p><p className="text-[10px] text-muted-foreground">{munConsultaMsg}</p></div>
+                        <div><p className={cn('text-xs font-medium', TEXT.red)}>Falha na consulta</p><p className="text-[10px] text-muted-foreground">{munConsultaMsg}</p></div>
                       </div>
                     )}
                   </div>
@@ -2391,11 +2395,11 @@ export default function CertidoesCndPage() {
                       <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin shrink-0" /><span className="truncate">{munLoteProgress.currentCliente}</span></div>
                     )}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                      <div className="rounded-lg border bg-emerald-50 dark:bg-emerald-950/20 p-2 text-center"><p className="text-lg font-bold text-emerald-600">{munLoteProgress.emitidas}</p><p className="text-[10px] text-muted-foreground">Emitidas</p></div>
-                      <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/20 p-2 text-center"><p className="text-lg font-bold text-amber-600">{munLoteProgress.naoEmitidas}</p><p className="text-[10px] text-muted-foreground">Não emitidas</p></div>
-                      <div className="rounded-lg border bg-red-50 dark:bg-red-950/20 p-2 text-center"><p className="text-lg font-bold text-red-600">{munLoteProgress.erros}</p><p className="text-[10px] text-muted-foreground">Erros</p></div>
+                      <div className="rounded-lg border bg-emerald-50 dark:bg-emerald-950/20 p-2 text-center"><p className={cn('text-lg font-bold', TEXT.emerald)}>{munLoteProgress.emitidas}</p><p className="text-[10px] text-muted-foreground">Emitidas</p></div>
+                      <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/20 p-2 text-center"><p className={cn('text-lg font-bold', TEXT.amber)}>{munLoteProgress.naoEmitidas}</p><p className="text-[10px] text-muted-foreground">Não emitidas</p></div>
+                      <div className="rounded-lg border bg-red-50 dark:bg-red-950/20 p-2 text-center"><p className={cn('text-lg font-bold', TEXT.red)}>{munLoteProgress.erros}</p><p className="text-[10px] text-muted-foreground">Erros</p></div>
                     </div>
-                    <div className="max-h-[250px] overflow-y-auto space-y-0.5 border rounded-lg p-2">
+                    <div className="max-h-[250px] overflow-y-auto space-y-0.5 border rounded-lg p-2 nice-scrollbar">
                       {munLoteProgress.items.length === 0 ? (
                         <p className="text-xs text-muted-foreground text-center py-4">Aguardando...</p>
                       ) : [...munLoteProgress.items].reverse().map((item, idx) => (
@@ -2405,7 +2409,7 @@ export default function CertidoesCndPage() {
                           {item.status === 'erro' && <XCircle className="h-3 w-3 text-red-500 shrink-0" />}
                           {item.status === 'processando' && <Loader2 className="h-3 w-3 text-fuchsia-500 animate-spin shrink-0" />}
                           {item.status === 'pendente' && <span className="h-3 w-3 text-muted-foreground shrink-0 text-center">·</span>}
-                          <span className={cn('truncate', item.status === 'pendente' && 'text-muted-foreground', item.status === 'erro' && 'text-red-600')}>
+                          <span className={cn('truncate', item.status === 'pendente' && 'text-muted-foreground', item.status === 'erro' && TEXT.red)}>
                             {item.razaoSocial}{item.erro && <span className="ml-1 text-[10px] text-red-400">({item.erro})</span>}
                           </span>
                         </div>
@@ -2565,11 +2569,11 @@ export default function CertidoesCndPage() {
                       </TableCell>
                       <TableCell>
                         {r.sucesso ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                          <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.emerald)}>
                             <CheckCircle2 className="h-3 w-3" />Emitido
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-2 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-400">
+                          <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.red)}>
                             <XCircle className="h-3 w-3" />Não emitido
                           </span>
                         )}
@@ -2641,11 +2645,11 @@ export default function CertidoesCndPage() {
                     </TableCell>
                     <TableCell>
                       {r.status === 'Regular' ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                        <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.emerald)}>
                           <CheckCircle2 className="h-3 w-3" />Regular
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                        <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.amber)}>
                           <AlertTriangle className="h-3 w-3" />{r.status}
                         </span>
                       )}
@@ -2714,20 +2718,20 @@ export default function CertidoesCndPage() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                       <div className="rounded-lg border bg-emerald-50 dark:bg-emerald-950/20 p-2 text-center">
-                        <p className="text-lg font-bold text-emerald-600">{alvLoteProgress.encontrados}</p>
+                        <p className={cn('text-lg font-bold', TEXT.emerald)}>{alvLoteProgress.encontrados}</p>
                         <p className="text-[10px] text-muted-foreground">Encontrados</p>
                       </div>
                       <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/20 p-2 text-center">
-                        <p className="text-lg font-bold text-amber-600">{alvLoteProgress.naoEncontrados}</p>
+                        <p className={cn('text-lg font-bold', TEXT.amber)}>{alvLoteProgress.naoEncontrados}</p>
                         <p className="text-[10px] text-muted-foreground">Não encontrados</p>
                       </div>
                       <div className="rounded-lg border bg-red-50 dark:bg-red-950/20 p-2 text-center">
-                        <p className="text-lg font-bold text-red-600">{alvLoteProgress.erros}</p>
+                        <p className={cn('text-lg font-bold', TEXT.red)}>{alvLoteProgress.erros}</p>
                         <p className="text-[10px] text-muted-foreground">Erros</p>
                       </div>
                     </div>
 
-                    <div className="max-h-[250px] overflow-y-auto space-y-0.5 border rounded-lg p-2">
+                    <div className="max-h-[250px] overflow-y-auto space-y-0.5 border rounded-lg p-2 nice-scrollbar">
                       {alvLoteProgress.items.length === 0 ? (
                         <p className="text-xs text-muted-foreground text-center py-4">Aguardando...</p>
                       ) : (
@@ -2740,7 +2744,7 @@ export default function CertidoesCndPage() {
                             {item.status === 'pendente' && <span className="h-3 w-3 text-muted-foreground shrink-0 text-center">·</span>}
                             <span className={cn('truncate',
                               item.status === 'pendente' && 'text-muted-foreground',
-                              item.status === 'erro' && 'text-red-600',
+                              item.status === 'erro' && TEXT.red,
                             )}>
                               {item.razaoSocial}
                               {item.erro && <span className="ml-1 text-[10px] text-red-400">({item.erro})</span>}
@@ -2786,13 +2790,13 @@ export default function CertidoesCndPage() {
             </button>
             <button type="button" onClick={() => { setTrbFiltroStatus(trbFiltroStatus === 'negativa' ? null : 'negativa'); setTrbPage(1) }}
               className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                trbFiltroStatus === 'negativa' ? 'bg-emerald-100 dark:bg-emerald-900/30 border-emerald-300 text-emerald-700 ring-1 ring-emerald-400/30' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 text-emerald-600')}>
+                trbFiltroStatus === 'negativa' ? 'bg-emerald-100 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-400/30' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600')}>
               <CheckCircle2 className="h-3 w-3" />{trbTotais.negativas} Negativa
             </button>
             {trbTotais.naoEmitidas > 0 && (
               <button type="button" onClick={() => { setTrbFiltroStatus(trbFiltroStatus === 'nao_emitida' ? null : 'nao_emitida'); setTrbPage(1) }}
                 className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                  trbFiltroStatus === 'nao_emitida' ? 'bg-red-100 border-red-300 text-red-700 ring-1 ring-red-400/30' : 'bg-red-50 border-red-200 text-red-600')}>
+                  trbFiltroStatus === 'nao_emitida' ? 'bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-400 ring-1 ring-red-400/30' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-600')}>
                 <XCircle className="h-3 w-3" />{trbTotais.naoEmitidas} Não emitida
               </button>
             )}
@@ -2800,21 +2804,21 @@ export default function CertidoesCndPage() {
             {trbTotais.vigentes > 0 && (
               <button type="button" onClick={() => { setTrbFiltroStatus(trbFiltroStatus === 'vigente' ? null : 'vigente'); setTrbPage(1) }}
                 className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                  trbFiltroStatus === 'vigente' ? 'bg-emerald-100 border-emerald-300 text-emerald-700 ring-1 ring-emerald-400/30' : 'bg-emerald-50/50 border-emerald-200/60 text-emerald-600/80')}>
+                  trbFiltroStatus === 'vigente' ? 'bg-emerald-100 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-400/30' : 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200/60 text-emerald-600/80')}>
                 <CheckCircle2 className="h-3 w-3" />{trbTotais.vigentes} Vigente
               </button>
             )}
             {trbTotais.vencendo > 0 && (
               <button type="button" onClick={() => { setTrbFiltroStatus(trbFiltroStatus === 'vencendo' ? null : 'vencendo'); setTrbPage(1) }}
                 className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                  trbFiltroStatus === 'vencendo' ? 'bg-amber-100 border-amber-300 text-amber-700 ring-1 ring-amber-400/30' : 'bg-amber-50/50 border-amber-200/60 text-amber-600/80')}>
+                  trbFiltroStatus === 'vencendo' ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 ring-1 ring-amber-400/30' : 'bg-amber-50/50 dark:bg-amber-900/10 border-amber-200/60 text-amber-600/80')}>
                 <Clock className="h-3 w-3" />{trbTotais.vencendo} Vencendo
               </button>
             )}
             {trbTotais.vencidas > 0 && (
               <button type="button" onClick={() => { setTrbFiltroStatus(trbFiltroStatus === 'vencida' ? null : 'vencida'); setTrbPage(1) }}
                 className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                  trbFiltroStatus === 'vencida' ? 'bg-red-100 border-red-300 text-red-700 ring-1 ring-red-400/30' : 'bg-red-50/50 border-red-200/60 text-red-600/80')}>
+                  trbFiltroStatus === 'vencida' ? 'bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-400 ring-1 ring-red-400/30' : 'bg-red-50/50 dark:bg-red-900/10 border-red-200/60 text-red-600/80')}>
                 <XCircle className="h-3 w-3" />{trbTotais.vencidas} Vencida
               </button>
             )}
@@ -2893,15 +2897,15 @@ export default function CertidoesCndPage() {
                     </TableCell>
                     <TableCell>
                       {r.sucesso && r.tipoCertidao === 'Negativa' ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                        <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.emerald)}>
                           <CheckCircle2 className="h-3 w-3" />Negativa
                         </span>
                       ) : r.sucesso ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                        <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.amber)}>
                           <AlertTriangle className="h-3 w-3" />{r.tipoCertidao || 'Positiva'}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-2 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-400">
+                        <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.red)}>
                           <XCircle className="h-3 w-3" />Não emitida
                         </span>
                       )}
@@ -2952,7 +2956,7 @@ export default function CertidoesCndPage() {
                     <h3 className="text-base font-semibold">CNDT — Consulta Individual</h3>
                     <button onClick={() => trbConsultaStatus !== 'loading' && setTrbConsultaOpen(false)} className="ml-auto rounded-md p-1.5 hover:bg-muted transition-colors"><X className="h-4 w-4" /></button>
                   </div>
-                  <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                  <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 nice-scrollbar">
                     {trbConsultaStatus === 'idle' && (
                       <div className="space-y-3">
                         <div>
@@ -2968,15 +2972,15 @@ export default function CertidoesCndPage() {
                       </div>
                     )}
                     {trbConsultaStatus === 'success' && (
-                      <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+                      <div className={cn('flex items-center gap-3 rounded-lg border px-4 py-3', SURFACE.emerald)}>
                         <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
-                        <div><p className="text-xs font-medium text-emerald-700">Consulta concluída</p><p className="text-[10px] text-muted-foreground">{trbConsultaMsg}</p></div>
+                        <div><p className={cn('text-xs font-medium', TEXT.emerald)}>Consulta concluída</p><p className="text-[10px] text-muted-foreground">{trbConsultaMsg}</p></div>
                       </div>
                     )}
                     {trbConsultaStatus === 'error' && (
-                      <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                      <div className={cn('flex items-center gap-3 rounded-lg border px-4 py-3', SURFACE.red)}>
                         <XCircle className="h-5 w-5 text-red-500 shrink-0" />
-                        <div><p className="text-xs font-medium text-red-700">Falha na consulta</p><p className="text-[10px] text-muted-foreground">{trbConsultaMsg}</p></div>
+                        <div><p className={cn('text-xs font-medium', TEXT.red)}>Falha na consulta</p><p className="text-[10px] text-muted-foreground">{trbConsultaMsg}</p></div>
                       </div>
                     )}
                   </div>
@@ -3046,11 +3050,11 @@ export default function CertidoesCndPage() {
                       <div className="bg-fuchsia-500 h-2 rounded-full transition-all" style={{ width: `${(trbLoteProgress.current / trbLoteProgress.total) * 100}%` }} />
                     </div>
                     <div className="flex gap-3 text-xs">
-                      <span className="text-emerald-600">{trbLoteProgress.emitidas} emitidas</span>
-                      <span className="text-red-600">{trbLoteProgress.naoEmitidas} não emitidas</span>
+                      <span className={TEXT.emerald}>{trbLoteProgress.emitidas} emitidas</span>
+                      <span className={TEXT.red}>{trbLoteProgress.naoEmitidas} não emitidas</span>
                       <span className="text-muted-foreground">{trbLoteProgress.erros} erros</span>
                     </div>
-                    <div className="border rounded-lg max-h-[300px] overflow-y-auto">
+                    <div className="border rounded-lg max-h-[300px] overflow-y-auto nice-scrollbar">
                       {trbLoteProgress.items.map((item, i) => (
                         <div key={i} className="flex items-center justify-between px-3 py-1.5 border-b last:border-b-0 text-xs">
                           <span className="truncate flex-1">{item.razaoSocial}</span>
@@ -3089,20 +3093,20 @@ export default function CertidoesCndPage() {
             </button>
             <button type="button" onClick={() => { setFgtsFiltroStatus(fgtsFiltroStatus === 'regular' ? null : 'regular'); setFgtsPage(1) }}
               className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                fgtsFiltroStatus === 'regular' ? 'bg-emerald-100 border-emerald-300 text-emerald-700 ring-1 ring-emerald-400/30' : 'bg-emerald-50 border-emerald-200 text-emerald-600')}>
+                fgtsFiltroStatus === 'regular' ? 'bg-emerald-100 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-400/30' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600')}>
               <CheckCircle2 className="h-3 w-3" />{fgtsTotais.regulares} Regular
             </button>
             {fgtsTotais.irregulares > 0 && (
               <button type="button" onClick={() => { setFgtsFiltroStatus(fgtsFiltroStatus === 'irregular' ? null : 'irregular'); setFgtsPage(1) }}
                 className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                  fgtsFiltroStatus === 'irregular' ? 'bg-red-100 border-red-300 text-red-700 ring-1 ring-red-400/30' : 'bg-red-50 border-red-200 text-red-600')}>
+                  fgtsFiltroStatus === 'irregular' ? 'bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-400 ring-1 ring-red-400/30' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-600')}>
                 <XCircle className="h-3 w-3" />{fgtsTotais.irregulares} Irregular
               </button>
             )}
             {fgtsTotais.naoEmitidas > 0 && (
               <button type="button" onClick={() => { setFgtsFiltroStatus(fgtsFiltroStatus === 'nao_emitida' ? null : 'nao_emitida'); setFgtsPage(1) }}
                 className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                  fgtsFiltroStatus === 'nao_emitida' ? 'bg-amber-100 border-amber-300 text-amber-700 ring-1 ring-amber-400/30' : 'bg-amber-50 border-amber-200 text-amber-600')}>
+                  fgtsFiltroStatus === 'nao_emitida' ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 ring-1 ring-amber-400/30' : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-600')}>
                 <AlertTriangle className="h-3 w-3" />{fgtsTotais.naoEmitidas} Não emitida
               </button>
             )}
@@ -3110,21 +3114,21 @@ export default function CertidoesCndPage() {
             {fgtsTotais.vigentes > 0 && (
               <button type="button" onClick={() => { setFgtsFiltroStatus(fgtsFiltroStatus === 'vigente' ? null : 'vigente'); setFgtsPage(1) }}
                 className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                  fgtsFiltroStatus === 'vigente' ? 'bg-emerald-100 border-emerald-300 text-emerald-700 ring-1 ring-emerald-400/30' : 'bg-emerald-50/50 border-emerald-200/60 text-emerald-600/80')}>
+                  fgtsFiltroStatus === 'vigente' ? 'bg-emerald-100 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-400/30' : 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200/60 text-emerald-600/80')}>
                 <CheckCircle2 className="h-3 w-3" />{fgtsTotais.vigentes} Vigente
               </button>
             )}
             {fgtsTotais.vencendo > 0 && (
               <button type="button" onClick={() => { setFgtsFiltroStatus(fgtsFiltroStatus === 'vencendo' ? null : 'vencendo'); setFgtsPage(1) }}
                 className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                  fgtsFiltroStatus === 'vencendo' ? 'bg-amber-100 border-amber-300 text-amber-700 ring-1 ring-amber-400/30' : 'bg-amber-50/50 border-amber-200/60 text-amber-600/80')}>
+                  fgtsFiltroStatus === 'vencendo' ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 ring-1 ring-amber-400/30' : 'bg-amber-50/50 dark:bg-amber-900/10 border-amber-200/60 text-amber-600/80')}>
                 <Clock className="h-3 w-3" />{fgtsTotais.vencendo} Vencendo
               </button>
             )}
             {fgtsTotais.vencidas > 0 && (
               <button type="button" onClick={() => { setFgtsFiltroStatus(fgtsFiltroStatus === 'vencida' ? null : 'vencida'); setFgtsPage(1) }}
                 className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                  fgtsFiltroStatus === 'vencida' ? 'bg-red-100 border-red-300 text-red-700 ring-1 ring-red-400/30' : 'bg-red-50/50 border-red-200/60 text-red-600/80')}>
+                  fgtsFiltroStatus === 'vencida' ? 'bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-400 ring-1 ring-red-400/30' : 'bg-red-50/50 dark:bg-red-900/10 border-red-200/60 text-red-600/80')}>
                 <XCircle className="h-3 w-3" />{fgtsTotais.vencidas} Vencida
               </button>
             )}
@@ -3203,15 +3207,15 @@ export default function CertidoesCndPage() {
                     </TableCell>
                     <TableCell>
                       {r.sucesso ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                        <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.emerald)}>
                           <CheckCircle2 className="h-3 w-3" />Regular
                         </span>
                       ) : r.tipoCertidao === 'Irregular' ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-2 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-400">
+                        <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.red)}>
                           <XCircle className="h-3 w-3" />Irregular
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                        <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.amber)}>
                           <AlertTriangle className="h-3 w-3" />Não emitido
                         </span>
                       )}
@@ -3261,7 +3265,7 @@ export default function CertidoesCndPage() {
                     <h3 className="text-base font-semibold">CRF/FGTS — Consulta Individual</h3>
                     <button onClick={() => fgtsConsultaStatus !== 'loading' && setFgtsConsultaOpen(false)} className="ml-auto rounded-md p-1.5 hover:bg-muted transition-colors"><X className="h-4 w-4" /></button>
                   </div>
-                  <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                  <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 nice-scrollbar">
                     {fgtsConsultaStatus === 'idle' && (
                       <div className="space-y-3">
                         <div>
@@ -3277,15 +3281,15 @@ export default function CertidoesCndPage() {
                       </div>
                     )}
                     {fgtsConsultaStatus === 'success' && (
-                      <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+                      <div className={cn('flex items-center gap-3 rounded-lg border px-4 py-3', SURFACE.emerald)}>
                         <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
-                        <div><p className="text-xs font-medium text-emerald-700">Consulta concluída</p><p className="text-[10px] text-muted-foreground">{fgtsConsultaMsg}</p></div>
+                        <div><p className={cn('text-xs font-medium', TEXT.emerald)}>Consulta concluída</p><p className="text-[10px] text-muted-foreground">{fgtsConsultaMsg}</p></div>
                       </div>
                     )}
                     {fgtsConsultaStatus === 'error' && (
-                      <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                      <div className={cn('flex items-center gap-3 rounded-lg border px-4 py-3', SURFACE.red)}>
                         <XCircle className="h-5 w-5 text-red-500 shrink-0" />
-                        <div><p className="text-xs font-medium text-red-700">Falha na consulta</p><p className="text-[10px] text-muted-foreground">{fgtsConsultaMsg}</p></div>
+                        <div><p className={cn('text-xs font-medium', TEXT.red)}>Falha na consulta</p><p className="text-[10px] text-muted-foreground">{fgtsConsultaMsg}</p></div>
                       </div>
                     )}
                   </div>
@@ -3355,11 +3359,11 @@ export default function CertidoesCndPage() {
                       <div className="bg-fuchsia-500 h-2 rounded-full transition-all" style={{ width: `${(fgtsLoteProgress.current / fgtsLoteProgress.total) * 100}%` }} />
                     </div>
                     <div className="flex gap-3 text-xs">
-                      <span className="text-emerald-600">{fgtsLoteProgress.emitidas} regulares</span>
-                      <span className="text-red-600">{fgtsLoteProgress.naoEmitidas} irregulares</span>
+                      <span className={TEXT.emerald}>{fgtsLoteProgress.emitidas} regulares</span>
+                      <span className={TEXT.red}>{fgtsLoteProgress.naoEmitidas} irregulares</span>
                       <span className="text-muted-foreground">{fgtsLoteProgress.erros} erros</span>
                     </div>
-                    <div className="border rounded-lg max-h-[300px] overflow-y-auto">
+                    <div className="border rounded-lg max-h-[300px] overflow-y-auto nice-scrollbar">
                       {fgtsLoteProgress.items.map((item, i) => (
                         <div key={i} className="flex items-center justify-between px-3 py-1.5 border-b last:border-b-0 text-xs">
                           <span className="truncate flex-1">{item.razaoSocial}</span>
@@ -3392,25 +3396,25 @@ export default function CertidoesCndPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <button type="button" onClick={() => { setCguFiltroStatus(null); setCguPage(1) }}
               className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                !cguFiltroStatus ? 'bg-fuchsia-100 dark:bg-fuchsia-900/30 border-fuchsia-300 text-fuchsia-700 ring-1 ring-fuchsia-400/30' : 'bg-fuchsia-50 border-fuchsia-200 text-fuchsia-600')}>
+                !cguFiltroStatus ? 'bg-fuchsia-100 dark:bg-fuchsia-900/30 border-fuchsia-300 dark:border-fuchsia-700 text-fuchsia-700 dark:text-fuchsia-400 ring-1 ring-fuchsia-400/30' : 'bg-fuchsia-50 dark:bg-fuchsia-900/20 border-fuchsia-200 dark:border-fuchsia-800 text-fuchsia-600')}>
               <Shield className="h-3 w-3" />{cguTotais.total} Total
             </button>
             <button type="button" onClick={() => { setCguFiltroStatus(cguFiltroStatus === 'nada_consta' ? null : 'nada_consta'); setCguPage(1) }}
               className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                cguFiltroStatus === 'nada_consta' ? 'bg-emerald-100 border-emerald-300 text-emerald-700 ring-1 ring-emerald-400/30' : 'bg-emerald-50 border-emerald-200 text-emerald-600')}>
+                cguFiltroStatus === 'nada_consta' ? 'bg-emerald-100 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-400/30' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600')}>
               <CheckCircle2 className="h-3 w-3" />{cguTotais.nadaConsta} Nada Consta
             </button>
             {cguTotais.consta > 0 && (
               <button type="button" onClick={() => { setCguFiltroStatus(cguFiltroStatus === 'consta' ? null : 'consta'); setCguPage(1) }}
                 className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                  cguFiltroStatus === 'consta' ? 'bg-red-100 border-red-300 text-red-700 ring-1 ring-red-400/30' : 'bg-red-50 border-red-200 text-red-600')}>
+                  cguFiltroStatus === 'consta' ? 'bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-400 ring-1 ring-red-400/30' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-600')}>
                 <XCircle className="h-3 w-3" />{cguTotais.consta} Consta
               </button>
             )}
             {cguTotais.naoEmitidas > 0 && (
               <button type="button" onClick={() => { setCguFiltroStatus(cguFiltroStatus === 'nao_emitida' ? null : 'nao_emitida'); setCguPage(1) }}
                 className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                  cguFiltroStatus === 'nao_emitida' ? 'bg-amber-100 border-amber-300 text-amber-700 ring-1 ring-amber-400/30' : 'bg-amber-50 border-amber-200 text-amber-600')}>
+                  cguFiltroStatus === 'nao_emitida' ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 ring-1 ring-amber-400/30' : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-600')}>
                 <AlertTriangle className="h-3 w-3" />{cguTotais.naoEmitidas} Não emitida
               </button>
             )}
@@ -3488,15 +3492,15 @@ export default function CertidoesCndPage() {
                     </TableCell>
                     <TableCell>
                       {r.tipoCertidao === 'Nada Consta' ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                        <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.emerald)}>
                           <CheckCircle2 className="h-3 w-3" />Nada Consta
                         </span>
                       ) : r.tipoCertidao === 'Consta' ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-2 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-400">
+                        <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.red)}>
                           <XCircle className="h-3 w-3" />Consta
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                        <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.amber)}>
                           <AlertTriangle className="h-3 w-3" />Não emitida
                         </span>
                       )}
@@ -3542,7 +3546,7 @@ export default function CertidoesCndPage() {
                     <h3 className="text-base font-semibold">CGU — Consulta Individual</h3>
                     <button onClick={() => cguConsultaStatus !== 'loading' && setCguConsultaOpen(false)} className="ml-auto rounded-md p-1.5 hover:bg-muted transition-colors"><X className="h-4 w-4" /></button>
                   </div>
-                  <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                  <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 nice-scrollbar">
                     {cguConsultaStatus === 'idle' && (
                       <div><label className="text-xs font-medium mb-1 block">CNPJ / CPF</label><Input value={cguConsultaDoc} onChange={e => setCguConsultaDoc(e.target.value)} placeholder="00.000.000/0000-00" className="text-xs h-9" /></div>
                     )}
@@ -3553,15 +3557,15 @@ export default function CertidoesCndPage() {
                       </div>
                     )}
                     {cguConsultaStatus === 'success' && (
-                      <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+                      <div className={cn('flex items-center gap-3 rounded-lg border px-4 py-3', SURFACE.emerald)}>
                         <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
-                        <div><p className="text-xs font-medium text-emerald-700">Consulta concluída</p><p className="text-[10px] text-muted-foreground">{cguConsultaMsg}</p></div>
+                        <div><p className={cn('text-xs font-medium', TEXT.emerald)}>Consulta concluída</p><p className="text-[10px] text-muted-foreground">{cguConsultaMsg}</p></div>
                       </div>
                     )}
                     {cguConsultaStatus === 'error' && (
-                      <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                      <div className={cn('flex items-center gap-3 rounded-lg border px-4 py-3', SURFACE.red)}>
                         <XCircle className="h-5 w-5 text-red-500 shrink-0" />
-                        <div><p className="text-xs font-medium text-red-700">Falha</p><p className="text-[10px] text-muted-foreground">{cguConsultaMsg}</p></div>
+                        <div><p className={cn('text-xs font-medium', TEXT.red)}>Falha</p><p className="text-[10px] text-muted-foreground">{cguConsultaMsg}</p></div>
                       </div>
                     )}
                   </div>
@@ -3613,11 +3617,11 @@ export default function CertidoesCndPage() {
                     </div>
                     <div className="w-full bg-muted rounded-full h-2"><div className="bg-fuchsia-500 h-2 rounded-full transition-all" style={{ width: `${(cguLoteProgress.current / cguLoteProgress.total) * 100}%` }} /></div>
                     <div className="flex gap-3 text-xs">
-                      <span className="text-emerald-600">{cguLoteProgress.emitidas} nada consta</span>
-                      <span className="text-red-600">{cguLoteProgress.naoEmitidas} consta/erro</span>
+                      <span className={TEXT.emerald}>{cguLoteProgress.emitidas} nada consta</span>
+                      <span className={TEXT.red}>{cguLoteProgress.naoEmitidas} consta/erro</span>
                       <span className="text-muted-foreground">{cguLoteProgress.erros} erros</span>
                     </div>
-                    <div className="border rounded-lg max-h-[300px] overflow-y-auto">
+                    <div className="border rounded-lg max-h-[300px] overflow-y-auto nice-scrollbar">
                       {cguLoteProgress.items.map((item, i) => (
                         <div key={i} className="flex items-center justify-between px-3 py-1.5 border-b last:border-b-0 text-xs">
                           <span className="truncate flex-1">{item.razaoSocial}</span>
@@ -3712,7 +3716,7 @@ export default function CertidoesCndPage() {
                   <div className="w-full bg-muted rounded-full h-2">
                     <div className="bg-fuchsia-500 h-2 rounded-full transition-all" style={{ width: `${compProgress.total > 0 ? (compProgress.current / compProgress.total) * 100 : 0}%` }} />
                   </div>
-                  <div className="border rounded-lg max-h-[250px] overflow-y-auto">
+                  <div className="border rounded-lg max-h-[250px] overflow-y-auto nice-scrollbar">
                     {compProgress.items.map((item, i) => (
                       <div key={i} className="flex items-center justify-between px-3 py-2 border-b last:border-b-0 text-xs">
                         <span className="truncate flex-1">{item.label}</span>
@@ -3744,10 +3748,10 @@ export default function CertidoesCndPage() {
                         {compProgress.items.map((item, i) => {
                           const sit = (item as { situacao?: string }).situacao
                           const sitLower = (sit || '').toLowerCase()
-                          const sitColor = sitLower.includes('negativa') && !sitLower.includes('positiva') ? 'text-emerald-600'
-                            : sitLower.includes('nada consta') ? 'text-emerald-600'
-                            : sitLower.includes('regular') ? 'text-emerald-600'
-                            : sitLower.includes('positiva') ? 'text-amber-600'
+                          const sitColor = sitLower.includes('negativa') && !sitLower.includes('positiva') ? TEXT.emerald
+                            : sitLower.includes('nada consta') ? TEXT.emerald
+                            : sitLower.includes('regular') ? TEXT.emerald
+                            : sitLower.includes('positiva') ? TEXT.amber
                             : sitLower.includes('irregular') || sitLower.includes('consta') ? 'text-red-500'
                             : 'text-muted-foreground'
                           return (
@@ -3758,7 +3762,7 @@ export default function CertidoesCndPage() {
                               </td>
                               <td className="px-3 py-2 text-center">
                                 {item.status === 'sucesso' ? (
-                                  <span className="inline-flex items-center gap-1 text-emerald-600"><CheckCircle2 className="h-3 w-3" /></span>
+                                  <span className={cn('inline-flex items-center gap-1', TEXT.emerald)}><CheckCircle2 className="h-3 w-3" /></span>
                                 ) : item.status === 'falha' ? (
                                   <span className="inline-flex items-center gap-1 text-red-500"><XCircle className="h-3 w-3" /></span>
                                 ) : (
@@ -3813,7 +3817,7 @@ export default function CertidoesCndPage() {
                     </table>
                   </div>
                   <div className="flex gap-3 text-xs font-medium">
-                    <span className="text-emerald-600">{compProgress.items.filter(i => i.status === 'sucesso').length} anexo(s)</span>
+                    <span className={TEXT.emerald}>{compProgress.items.filter(i => i.status === 'sucesso').length} anexo(s)</span>
                     <span className="text-red-500">{compProgress.items.filter(i => i.status === 'falha').length} falha(s)</span>
                     <span className="text-amber-500">{compProgress.items.filter(i => i.status === 'sem_pdf').length} sem PDF</span>
                   </div>
@@ -3825,7 +3829,7 @@ export default function CertidoesCndPage() {
                           <button key={i} type="button"
                             onClick={() => setCompEmail(c.email)}
                             className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-medium transition-all hover:shadow-sm cursor-pointer',
-                              compEmail === c.email ? 'bg-fuchsia-100 border-fuchsia-300 text-fuchsia-700 ring-1 ring-fuchsia-400/30' : 'bg-muted/30 border-border text-muted-foreground hover:bg-muted/50')}>
+                              compEmail === c.email ? 'bg-fuchsia-100 dark:bg-fuchsia-900/30 border-fuchsia-300 dark:border-fuchsia-700 text-fuchsia-700 dark:text-fuchsia-400 ring-1 ring-fuchsia-400/30' : 'bg-muted/30 border-border text-muted-foreground hover:bg-muted/50')}>
                             <Mail className="h-2.5 w-2.5" />
                             {c.nome ? `${c.nome} — ${c.email}` : c.email}
                           </button>
@@ -3840,7 +3844,7 @@ export default function CertidoesCndPage() {
                       </label>
                     )}
                   </div>
-                  {compMsg && <p className={cn('text-xs font-medium', compMsg.includes('sucesso') || compMsg.includes('enviado') ? 'text-emerald-600' : 'text-red-500')}>{compMsg}</p>}
+                  {compMsg && <p className={cn('text-xs font-medium', compMsg.includes('sucesso') || compMsg.includes('enviado') ? TEXT.emerald : 'text-red-500')}>{compMsg}</p>}
                 </div>
               )}
 

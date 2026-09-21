@@ -14,6 +14,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { TEXT, BADGE, BORDER, SURFACE } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -26,12 +27,13 @@ import {
 
 const MODULE_COLOR = 'var(--mod-ti, #22d3ee)'
 
+// Deriva da fonte unica (BADGE) — traz o dark:text-<c>-400 do helper.
 const STATUS_CHIP_CLS: Record<string, string> = {
-  emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800',
-  amber:   'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800',
-  slate:   'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-950/30 dark:text-slate-300 dark:border-slate-800',
-  sky:     'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-300 dark:border-sky-800',
-  rose:    'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-800',
+  emerald: BADGE.emerald,
+  amber:   BADGE.amber,
+  slate:   BADGE.slate,
+  sky:     BADGE.sky,
+  rose:    BADGE.rose,
 }
 
 function fmtBRL(v: number | string | null | undefined): string {
@@ -231,7 +233,16 @@ export default function AtivoDetalhePage() {
 
   return (
     <div className="space-y-0 pb-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-0">
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-0"
+        // Cor da aba ativa = cor do módulo (var, editável no design-system),
+        // porém theme-adaptativa: mistura com o foreground → escurece no claro
+        // (contraste sobre a barra clara) e clareia no dark. O color-mix mora no
+        // style inline (seguro); a classe arbitrária só referencia a var.
+        style={{ ['--mod-accent']: 'color-mix(in srgb, var(--mod-ti, #22d3ee) 70%, var(--color-foreground))' } as React.CSSProperties}
+      >
 
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar className="mb-0" actions={<>
@@ -245,7 +256,7 @@ export default function AtivoDetalhePage() {
               <FileText className="h-3.5 w-3.5" /> Termo
             </Button>
           </Link>
-          <Button size="sm" variant="outline" onClick={handleDelete} className="gap-1.5 text-rose-600 border-rose-200 hover:bg-rose-50 dark:border-rose-800 dark:hover:bg-rose-950/30">
+          <Button size="sm" variant="outline" onClick={handleDelete} className={cn('gap-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/30', TEXT.rose, BORDER.rose)}>
             <Trash2 className="h-3.5 w-3.5" /> Baixar
           </Button>
           <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }}>
@@ -270,47 +281,47 @@ export default function AtivoDetalhePage() {
             {meta.label}
           </span>
           {garantiaVencendo && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2.5 py-0.5 text-[11px] font-medium uppercase border border-amber-200 dark:border-amber-800">
+            <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase border', BADGE.amber)}>
               Garantia vencendo
             </span>
           )}
           {garantiaVencida && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 px-2.5 py-0.5 text-[11px] font-medium uppercase border border-rose-200 dark:border-rose-800">
+            <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase border', BADGE.rose)}>
               Sem garantia
             </span>
           )}
         </div>
       </PageHeaderBar>
 
-      {/* Faixa das abas — mantém a cor do módulo (TI cyan, rgb 34, 211, 238 com alpha .18). */}
+      {/* Faixa das abas — mantém a cor do módulo (TI), 18% sobre o fundo. */}
       <div className="relative -mx-4 sm:-mx-6 mb-4 sm:mb-5 overflow-hidden group/cover"
-           style={{ backgroundColor: 'rgba(34, 211, 238, .18)' }}>
+           style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 18%, transparent)` }}>
 
         {/* Tabs principais (pills com slide) — padrão das demais páginas de detalhe.
             Classes !-prefixadas vencem as regras globais de [role="tablist"]. */}
-        <div className="relative z-10 px-4 sm:px-6 py-2 overflow-x-auto flex justify-center">
+        <div className="relative z-10 px-4 sm:px-6 py-2 overflow-x-auto nice-scrollbar flex justify-center">
           <SlidingTabsList activeValue={activeTab} className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit">
-            <TabsTrigger value="identificacao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-cyan-400 gap-1.5">
+            <TabsTrigger value="identificacao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
               <FileText className="h-3.5 w-3.5" /> Identificação
             </TabsTrigger>
-            <TabsTrigger value="aquisicao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-cyan-400 gap-1.5">
+            <TabsTrigger value="aquisicao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
               <Coins className="h-3.5 w-3.5" /> Aquisição
             </TabsTrigger>
-            <TabsTrigger value="atribuicao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-cyan-400 gap-1.5">
+            <TabsTrigger value="atribuicao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
               <Shield className="h-3.5 w-3.5" /> Atribuição
             </TabsTrigger>
-            <TabsTrigger value="manutencoes" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-cyan-400 gap-1.5">
+            <TabsTrigger value="manutencoes" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
               <Wrench className="h-3.5 w-3.5" /> Manutenções
               {(ativo.manutencoes?.length ?? 0) > 0 && <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{ativo.manutencoes.length}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="anexos" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-cyan-400 gap-1.5">
+            <TabsTrigger value="anexos" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
               <Paperclip className="h-3.5 w-3.5" /> Anexos
               {(ativo.anexos?.length ?? 0) > 0 && <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{ativo.anexos.length}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="tickets" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-cyan-400 gap-1.5">
+            <TabsTrigger value="tickets" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
               <AlertCircle className="h-3.5 w-3.5" /> Tickets
             </TabsTrigger>
-            <TabsTrigger value="historico" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-cyan-400 gap-1.5">
+            <TabsTrigger value="historico" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
               <History className="h-3.5 w-3.5" /> Histórico
             </TabsTrigger>
           </SlidingTabsList>
@@ -376,12 +387,12 @@ export default function AtivoDetalhePage() {
               <div className="col-span-12 space-y-1.5">
                 <Label className="text-[13px] font-semibold">Descrição</Label>
                 <textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={3}
-                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
+                  className="w-full rounded-md px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
               </div>
               <div className="col-span-12 space-y-1.5">
                 <Label className="text-[13px] font-semibold">Observações</Label>
                 <textarea value={observacoes} onChange={e => setObservacoes(e.target.value)} rows={2}
-                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
+                  className="w-full rounded-md px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
               </div>
             </div>
           </Card>
@@ -507,7 +518,7 @@ export default function AtivoDetalhePage() {
                     href={`/helpdesk/${t.id}`}
                     className="flex items-center gap-2 rounded-md border bg-card px-3 py-2 hover:bg-muted/40 transition-colors"
                   >
-                    <span className="font-mono text-[11px] text-sky-700 dark:text-sky-300 font-semibold shrink-0">
+                    <span className={cn('font-mono text-[11px] font-semibold shrink-0', TEXT.sky)}>
                       #HLP{String(t.numero).padStart(4, '0')}
                     </span>
                     <span className="flex-1 text-[12px] truncate">{t.titulo}</span>
@@ -540,7 +551,7 @@ export default function AtivoDetalhePage() {
               ) : ativo.movimentacoes.map((m: any) => (
                 <div key={m.id} className="flex items-start gap-3 pb-3 border-b last:border-0">
                   <div className="h-7 w-7 rounded-full bg-sky-100 dark:bg-sky-950/30 flex items-center justify-center shrink-0 mt-0.5">
-                    <History className="h-3.5 w-3.5 text-sky-600" />
+                    <History className={cn('h-3.5 w-3.5', TEXT.sky)} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -642,7 +653,7 @@ function ManutencoesTab({ ativoId, manutencoes, fornecedores, users, onChanged }
                 </div>
                 <p className="text-[12px] text-foreground mt-1">{m.descricao}</p>
                 {m.proximaPreventiva && (
-                  <p className="text-[10px] text-amber-700 dark:text-amber-300 mt-0.5">
+                  <p className={cn('text-[10px] mt-0.5', TEXT.amber)}>
                     📅 Próxima preventiva: {fmtDate(m.proximaPreventiva)}
                   </p>
                 )}
@@ -727,7 +738,7 @@ function ManutencaoEditor({ ativoId, initial, fornecedores, users, onCancel, onS
   }
 
   return (
-    <div className="rounded-md border-2 border-sky-300 bg-sky-50/40 dark:bg-sky-950/10 dark:border-sky-900 p-3 space-y-3">
+    <div className={cn('rounded-md border-2 p-3 space-y-3', SURFACE.sky)}>
       <div className="grid grid-cols-12 gap-3">
         <div className="col-span-12 sm:col-span-4 space-y-1.5">
           <Label className="text-[13px] font-semibold">Tipo *</Label>
@@ -752,7 +763,7 @@ function ManutencaoEditor({ ativoId, initial, fornecedores, users, onCancel, onS
           <Label className="text-[13px] font-semibold">Descrição *</Label>
           <textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={2}
             placeholder="Detalhes do serviço executado..."
-            className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm resize-y" />
+            className="w-full rounded-md px-3 py-2 text-sm resize-y" />
         </div>
         <div className="col-span-12 sm:col-span-3 space-y-1.5">
           <Label className="text-[13px] font-semibold">Início</Label>
@@ -787,7 +798,7 @@ function ManutencaoEditor({ ativoId, initial, fornecedores, users, onCancel, onS
         <div className="col-span-12 space-y-1.5">
           <Label className="text-[13px] font-semibold">Observações</Label>
           <textarea value={observacoes} onChange={e => setObservacoes(e.target.value)} rows={2}
-            className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm resize-y" />
+            className="w-full rounded-md px-3 py-2 text-sm resize-y" />
         </div>
       </div>
       <div className="flex justify-end gap-2 pt-2 border-t">
@@ -901,7 +912,7 @@ function AnexosTab({ ativoId, anexos, onChanged }: {
             const meta = ANEXO_TIPO_META[a.tipo as AtivoAnexoTipo]
             return (
               <div key={a.id} className="flex items-center gap-2 rounded-md border bg-card px-2.5 py-1.5">
-                <Paperclip className="h-3.5 w-3.5 text-sky-600 shrink-0" />
+                <Paperclip className={cn('h-3.5 w-3.5 shrink-0', TEXT.sky)} />
                 <span className={cn('inline-flex items-center px-1.5 py-0 rounded-full text-[9px] font-semibold border shrink-0', STATUS_CHIP_CLS[meta.cor])}>
                   {meta.label}
                 </span>
@@ -948,7 +959,7 @@ function KpiAtivo({ icon: Icon, label, value, hint }: {
   return (
     <div className="rounded-md border bg-card p-2.5">
       <div className="flex items-center gap-2">
-        <div className="h-8 w-8 rounded-md bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-300 flex items-center justify-center">
+        <div className={cn('h-8 w-8 rounded-md flex items-center justify-center', BADGE.sky)}>
           <Icon className="h-3.5 w-3.5" />
         </div>
         <div className="min-w-0 flex-1">

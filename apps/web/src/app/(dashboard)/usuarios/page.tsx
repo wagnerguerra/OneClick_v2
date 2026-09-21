@@ -10,12 +10,13 @@ import {
   MoreVertical, FileUp, FileDown, Copy, Filter, FilterX, ChevronDown,
 } from 'lucide-react'
 import {
-  Button, Input, Card, Checkbox,
+  Button, Input, Card, Checkbox, Switch,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT, BADGE, SURFACE, STRONG } from '@/lib/color-styles'
 import { USER_ROLE_LABELS_ESCRITORIO } from '@saas/types'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -62,11 +63,11 @@ function loginCorClass(iso: string): string {
   const now = new Date()
   const mesmoDia = (a: Date, b: Date) =>
     a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-  if (mesmoDia(d, now)) return 'text-emerald-600 dark:text-emerald-400 font-medium'
+  if (mesmoDia(d, now)) return cn(TEXT.emerald, 'font-medium')
   const ontem = new Date(now)
   ontem.setDate(now.getDate() - 1)
-  if (mesmoDia(d, ontem)) return 'text-amber-600 dark:text-amber-400 font-medium'
-  return 'text-rose-600 dark:text-rose-400 font-medium'
+  if (mesmoDia(d, ontem)) return cn(TEXT.amber, 'font-medium')
+  return cn(TEXT.rose, 'font-medium')
 }
 
 const ROLE_CONFIG: Record<string, { label: string; color: string }> = {
@@ -78,10 +79,10 @@ const ROLE_CONFIG: Record<string, { label: string; color: string }> = {
 }
 
 const PROFILE_CONFIG: Record<string, { label: string; color: string }> = {
-  OPERADOR: { label: 'Operador', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' },
-  SUPERVISOR: { label: 'Supervisor', color: 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300' },
-  GERENTE: { label: 'Gerente', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' },
-  ADMIN: { label: 'Admin', color: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300' },
+  OPERADOR: { label: 'Operador', color: STRONG.emerald },
+  SUPERVISOR: { label: 'Supervisor', color: STRONG.sky },
+  GERENTE: { label: 'Gerente', color: STRONG.amber },
+  ADMIN: { label: 'Admin', color: STRONG.rose },
 }
 
 export default function UsuariosPage() {
@@ -441,7 +442,7 @@ export default function UsuariosPage() {
             <Filter className="h-4 w-4 text-muted-foreground" />
             Filtros
             {filtrosAtivos > 0 && (
-              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-100 px-1.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+              <span className={cn('inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold', BADGE.emerald)}>
                 {filtrosAtivos}
               </span>
             )}
@@ -466,7 +467,7 @@ export default function UsuariosPage() {
           <div className="min-h-0 overflow-hidden">
             <div className="flex flex-wrap items-center gap-2 border-t border-border/60 px-4 py-3">
               <Select value={filtroPerfil || '__all__'} onValueChange={(v) => { setFiltroPerfil(v === '__all__' ? '' : v); setPage(1) }}>
-                <SelectTrigger className="h-8 w-full bg-card text-xs sm:w-[190px]"><SelectValue placeholder="Perfil" /></SelectTrigger>
+                <SelectTrigger className="h-8 w-full text-xs sm:w-[190px]"><SelectValue placeholder="Perfil" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">Todos os perfis</SelectItem>
                   {Object.entries(USER_ROLE_LABELS_ESCRITORIO).map(([v, label]) => (
@@ -475,7 +476,7 @@ export default function UsuariosPage() {
                 </SelectContent>
               </Select>
               <Select value={incluirInativos ? 'TODOS' : 'ATIVOS'} onValueChange={(v) => { setIncluirInativos(v === 'TODOS'); setPage(1) }}>
-                <SelectTrigger className="h-8 w-full bg-card text-xs sm:w-[190px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-full text-xs sm:w-[190px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ATIVOS">Somente ativos</SelectItem>
                   <SelectItem value="TODOS">Incluir desligados</SelectItem>
@@ -488,8 +489,8 @@ export default function UsuariosPage() {
 
       {/* Banner de seleção em lote */}
       {selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 px-4 py-2.5 text-sm border border-emerald-200/60 dark:border-emerald-900/40">
-          <span className="font-medium text-emerald-700 dark:text-emerald-400">
+        <div className={cn('flex flex-wrap items-center gap-3 rounded-lg px-4 py-2.5 text-sm border', SURFACE.emerald)}>
+          <span className={cn('font-medium', TEXT.emerald)}>
             {selected.size} selecionado{selected.size > 1 ? 's' : ''}
           </span>
           <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
@@ -507,17 +508,17 @@ export default function UsuariosPage() {
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="hidden sm:inline">Exibir</span>
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
             <span className="hidden sm:inline">registros</span>
           </div>
           <div className="max-w-xs w-full sm:w-auto">
-            <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+            <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
 
-        <Table className="table-fixed">
+        <Table>
           <TableHeader>
             {/* Ordem: quem é (usuário, e-mail), o que é (tipo, perfil, área),
                 em que estado está (colaborador, último login) e o que dá para
@@ -671,21 +672,13 @@ export default function UsuariosPage() {
                     {(() => {
                       const isOn = !!(user as any).exibirComoColaborador
                       return (
-                        <button
-                          type="button"
-                          onClick={() => handleToggleColaborador(user.id, isOn)}
-                          className={cn(
-                            'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors',
-                            isOn ? 'bg-emerald-500' : 'bg-muted-foreground/20',
-                          )}
+                        <Switch
+                          checked={isOn}
+                          onCheckedChange={() => handleToggleColaborador(user.id, isOn)}
+                          className={cn(isOn && 'bg-emerald-500')}
                           title={isOn ? 'Exibido em Colaboradores — clique para desmarcar' : 'Não exibido em Colaboradores — clique para marcar'}
                           aria-label="Alternar exibição em Colaboradores"
-                        >
-                          <span className={cn(
-                            'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform mt-0.5',
-                            isOn ? 'translate-x-4 ml-0.5' : 'translate-x-0.5',
-                          )} />
-                        </button>
+                        />
                       )
                     })()}
                   </TableCell>

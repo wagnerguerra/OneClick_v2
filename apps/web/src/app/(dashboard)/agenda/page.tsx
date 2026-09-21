@@ -8,7 +8,7 @@ import {
   MapPin, Users, Trash2, Edit2, X, Video, Monitor, Building2,
   Repeat, Lock, History, Settings, Palette, Check, DoorOpen,
   Bell, Mail, CheckSquare, Square, ListTodo, Search, Target, ArrowRight, ArrowUp, Link2, ExternalLink,
-  StickyNote, Paperclip, Send, Upload, FileBarChart, Sparkles, Printer,
+  StickyNote, Paperclip, Send, Upload, FileBarChart, Sparkles, Printer, AlertTriangle,
 } from 'lucide-react'
 import {
   Button, Input, Textarea, Label, Card,
@@ -21,7 +21,11 @@ import {
   RichContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT, PILL } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { coresTipoEvento } from '@/lib/event-type-colors'
+import { useIsDark } from '@/hooks/use-is-dark'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { ModuloAcessoButton } from '@/components/modulo-acesso-button'
 import { AgendaTipoHistoricoButton } from '@/components/agenda-tipo-historico-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -31,7 +35,6 @@ import { resolveAssetUrl, getApiUrl } from '@/lib/api-url'
 import { renderConflitosHtml } from '@/lib/agenda-conflitos'
 import { TarefaModal } from './_components/tarefa-modal'
 import { alerts } from '@/lib/alerts'
-import Swal from 'sweetalert2'
 import { useSession } from '@/lib/auth-client'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
@@ -492,9 +495,7 @@ export default function AgendaPage() {
             <div key={a.id} className="group rounded-md bg-muted/40 p-3">
               <div className="flex items-center justify-between mb-1 gap-2">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  {a.user?.image
-                    ? <img src={resolveAssetUrl(a.user.image)} alt={a.user.name} className="h-5 w-5 rounded-full object-cover shrink-0" />
-                    : <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0">{(a.user?.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}</span>}
+                  <UserAvatar user={a.user} className="h-5 w-5 text-[8px] text-muted-foreground shrink-0" bg="bg-muted" />
                   <span className="text-xs font-semibold truncate">{a.user?.name || 'Sistema'}</span>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
@@ -517,7 +518,7 @@ export default function AgendaPage() {
                     value={editandoAnotacaoTexto}
                     onChange={e => setEditandoAnotacaoTexto(e.target.value)}
                     rows={2}
-                    className="w-full text-sm rounded-md border border-border bg-background px-2 py-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-400"
+                    className="w-full text-sm rounded-md px-2 py-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-400"
                   />
                   <div className="flex justify-end gap-1.5">
                     <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setEditandoAnotacaoId(null); setEditandoAnotacaoTexto('') }}>Cancelar</Button>
@@ -681,16 +682,9 @@ export default function AgendaPage() {
   const [dropTargetDay, setDropTargetDay] = useState<string | null>(null)
   // Detecta tema dark pra ajustar cores dos cards de evento (#HLP0059).
   // Cores pastel claras do tipo do evento ficam destoantes no dark; usamos
-  // versão com alpha 30% (sobre fundo escuro fica integrada) + texto claro.
-  const [isDark, setIsDark] = useState(false)
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const update = () => setIsDark(document.documentElement.classList.contains('dark'))
-    update()
-    const observer = new MutationObserver(update)
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
-    return () => observer.disconnect()
-  }, [])
+  // versão com alpha (sobre fundo escuro fica integrada) + texto claro. Ver
+  // `coresTipoEvento` em @/lib/event-type-colors.
+  const isDark = useIsDark()
 
   // Modal de detalhes do dia
   const [dayModalOpen, setDayModalOpen] = useState(false)
@@ -1208,115 +1202,44 @@ export default function AgendaPage() {
     }
   }
 
-  async function handleDelete(ev: AgendaEvento) {
-    const dataFmt = (() => { const d = new Date(ev.data); return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}` })()
-    const horarioFmt = ev.diaInteiro ? 'Dia inteiro' : `${ev.horaInicio ?? ''} — ${ev.horaFim ?? ''}`
+  // Modal de exclusão de evento (Dialog centralizado — substitui o SweetAlert).
+  const [deleteEvent, setDeleteEvent] = useState<AgendaEvento | null>(null)
+  const [deleteScope, setDeleteScope] = useState<'single' | 'future' | 'series'>('single')
+  const [deleteNotifPart, setDeleteNotifPart] = useState(false)
+  const [deleteNotifTenant, setDeleteNotifTenant] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
-    const eventCard = `
-      <div style="background:#f9fafb;border-radius:8px;padding:12px 16px;margin-bottom:16px;border-left:4px solid ${ev.tipo.cor}">
-        <p style="margin:0;font-weight:600;color:#111827">${ev.titulo}</p>
-        <p style="margin:4px 0 0;font-size:12px;color:#6b7280">${dataFmt} · ${horarioFmt}</p>
-        <p style="margin:2px 0 0;font-size:11px;color:#9ca3af">${ev.tipo.nome}${ev.recorrencia !== 'NENHUMA' ? ` · ${RECORRENCIA_LABELS[ev.recorrencia]}` : ''}</p>
-        ${ev.participantes.length > 0 ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af">👥 ${ev.participantes.length} participante(s)</p>` : ''}
-      </div>
-    `
+  function handleDelete(ev: AgendaEvento) {
+    setDeleteScope('single')
+    setDeleteNotifPart(false)
+    setDeleteNotifTenant(false)
+    setDeleteEvent(ev)
+  }
 
-    // Dois checkboxes de notificação (participantes / empresa toda) — HTML custom
-    // porque o `input:'checkbox'` nativo do Swal só suporta um.
-    const notifChecksHtml = `
-      <div style="text-align:left;margin-top:14px;padding-top:12px;border-top:1px solid #f3f4f6;display:flex;flex-direction:column;gap:10px">
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;cursor:pointer">
-          <input type="checkbox" id="chk-notif-part" style="width:15px;height:15px;cursor:pointer;accent-color:#ef4444" />
-          ✉️ Notificar participantes por e-mail
-        </label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;cursor:pointer">
-          <input type="checkbox" id="chk-notif-tenant" style="width:15px;height:15px;cursor:pointer;accent-color:#ef4444" />
-          📢 Notificar todos da empresa <span style="font-size:11px;color:#9ca3af">(sino + e-mail)</span>
-        </label>
-      </div>`
-    const notifPreConfirm = () => ({
-      notificar: (document.getElementById('chk-notif-part') as HTMLInputElement | null)?.checked ?? false,
-      notificarTodosTenant: (document.getElementById('chk-notif-tenant') as HTMLInputElement | null)?.checked ?? false,
-    })
-
-    if (ev.lote && ev.recorrencia !== 'NENHUMA') {
-      // 3 opções (padrão Google Calendar): só este dia · este e os posteriores ·
-      // todo o agendamento. "Este e os posteriores" preserva as ocorrências
-      // passadas (corrige o bug de apagar a série inteira ao remover os futuros).
-      const scopeRadiosHtml = `
-        <div style="text-align:left;margin-top:10px;display:flex;flex-direction:column;gap:8px">
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;cursor:pointer">
-            <input type="radio" name="del-scope" value="single" checked style="width:15px;height:15px;cursor:pointer;accent-color:#ef4444" />
-            Somente este dia
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;cursor:pointer">
-            <input type="radio" name="del-scope" value="future" style="width:15px;height:15px;cursor:pointer;accent-color:#ef4444" />
-            Este e os posteriores
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;cursor:pointer">
-            <input type="radio" name="del-scope" value="series" style="width:15px;height:15px;cursor:pointer;accent-color:#ef4444" />
-            Todo o agendamento
-          </label>
-        </div>`
-      const result = await Swal.fire({
-        iconHtml: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>',
-        title: 'Excluir evento recorrente',
-        html: `<div style="text-align:left;font-size:14px">${eventCard}<p style="margin:0;color:#374151;font-weight:500">O que deseja excluir?</p>${scopeRadiosHtml}${notifChecksHtml}</div>`,
-        preConfirm: () => ({
-          scope: (document.querySelector('input[name="del-scope"]:checked') as HTMLInputElement | null)?.value ?? 'single',
-          ...notifPreConfirm(),
-        }),
-        showCancelButton: true,
-        confirmButtonText: '<span style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></svg> Excluir</span>',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#ef4444',
-        cancelButtonColor: '#d1d5db',
-        customClass: { icon: 'swal-icon-no-border', cancelButton: 'swal-cancel-dark' },
-        reverseButtons: true,
-      })
-      if (!result.isConfirmed) return
-      const val = (result.value as { scope?: string; notificar?: boolean; notificarTodosTenant?: boolean } | undefined) ?? {}
-      const scope = val.scope ?? 'single'
-      try {
-        if (scope === 'series') {
-          // Série inteira — não há notificação granular (deleteLote não notifica).
-          await trpc.agenda.deleteLote.mutate({ lote: ev.lote })
-          alerts.success('Série excluída', 'Todos os eventos da série foram removidos.')
-        } else if (scope === 'future') {
-          await (trpc.agenda as any).deleteEstesEPosteriores.mutate({ id: ev.id })
-          alerts.success('Eventos excluídos', 'Este e os posteriores foram removidos; os anteriores foram mantidos.')
-        } else {
-          await trpc.agenda.delete.mutate({ id: ev.id, notificar: !!val.notificar, notificarTodosTenant: !!val.notificarTodosTenant })
-          alerts.success('Evento excluído', '')
-        }
-        setModalOpen(false)
-        setDayModalOpen(false)
-        fetchEventos()
-      } catch (e) { alerts.error('Erro', (e as Error).message) }
-    } else {
-      const result = await Swal.fire({
-        iconHtml: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>',
-        title: 'Excluir evento',
-        html: `<div style="text-align:left;font-size:14px">${eventCard}<p style="margin:0;color:#6b7280;font-size:13px">Esta ação não pode ser desfeita.</p>${notifChecksHtml}</div>`,
-        preConfirm: notifPreConfirm,
-        showCancelButton: true,
-        confirmButtonText: '<span style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></svg> Excluir</span>',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#ef4444',
-        cancelButtonColor: '#d1d5db',
-        customClass: { icon: 'swal-icon-no-border', cancelButton: 'swal-cancel-dark' },
-        reverseButtons: true,
-      })
-      if (!result.isConfirmed) return
-      const notif = (result.value as { notificar?: boolean; notificarTodosTenant?: boolean } | undefined) ?? {}
-      try {
-        await trpc.agenda.delete.mutate({ id: ev.id, notificar: !!notif.notificar, notificarTodosTenant: !!notif.notificarTodosTenant })
+  async function confirmDelete() {
+    const ev = deleteEvent
+    if (!ev) return
+    const recorrente = !!ev.lote && ev.recorrencia !== 'NENHUMA'
+    setDeleting(true)
+    try {
+      if (recorrente && deleteScope === 'series' && ev.lote) {
+        // Série inteira — não há notificação granular (deleteLote não notifica).
+        await trpc.agenda.deleteLote.mutate({ lote: ev.lote })
+        alerts.success('Série excluída', 'Todos os eventos da série foram removidos.')
+      } else if (recorrente && deleteScope === 'future') {
+        // "Este e os posteriores" preserva as ocorrências passadas.
+        await (trpc.agenda as any).deleteEstesEPosteriores.mutate({ id: ev.id })
+        alerts.success('Eventos excluídos', 'Este e os posteriores foram removidos; os anteriores foram mantidos.')
+      } else {
+        await trpc.agenda.delete.mutate({ id: ev.id, notificar: deleteNotifPart, notificarTodosTenant: deleteNotifTenant })
         alerts.success('Evento excluído', '')
-        setModalOpen(false)
-        setDayModalOpen(false)
-        fetchEventos()
-      } catch (e) { alerts.error('Erro', (e as Error).message) }
-    }
+      }
+      setDeleteEvent(null)
+      setModalOpen(false)
+      setDayModalOpen(false)
+      fetchEventos()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setDeleting(false) }
   }
 
   function addAvulso() {
@@ -1576,7 +1499,7 @@ export default function AgendaPage() {
                   {tipos.map(t => (
                     <SelectItem key={t.id} value={t.id}>
                       <span className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.cor }} />
+                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: coresTipoEvento(t, isDark).borda }} />
                         {t.nome}
                       </span>
                     </SelectItem>
@@ -1593,7 +1516,7 @@ export default function AgendaPage() {
                     const u = usuarios.find(x => x.id === id)
                     if (!u) return null
                     return (
-                      <span key={id} className="flex items-center gap-1 text-[11px] bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 pl-1.5 pr-1 py-0.5 rounded-full">
+                      <span key={id} className={cn('flex items-center gap-1 text-[11px] pl-1.5 pr-1 py-0.5 rounded-full', PILL.sky)}>
                         <span className="truncate max-w-[120px]">{u.name}</span>
                         <button
                           type="button"
@@ -1618,8 +1541,9 @@ export default function AgendaPage() {
                   <div ref={filtroPartRef} className="relative w-full">
                     <button
                       type="button"
+                      role="combobox"
                       onClick={() => setFiltroPartOpen(o => !o)}
-                      className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                      className="flex h-8 w-full items-center justify-between rounded-md border border-input px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                     >
                       <span className="text-muted-foreground truncate">
                         {filtroParticipantes.length === 0 ? 'Todos os participantes' : 'Adicionar participante...'}
@@ -1637,7 +1561,7 @@ export default function AgendaPage() {
                             className="h-7 text-xs"
                           />
                         </div>
-                        <div className="max-h-56 overflow-y-auto py-1">
+                        <div className="max-h-56 overflow-y-auto nice-scrollbar py-1">
                           {filtered.length === 0 ? (
                             <p className="px-3 py-3 text-xs text-muted-foreground text-center">
                               {disponiveis.length === 0 ? 'Todos já selecionados' : 'Nenhum encontrado'}
@@ -1652,14 +1576,7 @@ export default function AgendaPage() {
                               }}
                               className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2"
                             >
-                              {u.image ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={resolveAssetUrl(u.image)} alt={u.name} className="h-5 w-5 rounded-full object-cover shrink-0 border border-border" />
-                              ) : (
-                                <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center shrink-0 text-[8px] font-bold text-muted-foreground">
-                                  {(u.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                                </span>
-                              )}
+                              <UserAvatar user={{ name: u.name, image: u.image ?? null }} className="h-5 w-5 text-[8px] text-muted-foreground shrink-0 border border-border" bg="bg-muted" />
                               <span className="truncate">{u.name}</span>
                             </button>
                           ))}
@@ -1712,10 +1629,10 @@ export default function AgendaPage() {
                         {/* Linha superior: data (esq) | horário com ícone (dir) */}
                         <div className="flex items-center justify-between gap-2 mb-1.5">
                           <div className="flex items-center gap-1.5 min-w-0">
-                            <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: ev.tipo.corBorda || ev.tipo.cor }} />
+                            <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: coresTipoEvento(ev.tipo, isDark).borda }} />
                             <span className="text-[11px] text-muted-foreground">{dataHoje}</span>
                           </div>
-                          <div className="flex items-center gap-1 text-[11px] text-sky-600 dark:text-sky-400 shrink-0">
+                          <div className={cn('flex items-center gap-1 text-[11px] shrink-0', TEXT.sky)}>
                             <Clock className="h-3 w-3" />
                             {ev.diaInteiro ? 'Dia inteiro' : `${ev.horaInicio} às ${ev.horaFim}`}
                           </div>
@@ -1860,7 +1777,7 @@ export default function AgendaPage() {
                             <span
                               key={ev.id}
                               className="h-1.5 w-1.5 rounded-full"
-                              style={{ backgroundColor: ev.tipo.corBorda || ev.tipo.cor }}
+                              style={{ backgroundColor: coresTipoEvento(ev.tipo, isDark).borda }}
                             />
                           ))}
                           {(tarefasPorDia[dateStr] ?? []).length > 0 && (
@@ -1900,22 +1817,20 @@ export default function AgendaPage() {
                                     draggingEventId === ev.id && 'opacity-40',
                                   )}
                                   style={{
-                                    // Eventos de meses adjacentes: bg apagado + sem borda lateral colorida
-                                    // (sinal visual de "fora do mês corrente").
-                                    // No dark mode, a `ev.tipo.cor` (pastel claro) destoaria sobre o
-                                    // fundo escuro — usamos alpha 30% pra integrar visualmente + texto
-                                    // claro fixo. Borda lateral mantém a saturação total.
+                                    // Mês adjacente / evento passado: cinza (fora de foco). Caso normal:
+                                    // cor do tipo adaptada ao tema via coresTipoEvento (fonte única).
+                                    // Borda lateral mantém a saturação total (corBorda).
                                     backgroundColor: !isCurrentMonth
                                       ? (isDark ? '#1e2028' : '#f3f4f6')
                                       : isPast
                                         ? (isDark ? '#252830' : '#e5e7eb')
-                                        : (isDark ? `${ev.tipo.cor}33` : ev.tipo.cor),
+                                        : coresTipoEvento(ev.tipo, isDark).fundo,
                                     color: !isCurrentMonth
                                       ? (isDark ? '#6b7280' : '#9ca3af')
                                       : isPast
                                         ? (isDark ? '#9ca3af' : '#6b7280')
-                                        : (isDark ? '#e5e7eb' : ev.tipo.corTexto),
-                                    borderLeft: !isCurrentMonth ? 'none' : `3px solid ${ev.tipo.corBorda}`,
+                                        : coresTipoEvento(ev.tipo, isDark).texto,
+                                    borderLeft: !isCurrentMonth ? 'none' : `3px solid ${coresTipoEvento(ev.tipo, isDark).borda}`,
                                     paddingLeft: !isCurrentMonth ? '11px' : undefined,
                                   }}
                                   onClick={e => { e.stopPropagation(); openViewEvent(ev) }}
@@ -1944,7 +1859,7 @@ export default function AgendaPage() {
                                       <div className="px-3 py-2 flex items-start gap-2 border-b border-background/20">
                                         <span
                                           className="h-2.5 w-2.5 rounded-full shrink-0 mt-1"
-                                          style={{ backgroundColor: ev.tipo.corBorda || ev.tipo.cor }}
+                                          style={{ backgroundColor: coresTipoEvento(ev.tipo, isDark).borda }}
                                         />
                                         <div className="min-w-0">
                                           <p className="font-semibold leading-tight">{ev.titulo}</p>
@@ -1994,7 +1909,7 @@ export default function AgendaPage() {
                         {dayEvents.length > 3 && (
                           <button
                             type="button"
-                            className="shrink-0 mt-[10px] text-[10px] text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 hover:underline pl-1.5 font-medium cursor-pointer w-full text-left leading-none"
+                            className={cn('shrink-0 mt-[10px] text-[10px] hover:text-sky-700 dark:hover:text-sky-300 hover:underline pl-1.5 font-medium cursor-pointer w-full text-left leading-none', TEXT.sky)}
                             onClick={(e) => {
                               e.stopPropagation()
                               setDayModalDate(dateStr)
@@ -2030,7 +1945,7 @@ export default function AgendaPage() {
                                     title={t.concluida ? 'Desmarcar' : 'Concluir tarefa'}
                                   >
                                     {t.concluida
-                                      ? <CheckSquare className="h-3 w-3 text-emerald-600" />
+                                      ? <CheckSquare className={cn('h-3 w-3', TEXT.emerald)} />
                                       : <Square className="h-3 w-3 text-muted-foreground group-hover/tk:text-sky-500" />}
                                   </button>
                                   <span className={cn('truncate', t.concluida && 'line-through text-muted-foreground')}>
@@ -2043,7 +1958,7 @@ export default function AgendaPage() {
                                 <button
                                   type="button"
                                   onClick={e => { e.stopPropagation(); setDayModalDate(dateStr); setDayModalOpen(true) }}
-                                  className="text-[10px] text-emerald-700 dark:text-emerald-400 hover:underline pl-1 font-medium cursor-pointer w-full text-left leading-none"
+                                  className={cn('text-[10px] hover:underline pl-1 font-medium cursor-pointer w-full text-left leading-none', TEXT.emerald)}
                                 >
                                   +{ocultas} tarefa{ocultas > 1 ? 's' : ''}
                                 </button>
@@ -2085,7 +2000,7 @@ export default function AgendaPage() {
               {dayModalTarefas.length > 0 && ` · ${dayModalTarefas.length} tarefa(s)`}
             </DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="max-h-[min(72vh,640px)] nice-scrollbar">
+          <DialogBody className="max-h-[min(72vh,640px)]">
           <div className={dayModalTarefas.length > 0 ? 'grid gap-5 md:grid-cols-[1fr_260px]' : ''}>
           <div className="space-y-4 min-w-0">
             {dayModalGrupos.map(grupo => (
@@ -2120,7 +2035,7 @@ export default function AgendaPage() {
                   onClick={() => openViewEvent(ev)}
                 >
                   {/* Barra colorida do tipo */}
-                  <div className="w-2 rounded-full shrink-0 self-stretch" style={{ backgroundColor: ev.tipo.corBorda || ev.tipo.cor }} />
+                  <div className="w-2 rounded-full shrink-0 self-stretch" style={{ backgroundColor: coresTipoEvento(ev.tipo, isDark).borda }} />
                   <div className="flex-1 min-w-0 space-y-2">
                     {/* Título + badge do tipo */}
                     <div className="flex items-start justify-between gap-2">
@@ -2139,10 +2054,7 @@ export default function AgendaPage() {
                         )}
                         <span
                           className="text-[11px] px-2.5 py-1 rounded-full whitespace-nowrap"
-                          style={{
-                            backgroundColor: isDark ? `${ev.tipo.cor}33` : ev.tipo.cor,
-                            color: isDark ? '#e5e7eb' : ev.tipo.corTexto,
-                          }}
+                          style={{ backgroundColor: coresTipoEvento(ev.tipo, isDark).fundo, color: coresTipoEvento(ev.tipo, isDark).texto }}
                         >
                           {ev.tipo.nome}
                         </span>
@@ -2163,7 +2075,7 @@ export default function AgendaPage() {
                         </span>
                       )}
                       {ev.arrumarSala && (
-                        <span className="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                        <span className={cn('inline-flex items-center gap-1.5', TEXT.amber)}>
                           <Sparkles className="h-3.5 w-3.5 shrink-0" />Arrumar sala
                         </span>
                       )}
@@ -2178,14 +2090,7 @@ export default function AgendaPage() {
                             className="inline-flex items-center gap-1.5 text-[12px] bg-muted/60 border border-border/60 rounded-full pl-0.5 pr-2.5 py-0.5"
                             title={p.nome}
                           >
-                            {p.image ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={resolveAssetUrl(p.image)} alt={p.nome} className="h-6 w-6 rounded-full object-cover shrink-0" />
-                            ) : (
-                              <span className="h-6 w-6 rounded-full bg-sky-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
-                                {p.nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                              </span>
-                            )}
+                            <UserAvatar user={{ name: p.nome, image: p.image }} className="h-6 w-6 text-[9px] shrink-0" bg="bg-sky-500" />
                             <span className="truncate max-w-[140px]">{p.nome}</span>
                           </span>
                         ))}
@@ -2234,7 +2139,7 @@ export default function AgendaPage() {
                     title={t.concluida ? 'Desmarcar' : 'Concluir tarefa'}
                   >
                     {t.concluida
-                      ? <CheckSquare className="h-4 w-4 text-emerald-600" />
+                      ? <CheckSquare className={cn('h-4 w-4', TEXT.emerald)} />
                       : <Square className="h-4 w-4 text-muted-foreground group-hover/tk:text-sky-500" />}
                   </button>
                   <div className="min-w-0">
@@ -2272,6 +2177,65 @@ export default function AgendaPage() {
       {/* ============================================================ */}
       {/* Modal criar/editar/visualizar evento */}
       {/* ============================================================ */}
+      {/* Excluir evento — Dialog centralizado */}
+      <Dialog open={!!deleteEvent} onOpenChange={o => { if (!o) setDeleteEvent(null) }}>
+        <DialogContent className="max-w-md">
+          <DialogHeaderIcon icon={Trash2} color="rose">
+            <DialogTitle>{deleteEvent && deleteEvent.lote && deleteEvent.recorrencia !== 'NENHUMA' ? 'Excluir evento recorrente' : 'Excluir evento'}</DialogTitle>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-3">
+            {deleteEvent && (() => {
+              const ev = deleteEvent
+              const d = new Date(ev.data)
+              const dataFmt = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
+              const horarioFmt = ev.diaInteiro ? 'Dia inteiro' : `${ev.horaInicio ?? ''} — ${ev.horaFim ?? ''}`
+              const recorrente = !!ev.lote && ev.recorrencia !== 'NENHUMA'
+              return (
+                <>
+                  <div className="rounded-lg bg-muted px-4 py-3 border-l-4" style={{ borderLeftColor: coresTipoEvento(ev.tipo, isDark).borda }}>
+                    <p className="text-sm font-semibold text-foreground">{ev.titulo}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{dataFmt} · {horarioFmt}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">{ev.tipo.nome}{recorrente ? ` · ${RECORRENCIA_LABELS[ev.recorrencia]}` : ''}</p>
+                    {ev.participantes.length > 0 && <p className="mt-1 text-[11px] text-muted-foreground">👥 {ev.participantes.length} participante(s)</p>}
+                  </div>
+                  {recorrente ? (
+                    <div className="space-y-1.5">
+                      <p className="text-[13px] font-medium text-foreground">O que deseja excluir?</p>
+                      {([['single', 'Somente este dia'], ['future', 'Este e os posteriores'], ['series', 'Todo o agendamento']] as const).map(([val, label]) => (
+                        <button key={val} type="button" onClick={() => setDeleteScope(val)} className="flex w-full items-center gap-2 text-left text-[13px]">
+                          <span className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded-full border', deleteScope === val ? 'border-destructive' : 'border-border')}>
+                            {deleteScope === val && <span className="h-2 w-2 rounded-full bg-destructive" />}
+                          </span>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground"><AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />Esta ação não pode ser desfeita!</p>
+                  )}
+                  <div className="flex flex-col gap-2.5 border-t border-border pt-3">
+                    <label className="flex cursor-pointer items-center gap-2 text-[13px]">
+                      <Checkbox checked={deleteNotifPart} onCheckedChange={v => setDeleteNotifPart(v === true)} />
+                      ✉️ Notificar participantes por e-mail
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2 text-[13px]">
+                      <Checkbox checked={deleteNotifTenant} onCheckedChange={v => setDeleteNotifTenant(v === true)} />
+                      📢 Notificar todos da empresa <span className="text-[11px] text-muted-foreground">(sino + e-mail)</span>
+                    </label>
+                  </div>
+                </>
+              )
+            })()}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" size="sm" type="button" onClick={() => setDeleteEvent(null)} disabled={deleting}>Cancelar</Button>
+            <Button variant="destructive" size="sm" type="button" onClick={confirmDelete} disabled={deleting} className="gap-1.5">
+              {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />} Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-w-7xl" hideClose={modalMode === 'view'}>
           <DialogHeaderIcon
@@ -2297,7 +2261,7 @@ export default function AgendaPage() {
             </DialogDescription>
           </DialogHeaderIcon>
 
-          <DialogBody className="nice-scrollbar">
+          <DialogBody>
             {/* VIEW MODE */}
             {modalMode === 'view' && selectedEvento && (() => {
               const ev = selectedEvento
@@ -2355,7 +2319,7 @@ export default function AgendaPage() {
                             <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto nice-scrollbar">
                               {tipos.map(t => (
                                 <DropdownMenuItem key={t.id} onClick={() => alterarTipoEvento(t.id)} className="gap-2 text-xs">
-                                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.corBorda || t.cor }} />
+                                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: coresTipoEvento(t, isDark).borda }} />
                                   <span className="flex-1">{t.nome}</span>
                                   {t.id === ev.tipoId && <Check className="h-3.5 w-3.5 text-sky-500" />}
                                 </DropdownMenuItem>
@@ -2400,7 +2364,7 @@ export default function AgendaPage() {
                           onClick={() => setViewTab(t.value as typeof viewTab)}
                           className={cn(
                             'px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5',
-                            viewTab === t.value ? 'border-sky-500 text-sky-600 dark:text-sky-400' : 'border-transparent text-muted-foreground hover:text-foreground'
+                            viewTab === t.value ? cn('border-sky-500', TEXT.sky) : 'border-transparent text-muted-foreground hover:text-foreground'
                           )}
                         >
                           <t.icon className="h-3.5 w-3.5 shrink-0" />{t.label}
@@ -2438,7 +2402,7 @@ export default function AgendaPage() {
 
                       {ev.arrumarSala && (
                         <FieldRow icon={Sparkles} label="Preparação">
-                          <span className="text-amber-600 dark:text-amber-400">Arrumar a sala</span>
+                          <span className={TEXT.amber}>Arrumar a sala</span>
                         </FieldRow>
                       )}
 
@@ -2454,7 +2418,7 @@ export default function AgendaPage() {
                             href={ev.link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-sky-600 dark:text-sky-400 hover:underline truncate max-w-full"
+                            className={cn('inline-flex items-center gap-1.5 hover:underline truncate max-w-full', TEXT.sky)}
                           >
                             <span className="truncate">{ev.link}</span>
                             <ExternalLink className="h-3.5 w-3.5 shrink-0" />
@@ -2467,21 +2431,13 @@ export default function AgendaPage() {
                           <div className="flex flex-wrap gap-1.5">
                             {ev.participantes.slice(0, 8).map(p => {
                               const nome = p.usuario?.name ?? p.nomeAvulso ?? '?'
-                              const iniciais = nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
                               return (
                                 <span
                                   key={p.id}
                                   className="inline-flex items-center gap-1.5 pl-1 pr-2.5 py-0.5 rounded-full bg-muted/60 border border-border/60"
                                   title={nome}
                                 >
-                                  {p.usuario?.image ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={resolveAssetUrl(p.usuario.image)} alt={nome} className="h-5 w-5 rounded-full object-cover shrink-0" />
-                                  ) : (
-                                    <span className="h-5 w-5 rounded-full bg-sky-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
-                                      {iniciais}
-                                    </span>
-                                  )}
+                                  <UserAvatar user={{ name: nome, image: p.usuario?.image ?? null }} className="h-5 w-5 text-[9px] shrink-0" bg="bg-sky-500" />
                                   <span className="text-[12px] font-medium truncate max-w-[160px] text-foreground">{nome}</span>
                                 </span>
                               )
@@ -2497,7 +2453,7 @@ export default function AgendaPage() {
 
                       {ev.particular && (
                         <FieldRow icon={Lock} label="Particular">
-                          <span className="text-amber-700 dark:text-amber-300">Visível apenas para criador e participantes</span>
+                          <span className={TEXT.amber}>Visível apenas para criador e participantes</span>
                         </FieldRow>
                       )}
                     </div>
@@ -2535,14 +2491,7 @@ export default function AgendaPage() {
                           <div className="space-y-1.5">
                             {eventLogs.map(log => (
                               <div key={log.id} className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                                {log.usuario?.image ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={resolveAssetUrl(log.usuario.image)} alt={log.usuario.name} className="h-4 w-4 rounded-full object-cover shrink-0" />
-                                ) : (
-                                  <span className="h-4 w-4 rounded-full bg-muted text-muted-foreground text-[7px] font-bold flex items-center justify-center shrink-0">
-                                    {(log.usuario?.name ?? '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                                  </span>
-                                )}
+                                <UserAvatar user={log.usuario} className="h-4 w-4 text-[7px] text-muted-foreground shrink-0" bg="bg-muted" />
                                 <span className="font-medium text-foreground/80 truncate">{log.usuario?.name ?? 'Sistema'}</span>
                                 <span className="capitalize">{log.acao}</span>
                                 <span className="ml-auto shrink-0">{new Date(log.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
@@ -2565,7 +2514,7 @@ export default function AgendaPage() {
                           as de trás. Hover levanta a carta de trás; clique a seleciona
                           (ela vira a da frente). Sem duplicar a carta selecionada. */}
                       {deckCards.length > 1 && (
-                        <p className="text-[10px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <p className={cn('text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5', TEXT.violet)}>
                           <Link2 className="h-3.5 w-3.5" />
                           {deckCards.length} cards vinculados
                         </p>
@@ -2587,7 +2536,7 @@ export default function AgendaPage() {
                           >
                             <div className="flex items-center gap-2">
                               {card.numero != null && (
-                                <span className="shrink-0 text-[12px] font-bold tabular-nums text-violet-600 dark:text-violet-400">#{card.numero}</span>
+                                <span className={cn('shrink-0 text-[12px] font-bold tabular-nums', TEXT.violet)}>#{card.numero}</span>
                               )}
                               <span className="flex-1 min-w-0 truncate text-[13px] font-semibold text-foreground">{card.titulo}</span>
                               {card.id === deckPrincipalId && (
@@ -2608,12 +2557,12 @@ export default function AgendaPage() {
                         style={{ marginTop: deckBack.length ? -18 : 0, zIndex: 50, animation: deckCards.length > 1 ? 'deckCardForward 0.3s cubic-bezier(0.22, 1, 0.36, 1)' : undefined }}
                         className="relative rounded-xl border border-violet-500/40 bg-card shadow-lg overflow-hidden">
                         <div className="px-4 py-2.5 border-b border-violet-500/20 flex items-center gap-2 bg-violet-500/10">
-                          <Target className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0" />
-                          <span className="text-[11px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wider">
+                          <Target className={cn('h-4 w-4', TEXT.violet, 'shrink-0')} />
+                          <span className={cn('text-[11px] font-bold uppercase tracking-wider', TEXT.violet)}>
                             Detalhes da oportunidade
                           </span>
                           {op.numero != null && (
-                            <span className="ml-auto text-[11px] font-bold tabular-nums text-violet-600 dark:text-violet-400">#{op.numero}</span>
+                            <span className={cn('ml-auto text-[11px] font-bold tabular-nums', TEXT.violet)}>#{op.numero}</span>
                           )}
                         </div>
                         <div className="px-4 py-3.5 space-y-3.5 bg-violet-500/5 dark:bg-violet-500/[0.07]">
@@ -2641,7 +2590,7 @@ export default function AgendaPage() {
                               </span>
                             )}
                             {op.valor != null && Number(op.valor) > 0 && (
-                              <span className="inline-flex items-center text-[13px] font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                              <span className={cn('inline-flex items-center text-[13px] font-bold tabular-nums', TEXT.emerald)}>
                                 {fmtMoeda(op.valor)}
                               </span>
                             )}
@@ -2653,9 +2602,7 @@ export default function AgendaPage() {
                               <div className="flex items-center justify-between gap-2">
                                 <span className="text-muted-foreground shrink-0">Responsável</span>
                                 <span className="inline-flex items-center gap-1.5 text-foreground font-medium truncate">
-                                  <span className="h-5 w-5 rounded-full bg-violet-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
-                                    {op.responsavel.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                                  </span>
+                                  <UserAvatar user={{ name: op.responsavel.name, image: null }} className="h-5 w-5 text-[9px] shrink-0" bg="bg-violet-500" />
                                   <span className="truncate">{op.responsavel.name}</span>
                                 </span>
                               </div>
@@ -2701,7 +2648,7 @@ export default function AgendaPage() {
                             {op.motivoPerda && (
                               <div className="flex items-center justify-between gap-2">
                                 <span className="text-muted-foreground shrink-0">Motivo da perda</span>
-                                <span className="text-rose-600 dark:text-rose-400 font-medium truncate text-right">{op.motivoPerda}</span>
+                                <span className={cn(TEXT.rose, 'font-medium truncate text-right')}>{op.motivoPerda}</span>
                               </div>
                             )}
                           </div>
@@ -2820,15 +2767,16 @@ export default function AgendaPage() {
                         <div ref={tipoSearchRef} className="relative w-full">
                           <button
                             type="button"
+                            role="combobox"
                             onClick={() => setTipoSearchOpen(o => !o)}
                             className={cn(
-                              'flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-2 py-1 text-xs',
+                              'flex h-8 w-full items-center justify-between rounded-md border border-input px-2 py-1 text-xs',
                               'focus:outline-none focus:ring-1 focus:ring-ring',
                             )}
                           >
                             {selectedTipo ? (
                               <span className="flex items-center gap-2 min-w-0">
-                                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: selectedTipo.cor }} />
+                                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: coresTipoEvento(selectedTipo, isDark).borda }} />
                                 <span className="truncate">{selectedTipo.nome}</span>
                               </span>
                             ) : (
@@ -2847,7 +2795,7 @@ export default function AgendaPage() {
                                   className="h-7 text-xs"
                                 />
                               </div>
-                              <div className="max-h-56 overflow-y-auto py-1">
+                              <div className="max-h-56 overflow-y-auto nice-scrollbar py-1">
                                 {filteredTipos.length === 0 ? (
                                   <p className="px-3 py-3 text-xs text-muted-foreground text-center">Nenhum tipo encontrado</p>
                                 ) : filteredTipos.map(t => (
@@ -2864,7 +2812,7 @@ export default function AgendaPage() {
                                       form.tipoId === t.id && 'bg-accent text-accent-foreground',
                                     )}
                                   >
-                                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.cor }} />
+                                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: coresTipoEvento(t, isDark).borda }} />
                                     <span className="truncate">{t.nome}</span>
                                   </button>
                                 ))}
@@ -2879,7 +2827,7 @@ export default function AgendaPage() {
                   {/* Campos especiais — regras configuráveis por tipo (Agenda › Configurações) */}
                   {temConfigEvento && (
                     <div className="space-y-3 rounded-lg border bg-sky-50/50 dark:bg-sky-950/10 p-3">
-                      <p className="text-[10px] text-sky-600 dark:text-sky-400 font-medium">Configurações do evento</p>
+                      <p className={cn('text-[10px] font-medium', TEXT.sky)}>Configurações do evento</p>
 
                       {/* Modalidade */}
                       {permiteModalidade && (
@@ -2891,7 +2839,7 @@ export default function AgendaPage() {
                             { v: 'ONLINE', l: 'Online', i: Video },
                             { v: 'HIBRIDO', l: 'Híbrido', i: Monitor },
                           ].map(({ v, l, i: I }) => (
-                            <label key={v} className={cn('flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors', form.presenca === v ? 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400' : 'hover:bg-muted/50')}>
+                            <label key={v} className={cn('flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors', form.presenca === v ? PILL.sky : 'hover:bg-muted/50')}>
                               <input type="radio" name="presenca" checked={form.presenca === v} onChange={() => setForm(f => ({ ...f, presenca: v, ...(v === 'ONLINE' ? { salaId: '', sala: '' } : {}) }))} className="accent-sky-500" />
                               <I className="h-3.5 w-3.5" />{l}
                             </label>
@@ -2915,7 +2863,7 @@ export default function AgendaPage() {
                                 key={s.id}
                                 className={cn(
                                   'flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors',
-                                  active ? 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400' : 'hover:bg-muted/50',
+                                  active ? PILL.sky : 'hover:bg-muted/50',
                                 )}
                               >
                                 <input
@@ -2933,7 +2881,7 @@ export default function AgendaPage() {
                           <label
                             className={cn(
                               'flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors',
-                              form.sala === 'Outro' ? 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400' : 'hover:bg-muted/50',
+                              form.sala === 'Outro' ? PILL.sky : 'hover:bg-muted/50',
                             )}
                           >
                             <input
@@ -2948,7 +2896,7 @@ export default function AgendaPage() {
                         </div>
                         {salasCadastradas.length === 0 && canManageConfig && (
                           <p className="text-[10px] text-muted-foreground">
-                            Nenhuma sala cadastrada. <Link href="/agenda/configuracoes" className="text-sky-600 hover:underline">Cadastrar agora</Link>
+                            Nenhuma sala cadastrada. <Link href="/agenda/configuracoes" className={cn('hover:underline', TEXT.sky)}>Cadastrar agora</Link>
                           </p>
                         )}
                       </div>
@@ -3301,22 +3249,15 @@ export default function AgendaPage() {
                         {form.participanteIds.map(id => {
                           const u = usuarios.find(u => u.id === id)
                           return u ? (
-                            <span key={id} className="flex items-center gap-1.5 text-[11px] bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 pl-0.5 pr-2 py-0.5 rounded-full">
-                              {u.image ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={resolveAssetUrl(u.image)} alt={u.name} className="h-5 w-5 rounded-full object-cover" />
-                              ) : (
-                                <span className="h-5 w-5 rounded-full bg-sky-200 dark:bg-sky-800 flex items-center justify-center text-[8px] font-bold">
-                                  {(u.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                                </span>
-                              )}
+                            <span key={id} className={cn('flex items-center gap-1.5 text-[11px] pl-0.5 pr-2 py-0.5 rounded-full', PILL.sky)}>
+                              <UserAvatar user={{ name: u.name, image: u.image ?? null }} className="h-5 w-5 text-[8px] text-sky-700 dark:text-sky-400" bg="bg-sky-200 dark:bg-sky-800" />
                               {u.name}
                               <button type="button" onClick={() => setForm(f => ({ ...f, participanteIds: f.participanteIds.filter(p => p !== id) }))} className="hover:text-red-500"><X className="h-3 w-3" /></button>
                             </span>
                           ) : null
                         })}
                         {form.participantesAvulsos.map(nome => (
-                          <span key={nome} className="flex items-center gap-1 text-[11px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                          <span key={nome} className={cn('flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full', PILL.amber)}>
                             {nome}
                             <button type="button" onClick={() => setForm(f => ({ ...f, participantesAvulsos: f.participantesAvulsos.filter(p => p !== nome) }))} className="hover:text-red-500"><X className="h-3 w-3" /></button>
                           </span>
@@ -3332,9 +3273,10 @@ export default function AgendaPage() {
                         <div ref={partSearchRef} className="relative w-full">
                           <button
                             type="button"
+                            role="combobox"
                             onClick={() => setPartSearchOpen(o => !o)}
                             className={cn(
-                              'flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-2 py-1 text-xs',
+                              'flex h-8 w-full items-center justify-between rounded-md border border-input px-2 py-1 text-xs',
                               'focus:outline-none focus:ring-1 focus:ring-ring',
                             )}
                           >
@@ -3385,7 +3327,7 @@ export default function AgendaPage() {
                                   )}
                                 </div>
                               </div>
-                              <div className="max-h-56 overflow-y-auto py-1">
+                              <div className="max-h-56 overflow-y-auto nice-scrollbar py-1">
                                 {partFiltered.length === 0 ? (
                                   <p className="px-3 py-3 text-xs text-muted-foreground text-center">
                                     {usuariosDisponiveis.length === 0 ? 'Todos os usuários já estão adicionados' : 'Nenhum usuário encontrado'}
@@ -3401,20 +3343,7 @@ export default function AgendaPage() {
                                     }}
                                     className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2"
                                   >
-                                    {u.image ? (
-                                      // eslint-disable-next-line @next/next/no-img-element
-                                      <img
-                                        src={resolveAssetUrl(u.image)}
-                                        alt={u.name}
-                                        className="h-6 w-6 rounded-full object-cover shrink-0 border border-border"
-                                      />
-                                    ) : (
-                                      <span className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0">
-                                        <span className="text-[9px] font-bold text-muted-foreground">
-                                          {(u.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                                        </span>
-                                      </span>
-                                    )}
+                                    <UserAvatar user={{ name: u.name, image: u.image ?? null }} className="h-6 w-6 text-[9px] text-muted-foreground shrink-0 border border-border" bg="bg-muted" />
                                     <span className="truncate">{u.name}</span>
                                   </button>
                                 ))}
@@ -3457,9 +3386,7 @@ export default function AgendaPage() {
                         {lembretesForm.map((l, idx) => (
                           <span key={idx} className={cn(
                             'flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full',
-                            l.canal === 'EMAIL'
-                              ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400'
-                              : 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400',
+                            l.canal === 'EMAIL' ? PILL.violet : PILL.sky,
                           )}>
                             {l.canal === 'EMAIL' ? <Mail className="h-3 w-3" /> : <Bell className="h-3 w-3" />}
                             {formatarMinutosAntes(l.minutosAntes)}
@@ -3534,11 +3461,11 @@ export default function AgendaPage() {
                       <div className="space-y-1.5">
                         {oportunidadesVinc.map((card, idx) => (
                           <div key={card.id} className="flex items-center gap-2 rounded-md border border-violet-500/30 bg-violet-500/5 dark:bg-violet-500/10 px-2.5 py-1.5">
-                            <Target className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
+                            <Target className={cn('h-3.5 w-3.5', TEXT.violet, 'shrink-0')} />
                             <div className="flex-1 min-w-0">
                               <p className="text-[12px] font-medium truncate flex items-center gap-1.5">
                                 {card.numero != null && (
-                                  <span className="text-violet-600 dark:text-violet-400 font-bold tabular-nums shrink-0">#{card.numero}</span>
+                                  <span className={cn(TEXT.violet, 'font-bold tabular-nums shrink-0')}>#{card.numero}</span>
                                 )}
                                 <span className="truncate">{card.titulo}</span>
                                 {idx === 0 && (
@@ -3578,8 +3505,9 @@ export default function AgendaPage() {
                     <div ref={opBuscaRef} className="relative w-full">
                       <button
                         type="button"
+                        role="combobox"
                         onClick={() => { setOpBuscaOpen(o => !o); setOpBuscaQuery('') }}
-                        className="flex h-8 w-full items-center justify-between rounded-md border border-dashed border-input bg-transparent px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring hover:border-violet-500/50"
+                        className="flex h-8 w-full items-center justify-between rounded-md border border-dashed border-input px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring hover:border-violet-500/50"
                       >
                         <span className="text-muted-foreground truncate flex items-center gap-1.5">
                           <Plus className="h-3.5 w-3.5" />
@@ -3598,7 +3526,7 @@ export default function AgendaPage() {
                               className="h-7 text-xs"
                             />
                           </div>
-                          <div className="max-h-56 overflow-y-auto py-1">
+                          <div className="max-h-56 overflow-y-auto nice-scrollbar py-1">
                             {opBuscaLoading ? (
                               <p className="px-3 py-3 text-xs text-muted-foreground text-center flex items-center justify-center gap-2">
                                 <Loader2 className="h-3 w-3 animate-spin" />Buscando...
@@ -3619,7 +3547,7 @@ export default function AgendaPage() {
                                   <Target className="h-3.5 w-3.5 text-violet-500 shrink-0" />
                                   <span className="min-w-0 flex-1">
                                     <span className="block truncate font-medium">
-                                      {op.numero != null && <span className="text-violet-600 dark:text-violet-400 font-bold">#{op.numero} </span>}
+                                      {op.numero != null && <span className={cn(TEXT.violet, 'font-bold')}>#{op.numero} </span>}
                                       {op.titulo}
                                     </span>
                                     {(op.razaoSocial || op.etapa) && (
@@ -3638,7 +3566,7 @@ export default function AgendaPage() {
 
                     {oportunidadesVinc.length > 1 && (
                       <p className="text-[10px] text-muted-foreground leading-snug">
-                        O card <strong className="text-violet-600 dark:text-violet-400">Principal</strong> (primeiro) compartilha as abas <strong>Anotações</strong> e <strong>Anexos</strong> com o evento. Os demais são vínculos de referência.
+                        O card <strong className={TEXT.violet}>Principal</strong> (primeiro) compartilha as abas <strong>Anotações</strong> e <strong>Anexos</strong> com o evento. Os demais são vínculos de referência.
                       </p>
                     )}
                   </div>
@@ -3727,7 +3655,7 @@ export default function AgendaPage() {
                     <Plus className="h-3.5 w-3.5" /> Novo
                   </Button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                <div className="flex-1 overflow-y-auto nice-scrollbar p-2 space-y-1">
                   {tipos.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-6">Nenhum tipo cadastrado</p>
                   ) : tipos.map(t => (
@@ -3744,12 +3672,12 @@ export default function AgendaPage() {
                       <div className="flex items-center gap-2 min-w-0">
                         <span
                           className="text-xs px-2.5 py-0.5 rounded-[2px] font-medium truncate"
-                          style={{ backgroundColor: t.cor, color: t.corTexto, borderLeft: `3px solid ${t.corBorda}` }}
+                          style={{ backgroundColor: coresTipoEvento(t, isDark).fundo, color: coresTipoEvento(t, isDark).texto, borderLeft: `3px solid ${coresTipoEvento(t, isDark).borda}` }}
                         >
                           {t.nome}
                         </span>
                         {t.bloqueiaAgenda && (
-                          <span className="text-[9px] text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 rounded-[2px] shrink-0">
+                          <span className={cn('text-[9px] bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-[2px] shrink-0', TEXT.amber)}>
                             Bloqueia
                           </span>
                         )}
@@ -3768,7 +3696,7 @@ export default function AgendaPage() {
               </div>
 
               {/* PAINEL DE EDIÇÃO (direita) */}
-              <div className="flex-1 overflow-y-auto p-5">
+              <div className="flex-1 overflow-y-auto nice-scrollbar p-5">
                 {!(tipoEditando || tipoPainelNovo) ? (
                   <div className="h-full flex flex-col items-center justify-center text-center gap-2 text-muted-foreground">
                     <Palette className="h-9 w-9 opacity-30" />
@@ -3865,7 +3793,7 @@ export default function AgendaPage() {
                     <div className="flex items-center justify-between">
                       <p className="text-[11px] font-semibold text-muted-foreground">Salas disponíveis para este tipo</p>
                       {tipoForm.salasPermitidas.length > 0 && (
-                        <button type="button" className="text-[10px] text-sky-600 hover:underline" onClick={() => setTipoForm(f => ({ ...f, salasPermitidas: [] }))}>
+                        <button type="button" className={cn('text-[10px] hover:underline', TEXT.sky)} onClick={() => setTipoForm(f => ({ ...f, salasPermitidas: [] }))}>
                           Liberar todas
                         </button>
                       )}
@@ -3877,7 +3805,7 @@ export default function AgendaPage() {
                     </p>
                     {salasCadastradas.filter(s => s.ativo).length === 0 ? (
                       <p className="text-[10px] text-muted-foreground italic">
-                        Nenhuma sala cadastrada. <Link href="/agenda/configuracoes" className="text-sky-600 hover:underline">Cadastrar</Link>
+                        Nenhuma sala cadastrada. <Link href="/agenda/configuracoes" className={cn('hover:underline', TEXT.sky)}>Cadastrar</Link>
                       </p>
                     ) : (
                       <div className="grid grid-cols-2 gap-1.5 pt-0.5">
@@ -3904,15 +3832,31 @@ export default function AgendaPage() {
                 )}
               </div>
 
-              {/* Preview */}
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground">Preview:</span>
-                <span
-                  className="text-xs px-3 py-1 rounded-[2px]"
-                  style={{ backgroundColor: tipoForm.cor, color: tipoForm.corTexto, borderLeft: `3px solid ${tipoForm.corBorda}` }}
-                >
-                  {tipoForm.nome || 'Nome do tipo'}
-                </span>
+              {/* Prévia — dois tiles (claro e escuro). O fundo de cada tile é o
+                  valor do --color-card daquele tema (hardcode espelhando o token,
+                  pois a prévia força um tema fixo independente do atual); a faixa
+                  do evento vem de coresTipoEvento com o booleano do tile. */}
+              <div>
+                <span className="text-[10px] text-muted-foreground">Prévia:</span>
+                <div className="mt-1.5 grid grid-cols-2 gap-2 max-w-[380px]">
+                  {([
+                    ['Tema claro', false, '#ffffff', 'border-black/10', 'text-slate-500'],
+                    ['Tema escuro', true, '#1a1d27', 'border-white/10', 'text-slate-400'],
+                  ] as const).map(([label, dark, bg, borderCls, labelCls]) => {
+                    const c = coresTipoEvento(tipoForm, dark)
+                    return (
+                      <div key={label} className={cn('rounded-lg border p-2.5', borderCls)} style={{ backgroundColor: bg }}>
+                        <div className={cn('mb-1.5 text-[9px] uppercase tracking-wide', labelCls)}>{label}</div>
+                        <span
+                          className="inline-block text-xs px-3 py-1 rounded-[2px]"
+                          style={{ backgroundColor: c.fundo, color: c.texto, borderLeft: `3px solid ${c.borda}` }}
+                        >
+                          {tipoForm.nome || 'Nome do tipo'}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
 
               {/* Ações */}

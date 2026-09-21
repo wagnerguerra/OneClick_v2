@@ -10,7 +10,9 @@ import {
   Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription, DialogFooter, DialogClose,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
+  cn,
 } from '@saas/ui'
+import { BADGE } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -192,7 +194,7 @@ export function QsaImportModal({ open, onClose, onSuccess, prefilledCnpj, prefil
               )}
 
               {/* Aviso */}
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/40 text-xs text-blue-700 dark:text-blue-400">
+              <div className={cn('flex items-start gap-2 p-3 rounded-lg border text-xs', BADGE.blue)}>
                 <Building2 className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>Os dados são obtidos da base pública da Receita Federal via BrasilAPI. O CPF dos sócios pode vir parcialmente mascarado (***XXXXXX**).</span>
               </div>
@@ -251,7 +253,7 @@ export function QsaImportModal({ open, onClose, onSuccess, prefilledCnpj, prefil
               </div>
 
               {substituir && clienteId && (
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 text-xs text-amber-700 dark:text-amber-400">
+                <div className={cn('flex items-start gap-2 p-3 rounded-lg border text-xs', BADGE.amber)}>
                   <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                   <span>Os sócios existentes deste cliente serão removidos e substituídos pelos do QSA.</span>
                 </div>

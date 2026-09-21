@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDes
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { Ban, Loader2, Info, Building2 } from 'lucide-react'
 import { masks } from '@/lib/masks'
+import { BADGE } from '@/lib/color-styles'
 
 /** Cliente ativo que compartilha a raiz do CNPJ com o que esta sendo inativado. */
 export interface ClienteVinculado {
@@ -202,7 +203,7 @@ export function InativarClienteModal({
             <p className="text-[11px] text-muted-foreground">Obrigatório — fica registrado no histórico do cliente.</p>
           </div>
           {levaGrupo && (
-            <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
+            <div className={cn('flex items-start gap-2 rounded-md border px-3 py-2 text-[11px]', BADGE.amber)}>
               <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
               <span>
                 {programada
@@ -212,7 +213,7 @@ export function InativarClienteModal({
             </div>
           )}
           {lote && (
-            <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
+            <div className={cn('flex items-start gap-2 rounded-md border px-3 py-2 text-[11px]', BADGE.amber)}>
               <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
               <span>
                 {programada

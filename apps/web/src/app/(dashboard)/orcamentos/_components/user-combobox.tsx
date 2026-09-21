@@ -1,13 +1,17 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Input, cn } from '@saas/ui'
 import { resolveAssetUrl } from '@/lib/api-url'
+import { useAnchoredDropdown } from '@/components/ui/use-anchored-dropdown'
 
 /**
  * Combobox filtravel para selecionar usuario (solicitante / responsavel).
  * Mostra avatar (foto ou iniciais) na trigger e na lista.
+ *
+ * O dropdown usa `position: fixed` inline (via `useAnchoredDropdown`) — não é cortado
+ * por ancestrais com `overflow-hidden` (ex.: card "Detalhes") e funciona dentro de modais.
  */
 export function UserCombobox({ users, value, onSelect, disabled, placeholder }: {
   users: Array<{ id: string; name: string; image?: string | null }>
@@ -18,35 +22,31 @@ export function UserCombobox({ users, value, onSelect, disabled, placeholder }: 
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const ref = useRef<HTMLDivElement>(null)
+  const close = useCallback(() => { setOpen(false); setQuery('') }, [])
+  const { anchorRef, popRef, posRef, reposition } = useAnchoredDropdown(open, close)
   const selected = users.find(u => u.id === value)
   const filtered = query.trim()
     ? users.filter(u => u.name.toLowerCase().includes(query.toLowerCase()))
     : users
 
-  useEffect(() => {
-    if (!open) return
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false); setQuery('')
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
+  function toggle() {
+    if (disabled) return
+    if (!open) reposition()
+    setOpen(o => !o)
+  }
 
   function getInitials(name: string) {
     return (name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
   }
 
   return (
-    <div ref={ref} className="relative w-full">
+    <div ref={anchorRef} className="relative w-full">
       <button
         type="button"
         role="combobox"
         aria-expanded={open}
         disabled={disabled}
-        onClick={() => !disabled && setOpen(o => !o)}
+        onClick={toggle}
         className={cn(
           // Sem bg/borda próprios: herda o visual da regra global de
           // `button[role="combobox"]` (globals.css), idêntico aos inputs.
@@ -71,8 +71,12 @@ export function UserCombobox({ users, value, onSelect, disabled, placeholder }: 
         )}
         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
       </button>
-      {open && (
-        <div className="absolute top-full left-0 right-0 z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-md">
+      {open && posRef.current && (
+        <div
+          ref={popRef}
+          className="fixed z-[9999] overflow-hidden rounded-md border bg-popover shadow-md"
+          style={{ top: posRef.current.top, left: posRef.current.left, width: posRef.current.width }}
+        >
           <div className="p-1.5 border-b bg-popover sticky top-0">
             <Input
               autoFocus
@@ -82,7 +86,7 @@ export function UserCombobox({ users, value, onSelect, disabled, placeholder }: 
               className="h-7 text-xs"
             />
           </div>
-          <div className="max-h-56 overflow-y-auto py-1">
+          <div className="max-h-56 overflow-y-auto nice-scrollbar py-1">
             {filtered.length === 0 ? (
               <p className="px-3 py-3 text-xs text-muted-foreground text-center">Nenhum usuário encontrado</p>
             ) : filtered.map(u => (
@@ -93,7 +97,7 @@ export function UserCombobox({ users, value, onSelect, disabled, placeholder }: 
                   'w-full text-left px-3 py-1.5 text-sm hover:bg-muted flex items-center gap-2',
                   value === u.id && 'bg-accent text-accent-foreground',
                 )}
-                onClick={() => { onSelect(u.id); setOpen(false); setQuery('') }}
+                onClick={() => { onSelect(u.id); close() }}
               >
                 {u.image ? (
                   // eslint-disable-next-line @next/next/no-img-element

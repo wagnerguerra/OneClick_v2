@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, Send, ThumbsDown, Coins, CheckCircle2, FileDown, CalendarDays } from 'lucide-react'
 import { Button, Card, Input, cn } from '@saas/ui'
+import { TEXT, BADGE } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { exportToExcel, type ExportColumn } from '@/lib/export-data'
@@ -13,6 +14,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts'
+import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
 
@@ -80,9 +82,9 @@ export function IndicadoresDashboard() {
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center gap-1.5 rounded-md border bg-muted/20 px-2 py-1">
           <CalendarDays className="h-4 w-4 text-muted-foreground" />
-          <Input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} className="h-8 w-[140px] text-xs bg-card border-0" />
+          <Input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} className="h-8 w-[140px] text-xs" />
           <span className="text-xs text-muted-foreground">até</span>
-          <Input type="date" value={dataFim} min={dataInicio} onChange={e => setDataFim(e.target.value)} className="h-8 w-[140px] text-xs bg-card border-0" />
+          <Input type="date" value={dataFim} min={dataInicio} onChange={e => setDataFim(e.target.value)} className="h-8 w-[140px] text-xs" />
           <Button size="sm" onClick={consultar} disabled={loading} className="h-8 gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }}>
             <CalendarDays className="h-3.5 w-3.5" /> Consultar
           </Button>
@@ -134,10 +136,10 @@ export function IndicadoresDashboard() {
             <h3 className="text-sm font-semibold mb-4">Acompanhamento dos últimos 12 meses — Mensais x Extras</h3>
             <ResponsiveContainer width="100%" height={340}>
               <BarChart data={data.serie12m}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis dataKey="mes" tick={{ fontSize: 11 }} angle={-45} textAnchor="end" height={50} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v) => [`${v} orçamentos`, '']} />
+                <Tooltip content={<ChartTooltip format={(v) => `${v} orçamentos`} />} cursor={{ fill: CHART_CURSOR_FILL }} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="mensal" name="Mensal" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="extra" name="Extra" fill="#f59e0b" radius={[4, 4, 0, 0]} />
@@ -181,7 +183,7 @@ function DonutCard({ title, slices }: { title: string; slices: { name: string; v
               <Pie data={slices} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={48} label={({ value }) => `${value}`}>
                 {slices.map((s, i) => <Cell key={i} fill={s.fill} />)}
               </Pie>
-              <Tooltip />
+              <Tooltip content={<ChartTooltip />} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
             </PieChart>
           </ResponsiveContainer>
@@ -192,14 +194,14 @@ function DonutCard({ title, slices }: { title: string; slices: { name: string; v
 }
 
 const COR_BADGE: Record<string, string> = {
-  emerald: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  sky: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
-  rose: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
+  emerald: BADGE.emerald,
+  sky: BADGE.sky,
+  rose: BADGE.rose,
 }
 const COR_TITULO: Record<string, string> = {
-  emerald: 'text-emerald-600 dark:text-emerald-400',
-  sky: 'text-sky-600 dark:text-sky-400',
-  rose: 'text-rose-600 dark:text-rose-400',
+  emerald: TEXT.emerald,
+  sky: TEXT.sky,
+  rose: TEXT.rose,
 }
 
 function ListaColuna({ titulo, cor, itens, router }: { titulo: string; cor: 'emerald' | 'sky' | 'rose'; itens: ListaItem[]; router: ReturnType<typeof useRouter> }) {
@@ -209,7 +211,7 @@ function ListaColuna({ titulo, cor, itens, router }: { titulo: string; cor: 'eme
       {itens.length === 0 ? (
         <p className="text-xs text-muted-foreground italic py-4 text-center">Nenhum no período</p>
       ) : (
-        <div className="space-y-1.5 max-h-[360px] overflow-y-auto pr-1">
+        <div className="space-y-1.5 max-h-[360px] overflow-y-auto nice-scrollbar pr-1">
           {itens.map(o => (
             <button
               key={o.id}

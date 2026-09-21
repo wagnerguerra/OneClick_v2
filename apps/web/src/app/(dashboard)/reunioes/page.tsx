@@ -13,6 +13,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { BADGE } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -131,8 +132,12 @@ export default function ReunioesPage() {
       <Card>
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
+            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
+            </Select>
             <Select value={tipoId || '__all__'} onValueChange={(v) => { setTipoId(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[170px] text-xs bg-card"><SelectValue placeholder="Tipo" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[170px] text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os tipos</SelectItem>
                 {tipos.map((t) => <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>)}
@@ -150,13 +155,9 @@ export default function ReunioesPage() {
                 Limpar ({filtrosAtivos})
               </Button>
             )}
-            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
-              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
-            </Select>
           </div>
           <div className="max-w-xs w-full sm:w-auto">
-            <Input placeholder="Buscar por título, local, cliente..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+            <Input placeholder="Buscar por título, local, cliente..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
 
@@ -198,14 +199,12 @@ export default function ReunioesPage() {
                     {r._count.acoes === 0 ? (
                       <span className="text-xs text-muted-foreground">—</span>
                     ) : r.acoesPendentes === 0 ? (
-                      <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">
+                      <Badge variant="outline" className={cn('text-[10px]', BADGE.emerald)}>
                         {r._count.acoes} concluída{r._count.acoes === 1 ? '' : 's'}
                       </Badge>
                     ) : (
                       <Badge variant="outline" className={cn('text-[10px]',
-                        r.acoesVencidas > 0
-                          ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800'
-                          : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800')}>
+                        r.acoesVencidas > 0 ? BADGE.rose : BADGE.amber)}>
                         {r.acoesVencidas > 0 && <AlertTriangle className="h-3 w-3 mr-0.5" />}
                         {r.acoesPendentes} pendente{r.acoesPendentes === 1 ? '' : 's'}
                         {r.acoesVencidas > 0 ? ` (${r.acoesVencidas} vencida${r.acoesVencidas === 1 ? '' : 's'})` : ''}

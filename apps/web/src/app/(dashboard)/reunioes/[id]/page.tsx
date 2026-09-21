@@ -9,8 +9,10 @@ import {
 import {
   Button, Input, Label, Card, Badge, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   RichEditor, RichContent,
 } from '@saas/ui'
+import { TEXT, BADGE, SURFACE } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import Link from 'next/link'
@@ -192,7 +194,7 @@ export default function ReuniaoDetalhePage() {
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           <div className="min-w-0">
               {pendentes.length > 0 && (
-                <Badge variant="outline" className="text-[11px] bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800">
+                <Badge variant="outline" className={cn('text-[11px]', BADGE.amber)}>
                   {pendentes.length} ação{pendentes.length === 1 ? '' : 'ões'} pendente{pendentes.length === 1 ? '' : 's'}
                 </Badge>
               )}
@@ -273,9 +275,9 @@ export default function ReuniaoDetalhePage() {
                     <div key={a.id} className={cn(
                       'rounded-md border p-3 text-sm',
                       a.status === 'CONCLUIDA'
-                        ? 'border-emerald-300/60 bg-emerald-50/40 dark:border-emerald-800/50 dark:bg-emerald-950/10'
+                        ? SURFACE.emerald
                         : vencida
-                          ? 'border-rose-300/60 bg-rose-50/40 dark:border-rose-800/50 dark:bg-rose-950/10'
+                          ? SURFACE.rose
                           : 'border-border bg-muted/20',
                     )}>
                       <div className="flex items-start justify-between gap-2">
@@ -302,7 +304,7 @@ export default function ReuniaoDetalhePage() {
                       </div>
                       <p className="mt-1 text-[11px] text-muted-foreground">
                         {nomeResp(a)}
-                        {a.prazo && <> · prazo {dataBR(a.prazo)}{vencida && <span className="text-rose-600 dark:text-rose-400 font-semibold"> (vencido)</span>}</>}
+                        {a.prazo && <> · prazo {dataBR(a.prazo)}{vencida && <span className={cn(TEXT.rose, 'font-semibold')}> (vencido)</span>}</>}
                         {a.concluidoEm && <> · concluída em {dataBR(a.concluidoEm)}</>}
                       </p>
                     </div>
@@ -321,7 +323,7 @@ export default function ReuniaoDetalhePage() {
             <div className="flex items-start gap-2 mb-4">
               <textarea value={msgTexto} onChange={(e) => setMsgTexto(e.target.value)} rows={2}
                 placeholder="Escreva uma interação..."
-                className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+                className="flex-1 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
               <Button type="button" size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5 mt-0.5"
                 disabled={enviandoMsg || !msgTexto.trim()} onClick={enviarMensagem}>
                 {enviandoMsg ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}Enviar
@@ -410,7 +412,7 @@ export default function ReuniaoDetalhePage() {
               <div className="space-y-2">
                 {r.arquivos.map((a) => (
                   <a key={a.id} href={`${getApiUrl()}${a.arquivoPath}`} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-2 rounded-md border border-border bg-muted/30 p-2 text-xs hover:border-amber-300 dark:hover:border-amber-800 transition-colors">
+                    className="flex items-center gap-2 rounded-md border border-border bg-muted/30 p-2 text-xs hover:border-[var(--mod-qualidade,#fbbf24)] transition-colors">
                     <Download className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     <span className="truncate">{a.nome}</span>
                   </a>
@@ -459,11 +461,13 @@ export default function ReuniaoDetalhePage() {
             <div className="grid grid-cols-12 gap-4">
               <div className="col-span-12 sm:col-span-7">
                 <Label className="text-[13px] font-semibold">Responsável</Label>
-                <select value={acaoResponsavelId} onChange={(e) => setAcaoResponsavelId(e.target.value)}
-                  className="mt-1.5 flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring">
-                  <option value="">Sem responsável</option>
-                  {usuarios.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-                </select>
+                <Select value={acaoResponsavelId || '__none__'} onValueChange={(v) => setAcaoResponsavelId(v === '__none__' ? '' : v)}>
+                  <SelectTrigger className="h-9 text-sm mt-1.5"><SelectValue placeholder="Sem responsável" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sem responsável</SelectItem>
+                    {usuarios.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="col-span-12 sm:col-span-5">
                 <Label className="text-[13px] font-semibold">Prazo</Label>

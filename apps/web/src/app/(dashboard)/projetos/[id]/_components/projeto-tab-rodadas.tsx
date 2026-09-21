@@ -23,10 +23,11 @@ import {
   MessageSquare, Paperclip, Download, FileText, Image as ImageIcon, Send, AlertOctagon, Gauge,
 } from 'lucide-react'
 import {
-  Button, Input, Card, Badge, cn,
+  Button, Input, Card, Badge, Checkbox, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription, Label,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { TEXT, STRONG, SURFACE } from '@/lib/color-styles'
 import { AnexosDropzone, type AnexoStaged } from '../../../helpdesk/_components/anexos-dropzone'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -90,8 +91,8 @@ function fmtBytes(b: number): string {
 }
 
 const CORES_SITUACAO: Record<Apontamento['situacao'], string> = {
-  ABERTO: 'bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-300',
-  RESOLVIDO: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300',
+  ABERTO: STRONG.amber,
+  RESOLVIDO: STRONG.emerald,
   DESCARTADO: 'bg-muted text-muted-foreground',
 }
 
@@ -331,7 +332,7 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
               ? 'Cada entrega vira uma rodada; o que os envolvidos apontam fica registrado nela.'
               : <>
                   {rodadas.length} rodada(s) · {totalAbertos} apontamento(s) em aberto
-                  {totalTravadas > 0 && <> · <span className="font-semibold text-rose-600 dark:text-rose-400">{totalTravadas} travada(s)</span></>}
+                  {totalTravadas > 0 && <> · <span className={cn('font-semibold', TEXT.rose)}>{totalTravadas} travada(s)</span></>}
                 </>}
           </p>
         </div>
@@ -441,7 +442,7 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
                     <Badge variant="secondary" className="shrink-0 text-[10px]">{r.abertos} em aberto</Badge>
                   )}
                   {r.travada && (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-800 dark:bg-rose-500/15 dark:text-rose-300">
+                    <span className={cn('inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold', STRONG.rose)}>
                       <AlertOctagon className="h-3 w-3" />
                       Travada
                     </span>
@@ -495,7 +496,7 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
                             className={cn(
                               'rounded-lg border px-3 py-2',
                               a.impeditivo && a.situacao === 'ABERTO'
-                                ? 'border-rose-300 bg-rose-50 dark:border-rose-500/40 dark:bg-rose-500/10'
+                                ? SURFACE.rose
                                 : 'border-border bg-muted/20',
                             )}
                           >
@@ -505,7 +506,7 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
                               </p>
                               <div className="flex shrink-0 items-center gap-1">
                                 {a.impeditivo && (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-800 dark:bg-rose-500/20 dark:text-rose-300">
+                                  <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold', STRONG.rose)}>
                                     <AlertOctagon className="h-3 w-3" /> Impeditivo
                                   </span>
                                 )}
@@ -561,7 +562,7 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
                               value={draft.texto}
                               onChange={e => setRascunho(st => ({ ...st, [r.id]: { ...draft, texto: e.target.value } }))}
                               placeholder="O que foi apontado nesta rodada?"
-                              className="min-h-[60px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                              className="min-h-[60px] w-full rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                             />
                             <div className="flex flex-wrap items-center gap-2">
                               <Input
@@ -571,11 +572,11 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
                                 className="h-9 max-w-[260px] text-sm"
                               />
                               <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
-                                <input
-                                  type="checkbox"
+                                <Checkbox
                                   checked={draft.impeditivo}
-                                  onChange={e => setRascunho(st => ({ ...st, [r.id]: { ...draft, impeditivo: e.target.checked } }))}
-                                  className="h-3.5 w-3.5 accent-rose-600"
+                                  onCheckedChange={v => setRascunho(st => ({ ...st, [r.id]: { ...draft, impeditivo: v === true } }))}
+                                  accentColor="#e11d48"
+                                  className="h-3.5 w-3.5"
                                 />
                                 Impediu a rodada
                               </label>
@@ -620,7 +621,7 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
                               value={fala.texto}
                               onChange={e => setConversa(st => ({ ...st, [r.id]: { ...fala, texto: e.target.value } }))}
                               placeholder="Escreva uma mensagem sobre esta rodada…"
-                              className="min-h-[60px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                              className="min-h-[60px] w-full rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                             />
                             <div className="flex flex-wrap items-center gap-2">
                               <Input

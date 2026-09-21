@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { resolveAssetUrl } from '@/lib/api-url'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import {
   DndContext, closestCenter, DragOverlay, PointerSensor, useSensor, useSensors,
   useDroppable, type DragEndEvent, type DragStartEvent,
@@ -20,6 +20,9 @@ import { alerts } from '@/lib/alerts'
 import { PROJETO_STATUS_LABELS, PROJETO_STATUS_ORDEM, type ProjetoStatus } from '@saas/types'
 
 const STATUS_ORDEM = PROJETO_STATUS_ORDEM
+
+// Cor do bloco TI — fallback do stripe do card quando o projeto não tem cor própria.
+const MODULE_COLOR = 'var(--mod-ti, #22d3ee)'
 
 // Cores semânticas: NOVO=cinza (novidade fria), ANDAMENTO=âmbar (em movimento),
 // PENDENTE=roxo (aguardando algo), CONCLUIDO=verde (sucesso).
@@ -290,7 +293,7 @@ function KanbanCard({
       onClick={() => { if (!isDraggingAny) router.push(`/projetos/${projeto.id}`) }}
     >
       <div className="flex">
-        <div className="w-1 shrink-0" style={{ backgroundColor: projeto.cor || '#22d3ee' }} />
+        <div className="w-1 shrink-0" style={{ backgroundColor: projeto.cor || MODULE_COLOR }} />
         <div className="flex-1 min-w-0">
           <KanbanCardContent
             projeto={projeto}
@@ -348,7 +351,7 @@ function KanbanCardOverlay({
       }}
     >
       <div className="flex">
-        <div className="w-1 shrink-0" style={{ backgroundColor: projeto.cor || '#22d3ee' }} />
+        <div className="w-1 shrink-0" style={{ backgroundColor: projeto.cor || MODULE_COLOR }} />
         <div className="flex-1 min-w-0">
           <KanbanCardContent
             projeto={projeto}
@@ -543,19 +546,12 @@ function ResumoFrentes({ execucoes, envolvidos }: { execucoes: number; envolvido
 }
 
 function AvatarPequeno({ user }: { user: { name: string; image: string | null } }) {
-  if (user.image) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={resolveAssetUrl(user.image)} alt={user.name} className="h-5 w-5 rounded-full object-cover" />
-  }
-  const iniciais = user.name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((s) => s[0]?.toUpperCase())
-    .join('')
   return (
-    <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[9px] font-semibold text-foreground/70 shrink-0">
-      {iniciais || '?'}
-    </div>
+    <UserAvatar
+      user={user}
+      className="h-5 w-5 shrink-0 text-[9px] font-semibold"
+      bg="bg-muted"
+      fg="text-foreground/70"
+    />
   )
 }

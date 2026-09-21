@@ -42,7 +42,7 @@ export function ContasCorrentesMap({ def, setDef, coluna, getDistinct, revisar }
             <div key={val} className="flex items-center gap-2 rounded-[2px] border border-border/60 bg-muted/20 px-3 py-1.5">
               <span className="text-sm flex-1 truncate" title={val}>{val}</span>
               <Input
-                className={cn('h-8 w-[150px] text-xs bg-card', !cur.trim() && invalidCls(revisar))}
+                className={cn('h-8 w-[150px] text-xs', !cur.trim() && invalidCls(revisar))}
                 placeholder="Conta corrente"
                 inputMode="numeric"
                 value={cur}

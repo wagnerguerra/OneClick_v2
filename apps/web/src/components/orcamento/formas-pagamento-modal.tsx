@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, Button, Input } from '@saas/ui'
+import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, Button, Input, cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { TEXT } from '@/lib/color-styles'
 import { DollarSign, Plus, Trash2, Pencil, Check, X } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -107,7 +108,7 @@ export function FormasPagamentoModal({ open, onOpenChange }: { open: boolean; on
                         type="button"
                         onClick={() => void saveEdit(f.id)}
                         disabled={salvando || !editValor.trim()}
-                        className="text-emerald-600 hover:text-emerald-700 disabled:opacity-40 transition-colors"
+                        className={cn(TEXT.emerald, 'hover:text-emerald-700 disabled:opacity-40 transition-colors')}
                         aria-label="Salvar"
                         title="Salvar"
                       >

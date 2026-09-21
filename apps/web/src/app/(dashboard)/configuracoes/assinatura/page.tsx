@@ -10,6 +10,7 @@ import { Button, Card, CardHeader, cn } from '@saas/ui'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
+import { BADGE } from '@/lib/color-styles'
 import { alerts } from '@/lib/alerts'
 import {
   SUBSCRIPTION_STATUS_LABELS,
@@ -237,7 +238,7 @@ export default function AssinaturaPage() {
                     )
                   })()}
                   {subscription.cancelAtPeriodEnd && (
-                    <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                    <span className={cn('text-xs px-2 py-0.5 rounded-full', BADGE.amber)}>
                       Cancela em {formatDate(subscription.currentPeriodEnd)}
                     </span>
                   )}

@@ -15,13 +15,14 @@ import {
 import { cn } from '@saas/ui'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { STRONG, TEXT, BORDER } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { EntregarDialog } from './_components/entregar-dialog'
 import { LogDialog } from './_components/log-dialog'
 import { CalendarioMinhasObrigacoes } from './_components/calendario-minhas-obrigacoes'
 
-const MODULE_COLOR = 'var(--mod-corporativo, #0ea5e9)' // Sky (Administrativo)
+const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)' // sky (bloco Administrativo)
 
 type StatusFiltro = 'TODOS' | 'PENDENTES' | 'ATRASADAS' | 'CONCLUIDAS'
 
@@ -175,18 +176,18 @@ export default function MinhasObrigacoesPage() {
             <div className="mt-0.5 text-2xl font-semibold tabular-nums">{stats.total}</div>
             <div className="text-[11px] text-muted-foreground">no escopo</div>
           </Card>
-          <Card className="p-3 border-l-2 border-amber-300">
-            <div className="text-[11px] uppercase tracking-wide text-amber-700">Pendentes</div>
+          <Card className={cn('p-3 border-l-2', BORDER.amber)}>
+            <div className={cn('text-[11px] uppercase tracking-wide', TEXT.amber)}>Pendentes</div>
             <div className="mt-0.5 text-2xl font-semibold tabular-nums">{stats.pendentes}</div>
             <div className="text-[11px] text-muted-foreground">a entregar</div>
           </Card>
-          <Card className="p-3 border-l-2 border-red-300">
-            <div className="text-[11px] uppercase tracking-wide text-red-700">Atrasadas</div>
+          <Card className={cn('p-3 border-l-2', BORDER.red)}>
+            <div className={cn('text-[11px] uppercase tracking-wide', TEXT.red)}>Atrasadas</div>
             <div className="mt-0.5 text-2xl font-semibold tabular-nums">{stats.atrasadas}</div>
             <div className="text-[11px] text-muted-foreground">prazo expirado</div>
           </Card>
-          <Card className="p-3 border-l-2 border-emerald-300">
-            <div className="text-[11px] uppercase tracking-wide text-emerald-700">Concluídas</div>
+          <Card className={cn('p-3 border-l-2', BORDER.emerald)}>
+            <div className={cn('text-[11px] uppercase tracking-wide', TEXT.emerald)}>Concluídas</div>
             <div className="mt-0.5 text-2xl font-semibold tabular-nums">{stats.concluidas}</div>
             <div className="text-[11px] text-muted-foreground">entregues</div>
           </Card>
@@ -210,7 +211,7 @@ export default function MinhasObrigacoesPage() {
                 {filtrosAtivos > 0 && <Badge variant="outline" className="h-5 text-[10px]">{filtrosAtivos}</Badge>}
               </div>
               <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as StatusFiltro)}>
-                <SelectTrigger className="h-8 w-[130px] text-xs bg-card"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="TODOS">Todos</SelectItem>
                   <SelectItem value="PENDENTES">Pendentes</SelectItem>
@@ -219,7 +220,7 @@ export default function MinhasObrigacoesPage() {
                 </SelectContent>
               </Select>
               <Select value={filtroArea} onValueChange={setFiltroArea}>
-                <SelectTrigger className="h-8 w-[150px] text-xs bg-card"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="TODAS">Todas as áreas</SelectItem>
                   {areasDisponiveis.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
@@ -232,7 +233,7 @@ export default function MinhasObrigacoesPage() {
                 placeholder="Buscar obrigação ou cliente..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="h-8 pl-8 text-xs bg-card"
+                className="h-8 pl-8 text-xs"
               />
             </div>
           </div>
@@ -314,7 +315,7 @@ export default function MinhasObrigacoesPage() {
                             <span
                               className={cn(
                                 'text-xs tabular-nums',
-                                isAtrasada ? 'text-red-600 font-medium' : isProxima ? 'text-amber-700 font-medium' : 'text-muted-foreground',
+                                isAtrasada ? cn(TEXT.red, 'font-medium') : isProxima ? cn(TEXT.amber, 'font-medium') : 'text-muted-foreground',
                               )}
                             >
                               {formatDataBR(o.prazoEfetivo)}
@@ -326,11 +327,11 @@ export default function MinhasObrigacoesPage() {
                       </TableCell>
                       <TableCell className="hidden sm:table-cell text-center whitespace-nowrap">
                         {isConcluida ? (
-                          <Badge className="h-5 text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200">
+                          <Badge variant="outline" className={cn('h-5 text-[10px]', STRONG.emerald)}>
                             <CheckCircle2 className="h-3 w-3 mr-0.5" />Entregue
                           </Badge>
                         ) : isAtrasada ? (
-                          <Badge className="h-5 text-[10px] bg-red-100 text-red-700 border-red-200">
+                          <Badge variant="outline" className={cn('h-5 text-[10px]', STRONG.red)}>
                             <AlertCircle className="h-3 w-3 mr-0.5" />Atrasada
                           </Badge>
                         ) : (

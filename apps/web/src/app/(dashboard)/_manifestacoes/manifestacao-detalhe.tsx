@@ -5,12 +5,13 @@ import {
   Loader2, EyeOff, Send, MessageSquare, Lock, Globe, Building2, User as UserIcon, X,
 } from 'lucide-react'
 import {
-  Button, Badge, cn,
+  Button, Badge, Checkbox, cn,
   Sheet, SheetContent, SheetTitle, SheetDescription,
   RichEditor, RichContent,
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { SURFACE, TEXT } from '@/lib/color-styles'
 import { STATUS_LABEL } from './manifestacao-page'
 import type { Config } from './tipos'
 
@@ -106,39 +107,45 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
         <SheetTitle className="sr-only">{config.titulo}</SheetTitle>
         <SheetDescription className="sr-only">Detalhe e tratativa do registro.</SheetDescription>
 
-        <div className="flex items-start gap-3 px-6 py-4 text-white"
-          style={{ background: `linear-gradient(120deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 55%, #ef4444))` }}>
-          <div className="min-w-0 flex-1">
-            <p className="font-mono text-[11px] uppercase tracking-[.14em] opacity-90">
-              {m?.protocolo ?? '—'}
-            </p>
-            <h2 className="truncate text-xl font-bold">
-              {m?.titulo || config.titulo}
-            </h2>
-            {m && (
-              <p className="flex flex-wrap items-center gap-2 text-[12.5px] opacity-90">
-                {m.anonima ? (
-                  <span className="inline-flex items-center gap-1"><EyeOff className="h-3.5 w-3.5" /> Anônima</span>
-                ) : m.origem === 'CLIENTE' ? (
-                  <span className="inline-flex items-center gap-1">
-                    <Building2 className="h-3.5 w-3.5" />
-                    {m.cliente?.razaoSocial ?? m.informanteNome ?? 'Cliente'}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1">
-                    <UserIcon className="h-3.5 w-3.5" /> {m.autor?.name ?? '—'}
-                  </span>
-                )}
-                <span>·</span>
-                <span>{new Date(m.criadoEm).toLocaleDateString('pt-BR')}</span>
-                {m.area && <><span>·</span><span>{m.area.name}</span></>}
+        <div className="relative overflow-hidden"
+          style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 12%, transparent)` }}>
+          <div
+            className="absolute inset-0"
+            style={{ backgroundImage: `linear-gradient(to right, color-mix(in srgb, ${MODULE_COLOR} 0%, transparent) 0%, color-mix(in srgb, ${MODULE_COLOR} 22%, transparent) 100%)` }}
+          />
+          <div className="relative z-10 flex items-start gap-3 px-6 py-4">
+            <div className="min-w-0 flex-1">
+              <p className="font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
+                {m?.protocolo ?? '—'}
               </p>
-            )}
+              <h2 className="truncate text-xl font-bold text-foreground">
+                {m?.titulo || config.titulo}
+              </h2>
+              {m && (
+                <p className="flex flex-wrap items-center gap-2 text-[12.5px] text-muted-foreground">
+                  {m.anonima ? (
+                    <span className="inline-flex items-center gap-1"><EyeOff className="h-3.5 w-3.5" /> Anônima</span>
+                  ) : m.origem === 'CLIENTE' ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Building2 className="h-3.5 w-3.5" />
+                      {m.cliente?.razaoSocial ?? m.informanteNome ?? 'Cliente'}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1">
+                      <UserIcon className="h-3.5 w-3.5" /> {m.autor?.name ?? '—'}
+                    </span>
+                  )}
+                  <span>·</span>
+                  <span>{new Date(m.criadoEm).toLocaleDateString('pt-BR')}</span>
+                  {m.area && <><span>·</span><span>{m.area.name}</span></>}
+                </p>
+              )}
+            </div>
+            <button type="button" onClick={onClose} aria-label="Fechar"
+              className="rounded-md p-1.5 text-foreground/80 transition-colors hover:bg-foreground/10 hover:text-foreground">
+              <X className="h-4 w-4" />
+            </button>
           </div>
-          <button type="button" onClick={onClose} aria-label="Fechar"
-            className="rounded-md p-1.5 text-white/90 transition-colors hover:bg-white/20">
-            <X className="h-4 w-4" />
-          </button>
         </div>
 
         {carregando || !m ? (
@@ -162,11 +169,11 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
             </div>
 
             {m.elogiados?.length > 0 && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 dark:border-amber-900/50 dark:bg-amber-950/20">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300">
+              <div className={cn('rounded-lg border px-3 py-2', SURFACE.amber)}>
+                <p className={cn('text-[11px] font-semibold uppercase tracking-wide', TEXT.amber)}>
                   Elogiados
                 </p>
-                <p className="text-[13px] text-amber-900 dark:text-amber-200">
+                <p className={cn('text-[13px]', TEXT.amber)}>
                   {m.elogiados.map((e: { name: string }) => e.name).join(' · ')}
                 </p>
               </div>
@@ -180,8 +187,8 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
             </div>
 
             {m.resposta && (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">
+              <div className={cn('rounded-lg border p-4', SURFACE.emerald)}>
+                <p className={cn('mb-2 text-[11px] font-semibold uppercase tracking-wide', TEXT.emerald)}>
                   Resposta da Qualidade
                   {m.respondidoEm && ` · ${new Date(m.respondidoEm).toLocaleDateString('pt-BR')}`}
                 </p>
@@ -211,11 +218,10 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
               <div className="space-y-1.5 rounded-lg border border-border p-2.5">
                 <textarea value={novaMsg} onChange={e => setNovaMsg(e.target.value)} rows={2}
                   placeholder="Escrever..."
-                  className="nice-scrollbar w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm" />
+                  className="nice-scrollbar w-full rounded-md px-2.5 py-1.5 text-sm" />
                 <div className="flex flex-wrap items-center gap-3">
                   <label className="flex cursor-pointer items-center gap-1.5 text-[12px]">
-                    <input type="checkbox" checked={msgInterna} className="h-3.5 w-3.5"
-                      onChange={e => setMsgInterna(e.target.checked)} />
+                    <Checkbox checked={msgInterna} onCheckedChange={v => setMsgInterna(v === true)} />
                     Nota interna
                   </label>
                   <Button size="sm" variant="outline" className="ml-auto gap-1.5"
@@ -230,8 +236,8 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
                 Um passo por vez, e só o passo da vez: mostrar os três juntos
                 convidaria a pular a apuração e ir direto ao encerramento. */}
             {config.temFluxo && podeTratar && m.status === 'AGUARDANDO_RETORNO' && (
-              <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50/60 p-3 dark:border-amber-900/50 dark:bg-amber-950/20">
-                <p className="text-[13px] font-semibold text-amber-900 dark:text-amber-300">
+              <div className={cn('space-y-2 rounded-lg border p-3', SURFACE.amber)}>
+                <p className={cn('text-[13px] font-semibold', TEXT.amber)}>
                   1. Retorno imediato ao cliente
                   {m.prazoRetorno && (
                     <span className="ml-2 font-normal">
@@ -239,11 +245,11 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
                     </span>
                   )}
                 </p>
-                <p className="text-[11.5px] text-amber-800/80 dark:text-amber-400/80">
+                <p className={cn('text-[11.5px]', TEXT.amber)}>
                   O que foi dito a quem reclamou agora, antes de apurar.
                 </p>
                 <textarea value={textoFluxo} onChange={e => setTextoFluxo(e.target.value)} rows={3}
-                  className="nice-scrollbar w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm" />
+                  className="nice-scrollbar w-full rounded-md px-2.5 py-1.5 text-sm" />
                 <div className="flex justify-end">
                   <Button variant="success" size="sm" disabled={salvando || !textoFluxo.trim()}
                     onClick={async () => {
@@ -261,8 +267,8 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
             )}
 
             {config.temFluxo && podeTratar && m.status === 'AGUARDANDO_ANALISE' && (
-              <div className="space-y-3 rounded-lg border border-sky-300 bg-sky-50/60 p-3 dark:border-sky-900/50 dark:bg-sky-950/20">
-                <p className="text-[13px] font-semibold text-sky-900 dark:text-sky-300">
+              <div className={cn('space-y-3 rounded-lg border p-3', SURFACE.sky)}>
+                <p className={cn('text-[13px] font-semibold', TEXT.sky)}>
                   2. A reclamação procede?
                 </p>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -284,7 +290,7 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
                     <p className="text-[12px] font-semibold">Causa</p>
                     <textarea value={causa} onChange={e => setCausa(e.target.value)} rows={3}
                       placeholder="O que levou a isso acontecer."
-                      className="nice-scrollbar w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm" />
+                      className="nice-scrollbar w-full rounded-md px-2.5 py-1.5 text-sm" />
                   </div>
                 )}
 
@@ -294,13 +300,13 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
                       <p className="text-[12px] font-semibold">Justificativa</p>
                       <textarea value={justificativa} onChange={e => setJustificativa(e.target.value)} rows={3}
                         placeholder="Por que a reclamação não procede."
-                        className="nice-scrollbar w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm" />
+                        className="nice-scrollbar w-full rounded-md px-2.5 py-1.5 text-sm" />
                     </div>
                     <div className="space-y-1.5">
                       <p className="text-[12px] font-semibold">Retorno final</p>
                       <textarea value={retornoFinal} onChange={e => setRetornoFinal(e.target.value)} rows={3}
                         placeholder="O que foi devolvido a quem reclamou."
-                        className="nice-scrollbar w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm" />
+                        className="nice-scrollbar w-full rounded-md px-2.5 py-1.5 text-sm" />
                     </div>
                   </>
                 )}
@@ -330,15 +336,15 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
             )}
 
             {config.temFluxo && podeTratar && m.status === 'REGISTRAR_EFICACIA' && (
-              <div className="space-y-2 rounded-lg border border-indigo-300 bg-indigo-50/60 p-3 dark:border-indigo-900/50 dark:bg-indigo-950/20">
-                <p className="text-[13px] font-semibold text-indigo-900 dark:text-indigo-300">
+              <div className={cn('space-y-2 rounded-lg border p-3', SURFACE.indigo)}>
+                <p className={cn('text-[13px] font-semibold', TEXT.indigo)}>
                   3. Encerrar
                 </p>
-                <p className="text-[11.5px] text-indigo-800/80 dark:text-indigo-400/80">
+                <p className={cn('text-[11.5px]', TEXT.indigo)}>
                   A causa foi tratada. Escreva a posição final entregue a quem reclamou.
                 </p>
                 <textarea value={retornoFinal} onChange={e => setRetornoFinal(e.target.value)} rows={3}
-                  className="nice-scrollbar w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm" />
+                  className="nice-scrollbar w-full rounded-md px-2.5 py-1.5 text-sm" />
                 <div className="flex justify-end">
                   <Button variant="success" size="sm" disabled={salvando || !retornoFinal.trim()}
                     onClick={async () => {

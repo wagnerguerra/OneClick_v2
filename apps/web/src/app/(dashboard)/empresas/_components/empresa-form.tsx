@@ -9,6 +9,7 @@ import { createEmpresaSchema, type CreateEmpresaInput } from '@saas/types'
 import { HelpCircle, Scale, MapPin, Phone, Search, Loader2, Upload, X, Save, Building2, Plug, Users, ShieldCheck, RotateCcw, AlertTriangle, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react'
 import {
   Button,
+  Checkbox,
   Input,
   Label,
   Select,
@@ -62,6 +63,7 @@ const TAB_BY_FIELD: Record<string, EmpresaTabKey> = {
   logoUrl: 'logo', logoDarkUrl: 'logo', marcaDaguaUrl: 'logo',
 }
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { masks } from '@/lib/masks'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -527,7 +529,7 @@ export function EmpresaForm({ mode, empresaId, title, defaultValues, resumo }: E
                 {mode === 'edit' && defaultValues?.code !== undefined && (
                   <div className="space-y-1.5">
                     <Label>ID</Label>
-                    <Input value={defaultValues.code} disabled className="bg-muted" />
+                    <Input value={defaultValues.code} disabled />
                   </div>
                 )}
                 <div className={`space-y-1.5 ${mode === 'create' ? 'sm:col-span-2' : ''}`}>
@@ -862,7 +864,7 @@ export function EmpresaForm({ mode, empresaId, title, defaultValues, resumo }: E
                 title="Usuários da empresa"
                 description="A equipe do escritório e as pessoas dos clientes que acessam o portal. A equipe se cadastra no módulo Usuários; as pessoas dos clientes, no cadastro de cada cliente."
                 actions={
-                  <Link href="/usuarios" className="text-[13px] font-medium text-emerald-700 hover:underline dark:text-emerald-400">
+                  <Link href="/usuarios" className={cn('text-[13px] font-medium hover:underline', TEXT.emerald)}>
                     Abrir Usuários
                   </Link>
                 }
@@ -1015,7 +1017,7 @@ function PermissoesDoPortal({ empresaId, mode }: { empresaId?: string; mode: 'cr
               {/* Ligar o que não existe produz item de menu que leva a uma
                   página em branco — pior que a ausência. */}
               {editavel && !m.implementado && m.liberado && (
-                <p className="mt-1 flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+                <p className={cn('mt-1 flex items-center gap-1 text-[11px]', TEXT.amber)}>
                   <AlertTriangle className="h-3 w-3" />
                   Ligado, mas sem tela ainda — o cliente não verá nada.
                 </p>
@@ -1052,7 +1054,7 @@ function PermissoesDoPortal({ empresaId, mode }: { empresaId?: string; mode: 'cr
                   className={cn(
                     'rounded-full px-2 py-0.5 text-[11px] font-medium',
                     m.liberado
-                      ? 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-400'
+                      ? cn('bg-emerald-500/12', TEXT.emerald)
                       : 'bg-muted text-muted-foreground',
                   )}
                 >
@@ -1131,8 +1133,8 @@ function UsuariosDaEmpresa({ empresaId, mode }: { empresaId?: string; mode: 'cre
             placeholder="Filtrar por nome ou e-mail..." className="h-9 pl-8 text-sm" />
         </div>
         <label className="flex cursor-pointer items-center gap-2 text-[13px]">
-          <input type="checkbox" checked={incluirInativos} className="h-4 w-4"
-            onChange={e => setIncluirInativos(e.target.checked)} />
+          <Checkbox checked={incluirInativos}
+            onCheckedChange={v => setIncluirInativos(v === true)} />
           Mostrar inativos
         </label>
       </div>
@@ -1241,7 +1243,7 @@ function TabelaDeUsuarios({ empresaId, tipo, titulo, vazio, termo, incluirInativ
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="hidden sm:inline">Exibir</span>
           <Select value={String(limit)} onValueChange={v => setLimit(Number(v))}>
-            <SelectTrigger className="h-8 w-[68px] bg-card text-xs"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-8 w-[68px] text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               {TAMANHOS_DE_PAGINA.map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
             </SelectContent>

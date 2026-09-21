@@ -4,15 +4,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   ListTodo, Plus, Search, Loader2, CheckSquare, Square, Edit2, Trash2,
-  Calendar, AlertCircle, ArrowLeft, Briefcase,
+  Calendar, AlertCircle, Briefcase,
 } from 'lucide-react'
 import {
   Button, Input, Card, Badge, cn,
 } from '@saas/ui'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { BackButton } from '@/components/ui/back-button'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { resolveAssetUrl } from '@/lib/api-url'
+import { TEXT } from '@/lib/color-styles'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { TarefaModal } from '../_components/tarefa-modal'
 
@@ -137,9 +139,7 @@ export default function TarefasPage() {
           >
             <Plus className="h-4 w-4" />Nova tarefa
           </Button>
-          <Button variant="outline" size="icon" asChild className="h-9 w-9" title="Voltar pra Agenda">
-            <Link href="/agenda"><ArrowLeft className="h-4 w-4" /></Link>
-          </Button>
+          <BackButton href="/agenda" />
       </>}>
         <h1 className="truncate">Tarefas</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -240,7 +240,7 @@ export default function TarefasPage() {
                     title={minhaCiencia ? 'Remover minha ciência' : 'Dar ciência (concluir minha parte)'}
                   >
                     {minhaCiencia
-                      ? <CheckSquare className="h-5 w-5 text-emerald-600" />
+                      ? <CheckSquare className={cn('h-5 w-5', TEXT.emerald)} />
                       : <Square className="h-5 w-5 text-muted-foreground hover:text-sky-500" />}
                   </button>
                   <div className="flex-1 min-w-0 cursor-pointer" onClick={() => { setTarefaEditando(t); setModalOpen(true) }}>
@@ -263,8 +263,8 @@ export default function TarefasPage() {
                     <div className="flex items-center gap-3 mt-1.5 text-[11px]">
                       <span className={cn(
                         'inline-flex items-center gap-1 font-medium',
-                        atrasada && 'text-rose-600 dark:text-rose-400',
-                        hojeFlag && 'text-amber-600 dark:text-amber-400',
+                        atrasada && TEXT.rose,
+                        hojeFlag && TEXT.amber,
                         !atrasada && !hojeFlag && 'text-muted-foreground',
                       )}>
                         <Calendar className="h-3 w-3" />
@@ -275,9 +275,7 @@ export default function TarefasPage() {
                       </span>
                       {t.criador && isMaster && (
                         <span className="inline-flex items-center gap-1 text-muted-foreground">
-                          <span className="inline-block h-3.5 w-3.5 rounded-full bg-muted text-[8px] font-bold uppercase flex items-center justify-center text-muted-foreground">
-                            {t.criador.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
-                          </span>
+                          <UserAvatar user={{ name: t.criador.name, image: t.criador.image }} className="h-3.5 w-3.5 text-[8px] text-muted-foreground" bg="bg-muted" />
                           {t.criador.name}
                         </span>
                       )}
@@ -285,13 +283,12 @@ export default function TarefasPage() {
                         <span className="inline-flex items-center gap-1.5 text-muted-foreground" title="Membros e ciência">
                           <span className="flex -space-x-1.5">
                             {membros.slice(0, 5).map(m => (
-                              <span key={m.usuarioId} title={`${m.name} · ${m.ciente ? 'ciente' : 'pendente'}`}
-                                className={cn('h-4 w-4 rounded-full ring-1 bg-muted flex items-center justify-center text-[8px] font-bold uppercase overflow-hidden', m.ciente ? 'ring-emerald-500' : 'ring-border opacity-50')}>
-                                {m.image ? <img src={resolveAssetUrl(m.image)} alt="" className="h-full w-full object-cover" /> : (m.name?.[0] ?? '?')}
-                              </span>
+                              <UserAvatar key={m.usuarioId} user={{ name: m.name, image: m.image }} bg="bg-muted" fg="text-muted-foreground"
+                                title={`${m.name} · ${m.ciente ? 'ciente' : 'pendente'}`}
+                                className={cn('h-4 w-4 text-[8px] ring-1', m.ciente ? 'ring-emerald-500' : 'ring-border opacity-50')} />
                             ))}
                           </span>
-                          <span className={cn(cientes === membros.length ? 'text-emerald-600 dark:text-emerald-400 font-medium' : '')}>{cientes}/{membros.length} cientes</span>
+                          <span className={cn(cientes === membros.length ? cn(TEXT.emerald, 'font-medium') : '')}>{cientes}/{membros.length} cientes</span>
                         </span>
                       )}
                       {t.oportunidade && (

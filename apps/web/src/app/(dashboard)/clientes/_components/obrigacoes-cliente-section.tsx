@@ -16,6 +16,8 @@ import {
 import { MioloColapsavel } from './card-colapsavel'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
+import { BADGE, TEXT, SURFACE, BORDER } from '@/lib/color-styles'
+import { areaTone } from '../_lib/area-tone'
 import { useClientesPerms } from './use-clientes-perms'
 import { alerts } from '@/lib/alerts'
 
@@ -63,18 +65,10 @@ interface AreaResponsavel {
   substitutoNome: string | null
 }
 
-const CATEGORIA_CORES: Record<string, string> = {
-  Fiscal: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-  Trabalhista: 'bg-lime-50 text-lime-700 border-lime-200',
-  'Contábil': 'bg-violet-50 text-violet-700 border-violet-200',
-}
-
-/** Cor da pílula de área (área = Categoria). Sempre a cor da categoria/area. */
-const AREA_CORES: Record<string, { bg: string; border: string; text: string }> = {
-  Fiscal:       { bg: 'bg-indigo-50',  border: 'border-indigo-200',  text: 'text-indigo-700' },
-  Trabalhista:  { bg: 'bg-lime-50',    border: 'border-lime-200',    text: 'text-lime-700' },
-  'Contábil':   { bg: 'bg-violet-50',  border: 'border-violet-200',  text: 'text-violet-700' },
-  Legalização:  { bg: 'bg-fuchsia-50', border: 'border-fuchsia-200', text: 'text-fuchsia-700' },
+/** Classe de badge da categoria — cor via a fonte única `areaTone` (BADGE, dark-correto).
+ *  A mesma cor vale para as pílulas de categoria e para o card de responsáveis. */
+function categoriaBadge(categoria: string): string {
+  return BADGE[areaTone(categoria)]
 }
 
 function iniciais(nome: string): string {
@@ -313,24 +307,24 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
             {areasResponsaveis.map((ar) => {
-              const cores = AREA_CORES[ar.areaNome] ?? { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-700' }
+              const tone = areaTone(ar.areaNome)
               return (
                 <div key={ar.areaId} className="relative">
                   <button
                     type="button"
                     disabled={!canManageResponsible}
                     onClick={() => { if (!canManageResponsible) return; setEditArea(editArea === ar.areaId ? null : ar.areaId) }}
-                    className={cn('group w-full text-left rounded-md border p-2.5 flex items-center gap-2.5 transition', canManageResponsible && 'hover:brightness-[0.97]', cores.bg, cores.border)}
+                    className={cn('group w-full text-left rounded-md border p-2.5 flex items-center gap-2.5 transition', canManageResponsible && 'hover:brightness-[0.97]', SURFACE[tone])}
                     title={canManageResponsible ? 'Clique para atribuir responsável/substituto' : 'Sem permissão para gerenciar responsáveis'}
                   >
                     <div className={cn(
                       'h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0',
-                      ar.responsavelNome ? 'bg-white text-foreground border-2 ' + cores.border : 'bg-white/60 text-muted-foreground border border-dashed',
+                      ar.responsavelNome ? 'bg-card text-foreground border-2 ' + BORDER[tone] : 'bg-muted/50 text-muted-foreground border border-dashed',
                     )}>
                       {ar.responsavelNome ? iniciais(ar.responsavelNome) : '?'}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className={cn('text-[10px] uppercase tracking-wide font-semibold', cores.text)}>
+                      <div className={cn('text-[10px] uppercase tracking-wide font-semibold', TEXT[tone])}>
                         {ar.areaNome}
                       </div>
                       {ar.responsavelNome ? (
@@ -395,7 +389,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
           <div className="flex flex-1 items-center gap-2 min-w-0">
             <ListChecks className="h-4 w-4 text-muted-foreground shrink-0" />
             <h5 className="text-sm font-semibold mb-0">Obrigações do cliente</h5>
-            <Badge variant="outline" className="h-5 text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+            <Badge variant="outline" className={cn('h-5 text-[10px]', BADGE.emerald)}>
               {totalAtivas} ativa{totalAtivas === 1 ? '' : 's'}
             </Badge>
             {items.length > totalAtivas && (
@@ -466,7 +460,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
               )}
             </div>
             <Select value={filtroCategoria} onValueChange={setFiltroCategoria}>
-              <SelectTrigger className="h-8 w-[140px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="TODAS">Todas as áreas</SelectItem>
                 {areasPresentes.map((a) => (
@@ -475,7 +469,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
               </SelectContent>
             </Select>
             <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as any)}>
-              <SelectTrigger className="h-8 w-[120px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[120px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="TODOS">Todos</SelectItem>
                 <SelectItem value="ATIVAS">Ativas</SelectItem>
@@ -504,14 +498,14 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
               placeholder="Buscar obrigação..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-8 pl-8 text-xs bg-card"
+              className="h-8 pl-8 text-xs"
             />
           </div>
         </div>
 
         {selected.size > 0 && (
-          <div className="flex items-center justify-between border-b border-amber-200 bg-amber-50 px-4 py-2">
-            <span className="text-xs font-medium text-amber-900">
+          <div className={cn('flex items-center justify-between border-b px-4 py-2', SURFACE.amber)}>
+            <span className="text-xs font-medium text-amber-900 dark:text-amber-200">
               {selected.size} obrigação(ões) selecionada(s)
             </span>
             <div className="flex items-center gap-2">
@@ -583,13 +577,13 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                 </TableCell>
                 <TableCell className="hidden sm:table-cell whitespace-nowrap">
                   {i.servico.categoria && (
-                    <Badge variant="outline" className={cn('h-5 px-1.5 text-[10px] font-medium border', CATEGORIA_CORES[i.servico.categoria] ?? 'bg-slate-50 text-slate-700 border-slate-200')}>
+                    <Badge variant="outline" className={cn('h-5 px-1.5 text-[10px] font-medium border', categoriaBadge(i.servico.categoria) || BADGE.slate)}>
                       {i.servico.categoria}
                     </Badge>
                   )}
                 </TableCell>
                 <TableCell className="hidden sm:table-cell text-center whitespace-nowrap">
-                  <Badge variant="outline" className={cn('h-5 text-[10px]', i.ativo ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'text-muted-foreground')}>
+                  <Badge variant="outline" className={cn('h-5 text-[10px]', i.ativo ? BADGE.emerald : 'text-muted-foreground')}>
                     {i.ativo ? 'Ativa' : 'Inativa'}
                   </Badge>
                 </TableCell>
@@ -724,10 +718,10 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                   placeholder="Filtrar..."
                   value={obrSearch}
                   onChange={(e) => setObrSearch(e.target.value)}
-                  className="h-8 pl-8 text-xs bg-card"
+                  className="h-8 pl-8 text-xs"
                 />
               </div>
-              <div className="border rounded max-h-[280px] overflow-y-auto divide-y">
+              <div className="border rounded max-h-[280px] overflow-y-auto nice-scrollbar divide-y">
                 {loadingObr ? (
                   <div className="text-center text-muted-foreground py-6">
                     <Loader2 className="h-4 w-4 animate-spin mx-auto" />
@@ -748,7 +742,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                     >
                       <span className="flex-1 truncate font-medium">{o.nome}</span>
                       {o.categoria && (
-                        <Badge variant="outline" className={cn('h-4 text-[9px] font-normal', CATEGORIA_CORES[o.categoria])}>
+                        <Badge variant="outline" className={cn('h-4 text-[9px] font-normal', categoriaBadge(o.categoria))}>
                           {o.categoria}
                         </Badge>
                       )}

@@ -7,9 +7,10 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import {
-  Button, Card, Input, cn,
+  Button, Card, Input, Textarea, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { TIPO_FORNECEDOR_LABELS } from '@saas/types'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -74,7 +75,7 @@ export function FornecedorIsoTabs({ fornecedorId, currentUserId }: { fornecedorI
     <Card className="overflow-hidden">
       <div className="flex min-h-[420px]">
         {/* Pills laterais (padrão detalhe) */}
-        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
           <div className="space-y-1">
             {ISO_TABS.map((t) => {
               const Icon = t.icon
@@ -257,7 +258,7 @@ export function QualificacaoTab({ fornecedorId }: { fornecedorId: string }) {
     <div className="space-y-4">
       {!loading && rows.length > 0 && (
         <div className="flex items-center gap-3 text-sm">
-          <span className="text-muted-foreground">Atende <strong className="text-emerald-600 dark:text-emerald-400">{atendidos}</strong> de <strong>{rows.length}</strong> critérios</span>
+          <span className="text-muted-foreground">Atende <strong className={TEXT.emerald}>{atendidos}</strong> de <strong>{rows.length}</strong> critérios</span>
           <span className="text-muted-foreground">·</span>
           <span className="text-muted-foreground">{respondidos} respondidos</span>
         </div>
@@ -315,9 +316,9 @@ interface AvalFornecimento {
   pedidos: Array<{ id: string; code: number; dataAvaliacao: string | null; nfNumero: string | null; pct: number | null }>
 }
 const FAIXA_COR: Record<string, string> = {
-  verde: 'text-emerald-600 dark:text-emerald-400',
-  amarelo: 'text-amber-600 dark:text-amber-400',
-  vermelho: 'text-rose-600 dark:text-rose-400',
+  verde: TEXT.emerald,
+  amarelo: TEXT.amber,
+  vermelho: TEXT.rose,
 }
 const FAIXA_LABEL: Record<string, string> = { verde: 'Aprovado', amarelo: 'Atenção', vermelho: 'Crítico' }
 const corPct = (p: number) => (p >= 90 ? FAIXA_COR.verde : p >= 60 ? FAIXA_COR.amarelo : FAIXA_COR.vermelho)
@@ -404,7 +405,7 @@ export function MensagensTab({ fornecedorId, currentUserId }: { fornecedorId: st
   return (
     <div className="space-y-4">
       <div className="flex items-start gap-2">
-        <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={2} placeholder="Escreva uma interação/observação..." className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+        <Textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={2} placeholder="Escreva uma interação/observação..." className="flex-1 resize-none" />
         <Button type="button" size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5 mt-0.5" disabled={enviando || !texto.trim()} onClick={enviar}>
           {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Enviar
         </Button>
@@ -434,7 +435,7 @@ export function MensagensTab({ fornecedorId, currentUserId }: { fornecedorId: st
                 </div>
                 {editId === m.id ? (
                   <div className="space-y-2">
-                    <textarea value={editTexto} onChange={(e) => setEditTexto(e.target.value)} rows={2} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+                    <Textarea value={editTexto} onChange={(e) => setEditTexto(e.target.value)} rows={2} className="w-full resize-none" />
                     <div className="flex items-center gap-2 justify-end">
                       <Button type="button" size="xs" variant="outline" onClick={() => setEditId(null)}><X className="h-3.5 w-3.5" /> Cancelar</Button>
                       <Button type="button" size="xs" variant="success" onClick={() => salvarEdicao(m.id)}>Salvar</Button>

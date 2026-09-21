@@ -113,7 +113,7 @@ export function ColetaKanban({ rows, loading, onChanged }: { rows: KanbanRow[]; 
         </div>
         <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
           {activeRow && (
-            <div className="w-[288px] rounded-xl bg-white dark:bg-card overflow-hidden" style={{ transform: 'rotate(2deg) scale(1.02)', boxShadow: '0 10px 25px rgba(0,0,0,0.15)' }}>
+            <div className="w-[288px] rounded-xl bg-card overflow-hidden" style={{ transform: 'rotate(2deg) scale(1.02)', boxShadow: '0 10px 25px rgba(0,0,0,0.15)' }}>
               <CardConteudo row={activeRow} />
             </div>
           )}
@@ -169,7 +169,7 @@ function Card({ row, isDraggingAny, onOpen }: { row: KanbanRow; isDraggingAny: b
       ref={setNodeRef} style={style} {...attributes} {...listeners}
       onClick={() => { if (!isDraggingAny) onOpen(row.id) }}
       className={cn(
-        'rounded-xl bg-white dark:bg-card shadow-sm group touch-none overflow-hidden cursor-grab active:cursor-grabbing',
+        'rounded-xl bg-card shadow-sm group touch-none overflow-hidden cursor-grab active:cursor-grabbing',
         isDragging ? 'border border-transparent' : 'border border-border/60',
         !isDragging && !isDraggingAny && 'hover:shadow-md transition-shadow',
       )}
@@ -193,8 +193,8 @@ function CardConteudo({ row }: { row: KanbanRow }) {
         {row.clienteNomeResolvido && row.contato && <p className="truncate text-[11px] text-muted-foreground">{row.contato}</p>}
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           <Badge variant="outline" className={cn('text-[10px]', TIPO_BADGE[row.tipo])}>{COLETA_TIPO_LABEL[row.tipo] ?? row.tipo}</Badge>
-          {row.categoria?.nome && <span className="rounded-full bg-muted px-2 py-px text-[10px] font-medium text-muted-foreground">{row.categoria.nome}</span>}
-          {row.competencia && <span className="rounded-full bg-muted px-2 py-px text-[10px] font-medium tabular-nums text-muted-foreground">{row.competencia}</span>}
+          {row.categoria?.nome && <span className="rounded-full bg-muted-foreground/15 px-2 py-px text-[10px] font-medium text-muted-foreground">{row.categoria.nome}</span>}
+          {row.competencia && <span className="rounded-full bg-muted-foreground/15 px-2 py-px text-[10px] font-medium tabular-nums text-muted-foreground">{row.competencia}</span>}
         </div>
         <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
           <span className="flex items-center gap-1 truncate"><Users className="h-3 w-3 shrink-0" />{row.solicitanteNomeResolvido ?? '—'}</span>

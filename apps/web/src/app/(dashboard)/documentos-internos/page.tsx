@@ -13,6 +13,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { BADGE } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
@@ -23,12 +24,12 @@ const PAGE_SIZES = [10, 20, 50]
 
 /** As cores vêm do próprio v1 (`sgq_doc_sit.cor`), traduzidas para o tema. */
 export const SITUACAO_COLORS: Record<string, string> = {
-  NOVO: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-400 dark:border-sky-800',
-  EM_APROVACAO: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800',
-  APROVADO: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800',
+  NOVO: BADGE.sky,
+  EM_APROVACAO: BADGE.amber,
+  APROVADO: BADGE.emerald,
   SUBSTITUIDO: 'bg-muted text-muted-foreground border-border',
-  CANCELADO: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800',
-  REJEITADO: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800',
+  CANCELADO: BADGE.rose,
+  REJEITADO: BADGE.rose,
 }
 const SITUACAO_OPCOES = ['NOVO', 'EM_APROVACAO', 'APROVADO', 'SUBSTITUIDO', 'CANCELADO', 'REJEITADO']
 
@@ -144,21 +145,21 @@ export default function DocumentosInternosPage() {
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Select value={situacao || '__all__'} onValueChange={(v) => { setSituacao(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[160px] text-xs bg-card"><SelectValue placeholder="Situação" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todas as situações</SelectItem>
                 {SITUACAO_OPCOES.map((s) => <SelectItem key={s} value={s}>{DOCUMENTO_SITUACAO_LABEL[s as keyof typeof DOCUMENTO_SITUACAO_LABEL]}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={tipoId || '__all__'} onValueChange={(v) => { setTipoId(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[160px] text-xs bg-card"><SelectValue placeholder="Tipo" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os tipos</SelectItem>
                 {tipos.map((t) => <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={processoId || '__all__'} onValueChange={(v) => { setProcessoId(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[190px] text-xs bg-card"><SelectValue placeholder="Processo" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[190px] text-xs"><SelectValue placeholder="Processo" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os processos</SelectItem>
                 {processos.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
@@ -170,12 +171,12 @@ export default function DocumentosInternosPage() {
               </Button>
             )}
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="max-w-xs w-full sm:w-auto">
-            <Input placeholder="Buscar pelo nome..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+            <Input placeholder="Buscar pelo nome..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
 

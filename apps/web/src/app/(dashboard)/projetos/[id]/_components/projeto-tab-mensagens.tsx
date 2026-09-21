@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { Loader2, Send, MessageSquare } from 'lucide-react'
-import { resolveAssetUrl } from '@/lib/api-url'
 import { Button, Card } from '@saas/ui'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -70,7 +70,7 @@ export function ProjetoTabMensagens({ projetoId, projetoCor, canWrite }: Props) 
             <textarea
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
-              className="flex-1 min-h-[60px] rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="flex-1 min-h-[60px] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               placeholder="Escreva uma mensagem ao time..."
             />
             <Button
@@ -87,7 +87,7 @@ export function ProjetoTabMensagens({ projetoId, projetoCor, canWrite }: Props) 
       )}
 
       {/* Lista (cronológica decrescente) */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="nice-scrollbar flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando...
@@ -116,14 +116,12 @@ function MensagemItem({ msg }: { msg: Mensagem }) {
 
   return (
     <div className="flex gap-3 px-4 py-3 hover:bg-muted/30">
-      {msg.autor?.image ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={resolveAssetUrl(msg.autor.image)} alt={autorNome} className="h-8 w-8 rounded-full shrink-0" />
-      ) : (
-        <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-[11px] font-semibold shrink-0">
-          {autorNome.split(' ').filter(Boolean).slice(0, 2).map((s) => s[0]).join('').toUpperCase()}
-        </div>
-      )}
+      <UserAvatar
+        user={{ name: autorNome, image: msg.autor?.image ?? null }}
+        className="h-8 w-8 shrink-0 text-[11px]"
+        bg="bg-muted"
+        fg="text-foreground"
+      />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 mb-0.5">
           <span className="text-[13px] font-semibold text-foreground">{autorNome}</span>

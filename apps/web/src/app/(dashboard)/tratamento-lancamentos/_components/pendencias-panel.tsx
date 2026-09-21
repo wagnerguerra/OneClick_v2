@@ -22,6 +22,7 @@ import {
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   cn,
 } from '@saas/ui'
+import { TEXT, BADGE, DOT, type ColorName } from '@/lib/color-styles'
 
 type CellValue = string | number | boolean | null
 type Direcao = 'DEBITO' | 'CREDITO' | null
@@ -95,18 +96,19 @@ const MAX_RENDER = 500
 const STATUS_LABEL: Record<TraceStatus, string> = {
   ok: 'OK', pendencia: 'Pendência', 'pulada-regra': 'Pulada (regra)', 'ignorada-zero': 'Ignorada',
 }
-const STATUS_CLASS: Record<TraceStatus, string> = {
-  ok: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
-  pendencia: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400',
-  'pulada-regra': 'bg-slate-200 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300',
-  'ignorada-zero': 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
+// Cor de conceito por status → papel BADGE do helper (fonte única).
+const STATUS_TONE: Record<TraceStatus, ColorName> = {
+  ok: 'emerald',
+  pendencia: 'rose',
+  'pulada-regra': 'slate',
+  'ignorada-zero': 'amber',
 }
 
 const cellText = (v: CellValue | undefined): string => (v === null || v === undefined || v === '' ? '' : String(v))
 const dirLabel = (d: Direcao): string => (d === 'DEBITO' ? 'Débito' : d === 'CREDITO' ? 'Crédito' : '—')
 
 // Bolinha de cor por origem (● rose = modelo, ● amber = arquivo).
-const DOT: Record<Origem, string> = { modelo: 'bg-rose-500', arquivo: 'bg-amber-500' }
+const ORIGEM_DOT: Record<Origem, string> = { modelo: DOT.rose, arquivo: DOT.amber }
 // Realce das células causadoras (na expansão) por origem, com contorno no hover.
 const CELL_HL: Record<Origem, string> = {
   modelo: 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 font-medium cursor-help hover:ring-2 hover:ring-inset hover:ring-rose-500 dark:hover:ring-rose-400',
@@ -114,7 +116,7 @@ const CELL_HL: Record<Origem, string> = {
 }
 
 function Dot({ origem }: { origem: Origem }) {
-  return <span className={cn('inline-block h-2 w-2 shrink-0 rounded-full', DOT[origem])} />
+  return <span className={cn('inline-block h-2 w-2 shrink-0 rounded-full', ORIGEM_DOT[origem])} />
 }
 
 function scrollToCenter(container: HTMLElement | null, el: HTMLElement) {
@@ -212,7 +214,7 @@ export function PendenciasPanel({ pendencias, totalLancamentos, headers, rows, t
         <div className="rounded-lg border border-border bg-card">
           {/* margin-inline alinha o conteúdo com os elementos do fluxo principal. */}
           <div className="flex items-center gap-3 p-5" style={{ marginInline: '15rem' }}>
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
+            <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40', TEXT.emerald)}>
               <CheckCircle2 className="h-5 w-5" />
             </div>
             <div className="flex-1 min-w-0">
@@ -256,7 +258,7 @@ export function PendenciasPanel({ pendencias, totalLancamentos, headers, rows, t
           onClick={() => setAberto((a) => !a)}
           className="flex w-full items-center gap-3 p-5 text-left"
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400">
+          <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-950/40', TEXT.rose)}>
             <AlertTriangle className="h-5 w-5" />
           </div>
           <div className="flex-1 min-w-0">
@@ -336,10 +338,10 @@ export function PendenciasPanel({ pendencias, totalLancamentos, headers, rows, t
                     )}
                     <span className="text-xs text-muted-foreground">
                       {temModelo && (
-                        <>Pendências <span className="font-medium text-rose-600 dark:text-rose-400">de modelo</span> (mapeamentos faltando){canManage ? ' são corrigidas no editor.' : ' — solicite a correção a quem gerencia os modelos.'} </>
+                        <>Pendências <span className={cn('font-medium', TEXT.rose)}>de modelo</span> (mapeamentos faltando){canManage ? ' são corrigidas no editor.' : ' — solicite a correção a quem gerencia os modelos.'} </>
                       )}
                       {temArquivo && (
-                        <>Pendências <span className="font-medium text-amber-600 dark:text-amber-400">de arquivo</span> (campos em branco, datas ou valores inválidos) precisam ser corrigidas no próprio arquivo.</>
+                        <>Pendências <span className={cn('font-medium', TEXT.amber)}>de arquivo</span> (campos em branco, datas ou valores inválidos) precisam ser corrigidas no próprio arquivo.</>
                       )}
                     </span>
                   </div>
@@ -476,9 +478,9 @@ function DadosProcessados({
     <div className="space-y-2">
       {(traceTotal > MAX_RENDER || temPendencias) && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-          {temPendencias && <span>Clique numa linha de <span className="font-medium text-rose-600 dark:text-rose-400">Pendência</span> para vê-la na aba Pendências.</span>}
+          {temPendencias && <span>Clique numa linha de <span className={cn('font-medium', TEXT.rose)}>Pendência</span> para vê-la na aba Pendências.</span>}
           {traceTotal > MAX_RENDER && (
-            <span className="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+            <span className={cn('inline-flex items-center gap-1.5', TEXT.amber)}>
               <FileWarning className="h-3.5 w-3.5" /> Exibindo as primeiras {MAX_RENDER} de {traceTotal} linhas.
             </span>
           )}
@@ -527,7 +529,7 @@ function DadosProcessados({
                     <TableCell className={txt}>{t.contaContrapartida ?? '—'}</TableCell>
                     <TableCell className={txt}>{t.contaCorrente ?? '—'}</TableCell>
                     <TableCell className="py-2">
-                      <Badge variant="secondary" className={cn('text-[10px] font-medium', STATUS_CLASS[t.status])}>{STATUS_LABEL[t.status]}</Badge>
+                      <Badge variant="outline" className={cn('text-[10px] font-medium', BADGE[STATUS_TONE[t.status]])}>{STATUS_LABEL[t.status]}</Badge>
                     </TableCell>
                   </TableRow>
                 )

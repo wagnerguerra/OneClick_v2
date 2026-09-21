@@ -1081,7 +1081,7 @@ export function createClienteRouter(
           created_at TIMESTAMPTZ DEFAULT NOW()
         )`).catch(() => {})
         await prisma.$executeRawUnsafe(
-          `INSERT INTO cliente_dte_mensagens (id, cliente_id, tipo, titulo, data_mensagem, observacao) VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5)`,
+          `INSERT INTO cliente_dte_mensagens (id, cliente_id, tipo, titulo, data_mensagem, observacao) VALUES (gen_random_uuid()::text, $1, $2, $3, $4::timestamptz, $5)`,
           input.clienteId, input.tipo || null, input.titulo, input.dataMensagem || null, input.observacao || null,
         )
         return { ok: true }

@@ -1,6 +1,7 @@
 'use client'
 
 import { cn } from '@saas/ui'
+import { BADGE } from '@/lib/color-styles'
 
 /**
  * A data de entrega, colorida pela comparação com o prazo legal.
@@ -30,10 +31,10 @@ export function BadgeEntrega({ entrega, vencimento, className }: {
   const e = dia(entrega)
   const v = dia(vencimento)
   const cor = e < v
-    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+    ? BADGE.emerald
     : e === v
-      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400'
-      : 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400'
+      ? BADGE.amber
+      : BADGE.rose
   const titulo = e < v
     ? `Entregue antes do prazo legal (${new Date(vencimento).toLocaleDateString('pt-BR', { timeZone: 'UTC' })})`
     : e === v

@@ -11,8 +11,9 @@ import {
   CloudUpload, FolderOpen, CheckCircle2, AlertCircle, XCircle,
   Loader2, Save, ExternalLink, Database, RefreshCcw, Archive, Lock,
 } from 'lucide-react'
-import { Button, Input, Card, cn, Badge } from '@saas/ui'
+import { Button, Input, Card, cn, Badge, Switch } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
+import { TEXT } from '@/lib/color-styles'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
 
@@ -156,7 +157,7 @@ export function GoogleBackupSection() {
       {/* Header / status do Drive */}
       <Card className="p-4">
         <div className="flex items-start gap-3">
-          <CloudUpload className="h-5 w-5 mt-0.5 text-sky-600 shrink-0" />
+          <CloudUpload className={cn('h-5 w-5 mt-0.5 shrink-0', TEXT.sky)} />
           <div className="flex-1 min-w-0">
             <h3 className="text-[13px] font-semibold">Backup do banco no Google Drive</h3>
             <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
@@ -171,12 +172,12 @@ export function GoogleBackupSection() {
             <div className="text-muted-foreground uppercase font-semibold mb-1 text-[10px]">Conta autenticada</div>
             {status.driveAvailable ? (
               <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                <CheckCircle2 className={cn('h-3.5 w-3.5', TEXT.emerald)} />
                 <span className="font-medium">{status.accountEmail ?? '(email não obtido)'}</span>
                 <Badge variant="outline" className="text-[9px]">{status.driveMode}</Badge>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 text-rose-700 dark:text-rose-400">
+              <div className={cn('flex items-center gap-1.5', TEXT.rose)}>
                 <XCircle className="h-3.5 w-3.5" />
                 <span>Credenciais Google não configuradas (env vars GOOGLE_DRIVE_*).</span>
               </div>
@@ -238,7 +239,7 @@ export function GoogleBackupSection() {
           <p className="text-[10px] text-muted-foreground leading-relaxed">
             Crie uma pasta no Drive (que já recebe arquivos de clientes), cole a URL ou só o ID.
             {status.driveMode === 'service-account' && (
-              <span className="text-amber-600 dark:text-amber-400 font-medium">
+              <span className={cn(TEXT.amber, 'font-medium')}>
                 {' '}⚠ Em modo Service Account, compartilhe a pasta com <code>{status.accountEmail}</code> (papel: Editor).
               </span>
             )}
@@ -252,22 +253,12 @@ export function GoogleBackupSection() {
               Após o cron às 3:15, o backup é enviado pra esta pasta.
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setEnabledInput(v => !v)}
-            className={cn(
-              'relative inline-flex h-5 w-9 items-center rounded-full transition-colors',
-              enabledInput ? 'bg-emerald-500' : 'bg-muted',
-            )}
+          <Switch
+            checked={enabledInput}
+            onCheckedChange={setEnabledInput}
+            className={cn(enabledInput && 'bg-emerald-500')}
             aria-label="Toggle auto-upload"
-          >
-            <span
-              className={cn(
-                'inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow',
-                enabledInput ? 'translate-x-5' : 'translate-x-1',
-              )}
-            />
-          </button>
+          />
         </div>
 
         <div className="flex gap-2 pt-1">
@@ -307,14 +298,14 @@ export function GoogleBackupSection() {
         <Card className="p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <FolderOpen className="h-4 w-4 text-sky-600" />
+              <FolderOpen className={cn('h-4 w-4', TEXT.sky)} />
               <h3 className="text-[13px] font-semibold">{status.folderInfo.name}</h3>
               {status.folderInfo.webViewLink && (
                 <a
                   href={status.folderInfo.webViewLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[11px] text-sky-600 hover:underline inline-flex items-center gap-1"
+                  className={cn('text-[11px] hover:underline inline-flex items-center gap-1', TEXT.sky)}
                 >
                   Abrir no Drive <ExternalLink className="h-3 w-3" />
                 </a>

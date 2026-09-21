@@ -5,6 +5,7 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription, Button, cn,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { TEXT } from '@/lib/color-styles'
 
 export type ImportStepStatus = 'pending' | 'running' | 'done' | 'error'
 export interface ImportStep {
@@ -48,7 +49,7 @@ export function ImportStatusModal({
               <div className="min-w-0 flex-1">
                 <p className={cn(
                   'text-sm leading-snug',
-                  s.status === 'error' ? 'text-rose-600 dark:text-rose-400 font-medium'
+                  s.status === 'error' ? cn(TEXT.rose, 'font-medium')
                     : s.status === 'done' ? 'text-foreground'
                       : s.status === 'running' ? 'text-foreground font-medium'
                         : 'text-muted-foreground',

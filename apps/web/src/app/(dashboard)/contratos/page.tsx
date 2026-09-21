@@ -6,7 +6,7 @@ import {
   Loader2, Plus, MoreVertical, Search, Eye, FileSignature, FileX,
 } from 'lucide-react'
 import {
-  Button, Input, Badge, Card, Label,
+  Button, Input, Badge, Card, Label, Checkbox,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
@@ -264,7 +264,7 @@ export default function ContratosPage() {
 
       {/* Modal Novo Contrato */}
       <Dialog open={novoOpen} onOpenChange={setNovoOpen}>
-        <DialogContent className="sm:max-w-[640px] max-h-[88vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[640px] max-h-[88vh]">
           <DialogHeaderIcon icon={Plus} color="emerald">
             <DialogTitle>Novo Contrato</DialogTitle>
             <DialogDescription>Selecione cliente e modelo. As cláusulas serão snapshot no momento da criação.</DialogDescription>
@@ -318,16 +318,14 @@ export default function ContratosPage() {
               <p className="text-[10px] text-muted-foreground">
                 Apenas serviços recorrentes mensais aparecem aqui. Para incluir um serviço, marque-o como <strong>"Recorrente mensal"</strong> em <a href="/servicos" target="_blank" className="underline">/servicos</a>.
               </p>
-              <div className="max-h-48 overflow-y-auto rounded-md border divide-y divide-border/60">
+              <div className="max-h-48 overflow-y-auto nice-scrollbar rounded-md border divide-y divide-border/60">
                 {servicosOpts.length === 0 ? (
                   <p className="text-xs text-muted-foreground p-3">Nenhum serviço recorrente mensal cadastrado.</p>
                 ) : servicosOpts.map(s => (
                   <label key={s.id} className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-muted/40 cursor-pointer">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={novoServicoIds.includes(s.id)}
-                      onChange={() => toggleServico(s.id)}
-                      className="h-3.5 w-3.5 rounded border-input accent-rose-600"
+                      onCheckedChange={() => toggleServico(s.id)}
                     />
                     <span className="text-xs">
                       {s.area?.name && <span className="text-muted-foreground">[{s.area.name}] </span>}

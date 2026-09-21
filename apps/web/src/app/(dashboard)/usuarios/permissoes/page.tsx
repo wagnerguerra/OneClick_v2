@@ -5,7 +5,11 @@ import {
   Loader2, Search, Users, ChevronDown, ChevronRight, Save, RotateCcw,
   Circle, Wrench, type LucideIcon,
 } from 'lucide-react'
-import { Button, Card, Input, Badge, Checkbox, cn } from '@saas/ui'
+import {
+  Button, Card, Input, Badge, Checkbox, cn,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
+} from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { MODULE_GROUPS, MODULE_LABELS, PLATFORM_ADMIN_MODULES } from '@saas/types'
 import { BackButton } from '@/components/ui/back-button'
 import { MODULE_ICONS, GROUP_ICONS } from '@/lib/navigation'
@@ -84,7 +88,7 @@ export default function PermissoesEmMassaPage() {
   // vista. Abre-se o bloco em que se vai mexer.
   const [abertos, setAbertos] = useState<Set<string>>(new Set())
   const cores = useModuleColors()
-  const corDe = (bloco: string) => cores[COR_DO_BLOCO[bloco] ?? ''] ?? 'var(--muted-foreground)'
+  const corDe = (bloco: string) => cores[COR_DO_BLOCO[bloco] ?? ''] ?? 'var(--color-muted-foreground)'
 
   const carregarAlvos = useCallback(async () => {
     setCarregando(true)
@@ -240,16 +244,24 @@ export default function PermissoesEmMassaPage() {
               e cargo longo ("Auxiliar Administrativo Contábil/Fiscal") é a regra
               aqui, não a exceção. */}
           <div className="mb-2 flex flex-col gap-2">
-            <select value={filtroArea} onChange={e => setFiltroArea(e.target.value)}
-              className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground">
-              <option value="">Todas as áreas</option>
-              {areas.map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
-            <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
-              className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground">
-              <option value="">Todos os cargos</option>
-              {cargos.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <Select value={filtroArea || '__all__'} onValueChange={v => setFiltroArea(v === '__all__' ? '' : v)}>
+              <SelectTrigger className="h-8 w-full text-xs">
+                <SelectValue placeholder="Todas as áreas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todas as áreas</SelectItem>
+                {areas.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filtroCargo || '__all__'} onValueChange={v => setFiltroCargo(v === '__all__' ? '' : v)}>
+              <SelectTrigger className="h-8 w-full text-xs">
+                <SelectValue placeholder="Todos os cargos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todos os cargos</SelectItem>
+                {cargos.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div className="mb-2 flex gap-2 text-xs">
             <button onClick={marcarVisiveis} className="rounded-md border border-border px-2 py-1 text-muted-foreground hover:bg-muted/40">
@@ -321,7 +333,7 @@ export default function PermissoesEmMassaPage() {
                       </button>
                       <button onClick={() => alternarBloco(bloco, false)} disabled={ids.length === 0}
                         title={`Retirar o bloco ${bloco} inteiro`}
-                        className="rounded border border-border px-2 py-0.5 text-[10px] text-rose-500 hover:bg-muted disabled:opacity-40">
+                        className={cn('rounded border border-border px-2 py-0.5 text-[10px] hover:bg-muted disabled:opacity-40', TEXT.rose)}>
                         Retirar tudo
                       </button>
                     </div>
@@ -346,8 +358,8 @@ export default function PermissoesEmMassaPage() {
                                 <span className={cn(
                                   'ml-2 rounded px-1.5 py-0.5 text-[10px]',
                                   pendentes[slug]
-                                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                                    : 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
+                                    ? cn('bg-emerald-500/15', TEXT.emerald)
+                                    : cn('bg-rose-500/15', TEXT.rose),
                                 )}>
                                   {pendentes[slug] ? 'liberar' : 'retirar'}
                                 </span>
@@ -360,7 +372,7 @@ export default function PermissoesEmMassaPage() {
                                 return (
                                   <span className="inline-flex items-center gap-2">
                                     {tri === 'parcial' && (
-                                      <span className="text-[10px] text-amber-600 dark:text-amber-400">{n} de {ids.length}</span>
+                                      <span className={cn('text-[10px]', TEXT.amber)}>{n} de {ids.length}</span>
                                     )}
                                     <button type="button" onClick={() => alternarModulo(slug)} disabled={ids.length === 0}
                                       title={tri === 'todos' ? 'Retirar acesso' : 'Liberar acesso'}

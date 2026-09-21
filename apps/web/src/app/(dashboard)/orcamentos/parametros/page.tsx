@@ -13,9 +13,10 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
-  Label, RichEditor,
+  Label, RichEditor, Checkbox,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { SURFACE, BADGE } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -453,7 +454,7 @@ export default function ParametrosOrcamentosPage() {
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3 flex-1 flex-wrap">
             <Select value={tipoFilter} onValueChange={setTipoFilter}>
-              <SelectTrigger className="h-8 w-[140px] text-xs bg-card"><SelectValue placeholder="Tipo" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os tipos</SelectItem>
                 <SelectItem value="SERVICO">Serviço</SelectItem>
@@ -467,7 +468,7 @@ export default function ParametrosOrcamentosPage() {
               placeholder="Buscar por nome..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="h-8 text-xs bg-card"
+              className="h-8 text-xs"
             />
           </div>
         </div>
@@ -503,12 +504,16 @@ export default function ParametrosOrcamentosPage() {
             <TableRow>
               {/* Seleção em massa é operação de desktop — no celular só come espaço. */}
               <TableHead className="hidden w-[40px] text-center sm:table-cell">
-                <input
-                  type="checkbox"
-                  className="h-3.5 w-3.5 rounded cursor-pointer align-middle"
-                  checked={filtered.length > 0 && filtered.every(i => selectedIds.has(i.id))}
-                  ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && !filtered.every(i => selectedIds.has(i.id)) }}
-                  onChange={toggleSelectAll}
+                <Checkbox
+                  className="h-3.5 w-3.5 cursor-pointer align-middle"
+                  checked={
+                    filtered.length > 0 && filtered.every(i => selectedIds.has(i.id))
+                      ? true
+                      : selectedIds.size > 0 && !filtered.every(i => selectedIds.has(i.id))
+                        ? 'indeterminate'
+                        : false
+                  }
+                  onCheckedChange={() => toggleSelectAll()}
                   aria-label="Selecionar todos"
                 />
               </TableHead>
@@ -532,11 +537,10 @@ export default function ParametrosOrcamentosPage() {
             ) : filtered.map(item => (
               <TableRow key={item.id} className={cn('whitespace-nowrap', selectedIds.has(item.id) && 'bg-muted/30')}>
                 <TableCell className="hidden text-center sm:table-cell">
-                  <input
-                    type="checkbox"
-                    className="h-3.5 w-3.5 rounded cursor-pointer align-middle"
+                  <Checkbox
+                    className="h-3.5 w-3.5 cursor-pointer align-middle"
                     checked={selectedIds.has(item.id)}
-                    onChange={() => toggleSelected(item.id)}
+                    onCheckedChange={() => toggleSelected(item.id)}
                     aria-label={`Selecionar ${item.nome}`}
                   />
                 </TableCell>
@@ -644,13 +648,13 @@ export default function ParametrosOrcamentosPage() {
               />
             </div>
 
-            <div className="flex items-start gap-3 p-3 bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/30 rounded-md">
-              <input
-                type="checkbox"
+            <div className={cn('flex items-start gap-3 p-3 border rounded-md', SURFACE.rose)}>
+              <Checkbox
                 id="disponivel"
                 checked={form.disponivelOrcamento}
-                onChange={e => setForm(f => ({ ...f, disponivelOrcamento: e.target.checked }))}
-                className="h-4 w-4 mt-0.5 rounded border-rose-300"
+                onCheckedChange={v => setForm(f => ({ ...f, disponivelOrcamento: v === true }))}
+                accentColor="var(--mod-comercial, #fb7185)"
+                className="mt-0.5"
               />
               <label htmlFor="disponivel" className="cursor-pointer flex-1">
                 <span className="text-sm font-medium block">Disponível para uso em orçamentos</span>
@@ -673,7 +677,7 @@ export default function ParametrosOrcamentosPage() {
               </div>
 
               {!editing ? (
-                <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-900/30 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-300">
+                <div className={cn('rounded-md border px-3 py-2 text-[11px]', BADGE.amber)}>
                   Salve o item primeiro para poder adicionar textos a ele.
                 </div>
               ) : textosLoading ? (

@@ -7,7 +7,7 @@ import { ArticleShell } from '../_components/article-shell'
 import { Section, Step, Callout, QuickLink, DefRow } from '../_components/article-blocks'
 
 const MODULO_COLOR = 'var(--mod-cadastros, #10b981)'
-const FAQ_COLOR = '#047857'
+const FAQ_COLOR = 'var(--mod-ajuda, #0891b2)'
 
 export default function FaqServicosEditorPage() {
   return (

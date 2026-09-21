@@ -121,7 +121,7 @@ export default function DocumentosExternosPage() {
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Select value={processoId || '__all__'} onValueChange={(v) => { setProcessoId(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[190px] text-xs bg-card"><SelectValue placeholder="Processo" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[190px] text-xs"><SelectValue placeholder="Processo" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os processos</SelectItem>
                 {processos.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
@@ -133,12 +133,12 @@ export default function DocumentosExternosPage() {
               </Button>
             )}
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="max-w-xs w-full sm:w-auto">
-            <Input placeholder="Buscar por nome ou emissor..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+            <Input placeholder="Buscar por nome ou emissor..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
 

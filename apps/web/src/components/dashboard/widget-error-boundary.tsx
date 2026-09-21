@@ -3,6 +3,7 @@
 import React from 'react'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { Card, CardContent, Button, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 
 interface Props {
   children: React.ReactNode
@@ -53,7 +54,7 @@ export class WidgetErrorBoundary extends React.Component<Props, State> {
         <Card className={cn('h-full overflow-hidden border-l-4', this.props.borderColor ?? 'border-l-amber-500')}>
           <CardContent className="p-5 h-full flex flex-col items-center justify-center text-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
-              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              <AlertTriangle className={cn('h-5 w-5', TEXT.amber)} />
             </div>
             <div className="space-y-0.5">
               <p className="text-sm font-semibold">{this.props.label ?? 'Módulo'} indisponível</p>

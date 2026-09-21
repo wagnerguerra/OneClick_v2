@@ -22,6 +22,8 @@ import {
   RichContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT, STRONG, BADGE } from '@/lib/color-styles'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { DndContext, closestCenter, DragOverlay, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent, type DragOverEvent, useDroppable } from '@dnd-kit/core'
@@ -1308,7 +1310,7 @@ export default function CrmPage() {
 
           <SheetBody className="px-6 py-5 space-y-5">
             {draftRestored && (
-              <div className="flex items-center gap-2 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+              <div className={cn('flex items-center gap-2 rounded-md border px-3 py-2 text-xs', BADGE.amber)}>
                 <RotateCcw className="h-3.5 w-3.5 shrink-0" />
                 <span>Recuperamos os dados que você havia começado a digitar. Para começar do zero, use <strong>Descartar</strong> (ícone de lixeira no topo).</span>
               </div>
@@ -1324,7 +1326,7 @@ export default function CrmPage() {
                   return (
                     <button key={e.id} onClick={() => setForm(f => ({ ...f, etapaId: e.id }))}
                       className={cn('relative flex items-center justify-center text-[11px] font-medium py-2 transition-all flex-1 min-w-0', idx > 0 && 'pl-3', isActive || isPast ? 'text-white' : 'text-muted-foreground hover:text-foreground', !isActive && 'cursor-pointer')}
-                      style={{ backgroundColor: isActive || isPast ? MODULE_COLOR : '#e2e5ea', opacity: isActive ? 1 : isPast ? 0.7 : 1, clipPath: idx === 0 ? 'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%)' : idx < arr.length - 1 ? 'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%, 8px 50%)' : 'polygon(0 0, 100% 0, 100% 100%, 0 100%, 8px 50%)' }}
+                      style={{ backgroundColor: isActive || isPast ? MODULE_COLOR : 'var(--color-muted)', opacity: isActive ? 1 : isPast ? 0.7 : 1, clipPath: idx === 0 ? 'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%)' : idx < arr.length - 1 ? 'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%, 8px 50%)' : 'polygon(0 0, 100% 0, 100% 100%, 0 100%, 8px 50%)' }}
                     >
                       <span className="truncate px-1">{e.nome.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase())}</span>
                     </button>
@@ -1480,13 +1482,7 @@ export default function CrmPage() {
                 </div>
                 <div className="flex items-center gap-3 pr-24">
                   {(detail as any).responsavel ? (
-                    (detail as any).responsavel.image ? (
-                      <img src={resolveAssetUrl((detail as any).responsavel.image)} alt={(detail as any).responsavel.name} title={(detail as any).responsavel.name} className="h-10 w-10 rounded-full object-cover shrink-0 border-2 border-background shadow-sm" />
-                    ) : (
-                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0 border-2 border-background shadow-sm" title={(detail as any).responsavel.name}>
-                        <span className="text-sm font-bold text-muted-foreground">{((detail as any).responsavel.name || '?').split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()}</span>
-                      </div>
-                    )
+                    <UserAvatar user={(detail as any).responsavel} bg="bg-muted" fg="text-muted-foreground" className="h-10 w-10 text-sm shrink-0 border-2 border-background shadow-sm" />
                   ) : null}
                   <div className="flex-1 min-w-0">
                     <SheetTitle className="text-base">
@@ -1495,7 +1491,7 @@ export default function CrmPage() {
                           type="text"
                           autoFocus
                           defaultValue={detail.titulo}
-                          className="w-full bg-background text-base font-semibold outline-none border border-border rounded px-2 py-1 -mx-2"
+                          className="w-full text-base font-semibold outline-none rounded px-2 py-1 -mx-2"
                           onBlur={e => {
                             const newTitle = e.target.value.trim()
                             if (newTitle && newTitle !== detail.titulo) saveDetail({ titulo: newTitle })
@@ -1600,14 +1596,14 @@ export default function CrmPage() {
                               <button type="button" onClick={() => toggleTarefa(t)} className="shrink-0 mt-0.5"
                                 title={t.concluida ? 'Reabrir (retirar ciência)' : 'Concluir (dar ciência)'}>
                                 {t.concluida
-                                  ? <CheckSquare className="h-4 w-4 text-emerald-600" />
+                                  ? <CheckSquare className={cn('h-4 w-4', TEXT.emerald)} />
                                   : <Square className="h-4 w-4 text-muted-foreground hover:text-sky-500" />}
                               </button>
                               <div className="flex-1 min-w-0 cursor-pointer" onClick={() => { setTarefaEditando(t); setTarefaModalOpen(true) }}>
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className={cn('text-sm font-medium leading-snug', t.concluida && 'line-through')}>{t.titulo}</p>
                                   {t.prioridade === 'ALTA' && (
-                                    <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20">
+                                    <Badge variant="outline" className={cn('text-[10px] h-4 px-1.5', BADGE.orange)}>
                                       <AlertCircle className="h-2.5 w-2.5 mr-0.5" />Alta
                                     </Badge>
                                   )}
@@ -1615,8 +1611,8 @@ export default function CrmPage() {
                                 </div>
                                 <div className="flex items-center gap-3 mt-1 text-[11px] flex-wrap">
                                   <span className={cn('inline-flex items-center gap-1 font-medium',
-                                    atrasada && 'text-rose-600 dark:text-rose-400',
-                                    hojeFlag && 'text-amber-600 dark:text-amber-400',
+                                    atrasada && TEXT.rose,
+                                    hojeFlag && TEXT.amber,
                                     !atrasada && !hojeFlag && 'text-muted-foreground')}>
                                     <Calendar className="h-3 w-3" />{dataFmt}{t.horaPrazo && ` · ${t.horaPrazo}`}{atrasada && ` · atrasada ${Math.abs(diffDias)}d`}{hojeFlag && ' · hoje'}
                                   </span>
@@ -1752,7 +1748,7 @@ export default function CrmPage() {
             <DialogTitle className="text-[15px]">Gerenciar Tags</DialogTitle>
             <DialogDescription className="text-[11px]">Crie tags para categorizar oportunidades</DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-2 max-h-[50vh] overflow-y-auto">
+          <DialogBody className="space-y-2 max-h-[50vh]">
             {tags.map(tag => (
               <div key={tag.id} className="flex items-center gap-2 p-2 rounded-lg border hover:bg-muted/30">
                 <input type="color" value={tag.cor} onChange={e => handleUpdateTag(tag.id, { cor: e.target.value })} className="h-7 w-7 rounded border cursor-pointer shrink-0" />
@@ -1789,7 +1785,7 @@ export default function CrmPage() {
             <DialogTitle className="text-[15px]">Gerenciar Etapas do Pipeline</DialogTitle>
             <DialogDescription className="text-[11px]">Edite nome, cor, probabilidade e ordem das etapas</DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-3 max-h-[60vh] overflow-y-auto">
+          <DialogBody className="space-y-3 max-h-[60vh]">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={editEtapas.sort((a, b) => a.ordem - b.ordem).map(e => e.id)} strategy={verticalListSortingStrategy}>
                 {editEtapas.sort((a, b) => a.ordem - b.ordem).map((etapa, idx) => (
@@ -2025,7 +2021,7 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
                   !isActive && 'cursor-pointer',
                 )}
                 style={{
-                  backgroundColor: isActive || isPast ? MODULE_COLOR : '#e2e5ea',
+                  backgroundColor: isActive || isPast ? MODULE_COLOR : 'var(--color-muted)',
                   opacity: isActive ? 1 : isPast ? 0.7 : 1,
                   clipPath: idx === 0
                     ? 'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%)'
@@ -2415,7 +2411,7 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
           </div>
           {(op._count?.agendaEventos ?? 0) > 0 && (
             <span
-              className="inline-flex items-center justify-center h-5 w-5 rounded-md text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30 shrink-0"
+              className={cn('inline-flex items-center justify-center h-5 w-5 rounded-md bg-sky-50 dark:bg-sky-900/30 shrink-0', TEXT.sky)}
               title={`${op._count!.agendaEventos} evento(s) de agenda vinculado(s)`}
             >
               <Calendar className="h-3 w-3" />
@@ -2430,7 +2426,7 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
           <TemperaturaBadge temperatura={op.temperatura} score={op.score} />
           {(op as any).campanha && (
             <span
-              className="inline-flex items-center gap-1 text-[10px] font-medium text-rose-600 bg-rose-50 dark:bg-rose-900/30 dark:text-rose-400 rounded-sm px-1.5 py-0.5"
+              className={cn('inline-flex items-center gap-1 text-[10px] font-medium bg-rose-50 dark:bg-rose-900/30 rounded-sm px-1.5 py-0.5', TEXT.rose)}
               title={`Campanha: ${(op as any).campanha.nome || (op as any).campanha.slug}`}
             >
               <Megaphone className="h-3 w-3" /> {(op as any).campanha.nome || (op as any).campanha.slug}
@@ -2440,7 +2436,7 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
             <Link
               href={`/orcamentos/${(op as any).orcamento.id}`}
               onClick={e => e.stopPropagation()}
-              className="inline-flex items-center gap-1 text-[10px] font-medium text-sky-600 bg-sky-50 dark:bg-sky-900/30 dark:text-sky-400 rounded-sm px-1.5 py-0.5 hover:bg-sky-100 dark:hover:bg-sky-900/50 hover:underline transition-colors"
+              className={cn('inline-flex items-center gap-1 text-[10px] font-medium bg-sky-50 dark:bg-sky-900/30 rounded-sm px-1.5 py-0.5 hover:bg-sky-100 dark:hover:bg-sky-900/50 hover:underline transition-colors', TEXT.sky)}
               title={`Abrir orçamento #${(op as any).orcamento.numero}`}
             >
               <FileText className="h-3 w-3" /> Orc. #{(op as any).orcamento.numero}
@@ -2458,13 +2454,7 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
       <div className="flex items-center justify-between px-3 pb-2.5 pt-1">
         <div className="flex items-center gap-2">
           {(op as any).responsavel ? (
-            (op as any).responsavel.image ? (
-              <img src={resolveAssetUrl((op as any).responsavel.image)} alt={(op as any).responsavel.name} title={(op as any).responsavel.name} className="h-6 w-6 rounded-full object-cover shrink-0 border border-background shadow-sm" />
-            ) : (
-              <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0 border border-background shadow-sm" title={(op as any).responsavel.name}>
-                <span className="text-[8px] font-bold text-muted-foreground">{((op as any).responsavel.name || '?').split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()}</span>
-              </div>
-            )
+            <UserAvatar user={(op as any).responsavel} bg="bg-muted" fg="text-muted-foreground" className="h-6 w-6 text-[8px] shrink-0 border border-background shadow-sm" />
           ) : null}
           <SlaIndicator op={op} etapas={etapas} declinioDias={declinioDias} />
         </div>
@@ -2672,13 +2662,7 @@ function HistoricoTab({ eventos }: { eventos: Evento[] }) {
                 <div className="flex items-center gap-2 mt-1">
                   {ev.user && (
                     <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                      {ev.user.image ? (
-                        <img src={resolveAssetUrl(ev.user.image)} alt="" className="h-4 w-4 rounded-full object-cover" />
-                      ) : (
-                        <div className="h-4 w-4 rounded-full bg-muted flex items-center justify-center">
-                          <span className="text-[8px] font-bold text-muted-foreground">{(ev.user.name || '?')[0]?.toUpperCase()}</span>
-                        </div>
-                      )}
+                      <UserAvatar user={ev.user} bg="bg-muted" fg="text-muted-foreground" className="h-4 w-4 text-[8px]" />
                       {ev.user.name}
                     </span>
                   )}
@@ -2709,13 +2693,13 @@ function SlaIndicator({ op, etapas, declinioDias = 30 }: { op: Oportunidade; eta
     const restantes = Math.max(0, declinioDias - dias)
     if (restantes === 0) {
       return (
-        <span className="text-[10px] font-medium flex items-center gap-0.5 rounded px-1.5 py-0.5 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20" title="Arquivamento automatico iminente">
+        <span className={cn('text-[10px] font-medium flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-red-50 dark:bg-red-900/20', TEXT.red)} title="Arquivamento automatico iminente">
           <Archive className="h-3 w-3 animate-pulse" /> Expirando
         </span>
       )
     }
     return (
-      <span className="text-[10px] font-medium flex items-center gap-0.5 rounded px-1.5 py-0.5 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20" title={`Arquivamento automatico em ${restantes} dia(s)`}>
+      <span className={cn('text-[10px] font-medium flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/20', TEXT.amber)} title={`Arquivamento automatico em ${restantes} dia(s)`}>
         <Archive className="h-3 w-3" /> {restantes}d
       </span>
     )
@@ -2743,9 +2727,9 @@ function SlaIndicator({ op, etapas, declinioDias = 30 }: { op: Oportunidade; eta
   }
 
   const config = {
-    ok: { label: 'No prazo', text: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', pulse: false },
-    warning: { label: 'Vencendo', text: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20', pulse: false },
-    expired: { label: 'Vencido', text: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20', pulse: true },
+    ok: { label: 'No prazo', text: TEXT.emerald, bg: 'bg-emerald-50 dark:bg-emerald-900/20', pulse: false },
+    warning: { label: 'Vencendo', text: TEXT.amber, bg: 'bg-amber-50 dark:bg-amber-900/20', pulse: false },
+    expired: { label: 'Vencido', text: TEXT.red, bg: 'bg-red-50 dark:bg-red-900/20', pulse: true },
   }
   const c = config[sla.status]
 
@@ -2787,8 +2771,8 @@ function SortableEtapaRow({ etapa, onSave, onChangeName, onChangeSla, onDelete }
           className="h-8 text-sm w-14 text-center"
         />
       </div>
-      {etapa.ehGanho && <Badge className="bg-emerald-100 text-emerald-700 text-[9px] shrink-0">Ganho</Badge>}
-      {etapa.ehPerda && <Badge className="bg-red-100 text-red-700 text-[9px] shrink-0">Perdido</Badge>}
+      {etapa.ehGanho && <Badge variant="outline" className={cn('text-[9px] shrink-0', STRONG.emerald)}>Ganho</Badge>}
+      {etapa.ehPerda && <Badge variant="outline" className={cn('text-[9px] shrink-0', STRONG.red)}>Perdido</Badge>}
       <button type="button" className="text-muted-foreground hover:text-destructive shrink-0" onClick={() => onDelete(etapa.id, etapa.nome)}>
         <Trash2 className="h-3.5 w-3.5" />
       </button>

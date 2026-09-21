@@ -13,6 +13,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { BADGE, TEXT, BORDER, type ColorName } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
@@ -21,17 +22,17 @@ import { getApiUrl } from '@/lib/api-url'
 
 const MODULE_COLOR = 'var(--mod-fiscal, #0369a1)'
 
-const ITEM_STATUS_CHIP: Record<string, string> = {
-  OK:         'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300',
-  DUPLICADO:  'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-300',
-  INVALIDO:   'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300',
-  ERRO_PDF:   'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300',
+const ITEM_STATUS_TONE: Record<string, ColorName> = {
+  OK: 'emerald',
+  DUPLICADO: 'sky',
+  INVALIDO: 'amber',
+  ERRO_PDF: 'rose',
 }
 
-const STATUS_CHIP: Record<string, string> = {
-  PROCESSANDO: 'bg-sky-50 text-sky-700 border-sky-200',
-  CONCLUIDO:   'bg-emerald-50 text-emerald-700 border-emerald-200',
-  CANCELADO:   'bg-rose-50 text-rose-700 border-rose-200',
+const STATUS_TONE: Record<string, ColorName> = {
+  PROCESSANDO: 'sky',
+  CONCLUIDO: 'emerald',
+  CANCELADO: 'rose',
 }
 
 export default function LoteDetalhePage() {
@@ -114,11 +115,11 @@ export default function LoteDetalhePage() {
             </Button>
           )}
           {lote.status === 'PROCESSANDO' && (
-            <Button size="sm" variant="outline" onClick={handleCancelar} className="gap-1.5 text-rose-600 border-rose-200 hover:bg-rose-50">
+            <Button size="sm" variant="outline" onClick={handleCancelar} className={cn('gap-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/30', TEXT.rose, BORDER.rose)}>
               <X className="h-3.5 w-3.5" /> Cancelar
             </Button>
           )}
-          <BackButton href="/danfe/lotes" />
+          <BackButton href="/danfe/lotes" label="Voltar" />
       </>}>
         <h1 className="truncate">{lote.nome}</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -130,7 +131,7 @@ export default function LoteDetalhePage() {
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           <span>Lote · {new Date(lote.iniciadoEm).toLocaleString('pt-BR')}</span>
-          <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase border', STATUS_CHIP[lote.status])}>
+          <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase border', BADGE[STATUS_TONE[lote.status] ?? 'slate'])}>
             {lote.status === 'PROCESSANDO' && <Loader2 className="h-3 w-3 animate-spin" />}
             {lote.status}
           </span>
@@ -145,8 +146,8 @@ export default function LoteDetalhePage() {
             <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: MODULE_COLOR }} />
           </div>
           <div className="flex gap-4 mt-2 text-[11px]">
-            <span className="text-emerald-700 dark:text-emerald-400"><CheckCircle2 className="inline h-3 w-3 mr-1" />{lote.sucesso} OK</span>
-            {lote.erros > 0 && <span className="text-rose-700 dark:text-rose-400"><AlertOctagon className="inline h-3 w-3 mr-1" />{lote.erros} erros</span>}
+            <span className={TEXT.emerald}><CheckCircle2 className="inline h-3 w-3 mr-1" />{lote.sucesso} OK</span>
+            {lote.erros > 0 && <span className={TEXT.rose}><AlertOctagon className="inline h-3 w-3 mr-1" />{lote.erros} erros</span>}
           </div>
         </div>
       </PageHeaderBar>
@@ -156,7 +157,7 @@ export default function LoteDetalhePage() {
         <div className="flex items-center justify-between border-b border-border/60 bg-muted/20 px-4 py-3">
           <h5 className="text-[13px] font-semibold">Itens do lote</h5>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="h-8 w-[180px] text-xs bg-card"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-8 w-[180px] text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">Todos os status</SelectItem>
               <SelectItem value="OK">OK</SelectItem>
@@ -191,7 +192,7 @@ export default function LoteDetalhePage() {
                   ) : <span className="text-[10px] text-muted-foreground italic">—</span>}
                 </TableCell>
                 <TableCell>
-                  <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border', ITEM_STATUS_CHIP[item.status])}>
+                  <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border', BADGE[ITEM_STATUS_TONE[item.status] ?? 'slate'])}>
                     {item.status}
                   </span>
                 </TableCell>

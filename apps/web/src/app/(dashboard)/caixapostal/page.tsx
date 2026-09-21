@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import {
-  Button, Input, Badge, Card,
+  Button, Input, Badge, Card, Switch, Checkbox,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -20,8 +20,10 @@ import {
   RichContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
@@ -132,6 +134,14 @@ export default function CaixaPostalPage() {
   const [agregadasLoading, setAgregadasLoading] = useState(false)
   const [modoFiltrado, setModoFiltrado] = useState(false)
   const [modoFiltradoTipo, setModoFiltradoTipo] = useState<'prioridade' | 'importante'>('prioridade')
+  // "Notificar por e-mail" dos forms de encaminhar (modal e painel) — controlados
+  // p/ usarem o <Checkbox> centralizado em vez de getElementById(id).checked.
+  const [encModalEmail, setEncModalEmail] = useState(false)
+  const [encPainelEmail, setEncPainelEmail] = useState(false)
+  // Destinatário do encaminhar (modal e painel) — controlados p/ usarem o <Select>
+  // centralizado em vez de getElementById(id).value.
+  const [encModalDest, setEncModalDest] = useState('')
+  const [encPainelDest, setEncPainelDest] = useState('')
 
   // Carregar mensagens filtradas se vier do dashboard
   useEffect(() => {
@@ -863,11 +873,11 @@ export default function CaixaPostalPage() {
             <div className="flex border-b mb-4">
               <button type="button" onClick={() => setScheduleTab('config')}
                 className={cn('px-4 py-2 text-xs font-medium border-b-2 -mb-px transition-colors',
-                  scheduleTab === 'config' ? 'border-sky-500 text-sky-600' : 'border-transparent text-muted-foreground hover:text-foreground',
+                  scheduleTab === 'config' ? cn('border-sky-500', TEXT.sky) : 'border-transparent text-muted-foreground hover:text-foreground',
                 )}>Configuração</button>
               <button type="button" onClick={() => { setScheduleTab('historico'); loadExecLogs(0) }}
                 className={cn('px-4 py-2 text-xs font-medium border-b-2 -mb-px transition-colors',
-                  scheduleTab === 'historico' ? 'border-sky-500 text-sky-600' : 'border-transparent text-muted-foreground hover:text-foreground',
+                  scheduleTab === 'historico' ? cn('border-sky-500', TEXT.sky) : 'border-transparent text-muted-foreground hover:text-foreground',
                 )}>Histórico de Execuções</button>
             </div>
 
@@ -878,14 +888,14 @@ export default function CaixaPostalPage() {
                   /* Detalhe de uma execução */
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <button type="button" onClick={() => setExecLogDetalhe(null)} className="flex items-center gap-1.5 text-xs text-sky-600 hover:underline">
+                      <button type="button" onClick={() => setExecLogDetalhe(null)} className={cn('flex items-center gap-1.5 text-xs hover:underline', TEXT.sky)}>
                         <ArrowLeft className="h-3 w-3" />Voltar
                       </button>
                       <Badge variant="outline" className={cn('text-[10px]',
-                        execLogDetalhe.status === 'completed' && execLogDetalhe.falhas === 0 && 'bg-emerald-50 text-emerald-700 border-emerald-200',
-                        execLogDetalhe.status === 'completed' && execLogDetalhe.falhas > 0 && 'bg-amber-50 text-amber-700 border-amber-200',
-                        execLogDetalhe.status === 'running' && 'bg-sky-50 text-sky-700 border-sky-200',
-                        execLogDetalhe.status === 'error' && 'bg-red-50 text-red-700 border-red-200',
+                        execLogDetalhe.status === 'completed' && execLogDetalhe.falhas === 0 && BADGE.emerald,
+                        execLogDetalhe.status === 'completed' && execLogDetalhe.falhas > 0 && BADGE.amber,
+                        execLogDetalhe.status === 'running' && BADGE.sky,
+                        execLogDetalhe.status === 'error' && BADGE.red,
                       )}>
                         {execLogDetalhe.status === 'running' ? 'Em execução' : execLogDetalhe.falhas > 0 ? 'Com falhas' : 'Sucesso'}
                       </Badge>
@@ -924,7 +934,7 @@ export default function CaixaPostalPage() {
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Resultado</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-emerald-600 font-medium">{execLogDetalhe.sucesso} ok</span>
+                          <span className={cn('font-medium', TEXT.emerald)}>{execLogDetalhe.sucesso} ok</span>
                           {execLogDetalhe.falhas > 0 && <span className="text-red-500 font-medium">{execLogDetalhe.falhas} erro(s)</span>}
                           <span className="text-muted-foreground">/ {execLogDetalhe.total}</span>
                         </div>
@@ -936,7 +946,7 @@ export default function CaixaPostalPage() {
                       <div className="px-3 py-2 bg-muted/20 border-b">
                         <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Detalhamento por Cliente</h4>
                       </div>
-                      <div className="max-h-[300px] overflow-y-auto divide-y">
+                      <div className="max-h-[300px] overflow-y-auto divide-y nice-scrollbar">
                         {execLogDetalhe.itens.length === 0 ? (
                           <div className="px-3 py-4 text-center text-[11px] text-muted-foreground">Nenhum detalhe disponível</div>
                         ) : execLogDetalhe.itens.map((item, idx) => (
@@ -989,12 +999,12 @@ export default function CaixaPostalPage() {
                                   <TableCell className="text-[11px] py-2 whitespace-nowrap">{new Date(log.iniciadoEm).toLocaleString('pt-BR')}</TableCell>
                                   <TableCell className="text-[11px] py-2">
                                     <Badge variant="outline" className={cn('text-[9px]',
-                                      log.tipo === 'manual' ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-violet-50 text-violet-700 border-violet-200',
+                                      log.tipo === 'manual' ? BADGE.sky : BADGE.violet,
                                     )}>{log.tipo === 'manual' ? 'Manual' : 'Automático'}</Badge>
                                   </TableCell>
                                   <TableCell className="text-[11px] py-2 truncate max-w-[120px]">{log.nomeUsuario || (log.tipo === 'automatico' ? 'Sistema' : '—')}</TableCell>
                                   <TableCell className="text-[11px] py-2 text-center font-medium">{log.total}</TableCell>
-                                  <TableCell className="text-[11px] py-2 text-center text-emerald-600 font-medium">{log.sucesso}</TableCell>
+                                  <TableCell className={cn('text-[11px] py-2 text-center font-medium', TEXT.emerald)}>{log.sucesso}</TableCell>
                                   <TableCell className="text-[11px] py-2 text-center">
                                     {log.falhas > 0 ? <span className="text-red-500 font-medium">{log.falhas}</span> : <span className="text-muted-foreground">0</span>}
                                   </TableCell>
@@ -1037,18 +1047,15 @@ export default function CaixaPostalPage() {
                 {/* Toggle */}
                 <div className="flex items-center justify-between">
                   <label className="flex items-center gap-2.5 text-sm font-medium">
-                    <button type="button" onClick={() => setScheduleData(prev => prev ? { ...prev, config: { ...prev.config, enabled: !prev.config.enabled } } : prev)}
-                      className={cn('relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors',
-                        scheduleData.config.enabled ? 'bg-sky-500' : 'bg-gray-300 dark:bg-gray-600',
-                      )}>
-                      <span className={cn('inline-block h-4 w-4 rounded-full bg-white shadow transition-transform mt-0.5',
-                        scheduleData.config.enabled ? 'translate-x-4 ml-0.5' : 'translate-x-0.5',
-                      )} />
-                    </button>
+                    <Switch
+                      checked={scheduleData.config.enabled}
+                      onCheckedChange={(v) => setScheduleData(prev => prev ? { ...prev, config: { ...prev.config, enabled: v } } : prev)}
+                      className={cn(scheduleData.config.enabled && 'bg-sky-500')}
+                    />
                     Agendamento {scheduleData.config.enabled ? 'ativado' : 'desativado'}
                   </label>
                   {scheduleData.isRunning && (
-                    <Badge variant="outline" className="text-[10px] bg-sky-50 text-sky-700 border-sky-200 gap-1">
+                    <Badge variant="outline" className={cn('text-[10px] gap-1', BADGE.sky)}>
                       <Loader2 className="h-3 w-3 animate-spin" />Em execução
                     </Badge>
                   )}
@@ -1079,10 +1086,10 @@ export default function CaixaPostalPage() {
                           })}
                         </div>
                         <div className="flex gap-2 mt-1">
-                          <button type="button" className="text-[10px] text-sky-600 hover:underline" onClick={() => {
+                          <button type="button" className={cn('text-[10px] hover:underline', TEXT.sky)} onClick={() => {
                             setScheduleData(prev => prev ? { ...prev, config: { ...prev.config, cron: buildCron(['1','2','3','4','5','6','0'], parsed.horas) } } : prev)
                           }}>Todos</button>
-                          <button type="button" className="text-[10px] text-sky-600 hover:underline" onClick={() => {
+                          <button type="button" className={cn('text-[10px] hover:underline', TEXT.sky)} onClick={() => {
                             setScheduleData(prev => prev ? { ...prev, config: { ...prev.config, cron: buildCron(['1','2','3','4','5'], parsed.horas) } } : prev)
                           }}>Dias úteis</button>
                         </div>
@@ -1138,18 +1145,18 @@ export default function CaixaPostalPage() {
                         {scheduleData.config.clienteIds.length === 0 ? `Todos (${scheduleClientes.length})` : scheduleData.config.clienteIds[0] === '__none__' ? 'Nenhum' : `${scheduleData.config.clienteIds.length} selecionado(s)`}
                       </Badge>
                       {scheduleData.config.clienteIds.length > 0 ? (
-                        <button className="text-[10px] text-sky-600 hover:underline" onClick={() => setScheduleData(prev => prev ? { ...prev, config: { ...prev.config, clienteIds: [] } } : prev)}>
+                        <button className={cn('text-[10px] hover:underline', TEXT.sky)} onClick={() => setScheduleData(prev => prev ? { ...prev, config: { ...prev.config, clienteIds: [] } } : prev)}>
                           Selecionar todos
                         </button>
                       ) : (
-                        <button className="text-[10px] text-sky-600 hover:underline" onClick={() => setScheduleData(prev => prev ? { ...prev, config: { ...prev.config, clienteIds: ['__none__'] } } : prev)}>
+                        <button className={cn('text-[10px] hover:underline', TEXT.sky)} onClick={() => setScheduleData(prev => prev ? { ...prev, config: { ...prev.config, clienteIds: ['__none__'] } } : prev)}>
                           Desmarcar todos
                         </button>
                       )}
                     </div>
                   </div>
                   <Input placeholder="Buscar cliente..." value={scheduleClienteSearch} onChange={e => setScheduleClienteSearch(e.target.value)} className="h-8 text-xs" />
-                  <div className="border rounded-lg max-h-[200px] overflow-y-auto">
+                  <div className="border rounded-lg max-h-[200px] overflow-y-auto nice-scrollbar">
                     {scheduleClientes
                       .filter(c => {
                         if (!scheduleClienteSearch) return true
@@ -1161,7 +1168,7 @@ export default function CaixaPostalPage() {
                         const checked = !isNone && (scheduleData.config.clienteIds.length === 0 || scheduleData.config.clienteIds.includes(c.id))
                         return (
                           <label key={c.id} className={cn('flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/30 cursor-pointer border-b last:border-b-0', checked && scheduleData.config.clienteIds.length > 0 && 'bg-sky-50/40')}>
-                            <input type="checkbox" checked={checked} onChange={() => {
+                            <Checkbox checked={checked} onCheckedChange={() => {
                               setScheduleData(prev => {
                                 if (!prev) return prev
                                 let ids = [...prev.config.clienteIds]
@@ -1180,7 +1187,7 @@ export default function CaixaPostalPage() {
                                 }
                                 return { ...prev, config: { ...prev.config, clienteIds: ids } }
                               })
-                            }} className="h-3 w-3 rounded" />
+                            }} />
                             <span className="flex-1 truncate">{c.razaoSocial}</span>
                             <span className="font-mono text-[10px] text-muted-foreground shrink-0">{formatDoc(c.documento)}</span>
                           </label>
@@ -1203,7 +1210,7 @@ export default function CaixaPostalPage() {
                       <div className="flex items-center justify-between text-[11px]">
                         <span className="text-muted-foreground">Resultado</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-emerald-600 font-medium">{scheduleData.lastResult.success} ok</span>
+                          <span className={cn('font-medium', TEXT.emerald)}>{scheduleData.lastResult.success} ok</span>
                           {scheduleData.lastResult.failed > 0 && <span className="text-red-500 font-medium">{scheduleData.lastResult.failed} erro(s)</span>}
                           <span className="text-muted-foreground">/ {scheduleData.lastResult.total}</span>
                         </div>
@@ -1233,7 +1240,7 @@ export default function CaixaPostalPage() {
                       <div className="h-full bg-sky-500 transition-all duration-500" style={{ width: `${scheduleProgress.total > 0 ? (scheduleProgress.current / scheduleProgress.total) * 100 : 0}%` }} />
                     </div>
                     {/* Lista de itens */}
-                    <div className="max-h-[200px] overflow-y-auto divide-y">
+                    <div className="max-h-[200px] overflow-y-auto divide-y nice-scrollbar">
                       {scheduleProgress.items.map((item, idx) => (
                         <div key={idx} className={cn('flex items-center gap-2 px-3 py-1.5 text-[11px]', item.status === 'processando' && 'bg-sky-50/50 dark:bg-sky-900/10')}>
                           <div className="w-4 shrink-0 text-center">
@@ -1244,7 +1251,7 @@ export default function CaixaPostalPage() {
                           </div>
                           <span className={cn('flex-1 truncate', item.status === 'processando' && 'font-medium')}>{item.razaoSocial}</span>
                           {item.status === 'erro' && <span className="text-[10px] text-red-500 truncate max-w-[150px]" title={item.erro}>{item.erro}</span>}
-                          {item.status === 'ok' && <span className="text-[10px] text-emerald-600">OK</span>}
+                          {item.status === 'ok' && <span className={cn('text-[10px]', TEXT.emerald)}>OK</span>}
                         </div>
                       ))}
                     </div>
@@ -1261,7 +1268,7 @@ export default function CaixaPostalPage() {
                       </div>
                       <button className="text-[10px] text-muted-foreground hover:underline" onClick={() => setScheduleProgress(null)}>Fechar</button>
                     </div>
-                    <div className="max-h-[150px] overflow-y-auto divide-y">
+                    <div className="max-h-[150px] overflow-y-auto divide-y nice-scrollbar">
                       {scheduleProgress.items.filter(i => i.status === 'erro').map((item, idx) => (
                         <div key={idx} className="flex items-center gap-2 px-3 py-1.5 text-[11px]">
                           <AlertTriangle className="h-3 w-3 text-red-500 shrink-0" />
@@ -1270,7 +1277,7 @@ export default function CaixaPostalPage() {
                         </div>
                       ))}
                       {scheduleProgress.items.filter(i => i.status === 'erro').length === 0 && (
-                        <div className="px-3 py-3 text-center text-[11px] text-emerald-600">Todos os clientes processados com sucesso!</div>
+                        <div className={cn('px-3 py-3 text-center text-[11px]', TEXT.emerald)}>Todos os clientes processados com sucesso!</div>
                       )}
                     </div>
                   </div>
@@ -1327,9 +1334,9 @@ export default function CaixaPostalPage() {
               </div>
               {itemDetalhes && (
                 <Badge variant="outline" className={cn('text-[10px] shrink-0',
-                  (itemDetalhes.status as string) === 'concluido' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                  (itemDetalhes.status as string) === 'em_andamento' ? 'bg-sky-50 text-sky-700 border-sky-200' :
-                  (itemDetalhes.status as string) === 'arquivado' ? 'bg-gray-100 text-gray-500 border-gray-200' : ''
+                  (itemDetalhes.status as string) === 'concluido' ? BADGE.emerald :
+                  (itemDetalhes.status as string) === 'em_andamento' ? BADGE.sky :
+                  (itemDetalhes.status as string) === 'arquivado' ? 'bg-muted text-muted-foreground border-border' : ''
                 )}>
                   {({ pendente: 'Pendente', em_andamento: 'Em Andamento', concluido: 'Concluído', arquivado: 'Arquivado' } as Record<string, string>)[(itemDetalhes.status as string) || 'pendente'] || 'Pendente'}
                 </Badge>
@@ -1349,7 +1356,7 @@ export default function CaixaPostalPage() {
                 return (
                   <button key={tab.key} onClick={() => setDetalheTab(tab.key)}
                     className={cn('flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 transition-colors',
-                      detalheTab === tab.key ? 'border-sky-500 text-sky-600' : 'border-transparent text-muted-foreground hover:text-foreground'
+                      detalheTab === tab.key ? cn('border-sky-500', TEXT.sky) : 'border-transparent text-muted-foreground hover:text-foreground'
                     )}>
                     <TabIcon className="h-3.5 w-3.5" />{tab.label}
                     {tab.key === 'historico' && itemDetalhes && Array.isArray((itemDetalhes as Record<string, unknown>).eventos) && (
@@ -1377,12 +1384,12 @@ export default function CaixaPostalPage() {
                           <div><span className="text-muted-foreground">Data envio: </span><span className="font-medium">{formatDateSerpro(detalheMsg.dataEnvio)}</span></div>
                           <div><span className="text-muted-foreground">Sistema: </span><span className="font-mono">{detalheMsg.codigoSistemaRemetente || '—'}</span></div>
                           {detalheMsg.sla_dias !== null && detalheMsg.sla_dias !== undefined && (
-                            <div><span className="text-muted-foreground">SLA: </span><span className={cn('font-medium', detalheMsg.sla_dias <= 0 ? 'text-red-600' : detalheMsg.sla_dias <= 3 ? 'text-orange-600' : '')}>{detalheMsg.sla_dias} dia(s)</span></div>
+                            <div><span className="text-muted-foreground">SLA: </span><span className={cn('font-medium', detalheMsg.sla_dias <= 0 ? TEXT.red : detalheMsg.sla_dias <= 3 ? TEXT.orange : '')}>{detalheMsg.sla_dias} dia(s)</span></div>
                           )}
                           <div><span className="text-muted-foreground">Score: </span><span className="font-medium">{detalheMsg.score}/100</span></div>
                         </div>
                         {detalheMsg.acao_recomendada && (
-                          <div className="text-xs mt-2 p-2 rounded bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300">
+                          <div className={cn('text-xs mt-2 p-2 rounded border', BADGE.amber)}>
                             <strong>Ação recomendada:</strong> {detalheMsg.acao_recomendada}
                           </div>
                         )}
@@ -1390,7 +1397,7 @@ export default function CaixaPostalPage() {
                           href="https://cav.receita.fazenda.gov.br/autenticacao/login"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-[11px] font-medium text-sky-600 hover:text-sky-700 hover:underline mt-1"
+                          className={cn('inline-flex items-center gap-1.5 text-[11px] font-medium hover:text-sky-700 hover:underline mt-1', TEXT.sky)}
                         >
                           <ExternalLink className="h-3 w-3" />
                           Acessar mensagem original no e-CAC
@@ -1409,7 +1416,7 @@ export default function CaixaPostalPage() {
                             if (meta[campo] && typeof meta[campo] === 'string') return <div className="text-sm leading-relaxed whitespace-pre-wrap">{meta[campo] as string}</div>
                           }
                         }
-                        if (detalheData) return (<div><p className="text-xs text-muted-foreground mb-2">Resposta bruta da API:</p><pre className="text-xs whitespace-pre-wrap bg-muted/30 rounded-lg p-4 overflow-x-auto max-h-[400px]">{JSON.stringify(detalheData, null, 2)}</pre></div>)
+                        if (detalheData) return (<div><p className="text-xs text-muted-foreground mb-2">Resposta bruta da API:</p><pre className="text-xs whitespace-pre-wrap bg-muted/30 rounded-lg p-4 overflow-x-auto max-h-[400px] nice-scrollbar">{JSON.stringify(detalheData, null, 2)}</pre></div>)
                         return <p className="text-center text-muted-foreground py-10">Nenhum conteúdo disponível.</p>
                       })()}
                     </div>
@@ -1439,11 +1446,9 @@ export default function CaixaPostalPage() {
                     {/* Status */}
                     <div className="space-y-1.5">
                       <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Status</label>
-                      <select
-                        className="h-9 w-[220px] rounded-md border border-input bg-transparent px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+                      <Select
                         value={(itemDetalhes?.status as string) || 'pendente'}
-                        onChange={async (e) => {
-                          const v = e.target.value
+                        onValueChange={async (v) => {
                           if (!itemDetalhes?.id) return
                           try {
                             await trpc.caixaPostal.alterarStatus.mutate({ itemId: itemDetalhes.id as string, status: v as 'pendente' | 'em_andamento' | 'concluido' | 'arquivado' })
@@ -1452,21 +1457,22 @@ export default function CaixaPostalPage() {
                           } catch (e2) { alerts.error('Erro', (e2 as Error).message) }
                         }}
                       >
-                        <option value="pendente">Pendente</option>
-                        <option value="em_andamento">Em Andamento</option>
-                        <option value="concluido">Concluído</option>
-                        <option value="arquivado">Arquivado</option>
-                      </select>
+                        <SelectTrigger className="h-9 w-[220px] text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pendente">Pendente</SelectItem>
+                          <SelectItem value="em_andamento">Em Andamento</SelectItem>
+                          <SelectItem value="concluido">Concluído</SelectItem>
+                          <SelectItem value="arquivado">Arquivado</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     {/* Responsável */}
                     <div className="space-y-1.5">
                       <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Responsável</label>
-                      <select
-                        className="h-9 w-[320px] rounded-md border border-input bg-transparent px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                        value={(itemDetalhes?.responsavelId as string) || ''}
-                        onChange={async (e) => {
-                          const v = e.target.value
+                      <Select
+                        value={(itemDetalhes?.responsavelId as string) || undefined}
+                        onValueChange={async (v) => {
                           if (!itemDetalhes?.id || !v) return
                           try {
                             await trpc.caixaPostal.definirResponsavel.mutate({ itemId: itemDetalhes.id as string, responsavelId: v })
@@ -1476,9 +1482,11 @@ export default function CaixaPostalPage() {
                           } catch (e2) { alerts.error('Erro', (e2 as Error).message) }
                         }}
                       >
-                        <option value="">Selecione um responsável</option>
-                        {usuarios.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                      </select>
+                        <SelectTrigger className="h-9 w-[320px] text-xs"><SelectValue placeholder="Selecione um responsável" /></SelectTrigger>
+                        <SelectContent>
+                          {usuarios.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                       {typeof itemDetalhes?.responsavelNome === 'string' && itemDetalhes.responsavelNome && (
                         <p className="text-[11px] text-muted-foreground">Atual: <span className="font-medium text-foreground">{itemDetalhes.responsavelNome}</span></p>
                       )}
@@ -1488,7 +1496,7 @@ export default function CaixaPostalPage() {
                     <div className="space-y-1.5">
                       <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Observações</label>
                       <textarea
-                        className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs min-h-[80px] resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                        className="w-full rounded-md px-3 py-2 text-xs min-h-[80px] resize-y focus:outline-none focus:ring-2 focus:ring-ring"
                         value={(itemDetalhes?.observacoes as string) || ''}
                         onChange={e => setItemDetalhes(prev => prev ? { ...prev, observacoes: e.target.value } : prev)}
                         placeholder="Adicione observações sobre esta mensagem..."
@@ -1512,25 +1520,25 @@ export default function CaixaPostalPage() {
                     {/* Encaminhar */}
                     <div className="space-y-1.5">
                       <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Encaminhar mensagem</label>
-                      <select id="encaminhar-modal-dest"
-                        className="h-9 w-[320px] rounded-md border border-input bg-transparent px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                        defaultValue="">
-                        <option value="">Selecione o destinatário</option>
-                        {usuarios.map(u => <option key={u.id} value={u.id}>{u.name} ({u.email})</option>)}
-                      </select>
+                      <Select value={encModalDest || undefined} onValueChange={setEncModalDest}>
+                        <SelectTrigger className="h-9 w-[320px] text-xs"><SelectValue placeholder="Selecione o destinatário" /></SelectTrigger>
+                        <SelectContent>
+                          {usuarios.map(u => <SelectItem key={u.id} value={u.id}>{u.name} ({u.email})</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                       <textarea id="encaminhar-modal-obs"
-                        className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs min-h-[50px] resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                        className="w-full rounded-md px-3 py-2 text-xs min-h-[50px] resize-y focus:outline-none focus:ring-2 focus:ring-ring"
                         placeholder="Observação (opcional)..." />
                       <div className="flex items-center gap-3">
                         <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
-                          <input type="checkbox" id="encaminhar-modal-email" className="h-3.5 w-3.5 rounded" />
+                          <Checkbox checked={encModalEmail} onCheckedChange={v => setEncModalEmail(v === true)} />
                           Notificar por e-mail
                         </label>
                         <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1.5"
                           onClick={async () => {
-                            const dest = (document.getElementById('encaminhar-modal-dest') as HTMLSelectElement)?.value
+                            const dest = encModalDest
                             const obs = (document.getElementById('encaminhar-modal-obs') as HTMLTextAreaElement)?.value
-                            const email = (document.getElementById('encaminhar-modal-email') as HTMLInputElement)?.checked
+                            const email = encModalEmail
                             if (!itemDetalhes?.id || !dest) { alerts.error('Atenção', 'Selecione um destinatário'); return }
                             try {
                               const r = await trpc.caixaPostal.encaminhar.mutate({
@@ -1540,9 +1548,9 @@ export default function CaixaPostalPage() {
                               const isn = detalheMsg?.isn || detalheMsg?.ISN
                               if (isn && selectedCliente) loadItemDetalhes(isn, selectedCliente.documento)
                               showGestaoToast(r.mensagem)
-                              ;(document.getElementById('encaminhar-modal-dest') as HTMLSelectElement).value = ''
+                              setEncModalDest('')
                               ;(document.getElementById('encaminhar-modal-obs') as HTMLTextAreaElement).value = ''
-                              ;(document.getElementById('encaminhar-modal-email') as HTMLInputElement).checked = false
+                              setEncModalEmail(false)
                             } catch (e2) { alerts.error('Erro', (e2 as Error).message) }
                           }}>
                           <Send className="h-3 w-3" />Encaminhar
@@ -1660,13 +1668,11 @@ export default function CaixaPostalPage() {
               }} className="gap-1.5">
                 <X className="h-4 w-4" />Limpar filtro
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => {
+              <BackButton label="Voltar" onClick={() => {
                 setModoFiltrado(false)
                 setMensagensAgregadas([])
                 router.push('/caixapostal')
-              }} className="gap-1.5">
-                <ArrowLeft className="h-4 w-4" />Voltar
-              </Button>
+              }} />
             </>
           ) : selectedCliente ? (
             <div className="flex items-center gap-1.5">
@@ -1728,9 +1734,7 @@ export default function CaixaPostalPage() {
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button variant="ghost" size="sm" onClick={handleVoltarLista} className="gap-1.5">
-                <ArrowLeft className="h-3.5 w-3.5" />Voltar
-              </Button>
+              <BackButton label="Voltar" onClick={handleVoltarLista} />
             </div>
           ) : (
             <div className="flex items-center gap-1.5">
@@ -1829,16 +1833,16 @@ export default function CaixaPostalPage() {
             </div>
 
             {/* Lista */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto nice-scrollbar">
               {loteStatus === 'idle' ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[40px] pl-5">
-                        <input type="checkbox"
+                        <Checkbox
                           checked={loteClientesFiltrados.length > 0 && loteClientesFiltrados.every(c => loteSelecionados.has(c.id))}
-                          onChange={e => loteToggleAll(e.target.checked)}
-                          className="h-3.5 w-3.5 rounded border-gray-300" />
+                          onCheckedChange={v => loteToggleAll(v === true)}
+                        />
                       </TableHead>
                       <TableHead className="text-xs">Razão Social</TableHead>
                       <TableHead className="text-xs w-[160px]">CNPJ</TableHead>
@@ -1850,7 +1854,7 @@ export default function CaixaPostalPage() {
                     ) : loteClientesFiltrados.map(c => (
                       <TableRow key={c.id} className="cursor-pointer hover:bg-muted/40" onClick={() => loteToggle(c.id)}>
                         <TableCell className="pl-5">
-                          <input type="checkbox" checked={loteSelecionados.has(c.id)} onChange={() => loteToggle(c.id)} className="h-3.5 w-3.5 rounded border-gray-300" />
+                          <Checkbox checked={loteSelecionados.has(c.id)} onCheckedChange={() => loteToggle(c.id)} />
                         </TableCell>
                         <TableCell className="text-xs font-medium">{c.razaoSocial}</TableCell>
                         <TableCell className="text-xs font-mono text-muted-foreground">{formatDoc(c.documento)}</TableCell>
@@ -1875,9 +1879,9 @@ export default function CaixaPostalPage() {
                         <p className="font-mono text-muted-foreground text-[10px]">{formatDoc(item.documento)}</p>
                       </div>
                       <div className="shrink-0 text-right min-w-[120px]">
-                        {item.status === 'consultando' && <span className="text-sky-600 font-medium">Consultando...</span>}
+                        {item.status === 'consultando' && <span className={cn('font-medium', TEXT.sky)}>Consultando...</span>}
                         {item.status === 'sucesso' && (
-                          <span className="text-emerald-600">{item.total !== undefined ? `${item.total} msg` : 'OK'}</span>
+                          <span className={TEXT.emerald}>{item.total !== undefined ? `${item.total} msg` : 'OK'}</span>
                         )}
                         {item.status === 'erro' && <span className="text-red-500 text-[10px] line-clamp-1" title={item.erro || ''}>{item.erro || 'Erro'}</span>}
                         {item.status === 'pulado' && <span className="text-muted-foreground">Cancelado</span>}
@@ -1896,7 +1900,7 @@ export default function CaixaPostalPage() {
               {loteStatus === 'done' ? (
                 <>
                   <div className="flex items-center gap-3 text-xs">
-                    <span className="text-emerald-600 font-medium">{loteItems.filter(i => i.status === 'sucesso').length} sucesso</span>
+                    <span className={cn('font-medium', TEXT.emerald)}>{loteItems.filter(i => i.status === 'sucesso').length} sucesso</span>
                     {loteItems.filter(i => i.status === 'erro').length > 0 && (
                       <span className="text-red-500 font-medium">{loteItems.filter(i => i.status === 'erro').length} erro(s)</span>
                     )}
@@ -1937,7 +1941,7 @@ export default function CaixaPostalPage() {
               <Filter className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-xs text-muted-foreground">Filtro ativo:</span>
               {modoFiltradoTipo === 'importante' ? (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600"><Star className="h-3.5 w-3.5 fill-amber-400" />Importantes</span>
+                <span className={cn('inline-flex items-center gap-1 text-xs font-medium', TEXT.amber)}><Star className="h-3.5 w-3.5 fill-amber-400" />Importantes</span>
               ) : (
                 <>{prioridadeParam && <PrioridadeBadge p={prioridadeParam} />}<span className="text-xs text-muted-foreground">— Apenas não lidas</span></>
               )}
@@ -2003,7 +2007,7 @@ export default function CaixaPostalPage() {
                     </TableCell>
                     <TableCell className="hidden lg:table-cell text-center">
                       {m.sla_dias !== null && m.sla_dias !== undefined ? (
-                        <span className={cn('text-[10px] font-mono', m.sla_dias <= 0 ? 'text-red-600 font-bold' : m.sla_dias <= 3 ? 'text-orange-600' : 'text-muted-foreground')}>
+                        <span className={cn('text-[10px] font-mono', m.sla_dias <= 0 ? cn('font-bold', TEXT.red) : m.sla_dias <= 3 ? TEXT.orange : 'text-muted-foreground')}>
                           {m.sla_dias}d
                         </span>
                       ) : <span className="text-[10px] text-muted-foreground">—</span>}
@@ -2037,13 +2041,14 @@ export default function CaixaPostalPage() {
               const Icon = f.icon
               return (
                 <button key={f.key} type="button" onClick={() => { setFiltroStatus(f.key); setPaginaClientes(1) }}
+                  style={isActive ? { backgroundColor: 'var(--mod-fiscal, #0369a1)' } : undefined}
                   className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all',
-                    isActive ? 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400 shadow-sm'
-                      : 'border-border/40 text-muted-foreground hover:border-indigo-200 hover:text-foreground bg-card',
+                    isActive ? 'border-transparent text-white shadow-sm'
+                      : 'border-border/40 text-muted-foreground hover:border-input hover:text-foreground bg-card',
                   )}>
                   <Icon className="h-3.5 w-3.5" />{f.label}
                   <span className={cn('text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none',
-                    isActive ? 'bg-indigo-200/60 dark:bg-indigo-800/40 text-indigo-700 dark:text-indigo-300' : 'bg-muted text-muted-foreground',
+                    isActive ? 'bg-white/25 text-white' : 'bg-muted text-muted-foreground',
                   )}>{f.count}</span>
                 </button>
               )
@@ -2118,10 +2123,10 @@ export default function CaixaPostalPage() {
                       </TableCell>
                       <TableCell className="hidden sm:table-cell text-center">
                         {st?.status === 'TODAS LIDAS' && (
-                          <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600"><CheckCircle2 className="h-3 w-3" />Lidas</span>
+                          <span className={cn('inline-flex items-center gap-1 text-[10px]', TEXT.emerald)}><CheckCircle2 className="h-3 w-3" />Lidas</span>
                         )}
                         {st?.status === 'NÃO LIDAS' && (
-                          <span className="inline-flex items-center gap-1 text-[10px] text-amber-600"><MailWarning className="h-3 w-3" />Pendentes</span>
+                          <span className={cn('inline-flex items-center gap-1 text-[10px]', TEXT.amber)}><MailWarning className="h-3 w-3" />Pendentes</span>
                         )}
                         {!st?.status && <span className="text-[10px] text-muted-foreground">—</span>}
                       </TableCell>
@@ -2193,8 +2198,8 @@ export default function CaixaPostalPage() {
           <div className="flex items-center gap-3 border-b border-border/60 bg-muted/20 px-4 py-3">
             {verArquivadas ? (
               <div className="flex items-center gap-2">
-                <Archive className="h-3.5 w-3.5 text-amber-600" />
-                <span className="text-xs font-medium text-amber-700">Mensagens arquivadas</span>
+                <Archive className={cn('h-3.5 w-3.5', TEXT.amber)} />
+                <span className={cn('text-xs font-medium', TEXT.amber)}>Mensagens arquivadas</span>
                 <Badge variant="outline" className="text-[10px]">{mensagens.length}</Badge>
               </div>
             ) : (
@@ -2316,10 +2321,9 @@ export default function CaixaPostalPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[40px] pl-4">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={mensagensFiltradas.length > 0 && mensagensFiltradas.every(m => msgSelecionadas.has((m as Record<string, unknown>).id as string))}
-                    onChange={() => {
+                    onCheckedChange={() => {
                       const ids = mensagensFiltradas.map(m => (m as Record<string, unknown>).id as string).filter(Boolean)
                       if (ids.every(id => msgSelecionadas.has(id))) {
                         setMsgSelecionadas(new Set())
@@ -2327,7 +2331,7 @@ export default function CaixaPostalPage() {
                         setMsgSelecionadas(new Set(ids))
                       }
                     }}
-                    className="h-4 w-4 rounded border-gray-300 text-sky-500 focus:ring-sky-500 accent-sky-500 cursor-pointer"
+                    className="cursor-pointer"
                   />
                 </TableHead>
                 <TableHead className="w-[50px]">Prior.</TableHead>
@@ -2359,9 +2363,9 @@ export default function CaixaPostalPage() {
                   )}>
                     <TableCell className="pl-4" onClick={e => e.stopPropagation()}>
                       {mId && (
-                        <input type="checkbox" checked={msgSelecionadas.has(mId)} onChange={() => {
+                        <Checkbox checked={msgSelecionadas.has(mId)} onCheckedChange={() => {
                           setMsgSelecionadas(prev => { const n = new Set(prev); if (n.has(mId)) n.delete(mId); else n.add(mId); return n })
-                        }} className="h-4 w-4 rounded border-gray-300 text-sky-500 focus:ring-sky-500 accent-sky-500 cursor-pointer" />
+                        }} className="cursor-pointer" />
                       )}
                     </TableCell>
                     <TableCell onClick={() => handleDetalhar(m)}>
@@ -2457,7 +2461,7 @@ export default function CaixaPostalPage() {
 
           {/* ── Painel de leitura (à direita) ── */}
           {viewMode === 'painel' && (
-            <div className="flex-1 min-w-0 overflow-y-auto">
+            <div className="flex-1 min-w-0 overflow-y-auto nice-scrollbar">
               {detalheLoading ? (
                 <div className="flex items-center justify-center h-full min-h-[400px]">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -2515,7 +2519,7 @@ export default function CaixaPostalPage() {
                       return (
                         <button key={tab.key} onClick={() => setDetalheTab(tab.key)}
                           className={cn('flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 -mb-px transition-colors',
-                            detalheTab === tab.key ? 'border-sky-500 text-sky-600' : 'border-transparent text-muted-foreground hover:text-foreground'
+                            detalheTab === tab.key ? cn('border-sky-500', TEXT.sky) : 'border-transparent text-muted-foreground hover:text-foreground'
                           )}>
                           <TabIcon className="h-3 w-3" />{tab.label}
                         </button>
@@ -2524,7 +2528,7 @@ export default function CaixaPostalPage() {
                   </div>
 
                   {/* Conteúdo do painel — reutiliza as mesmas abas do modal */}
-                  <div className="flex-1 overflow-y-auto">
+                  <div className="flex-1 overflow-y-auto nice-scrollbar">
                     {detalheTab === 'conteudo' && (
                       <>
                         <div className="px-4 py-3 bg-muted/10 border-b space-y-2">
@@ -2535,12 +2539,12 @@ export default function CaixaPostalPage() {
                             <div><span className="text-muted-foreground">Score: </span><span className="font-medium">{detalheMsg.score}/100</span></div>
                           </div>
                           {detalheMsg.acao_recomendada && (
-                            <div className="text-xs p-2 rounded bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300">
+                            <div className={cn('text-xs p-2 rounded border', BADGE.amber)}>
                               <strong>Ação:</strong> {detalheMsg.acao_recomendada}
                             </div>
                           )}
                           <a href="https://cav.receita.fazenda.gov.br/autenticacao/login" target="_blank" rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-[11px] font-medium text-sky-600 hover:underline">
+                            className={cn('inline-flex items-center gap-1.5 text-[11px] font-medium hover:underline', TEXT.sky)}>
                             <ExternalLink className="h-3 w-3" />Acessar no e-CAC
                           </a>
                         </div>
@@ -2554,7 +2558,7 @@ export default function CaixaPostalPage() {
                                 if (meta[campo] && typeof meta[campo] === 'string') return <div className="text-sm leading-relaxed whitespace-pre-wrap">{meta[campo] as string}</div>
                               }
                             }
-                            if (detalheData) return <pre className="text-[10px] whitespace-pre-wrap bg-muted/30 rounded p-3 overflow-x-auto max-h-[300px]">{JSON.stringify(detalheData, null, 2)}</pre>
+                            if (detalheData) return <pre className="text-[10px] whitespace-pre-wrap bg-muted/30 rounded p-3 overflow-x-auto max-h-[300px] nice-scrollbar">{JSON.stringify(detalheData, null, 2)}</pre>
                             return <p className="text-center text-muted-foreground py-6 text-xs">Nenhum conteúdo disponível.</p>
                           })()}
                         </div>
@@ -2578,10 +2582,9 @@ export default function CaixaPostalPage() {
                         )}
                         <div className="space-y-1">
                           <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Status</label>
-                          <select className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+                          <Select
                             value={(itemDetalhes?.status as string) || 'pendente'}
-                            onChange={async (e) => {
-                              const v = e.target.value
+                            onValueChange={async (v) => {
                               if (!itemDetalhes?.id) return
                               try {
                                 await trpc.caixaPostal.alterarStatus.mutate({ itemId: itemDetalhes.id as string, status: v as 'pendente' | 'em_andamento' | 'concluido' | 'arquivado' })
@@ -2589,18 +2592,20 @@ export default function CaixaPostalPage() {
                                 showGestaoToast('Status atualizado')
                               } catch (e2) { alerts.error('Erro', (e2 as Error).message) }
                             }}>
-                            <option value="pendente">Pendente</option>
-                            <option value="em_andamento">Em Andamento</option>
-                            <option value="concluido">Concluído</option>
-                            <option value="arquivado">Arquivado</option>
-                          </select>
+                            <SelectTrigger className="h-8 w-full text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pendente">Pendente</SelectItem>
+                              <SelectItem value="em_andamento">Em Andamento</SelectItem>
+                              <SelectItem value="concluido">Concluído</SelectItem>
+                              <SelectItem value="arquivado">Arquivado</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Responsável</label>
-                          <select className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                            value={(itemDetalhes?.responsavelId as string) || ''}
-                            onChange={async (e) => {
-                              const v = e.target.value
+                          <Select
+                            value={(itemDetalhes?.responsavelId as string) || undefined}
+                            onValueChange={async (v) => {
                               if (!itemDetalhes?.id || !v) return
                               try {
                                 await trpc.caixaPostal.definirResponsavel.mutate({ itemId: itemDetalhes.id as string, responsavelId: v })
@@ -2609,13 +2614,15 @@ export default function CaixaPostalPage() {
                                 showGestaoToast('Responsável definido')
                               } catch (e2) { alerts.error('Erro', (e2 as Error).message) }
                             }}>
-                            <option value="">Selecione...</option>
-                            {usuarios.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                          </select>
+                            <SelectTrigger className="h-8 w-full text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                            <SelectContent>
+                              {usuarios.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Observações</label>
-                          <textarea className="w-full rounded-md border border-input bg-transparent px-2 py-1.5 text-xs min-h-[60px] resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                          <textarea className="w-full rounded-md px-2 py-1.5 text-xs min-h-[60px] resize-y focus:outline-none focus:ring-2 focus:ring-ring"
                             value={(itemDetalhes?.observacoes as string) || ''}
                             onChange={e => setItemDetalhes(prev => prev ? { ...prev, observacoes: e.target.value } : prev)}
                             placeholder="Adicione observações..." />
@@ -2635,25 +2642,25 @@ export default function CaixaPostalPage() {
                         <hr />
                         <div className="space-y-1">
                           <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Encaminhar mensagem</label>
-                          <select id="encaminhar-painel-dest"
-                            className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                            defaultValue="">
-                            <option value="">Selecione o destinatário</option>
-                            {usuarios.map(u => <option key={u.id} value={u.id}>{u.name} ({u.email})</option>)}
-                          </select>
+                          <Select value={encPainelDest || undefined} onValueChange={setEncPainelDest}>
+                            <SelectTrigger className="h-8 w-full text-xs"><SelectValue placeholder="Selecione o destinatário" /></SelectTrigger>
+                            <SelectContent>
+                              {usuarios.map(u => <SelectItem key={u.id} value={u.id}>{u.name} ({u.email})</SelectItem>)}
+                            </SelectContent>
+                          </Select>
                           <textarea id="encaminhar-painel-obs"
-                            className="w-full rounded-md border border-input bg-transparent px-2 py-1.5 text-xs min-h-[40px] resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                            className="w-full rounded-md px-2 py-1.5 text-xs min-h-[40px] resize-y focus:outline-none focus:ring-2 focus:ring-ring"
                             placeholder="Observação (opcional)..." />
                           <div className="flex items-center gap-3">
                             <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
-                              <input type="checkbox" id="encaminhar-painel-email" className="h-3.5 w-3.5 rounded" />
+                              <Checkbox checked={encPainelEmail} onCheckedChange={v => setEncPainelEmail(v === true)} />
                               Notificar por e-mail
                             </label>
                             <Button variant="outline" size="sm" className="h-6 text-[10px] gap-1"
                               onClick={async () => {
-                                const dest = (document.getElementById('encaminhar-painel-dest') as HTMLSelectElement)?.value
+                                const dest = encPainelDest
                                 const obs = (document.getElementById('encaminhar-painel-obs') as HTMLTextAreaElement)?.value
-                                const email = (document.getElementById('encaminhar-painel-email') as HTMLInputElement)?.checked
+                                const email = encPainelEmail
                                 if (!itemDetalhes?.id || !dest) { alerts.error('Atenção', 'Selecione um destinatário'); return }
                                 try {
                                   const r = await trpc.caixaPostal.encaminhar.mutate({
@@ -2663,9 +2670,9 @@ export default function CaixaPostalPage() {
                                   const isn = detalheMsg?.isn || detalheMsg?.ISN
                                   if (isn && selectedCliente) loadItemDetalhes(isn, selectedCliente.documento)
                                   showGestaoToast(r.mensagem)
-                                  ;(document.getElementById('encaminhar-painel-dest') as HTMLSelectElement).value = ''
+                                  setEncPainelDest('')
                                   ;(document.getElementById('encaminhar-painel-obs') as HTMLTextAreaElement).value = ''
-                                  ;(document.getElementById('encaminhar-painel-email') as HTMLInputElement).checked = false
+                                  setEncPainelEmail(false)
                                 } catch (e2) { alerts.error('Erro', (e2 as Error).message) }
                               }}>
                               <Send className="h-3 w-3" />Encaminhar

@@ -15,7 +15,12 @@ import {
   PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend, LabelList,
 } from 'recharts'
 import { Info, TrendingDown, TrendingUp, HelpCircle, ListTree, Download, Share2, AlertTriangle } from 'lucide-react'
-import { Button, Card, Input, Label, Badge, cn } from '@saas/ui'
+import {
+  Button, Card, Input, Label, Badge, cn, Checkbox,
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+} from '@saas/ui'
+import { BADGE, BORDER, SURFACE, TEXT } from '@/lib/color-styles'
+import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 import {
   type Parametros, type Regime, type Atividade, type Operacao, type Escopo,
   ROTULO_REGIME, ROTULO_ATIVIDADE, ROTULO_ESCOPO, ehServico, temIpi,
@@ -30,24 +35,20 @@ import {
 } from '../_lib/parametros-fiscais'
 
 // ── Tema dos gráficos (receita do LuminAux, em tokens do tema) ───────────
-const GRADE = { strokeDasharray: '3 3', stroke: 'var(--border)' } as const
+// Tooltip = <ChartTooltip> central (dark-aware) via content=; cursor = CHART_CURSOR_FILL.
+const GRADE = { strokeDasharray: '3 3', stroke: 'var(--color-border)' } as const
 const EIXO = {
   axisLine: false, tickLine: false,
-  tick: { fontSize: 11, fill: 'var(--muted-foreground)' },
-} as const
-const TOOLTIP = {
-  contentStyle: {
-    padding: 10, borderRadius: 10, background: 'var(--card)',
-    border: '1px solid var(--border)', color: 'var(--foreground)',
-    fontSize: 12, boxShadow: 'none',
-  },
-  labelStyle: { color: 'var(--muted-foreground)', fontSize: 11, marginBottom: 2 },
-  cursor: { fill: 'var(--muted-foreground)', fillOpacity: 0.08 },
+  tick: { fontSize: 11, fill: 'var(--color-muted-foreground)' },
 } as const
 
 /** A cor do IVA é a mesma em toda a tela: é o cenário novo. */
 const COR_IVA = '#22d3ee'
 const COR_ATUAL = '#0f172a'
+// Versão temática do "atual" para PRIMEIRO PLANO (fatia de pizza, legenda, ícone):
+// a #0f172a fixa some no dark. `--color-foreground` é escuro no claro e claro no
+// escuro → sempre legível. (A #0f172a segue nos FUNDOS de barra/gradiente c/ texto branco.)
+const COR_ATUAL_GRAF = 'var(--color-foreground)'
 const COR_NEUTRA = '#cbd5e1'
 
 const REGIMES: Regime[] = ['LUCRO_REAL', 'LUCRO_PRESUMIDO', 'SIMPLES']
@@ -137,7 +138,7 @@ function CampoMoeda({ label, valor, onChange, className }: {
             onChange(digitos ? Number(digitos) / 100 : 0)
           }}
           className={cn(
-            'h-10 w-full rounded-md border border-border bg-card pl-10 pr-3 text-right text-sm tabular-nums text-foreground',
+            'h-10 w-full rounded-md pl-10 pr-3 text-right text-sm tabular-nums text-foreground',
             'focus:outline-none focus:ring-2 focus:ring-ring/40',
             className,
           )}
@@ -203,25 +204,23 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <Label className="text-[13px] font-semibold">Regime tributário atual</Label>
-            <select
-              value={p.regime}
-              onChange={(e) => onChange({ regime: e.target.value as Regime })}
-              className="mt-1.5 h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
-            >
-              {REGIMES.map(r => <option key={r} value={r}>{ROTULO_REGIME[r].toUpperCase()}</option>)}
-            </select>
+            <Select value={p.regime} onValueChange={(v) => onChange({ regime: v as Regime })}>
+              <SelectTrigger className="mt-1.5 h-10 w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {REGIMES.map(r => <SelectItem key={r} value={r}>{ROTULO_REGIME[r].toUpperCase()}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label className="text-[13px] font-semibold">Atividade</Label>
-            <select
-              value={p.atividade}
-              onChange={(e) => onChange({ atividade: e.target.value as Atividade })}
-              className="mt-1.5 h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
-            >
-              {(['INDUSTRIA', 'COMERCIO', 'SERVICOS'] as Atividade[]).map(a => (
-                <option key={a} value={a}>{ROTULO_ATIVIDADE[a].toUpperCase()}</option>
-              ))}
-            </select>
+            <Select value={p.atividade} onValueChange={(v) => onChange({ atividade: v as Atividade })}>
+              <SelectTrigger className="mt-1.5 h-10 w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(['INDUSTRIA', 'COMERCIO', 'SERVICOS'] as Atividade[]).map(a => (
+                  <SelectItem key={a} value={a}>{ROTULO_ATIVIDADE[a].toUpperCase()}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <CampoMoeda
@@ -309,7 +308,7 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
             <span className="text-sm font-semibold">Total IVA</span>
             <span className="text-lg font-bold tabular-nums">{porcento(totalIva)}</span>
           </div>
-          <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+          <p className={cn('mt-3 rounded-md border px-3 py-2 text-[11px]', BADGE.amber)}>
             A alíquota do IVA ainda não está definida em lei, e a estimativa oficial varia de <b>26,5%</b> a <b>28%</b>.
           </p>
         </Card>
@@ -410,7 +409,7 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
           <span className="text-lg font-bold tabular-nums">{porcento(aliquotaCpp(p))}</span>
         </div>
         {p.folhaMensal <= 0 && (
-          <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+          <p className={cn('mt-3 rounded-md border px-3 py-2 text-[11px]', BADGE.amber)}>
             Sem a folha, a CPP não entra nas colunas fora do Simples e o comparativo <b>não é conclusivo</b>.
           </p>
         )}
@@ -438,8 +437,8 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
                           variant="outline"
                           className={cn(
                             'h-4 whitespace-nowrap px-1.5 text-[9px]',
-                            i.categoria === 'REMUNERACAO' && 'border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400',
-                            i.categoria === 'REVISAR' && 'border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-400',
+                            i.categoria === 'REMUNERACAO' && cn(BORDER.emerald, TEXT.emerald),
+                            i.categoria === 'REVISAR' && cn(BORDER.amber, TEXT.amber),
                           )}
                         >
                           {ROTULO_CATEGORIA_FOLHA[i.categoria]}
@@ -479,15 +478,14 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
             </div>
             <div>
               <Label className="text-[13px] font-semibold">Atividade (LC 123)</Label>
-              <select
-                value={p.atividadeSimples}
-                onChange={(e) => onChange({ atividadeSimples: e.target.value as AtividadeSimples })}
-                className="mt-1.5 h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
-              >
-                {ATIVIDADES_SIMPLES.map(a => (
-                  <option key={a} value={a}>{ROTULO_ATIVIDADE_SIMPLES[a]}</option>
-                ))}
-              </select>
+              <Select value={p.atividadeSimples} onValueChange={(v) => onChange({ atividadeSimples: v as AtividadeSimples })}>
+                <SelectTrigger className="mt-1.5 h-10 w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ATIVIDADES_SIMPLES.map(a => (
+                    <SelectItem key={a} value={a}>{ROTULO_ATIVIDADE_SIMPLES[a]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="mt-1 text-[11px] text-muted-foreground">
                 Decide o anexo, o Fator R e o ISS fixo. Serviços contábeis são Anexo III
                 por lei (art. 18, §5º-B), independentemente da folha.
@@ -495,16 +493,15 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
             </div>
             <div>
               <Label className="text-[13px] font-semibold">Anexo</Label>
-              <select
-                value={p.anexo}
-                onChange={(e) => onChange({ anexo: e.target.value as Anexo | 'AUTO' })}
-                className="mt-1.5 h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
-              >
-                <option value="AUTO">AUTOMÁTICO — pela atividade e pelo Fator R</option>
-                {(['I', 'II', 'III', 'IV', 'V'] as Anexo[]).map(a => (
-                  <option key={a} value={a}>{ROTULO_ANEXO[a]}</option>
-                ))}
-              </select>
+              <Select value={p.anexo} onValueChange={(v) => onChange({ anexo: v as Anexo | 'AUTO' })}>
+                <SelectTrigger className="mt-1.5 h-10 w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="AUTO">AUTOMÁTICO — pela atividade e pelo Fator R</SelectItem>
+                  {(['I', 'II', 'III', 'IV', 'V'] as Anexo[]).map(a => (
+                    <SelectItem key={a} value={a}>{ROTULO_ANEXO[a]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <CampoMoeda label="DAS informado (guia mensal)" valor={p.dasInformado} onChange={(v) => onChange({ dasInformado: v })} />
@@ -523,28 +520,26 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
           <div className="space-y-4">
             <div>
               <Label className="text-[13px] font-semibold">Ano-base</Label>
-              <select
-                value={p.anoBase}
-                onChange={(e) => onChange({ anoBase: Number(e.target.value) })}
-                className="mt-1.5 h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
-              >
-                {ANOS_BASE.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
+              <Select value={String(p.anoBase)} onValueChange={(v) => onChange({ anoBase: Number(v) })}>
+                <SelectTrigger className="mt-1.5 h-10 w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ANOS_BASE.map(a => <SelectItem key={a} value={String(a)}>{a}</SelectItem>)}
+                </SelectContent>
+              </Select>
               <p className="mt-1 text-[11px] text-muted-foreground">
                 As alíquotas do IVA são função do ano: o regime pleno só vale em {ANO_PLENO}.
               </p>
             </div>
             <div>
               <Label className="text-[13px] font-semibold">Redução por atividade</Label>
-              <select
-                value={p.classificacaoIva}
-                onChange={(e) => onChange({ classificacaoIva: e.target.value as ClassificacaoIva })}
-                className="mt-1.5 h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
-              >
-                {(Object.keys(REDUCOES_IVA) as ClassificacaoIva[]).map(k => (
-                  <option key={k} value={k}>{REDUCOES_IVA[k].rotulo}</option>
-                ))}
-              </select>
+              <Select value={p.classificacaoIva} onValueChange={(v) => onChange({ classificacaoIva: v as ClassificacaoIva })}>
+                <SelectTrigger className="mt-1.5 h-10 w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(REDUCOES_IVA) as ClassificacaoIva[]).map(k => (
+                    <SelectItem key={k} value={k}>{REDUCOES_IVA[k].rotulo}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="mt-1 text-[11px] text-muted-foreground">{REDUCOES_IVA[p.classificacaoIva].base}</p>
             </div>
             <div>
@@ -577,11 +572,9 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
               </p>
             </div>
             <label className="flex shrink-0 items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={p.issUniprofissional}
-                onChange={(e) => onChange({ issUniprofissional: e.target.checked })}
-                className="h-4 w-4 rounded border-border"
+                onCheckedChange={(c) => onChange({ issUniprofissional: c === true })}
               />
               Sociedade uniprofissional
             </label>
@@ -605,7 +598,7 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
         </Card>
       )}
 
-      <p className="mt-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300">
+      <p className={cn('mt-5 rounded-lg border px-4 py-3 text-xs', BADGE.rose)}>
         Os resultados da simulação não substituem uma consultoria tributária. Confirme os dados, as alíquotas
         e as regras específicas do setor antes de tomar decisões.
       </p>
@@ -651,7 +644,7 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
           bate com a memória de cálculo, o resto da comparação está apoiado
           num número que ninguém conferiu. */}
       {c.divergenciaDas?.alerta && (
-        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30">
+        <div className={cn('mb-5 rounded-lg border px-4 py-3', SURFACE.amber)}>
           <p className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-300">
             <AlertTriangle className="h-4 w-4" /> DAS informado diverge do calculado
           </p>
@@ -665,7 +658,7 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
       )}
 
       {!c.conclusivo && (
-        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30">
+        <div className={cn('mb-5 rounded-lg border px-4 py-3', SURFACE.amber)}>
           <p className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-300">
             <AlertTriangle className="h-4 w-4" /> Comparativo ainda não conclusivo
           </p>
@@ -675,7 +668,7 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
           {onIrParaConfigurar && (
             <Button
               type="button" variant="outline" size="sm"
-              className="mt-2 h-7 border-amber-300 bg-white/60 text-xs text-amber-900 hover:bg-white dark:border-amber-800 dark:bg-transparent dark:text-amber-300"
+              className="mt-2 h-7 border-amber-300 bg-white/60 text-xs text-amber-900 hover:bg-white dark:border-amber-800 dark:bg-transparent dark:text-amber-300 dark:hover:bg-amber-800/20"
               onClick={onIrParaConfigurar}
             >
               Preencher em Configurar
@@ -721,7 +714,7 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
                     return (
                       <Celula key={l.chave}>
                         {v === null
-                          ? <span className="text-amber-600 dark:text-amber-400" title="Não calculável com os dados informados">—</span>
+                          ? <span className={TEXT.amber} title="Não calculável com os dados informados">—</span>
                           : reais(v)}
                       </Celula>
                     )
@@ -733,7 +726,7 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
                 <td className="px-4 py-2.5 text-sm text-muted-foreground">(−) Créditos</td>
                 {colunas.map(l => (
                   <Celula key={l.chave}>
-                    <span className={l.creditos > 0 ? 'text-rose-600 dark:text-rose-400' : ''}>
+                    <span className={cn(l.creditos > 0 && TEXT.rose)}>
                       {l.creditos > 0 ? `−${reais(l.creditos)}` : reais(0)}
                     </span>
                   </Celula>
@@ -813,7 +806,7 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
               </div>
               <span className="shrink-0 text-sm font-bold tabular-nums">
                 {l.parcial && l.totalEfetivo !== null && (
-                  <span className="mr-1 text-[10px] font-normal text-amber-600 dark:text-amber-400">parcial</span>
+                  <span className={cn('mr-1 text-[10px] font-normal', TEXT.amber)}>parcial</span>
                 )}
                 {reaisOuTraco(l.totalEfetivo)}
               </span>
@@ -828,7 +821,7 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
                     </td>
                     <td className="py-1.5 text-right text-xs tabular-nums">
                       {it.valor === null
-                        ? <span className="text-amber-600 dark:text-amber-400">—</span>
+                        ? <span className={TEXT.amber}>—</span>
                         : reais(it.valor)}
                     </td>
                   </tr>
@@ -836,7 +829,7 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
               </tbody>
             </table>
             {l.pendencias.length > 0 && (
-              <ul className="mt-2 list-disc space-y-0.5 pl-4 text-[11px] text-amber-700 dark:text-amber-400">
+              <ul className={cn('mt-2 list-disc space-y-0.5 pl-4 text-[11px]', TEXT.amber)}>
                 {l.pendencias.map(m => <li key={m}>{m}</li>)}
               </ul>
             )}
@@ -887,7 +880,7 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
         </Card>
       </div>
 
-      <p className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+      <p className={cn('mb-5 rounded-lg border px-4 py-3 text-xs', BADGE.amber)}>
         <b>Importante:</b> a simulação não deve ser lida apenas pela alíquota final. Avalie também o impacto da
         geração de créditos, a relação com os clientes (quem compra pode aproveitar o crédito) e a
         competitividade do negócio. O Simples <b>não é extinto</b> pela reforma: as duas primeiras colunas
@@ -902,12 +895,12 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
               <CartesianGrid {...GRADE} vertical={false} />
               <XAxis dataKey="nome" {...EIXO} />
               <YAxis {...EIXO} tickFormatter={(v) => `${v}%`} />
-              <Tooltip {...TOOLTIP} formatter={(v) => porcento(Number(v))} />
+              <Tooltip content={<ChartTooltip format={(v) => porcento(Number(v))} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Bar dataKey="valor" radius={[4, 4, 0, 0]} maxBarSize={56}>
                 <LabelList dataKey="valor" position="top" formatter={(v) => porcento(Number(v))}
-                  style={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+                  style={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} />
                 {dadosAliquota.map((d, i) => (
-                  <Cell key={i} fill={d.nome.includes('IVA') ? COR_IVA : d.atual ? COR_ATUAL : COR_NEUTRA} />
+                  <Cell key={i} fill={d.nome.includes('IVA') ? COR_IVA : d.atual ? COR_ATUAL_GRAF : COR_NEUTRA} />
                 ))}
               </Bar>
             </BarChart>
@@ -921,12 +914,12 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
               <CartesianGrid {...GRADE} horizontal={false} />
               <XAxis type="number" {...EIXO} tickFormatter={reaisCurto} />
               <YAxis type="category" dataKey="nome" width={150} {...EIXO} />
-              <Tooltip {...TOOLTIP} formatter={(v) => reais(Number(v))} />
+              <Tooltip content={<ChartTooltip format={(v) => reais(Number(v))} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Bar dataKey="valor" radius={[0, 4, 4, 0]} maxBarSize={26}>
                 <LabelList dataKey="valor" position="right" formatter={(v) => reaisCurto(Number(v))}
-                  style={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+                  style={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} />
                 {dadosTotal.map((d, i) => (
-                  <Cell key={i} fill={d.nome.includes('IVA') ? COR_IVA : d.atual ? COR_ATUAL : COR_NEUTRA} />
+                  <Cell key={i} fill={d.nome.includes('IVA') ? COR_IVA : d.atual ? COR_ATUAL_GRAF : COR_NEUTRA} />
                 ))}
               </Bar>
             </BarChart>
@@ -963,14 +956,17 @@ export function SecaoTransicao({ p, onChange }: {
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
+            {/* Espaçador ANTES do label: reserva a linha de subtítulo das colunas
+                vizinhas (Faturamento/Carga) no topo, então o label desce e fica
+                colado ao select — e o controle alinha na mesma base das caixas. */}
+            <p className="text-[11px] text-muted-foreground select-none" aria-hidden>&nbsp;</p>
             <Label className="text-[13px] font-semibold">Regime atual</Label>
-            <select
-              value={p.regime}
-              onChange={(e) => onChange({ regime: e.target.value as Regime })}
-              className="mt-1.5 h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
-            >
-              {REGIMES.map(r => <option key={r} value={r}>{ROTULO_REGIME[r].toUpperCase()}</option>)}
-            </select>
+            <Select value={p.regime} onValueChange={(v) => onChange({ regime: v as Regime })}>
+              <SelectTrigger className="mt-1 h-10 w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {REGIMES.map(r => <SelectItem key={r} value={r}>{ROTULO_REGIME[r].toUpperCase()}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label className="text-[13px] font-semibold">Faturamento anual</Label>
@@ -1054,7 +1050,7 @@ export function SecaoTransicao({ p, onChange }: {
               <CartesianGrid {...GRADE} vertical={false} />
               <XAxis dataKey="ano" {...EIXO} />
               <YAxis {...EIXO} tickFormatter={reaisCurto} width={78} />
-              <Tooltip {...TOOLTIP} formatter={(v) => reais(Number(v))} />
+              <Tooltip content={<ChartTooltip format={(v) => reais(Number(v))} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Area type="monotone" dataKey="total" name="Total a pagar" stroke={COR_IVA} strokeWidth={2} fill="url(#rtTotal)" />
             </AreaChart>
           </ResponsiveContainer>
@@ -1070,7 +1066,7 @@ export function SecaoTransicao({ p, onChange }: {
               <CartesianGrid {...GRADE} vertical={false} />
               <XAxis dataKey="ano" {...EIXO} />
               <YAxis {...EIXO} tickFormatter={reaisCurto} width={78} />
-              <Tooltip {...TOOLTIP} formatter={(v) => reais(Number(v))} />
+              <Tooltip content={<ChartTooltip format={(v) => reais(Number(v))} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Line type="monotone" dataKey="sistemaAntigo" name="Sistema antigo" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 3 }} />
               <Line type="monotone" dataKey="ibs" name="IBS (novo)" stroke={COR_IVA} strokeWidth={2} dot={{ r: 3 }} />
@@ -1258,7 +1254,7 @@ export function SecaoVisaoGeral({ p, cliente }: {
         </div>
         <Card className="px-4 py-4">
           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Diferença mensal</p>
-          <p className={cn('mt-1 text-xl font-bold tabular-nums', diferenca === null ? 'text-muted-foreground' : alivio ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')}>
+          <p className={cn('mt-1 text-xl font-bold tabular-nums', diferenca === null ? 'text-muted-foreground' : alivio ? TEXT.emerald : TEXT.rose)}>
             {diferenca === null ? '—' : `${alivio ? '−' : '+'}${reais(Math.abs(diferenca))}`}
           </p>
         </Card>
@@ -1269,7 +1265,7 @@ export function SecaoVisaoGeral({ p, cliente }: {
       </div>
 
       {!comparativo.conclusivo && (
-        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30">
+        <div className={cn('mb-5 rounded-lg border px-4 py-3', SURFACE.amber)}>
           <p className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-300">
             <AlertTriangle className="h-4 w-4" /> Simulação ainda não conclusiva
           </p>
@@ -1281,14 +1277,12 @@ export function SecaoVisaoGeral({ p, cliente }: {
 
       <div className={cn(
         'mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3',
-        alivio
-          ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30'
-          : 'border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/30',
+        alivio ? SURFACE.emerald : SURFACE.rose,
       )}>
-        <span className={cn('text-sm font-medium', alivio ? 'text-emerald-800 dark:text-emerald-300' : 'text-rose-800 dark:text-rose-300')}>
+        <span className={cn('text-sm font-medium', alivio ? TEXT.emerald : TEXT.rose)}>
           {economiaAnual === null ? 'Diferença anual' : alivio ? 'Economia anual estimada' : 'Custo adicional anual estimado'}
         </span>
-        <span className={cn('text-lg font-bold tabular-nums', alivio ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300')}>
+        <span className={cn('text-lg font-bold tabular-nums', alivio ? TEXT.emerald : TEXT.rose)}>
           {economiaAnual === null ? '—' : reais(Math.abs(economiaAnual))}
         </span>
       </div>
@@ -1299,7 +1293,7 @@ export function SecaoVisaoGeral({ p, cliente }: {
         </Button>
         <Button
           type="button" className="gap-2 text-white"
-          style={{ background: '#25D366' }}
+          style={{ background: '#1DA851' }}
           onClick={compartilhar}
         >
           <Share2 className="h-4 w-4" />Compartilhar no WhatsApp
@@ -1317,11 +1311,11 @@ export function SecaoVisaoGeral({ p, cliente }: {
               <CartesianGrid {...GRADE} vertical={false} />
               <XAxis dataKey="nome" {...EIXO} />
               <YAxis {...EIXO} tickFormatter={reaisCurto} width={78} />
-              <Tooltip {...TOOLTIP} formatter={(v) => reais(Number(v))} />
+              <Tooltip content={<ChartTooltip format={(v) => reais(Number(v))} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Bar dataKey="valor" radius={[4, 4, 0, 0]} maxBarSize={90}>
                 <LabelList dataKey="valor" position="top" formatter={(v) => reaisCurto(Number(v))}
-                  style={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
-                <Cell fill={COR_ATUAL} />
+                  style={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} />
+                <Cell fill={COR_ATUAL_GRAF} />
                 <Cell fill={COR_IVA} />
               </Bar>
             </BarChart>
@@ -1335,12 +1329,12 @@ export function SecaoVisaoGeral({ p, cliente }: {
               <CartesianGrid {...GRADE} vertical={false} />
               <XAxis dataKey="nome" {...EIXO} />
               <YAxis {...EIXO} tickFormatter={(v) => `${v}%`} />
-              <Tooltip {...TOOLTIP} formatter={(v) => porcento(Number(v))} />
+              <Tooltip content={<ChartTooltip format={(v) => porcento(Number(v))} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Bar dataKey="valor" radius={[4, 4, 0, 0]} maxBarSize={56}>
                 <LabelList dataKey="valor" position="top" formatter={(v) => porcento(Number(v))}
-                  style={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+                  style={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} />
                 {porRegime.map((d, i) => (
-                  <Cell key={i} fill={d.nome === 'IVA' ? COR_IVA : d.atual ? COR_ATUAL : COR_NEUTRA} />
+                  <Cell key={i} fill={d.nome === 'IVA' ? COR_IVA : d.atual ? COR_ATUAL_GRAF : COR_NEUTRA} />
                 ))}
               </Bar>
             </BarChart>
@@ -1489,7 +1483,7 @@ export function SecaoCalculadora({ p, op, onChange }: {
             </div>
             <div className="flex items-center justify-between py-2.5 text-sm">
               <span className="text-muted-foreground">(−) Crédito a compensar</span>
-              <span className="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{reais(r.credito)}</span>
+              <span className={cn('font-semibold tabular-nums', TEXT.emerald)}>{reais(r.credito)}</span>
             </div>
             <div className="flex items-center justify-between py-2.5 text-sm">
               <span className="text-muted-foreground">Alíquota efetiva</span>
@@ -1515,16 +1509,15 @@ export function SecaoCalculadora({ p, op, onChange }: {
             />
             <div>
               <Label className="text-[13px] font-semibold">Regime da operação</Label>
-              <select
-                value={op.reducao}
-                onChange={(e) => onChange({ reducao: Number(e.target.value) })}
-                className="mt-1.5 h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
-              >
-                <option value={0}>Padrão — alíquota cheia</option>
-                <option value={30}>Redução de 30% — profissões regulamentadas</option>
-                <option value={60}>Redução de 60% — saúde, educação, alimentos</option>
-                <option value={100}>Alíquota zero / isento</option>
-              </select>
+              <Select value={String(op.reducao)} onValueChange={(v) => onChange({ reducao: Number(v) })}>
+                <SelectTrigger className="mt-1.5 h-10 w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Padrão — alíquota cheia</SelectItem>
+                  <SelectItem value="30">Redução de 30% — profissões regulamentadas</SelectItem>
+                  <SelectItem value="60">Redução de 60% — saúde, educação, alimentos</SelectItem>
+                  <SelectItem value="100">Alíquota zero / isento</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label className="text-[13px] font-semibold">% de despesas creditáveis</Label>
@@ -1568,10 +1561,10 @@ export function SecaoCalculadora({ p, op, onChange }: {
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie data={rosca} dataKey="valor" nameKey="nome" innerRadius={62} outerRadius={98} paddingAngle={2}>
-                <Cell fill={COR_ATUAL} />
+                <Cell fill={COR_ATUAL_GRAF} />
                 <Cell fill={COR_IVA} />
               </Pie>
-              <Tooltip {...TOOLTIP} formatter={(v) => reais(Number(v))} />
+              <Tooltip content={<ChartTooltip format={(v) => reais(Number(v))} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
             </PieChart>
           </ResponsiveContainer>

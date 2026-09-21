@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Bug, RefreshCw, Search, Loader2, CheckCircle2, AlertTriangle, AlertOctagon, Trash2, ChevronDown, ChevronUp, User as UserIcon, RotateCw,
+  Bug, RefreshCw, Search, Loader2, CheckCircle2, AlertTriangle, AlertOctagon, Trash2, ChevronDown, ChevronUp, RotateCw,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   FileText, BarChart3, ListTree, StickyNote, TrendingUp,
 } from 'lucide-react'
@@ -21,6 +21,9 @@ import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { UserAvatar } from '@/components/ui/user-avatar'
+import { BADGE, PILL, TEXT, BORDER } from '@/lib/color-styles'
+import { ChartTooltip } from '@/components/chart-tooltip'
 
 const LEVEL_META_FALLBACK: { label: string; cor: string; icon: typeof Bug } = { label: 'Erro', cor: 'rose', icon: AlertOctagon }
 const LEVEL_META: Record<string, { label: string; cor: string; icon: typeof Bug }> = {
@@ -29,10 +32,11 @@ const LEVEL_META: Record<string, { label: string; cor: string; icon: typeof Bug 
   REJECTION: { label: 'Promise',  cor: 'violet', icon: Bug },
 }
 
+// Chip de nível = badge de status comum → deriva do helper (camada 2).
 const LEVEL_CHIP_CLS: Record<string, string> = {
-  rose:   'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-800',
-  amber:  'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800',
-  violet: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/30 dark:text-violet-300 dark:border-violet-800',
+  rose:   BADGE.rose,
+  amber:  BADGE.amber,
+  violet: BADGE.violet,
 }
 
 function fmtRelative(d: string | Date): string {
@@ -284,11 +288,11 @@ export default function ErrosClientePage() {
             <RefreshCw className="h-3.5 w-3.5" /> Atualizar
           </Button>
           {(stats?.abertos ?? 0) > 0 && (
-            <Button size="sm" onClick={handleResolveAll} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Button variant="success" size="sm" onClick={handleResolveAll} className="gap-1.5">
               <CheckCircle2 className="h-3.5 w-3.5" /> Resolver todos
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={handleDeleteResolved} className="gap-1.5 text-rose-600 border-rose-200 hover:bg-rose-50">
+          <Button variant="soft-destructive" size="sm" onClick={handleDeleteResolved} className="gap-1.5">
             <Trash2 className="h-3.5 w-3.5" /> Limpar resolvidos
           </Button>
       </>}>
@@ -329,11 +333,11 @@ export default function ErrosClientePage() {
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 flex-wrap">
             <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{[20, 30, 50, 100].map(s => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={resolvedFilter} onValueChange={v => { setResolvedFilter(v as any); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[140px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="open">Abertos</SelectItem>
                 <SelectItem value="resolved">Resolvidos</SelectItem>
@@ -341,7 +345,7 @@ export default function ErrosClientePage() {
               </SelectContent>
             </Select>
             <Select value={levelFilter} onValueChange={v => { setLevelFilter(v as any); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[140px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os níveis</SelectItem>
                 <SelectItem value="ERROR">Erros</SelectItem>
@@ -352,7 +356,7 @@ export default function ErrosClientePage() {
           </div>
           <div className="relative">
             <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input placeholder="Mensagem, URL, stack..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 pl-8 w-full sm:w-[260px] text-xs bg-card" />
+            <Input placeholder="Mensagem, URL, stack..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 pl-8 w-full sm:w-[260px] text-xs" />
           </div>
         </div>
 
@@ -393,11 +397,11 @@ export default function ErrosClientePage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start gap-1.5 flex-wrap">
                             {e.modulo && (
-                              <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-900/50 text-[10px] font-semibold uppercase tracking-wide">
+                              <span className={cn('shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-md border text-[10px] font-semibold uppercase tracking-wide', BADGE.indigo)}>
                                 {e.modulo}
                               </span>
                             )}
-                            <p className="text-[12px] font-medium text-foreground line-clamp-2 flex-1">{e.message}</p>
+                            <p className="text-[12px] font-medium text-foreground line-clamp-2 flex-1 min-w-0 [overflow-wrap:anywhere]">{e.message}</p>
                           </div>
                           {e.url && (
                             <p className="text-[10px] text-muted-foreground truncate font-mono mt-0.5" title={e.url}>{e.url}</p>
@@ -415,9 +419,9 @@ export default function ErrosClientePage() {
                     </TableCell>
                     <TableCell>
                       {e.user ? (
-                        <span className="inline-flex items-center gap-1.5 text-[11px]">
-                          <UserIcon className="h-3 w-3 text-muted-foreground" />
-                          {e.user.name}
+                        <span className="inline-flex items-center gap-1.5 text-[11px] min-w-0">
+                          <UserAvatar user={e.user} className="h-5 w-5 text-[9px] shrink-0" />
+                          <span className="truncate">{e.user.name}</span>
                         </span>
                       ) : (
                         <span className="text-[10px] text-muted-foreground italic">Anônimo</span>
@@ -429,7 +433,7 @@ export default function ErrosClientePage() {
                           <RotateCw className="h-3 w-3" /> Reabrir
                         </Button>
                       ) : (
-                        <Button variant="ghost" size="sm" onClick={(ev) => { ev.stopPropagation(); void handleResolved(e.id, false) }} className="gap-1 h-7 text-[11px] text-emerald-700 hover:text-emerald-800">
+                        <Button variant="ghost" size="sm" onClick={(ev) => { ev.stopPropagation(); void handleResolved(e.id, false) }} className={cn('gap-1 h-7 text-[11px] hover:text-emerald-800', TEXT.emerald)}>
                           <CheckCircle2 className="h-3 w-3" /> Resolver
                         </Button>
                       )}
@@ -442,7 +446,7 @@ export default function ErrosClientePage() {
                           {e.stack && (
                             <div>
                               <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Stack trace</div>
-                              <pre className="text-[10px] font-mono bg-card border rounded p-2 overflow-x-auto whitespace-pre-wrap max-h-[300px] overflow-y-auto">
+                              <pre className="text-[10px] font-mono bg-card border rounded p-2 overflow-x-auto whitespace-pre-wrap max-h-[300px] overflow-y-auto nice-scrollbar">
                                 {e.stack}
                               </pre>
                             </div>
@@ -460,7 +464,7 @@ export default function ErrosClientePage() {
                                 )}
                               </div>
                               {savingNotes[e.id] && (
-                                <span className="text-[10px] text-sky-600 flex items-center gap-1">
+                                <span className={cn('text-[10px] flex items-center gap-1', TEXT.sky)}>
                                   <Loader2 className="h-3 w-3 animate-spin" /> Salvando...
                                 </span>
                               )}
@@ -469,7 +473,7 @@ export default function ErrosClientePage() {
                               value={notesById[e.id]?.notas ?? ''}
                               onChange={(ev) => setNotaLocal(e.id, ev.target.value)}
                               placeholder="Cole aqui o que descobriu sobre o bug, qual foi o fix, commit, contexto, etc. Salva automaticamente em 800ms."
-                              className="w-full min-h-[80px] text-[11px] font-mono bg-card border border-border rounded p-2 resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                              className="w-full min-h-[80px] text-[11px] font-mono rounded p-2 resize-y focus:outline-none focus:ring-1 focus:ring-ring"
                               disabled={!notesById[e.id]?.carregado}
                             />
                           </div>
@@ -481,7 +485,7 @@ export default function ErrosClientePage() {
                             <span><strong>Módulo:</strong> {e.modulo ?? '—'}</span>
                             {e.userAgent && <span className="truncate max-w-[400px]" title={e.userAgent}><strong>UA:</strong> {e.userAgent}</span>}
                             {e.resolvedAt && e.resolvedBy && (
-                              <span className="text-emerald-600"><strong>Resolvido por:</strong> {e.resolvedBy.name} · {fmtRelative(e.resolvedAt)}</span>
+                              <span className={TEXT.emerald}><strong>Resolvido por:</strong> {e.resolvedBy.name} · {fmtRelative(e.resolvedAt)}</span>
                             )}
                           </div>
                         </div>
@@ -514,12 +518,13 @@ export default function ErrosClientePage() {
 }
 
 function StatCard({ icon: Icon, label, value, color }: { icon: typeof Bug; label: string; value: number; color: string }) {
+  // Chip do ícone = fundo pastel + texto, sem borda → papel PILL do helper.
   const map: Record<string, string> = {
-    rose:   'text-rose-700 bg-rose-50 dark:bg-rose-950/30 dark:text-rose-300',
-    amber:  'text-amber-700 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-300',
-    violet: 'text-violet-700 bg-violet-50 dark:bg-violet-950/30 dark:text-violet-300',
-    sky:    'text-sky-700 bg-sky-50 dark:bg-sky-950/30 dark:text-sky-300',
-    slate:  'text-slate-700 bg-slate-50 dark:bg-slate-950/30 dark:text-slate-300',
+    rose:   PILL.rose,
+    amber:  PILL.amber,
+    violet: PILL.violet,
+    sky:    PILL.sky,
+    slate:  PILL.slate,
   }
   return (
     <div className="flex items-center gap-2 rounded-md border bg-card p-2.5">
@@ -594,7 +599,7 @@ function AnaliseTab() {
             <h2 className="text-[13px] font-semibold">Tendência — últimos {dias} dias</h2>
           </div>
           <Select value={String(dias)} onValueChange={v => setDias(Number(v))}>
-            <SelectTrigger className="h-8 w-[100px] text-xs bg-card"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-8 w-[100px] text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="7">7 dias</SelectItem>
               <SelectItem value="30">30 dias</SelectItem>
@@ -609,12 +614,11 @@ function AnaliseTab() {
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={trendData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.3} />
                 <XAxis dataKey="dia" tick={{ fontSize: 10 }} tickFormatter={(d) => d.slice(5)} />
                 <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
                 <RechartsTooltip
-                  contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: '11px' }}
-                  labelFormatter={(d) => new Date(d + 'T00:00:00').toLocaleDateString('pt-BR')}
+                  content={<ChartTooltip labelFormat={(d) => new Date(String(d) + 'T00:00:00').toLocaleDateString('pt-BR')} />}
                 />
                 <Legend wrapperStyle={{ fontSize: '11px' }} />
                 <Line type="monotone" dataKey="ERROR"     stroke="#f43f5e" strokeWidth={2} dot={{ r: 3 }} name="Errors" />
@@ -645,7 +649,7 @@ function AnaliseTab() {
                       <span className={cn('inline-flex items-center gap-1 px-1.5 py-0 rounded text-[9px] font-semibold border', LEVEL_CHIP_CLS[meta.cor])}>
                         {meta.label}
                       </span>
-                      {r.resolvedAt && <Badge variant="outline" className="text-[9px] h-4 px-1 border-emerald-200 text-emerald-700">Resolvido</Badge>}
+                      {r.resolvedAt && <Badge variant="outline" className={cn('text-[9px] h-4 px-1', TEXT.emerald, BORDER.emerald)}>Resolvido</Badge>}
                     </div>
                     <p className="text-[12px] font-medium line-clamp-2 leading-tight">{r.message}</p>
                     {r.url && <p className="text-[10px] text-muted-foreground truncate font-mono">{r.url}</p>}
@@ -666,14 +670,14 @@ function AnaliseTab() {
             <FileText className="h-4 w-4 text-muted-foreground" />
             <h2 className="text-[13px] font-semibold">Por rota — onde os erros nascem</h2>
           </div>
-          <div className="divide-y divide-border/40 max-h-[600px] overflow-y-auto">
+          <div className="divide-y divide-border/40 max-h-[600px] overflow-y-auto nice-scrollbar">
             {byUrl.length === 0 && <div className="px-4 py-8 text-center text-muted-foreground text-sm">Sem dados</div>}
             {byUrl.map((r) => (
               <div key={r.rota} className="px-4 py-2 hover:bg-muted/30">
                 <div className="flex items-center justify-between gap-3 mb-1">
                   <code className="text-[11px] font-mono truncate flex-1 min-w-0" title={r.rota}>{r.rota}</code>
                   <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-                    {r.abertos > 0 && <Badge variant="outline" className="text-[9px] h-4 px-1 border-rose-200 text-rose-700 dark:border-rose-800 dark:text-rose-300">{r.abertos} aberto{r.abertos === 1 ? '' : 's'}</Badge>}
+                    {r.abertos > 0 && <Badge variant="outline" className={cn('text-[9px] h-4 px-1', BADGE.rose)}>{r.abertos} aberto{r.abertos === 1 ? '' : 's'}</Badge>}
                     <span className="text-[10px] text-muted-foreground tabular-nums">{r.errosUnicos} único{r.errosUnicos === 1 ? '' : 's'}</span>
                     <span className="text-[11px] font-bold tabular-nums w-12 text-right">{r.ocorrencias.toLocaleString('pt-BR')}</span>
                   </div>

@@ -13,6 +13,7 @@ import { Bug } from 'lucide-react'
 import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
+import { TEXT } from '@/lib/color-styles'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 
 export function ClientErrorBadge() {
@@ -58,7 +59,7 @@ export function ClientErrorBadge() {
         // encolhia o alvo e desencontrava o alinhamento vertical.
         'relative inline-flex h-10 w-10 items-center justify-center rounded-lg transition-colors',
         count > 0
-          ? 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30'
+          ? cn(TEXT.rose, 'hover:bg-rose-50 dark:hover:bg-rose-950/30')
           : 'text-muted-foreground hover:bg-muted hover:text-foreground',
       )}
     >

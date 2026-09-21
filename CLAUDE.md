@@ -11,6 +11,7 @@ Pagamento recorrente via Stripe. Reconstrução modernizada do legado **OneClick
 - `docs/error-registry.md` — registry de erros + gate obrigatório de entrega
 - `docs/PADRAO_PAGINAS.md` — **como se monta uma tela**: listagem (ref. `/clientes`), kanban (ref. `/crm` e `/orcamentos`) e detalhe (ref. `/clientes/[id]` e `/orcamentos/[id]`)
 - `docs/PADRAO_MODULOS.md`, `docs/PADRAO_MASCARAS.md`, `docs/PADRAO_KANBAN_DND.md` — padrões específicos
+- `docs/PADRAO_CORES_E_TEMA.md` — tokens de tema + fonte única de cores de conceito (`color-styles.ts`, 8 papéis) + modelo de duas camadas + cor de módulo dinâmica (`--mod-<slug>`/retint)
 - `docs/PADRAO_RESPONSIVIDADE.md` — celular/tablet/notebook 1366×768 (o modelo para toda tela nova ou tocada); baixa da varredura em `docs/responsividade-progresso.md`
 - `docs/PADRAO_ESTADOS_E_PERMISSOES.md` — estado derivado no backend (flags no payload), permissão de campo (`hasSubPermission`), propagação por SSE
 
@@ -127,7 +128,9 @@ Exceções legítimas, todas com o motivo registrado no código: prévias com `l
 Trava: `pnpm check:prose` falha se a classe reaparecer.
 
 ### Tokens semânticos de tema (CRÍTICO para dark mode)
-**Sempre** `bg-muted/40`, `border-border`, `text-foreground`. **Nunca** `bg-[#f8f9fa]`, `border-[rgba(0,0,0,0.08)]`. Hex hardcoded quebra dark mode.
+**Sempre** `bg-muted/40`, `border-border`, `text-foreground`; divisória fininha = `border-hairline`. **Nunca** `bg-[#f8f9fa]`, `border-[rgba(0,0,0,0.08)]`. Hex hardcoded quebra dark mode. Tema = classe `.dark` no `<html>` (padrão segue o sistema, persiste no localStorage); skins de acento (`data-skin`) trocam a `--color-primary`.
+
+**Cores de conceito** (status/ênfase/superfície colorida) = **fonte única** `apps/web/src/lib/color-styles.ts`: 8 papéis (`BADGE`/`PILL`/`STRONG`/`TEXT`/`SURFACE`/`BORDER`/`DOT`/`FILL`) × 16 cores, **strings literais** (é o safelist do JIT — **nunca interpole** `bg-${c}-50`). Uso: `cn('layout…', TEXT.emerald)`. NÃO pinte botão com o helper (use variants do `<Button>`); hex de gráfico/inline → mapa `*_COR` local. Modelo de duas camadas e receitas em `docs/PADRAO_CORES_E_TEMA.md`.
 
 ### Cores de módulo (dinâmicas)
 Editáveis em `/admin/design-system → Tokens & cores`, persistidas em `module_colors`, injetadas como CSS vars em `:root` via `ModuleColorsProvider`. Slugs em `docs/MODULOS.md`.
@@ -142,6 +145,8 @@ import { useModuleColor } from '@/components/theme/module-colors'
 const moduleColor = useModuleColor('cadastros')
 ```
 Nunca hardcoded `const MODULE_COLOR = '#10b981'`. Nova cor: adicionar em `DEFAULT_MODULE_COLORS` em `apps/api/src/theme/theme.service.ts` + mirror em `apps/web/src/components/theme/module-colors.tsx`.
+
+**Retint `.mod-<slug>`:** cada página roda sob `body.mod-<slug>` (`use-module-scope.ts`, via `resolveSlug`); o `globals.css` retinge os utilitários da cor **daquele módulo** para `var(--mod-<slug>)` (claro + `dark:`). **Intenção decide o mecanismo:** cor do módulo → a **var** explícita (nunca conte só com o retint); cor de conceito (mesmo que coincida com a do módulo) → o **helper** `color-styles` (o retint pegar é aceito). Hex inline que é cor de módulo → var; hex de status → `*_COR` inline. Duas camadas + regra de intenção completas em `docs/PADRAO_CORES_E_TEMA.md`.
 
 ### Estrutura de módulo NestJS
 ```

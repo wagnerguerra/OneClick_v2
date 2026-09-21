@@ -16,6 +16,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
+import { BADGE, SURFACE, STRONG, TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { CertAcessoModal } from '@/components/certificado/cert-acesso-modal'
 import { SenhaPfxInput } from '@/components/certificado/senha-pfx-input'
@@ -83,19 +84,19 @@ function diasParaExpirar(expiraEm: string): number {
 
 function StatusBadge({ status, expiraEm }: { status: string; expiraEm: string }) {
   if (status === 'REVOGADO') {
-    return <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 px-2 py-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-400"><Ban className="h-3 w-3" /> Revogado</span>
+    return <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold', BADGE.rose)}><Ban className="h-3 w-3" /> Revogado</span>
   }
   const dias = diasParaExpirar(expiraEm)
   if (dias < 0) {
-    return <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 px-2 py-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-400"><XCircle className="h-3 w-3" /> Vencido</span>
+    return <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold', BADGE.rose)}><XCircle className="h-3 w-3" /> Vencido</span>
   }
   if (dias <= 30) {
-    return <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400"><Clock className="h-3 w-3" /> {dias}d</span>
+    return <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold', BADGE.amber)}><Clock className="h-3 w-3" /> {dias}d</span>
   }
   if (dias <= 60) {
-    return <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400"><Clock className="h-3 w-3" /> {dias}d</span>
+    return <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold', BADGE.amber)}><Clock className="h-3 w-3" /> {dias}d</span>
   }
-  return <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400"><CheckCircle2 className="h-3 w-3" /> Vigente</span>
+  return <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold', BADGE.emerald)}><CheckCircle2 className="h-3 w-3" /> Vigente</span>
 }
 
 // ============================================================
@@ -564,7 +565,7 @@ export default function GestaoCertificadosPage() {
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="hidden sm:inline">Exibir</span>
             <Select value={String(limit)} onValueChange={v => setLimit(Number(v))}>
-              <SelectTrigger className="h-8 w-[68px] bg-card text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[68px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {[10, 20, 50, 100].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
               </SelectContent>
@@ -584,7 +585,7 @@ export default function GestaoCertificadosPage() {
               placeholder="Buscar por titular, documento, cliente..."
               value={filtroBusca}
               onChange={e => setFiltroBusca(e.target.value)}
-              className="h-8 w-full bg-card text-xs"
+              className="h-8 w-full text-xs"
             />
           </div>
         </div>
@@ -604,7 +605,7 @@ export default function GestaoCertificadosPage() {
           <>
           {/* Barra de ações em massa — só aparece quando há seleção */}
           {canDelete && selecionados.size > 0 && (
-            <div className="flex items-center justify-between gap-3 px-4 py-2 bg-fuchsia-50 dark:bg-fuchsia-950/20 border-b border-fuchsia-200 dark:border-fuchsia-900">
+            <div className={cn('flex items-center justify-between gap-3 px-4 py-2 border-b', SURFACE.fuchsia)}>
               <div className="text-sm font-medium">
                 {selecionados.size} selecionado(s)
               </div>
@@ -798,13 +799,12 @@ export default function GestaoCertificadosPage() {
           </DialogHeaderIcon>
           <DialogBody className="space-y-4">
             <label className="flex items-start gap-3 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                className="h-4 w-4 mt-0.5 rounded border-input cursor-pointer"
-                style={{ accentColor: MODULE_COLOR }}
+              <Checkbox
+                className="mt-0.5"
+                accentColor={MODULE_COLOR}
                 checked={reautObrigatoria ?? true}
                 disabled={reautObrigatoria === null || savingConfig}
-                onChange={e => salvarReautConfig(e.target.checked)}
+                onCheckedChange={v => salvarReautConfig(!!v)}
               />
               <span className="text-sm">
                 <span className="font-semibold text-foreground">Exigir senha e justificativa</span>
@@ -908,7 +908,7 @@ function ReauthModal({ open, state, onClose }: {
                 onChange={e => setMotivo(e.target.value)}
                 rows={3}
                 placeholder="Ex: assinar contrato cliente XYZ, renovação de procuração, etc."
-                className="w-full text-sm rounded-md border border-input bg-background px-3 py-2"
+                className="w-full text-sm rounded-md px-3 py-2"
               />
               <p className="text-[10px] text-muted-foreground">Esta justificativa fica gravada na trilha de auditoria.</p>
             </div>
@@ -996,8 +996,8 @@ function RenovarCertificadoModal({ target, onClose, onRenovado }: {
           </DialogDescription>
         </DialogHeaderIcon>
         <DialogBody className="space-y-4">
-          <div className="flex items-start gap-2 p-3 rounded-md bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800">
-            <History className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+          <div className={cn('flex items-start gap-2 p-3 rounded-md border', SURFACE.amber)}>
+            <History className={cn('h-4 w-4 mt-0.5 shrink-0', TEXT.amber)} />
             <p className="text-[11px] text-amber-900 dark:text-amber-300 leading-relaxed">
               O certificado atual será marcado como <strong>RENOVADO</strong> e ocultado da listagem padrão. Os vínculos (cliente/empresa/sócio) serão herdados automaticamente. O histórico de versões fica acessível pela tela de detalhes do novo certificado.
             </p>
@@ -1008,10 +1008,10 @@ function RenovarCertificadoModal({ target, onClose, onRenovado }: {
             <label
               className={cn(
                 'flex items-center gap-3 px-4 py-3 border border-dashed rounded-md cursor-pointer transition-colors',
-                arquivo ? 'border-fuchsia-300 bg-fuchsia-50/50 dark:bg-fuchsia-900/10' : 'border-border hover:bg-muted/30',
+                arquivo ? SURFACE.fuchsia : 'border-border hover:bg-muted/30',
               )}
             >
-              {arquivo ? <FileLock className="h-5 w-5 text-fuchsia-600" /> : <Upload className="h-5 w-5 text-muted-foreground" />}
+              {arquivo ? <FileLock className={cn('h-5 w-5', TEXT.fuchsia)} /> : <Upload className="h-5 w-5 text-muted-foreground" />}
               <div className="flex-1 min-w-0">
                 {arquivo ? (
                   <>
@@ -1073,7 +1073,7 @@ function RenovarCertificadoModal({ target, onClose, onRenovado }: {
               onChange={e => setObservacoes(e.target.value)}
               rows={2}
               placeholder="Ex: renovado em campanha anual, novo emissor..."
-              className="w-full text-sm rounded-md border border-input bg-background px-3 py-2"
+              className="w-full text-sm rounded-md px-3 py-2"
             />
           </div>
         </DialogBody>
@@ -1395,16 +1395,16 @@ function LegacyImportModal({ open, onOpenChange, empresaId, onImported }: {
                           <td className="px-3 py-1 max-w-[180px] truncate text-muted-foreground">
                             {item.clienteRazao || '—'}
                             {item.vincularA === 'empresa' && (
-                              <span className="ml-1 inline-flex items-center rounded bg-fuchsia-100 px-1 py-0.5 text-[9px] font-bold text-fuchsia-800">EMPRESA</span>
+                              <span className={cn('ml-1 inline-flex items-center rounded px-1 py-0.5 text-[9px] font-bold', STRONG.fuchsia)}>EMPRESA</span>
                             )}
                           </td>
                           <td className="px-3 py-1">
                             <span className={cn(
-                              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                              s?.color === 'emerald' && 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-                              s?.color === 'amber' && 'bg-amber-50 text-amber-700 border border-amber-200',
-                              s?.color === 'rose' && 'bg-rose-50 text-rose-700 border border-rose-200',
-                              s?.color === 'sky' && 'bg-sky-50 text-sky-700 border border-sky-200',
+                              'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+                              s?.color === 'emerald' && BADGE.emerald,
+                              s?.color === 'amber' && BADGE.amber,
+                              s?.color === 'rose' && BADGE.rose,
+                              s?.color === 'sky' && BADGE.sky,
                             )}>
                               {s?.label || item.status}
                             </span>
@@ -1702,10 +1702,10 @@ function BulkImportModal({ open, onOpenChange, empresaId, onImported }: {
               onClick={() => fileInputRef.current?.click()}
               className={cn(
                 'border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors',
-                dragOver ? 'border-fuchsia-500 bg-fuchsia-50' : 'border-zinc-300 hover:border-fuchsia-400 hover:bg-zinc-50',
+                dragOver ? 'border-fuchsia-500 bg-fuchsia-50' : 'border-border hover:border-fuchsia-400 hover:bg-muted',
               )}
             >
-              <UploadCloud className="h-8 w-8 mx-auto text-zinc-400 mb-2" />
+              <UploadCloud className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
               <div className="text-sm font-medium">
                 Arraste arquivos .pfx/.p12 aqui
               </div>
@@ -1731,7 +1731,7 @@ function BulkImportModal({ open, onOpenChange, empresaId, onImported }: {
                 <button
                   type="button"
                   onClick={() => setFiles([])}
-                  className="text-[11px] text-rose-600 hover:underline"
+                  className={cn('text-[11px] hover:underline', TEXT.rose)}
                 >
                   Limpar tudo
                 </button>
@@ -1739,13 +1739,13 @@ function BulkImportModal({ open, onOpenChange, empresaId, onImported }: {
               <div className="max-h-[150px] overflow-y-auto border rounded">
                 {files.map(f => (
                   <div key={f.name} className="flex items-center gap-2 px-2 py-1 border-b last:border-b-0 text-xs">
-                    <FileLock className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                    <FileLock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     <span className="flex-1 truncate font-mono">{f.name}</span>
-                    <span className="text-zinc-500 tabular-nums">{(f.size / 1024).toFixed(1)} KB</span>
+                    <span className="text-muted-foreground tabular-nums">{(f.size / 1024).toFixed(1)} KB</span>
                     <button
                       type="button"
                       onClick={() => removeFile(f.name)}
-                      className="text-zinc-400 hover:text-rose-600"
+                      className="text-muted-foreground hover:text-rose-600"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -1840,17 +1840,17 @@ function BulkImportModal({ open, onOpenChange, empresaId, onImported }: {
                           <td className="px-3 py-1 max-w-[160px] truncate text-muted-foreground">
                             {f.alvoRazao || '—'}
                             {f.vincularA === 'empresa' && (
-                              <span className="ml-1 inline-flex items-center rounded bg-fuchsia-100 px-1 py-0.5 text-[9px] font-bold text-fuchsia-800">EMPRESA</span>
+                              <span className={cn('ml-1 inline-flex items-center rounded px-1 py-0.5 text-[9px] font-bold', STRONG.fuchsia)}>EMPRESA</span>
                             )}
                           </td>
                           <td className="px-3 py-1 tabular-nums">{venc}</td>
                           <td className="px-3 py-1">
                             <span className={cn(
-                              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                              s?.color === 'emerald' && 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-                              s?.color === 'amber' && 'bg-amber-50 text-amber-700 border border-amber-200',
-                              s?.color === 'rose' && 'bg-rose-50 text-rose-700 border border-rose-200',
-                              s?.color === 'sky' && 'bg-sky-50 text-sky-700 border border-sky-200',
+                              'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+                              s?.color === 'emerald' && BADGE.emerald,
+                              s?.color === 'amber' && BADGE.amber,
+                              s?.color === 'rose' && BADGE.rose,
+                              s?.color === 'sky' && BADGE.sky,
                             )}>
                               {s?.label || f.status}
                             </span>

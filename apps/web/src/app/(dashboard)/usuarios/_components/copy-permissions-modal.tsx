@@ -5,9 +5,10 @@ import { Copy, Loader2, Search, Check } from 'lucide-react'
 import {
   Button, Input,
   Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription, DialogFooter, DialogClose,
-  Checkbox, Avatar, AvatarFallback,
+  Checkbox,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -24,10 +25,6 @@ interface CopyPermissionsModalProps {
   open: boolean
   onClose: () => void
   onSuccess: () => void
-}
-
-function getInitials(name: string) {
-  return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
 }
 
 export function CopyPermissionsModal({ open, onClose, onSuccess }: CopyPermissionsModalProps) {
@@ -130,9 +127,7 @@ export function CopyPermissionsModal({ open, onClose, onSuccess }: CopyPermissio
                   onClick={() => { setSourceId(user.id); setSearch('') }}
                   className="flex w-full items-center gap-3 rounded-[2px] border border-border/30 p-2.5 text-left transition-all duration-200 hover:bg-primary/[0.04] hover:border-primary/20"
                 >
-                  <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarFallback className="bg-primary/10 text-primary text-xs">{getInitials(user.name)}</AvatarFallback>
-                  </Avatar>
+                  <UserAvatar user={{ name: user.name, image: null }} className="h-8 w-8 shrink-0 text-xs" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium truncate">{user.name}</p>
                     <p className="text-xs text-muted-foreground truncate">{user.email}</p>
@@ -170,9 +165,7 @@ export function CopyPermissionsModal({ open, onClose, onSuccess }: CopyPermissio
                     )}
                   >
                     <Checkbox checked={selected} />
-                    <Avatar className="h-8 w-8 shrink-0">
-                      <AvatarFallback className="bg-primary/10 text-primary text-xs">{getInitials(user.name)}</AvatarFallback>
-                    </Avatar>
+                    <UserAvatar user={{ name: user.name, image: null }} className="h-8 w-8 shrink-0 text-xs" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">{user.name}</p>
                       <p className="text-xs text-muted-foreground truncate">{user.email}</p>

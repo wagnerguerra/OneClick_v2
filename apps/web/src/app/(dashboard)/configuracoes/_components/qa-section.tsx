@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import {
   Button, Input, Label, Badge, cn,
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
@@ -34,16 +35,16 @@ type QaItem = {
 }
 
 const SEV_STYLE: Record<QaItem['severidade'], string> = {
-  ALTA: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
-  MEDIA: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
-  BAIXA: 'bg-slate-100 text-slate-600 dark:bg-slate-800/60 dark:text-slate-300',
+  ALTA: BADGE.rose,
+  MEDIA: BADGE.amber,
+  BAIXA: BADGE.slate,
 }
 const SEV_LABEL: Record<QaItem['severidade'], string> = { ALTA: 'Alta', MEDIA: 'Média', BAIXA: 'Baixa' }
 
 const STATUS_STYLE: Record<QaItem['status'], string> = {
-  PENDENTE: 'text-rose-600',
-  EM_ANDAMENTO: 'text-sky-600',
-  CORRIGIDO: 'text-emerald-600',
+  PENDENTE: TEXT.rose,
+  EM_ANDAMENTO: TEXT.sky,
+  CORRIGIDO: TEXT.emerald,
   DESCARTADO: 'text-muted-foreground',
 }
 const STATUS_LABEL: Record<QaItem['status'], string> = {
@@ -174,7 +175,7 @@ export function QaSection() {
       </div>
 
       {/* Lista */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2">
+      <div className="flex-1 overflow-y-auto nice-scrollbar p-4 space-y-2">
         {loading ? (
           <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         ) : filtrados.length === 0 ? (
@@ -219,7 +220,7 @@ export function QaSection() {
                   <div className="space-y-1 pt-1">
                     <Label className="text-[11px] font-semibold">Notas de tratamento</Label>
                     <textarea
-                      className="w-full min-h-[56px] rounded-md border border-input bg-transparent px-2.5 py-1.5 text-xs"
+                      className="w-full min-h-[56px] rounded-md px-2.5 py-1.5 text-xs"
                       value={notasDraft[item.id] ?? item.notas ?? ''}
                       onChange={e => setNotasDraft(d => ({ ...d, [item.id]: e.target.value }))}
                       onBlur={() => void salvarNotas(item.id)}
@@ -269,7 +270,7 @@ export function QaSection() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-[13px] font-semibold">Descrição</Label>
-              <textarea className="w-full min-h-[70px] rounded-md border border-input bg-transparent px-3 py-2 text-sm" value={novo.descricao} onChange={e => setNovo(n => ({ ...n, descricao: e.target.value }))} />
+              <textarea className="w-full min-h-[70px] rounded-md px-3 py-2 text-sm" value={novo.descricao} onChange={e => setNovo(n => ({ ...n, descricao: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-[13px] font-semibold">Arquivo (referência)</Label>

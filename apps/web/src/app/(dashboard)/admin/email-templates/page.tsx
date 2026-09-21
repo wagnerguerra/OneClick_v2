@@ -27,7 +27,7 @@ import {
   aplicarExemplos,
 } from './_lib/templates'
 
-const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)'
+const MODULE_COLOR = 'var(--mod-ajuda, #0891b2)'
 
 // Empresa/logo de exemplo usados só no preview do sandbox.
 const PREVIEW_EMPRESA = 'Central Contábil'
@@ -130,7 +130,7 @@ export default function EmailTemplatesPage() {
       nome: 'Novo modelo',
       assunto: 'Assunto do e-mail',
       preheader: '',
-      accent: '#38bdf8',
+      accent: '#0891b2',
       heroTitle: 'Título de destaque',
       heroSubtitle: '',
       ctaLabel: '',
@@ -237,7 +237,7 @@ export default function EmailTemplatesPage() {
               <Plus className="h-3.5 w-3.5" /> Novo
             </Button>
           </div>
-          <div className="flex-1 overflow-y-auto p-2">
+          <div className="flex-1 overflow-y-auto nice-scrollbar p-2">
             {templates.length === 0 ? (
               <p className="px-2 py-6 text-center text-xs text-muted-foreground">
                 Nenhum modelo. Crie um novo ou restaure os exemplos.

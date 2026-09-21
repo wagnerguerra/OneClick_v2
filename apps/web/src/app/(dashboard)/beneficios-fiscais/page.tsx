@@ -14,6 +14,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription, Switch,
 } from '@saas/ui'
+import { BADGE, SURFACE, type ColorName } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -55,11 +56,11 @@ interface CatalogoItem {
 interface ClienteOpt { id: string; razaoSocial: string; documento: string | null }
 interface ServicoOpt { id: string; nome: string; valorPadrao: number | null; categoria: string | null }
 
-const STATUS_CFG: Record<Status, { label: string; color: string; bg: string; icon: typeof Clock }> = {
-  NO_PRAZO: { label: 'No prazo', color: '#16a34a', bg: '#16a34a18', icon: CheckCircle2 },
-  VENCENDO: { label: 'Vencendo', color: '#d97706', bg: '#d9770618', icon: Clock },
-  VENCIDO: { label: 'Vencido', color: '#dc2626', bg: '#dc262618', icon: AlertTriangle },
-  SEM_DATA: { label: 'Sem data', color: '#6b7280', bg: '#6b728018', icon: MinusCircle },
+const STATUS_CFG: Record<Status, { label: string; color: string; bg: string; tone: ColorName; icon: typeof Clock }> = {
+  NO_PRAZO: { label: 'No prazo', color: '#10b981', bg: '#10b98118', tone: 'emerald', icon: CheckCircle2 },
+  VENCENDO: { label: 'Vencendo', color: '#f59e0b', bg: '#f59e0b18', tone: 'amber', icon: Clock },
+  VENCIDO: { label: 'Vencido', color: '#ef4444', bg: '#ef444418', tone: 'red', icon: AlertTriangle },
+  SEM_DATA: { label: 'Sem data', color: '#a855f7', bg: '#a855f718', tone: 'purple', icon: MinusCircle },
 }
 
 function toDateInput(d: string | null): string {
@@ -374,7 +375,7 @@ export default function BeneficiosFiscaisPage() {
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="hidden sm:inline">Exibir</span>
             <Select value={String(limit)} onValueChange={v => setLimit(Number(v))}>
-              <SelectTrigger className="h-8 w-[68px] bg-card text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[68px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {[10, 20, 50, 100].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
               </SelectContent>
@@ -386,14 +387,14 @@ export default function BeneficiosFiscaisPage() {
               placeholder="Buscar por cliente ou benefício..."
               value={busca}
               onChange={e => setBusca(e.target.value)}
-              className="h-8 w-full bg-card text-xs"
+              className="h-8 w-full text-xs"
             />
           </div>
         </div>
 
         {/* Barra de ações em massa — aparece quando há seleção */}
         {podeSelecionar && selecionados.size > 0 && (
-          <div className="flex items-center justify-between gap-3 px-4 py-2 bg-fuchsia-50 dark:bg-fuchsia-950/20 border-b border-fuchsia-200 dark:border-fuchsia-900">
+          <div className={cn('flex items-center justify-between gap-3 px-4 py-2 border-b', SURFACE.fuchsia)}>
             <div className="text-sm font-medium">{selecionados.size} selecionado(s)</div>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={() => setSelecionados(new Set())} disabled={orcando || excluindoLote}>
@@ -467,9 +468,7 @@ export default function BeneficiosFiscaisPage() {
                             title={v.processoId ? 'Abrir processo de liberação do benefício' : 'Abrir orçamento'}
                             className={cn(
                               'shrink-0 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold border hover:opacity-80',
-                              v.processoId
-                                ? 'border-violet-300 text-violet-700 bg-violet-50 dark:bg-violet-900/30 dark:text-violet-300'
-                                : 'border-sky-300 text-sky-700 bg-sky-50 dark:bg-sky-900/30 dark:text-sky-300',
+                              v.processoId ? BADGE.violet : BADGE.sky,
                             )}
                           >
                             {v.processoId ? <GitBranch className="h-3 w-3" /> : <Receipt className="h-3 w-3" />}
@@ -486,7 +485,7 @@ export default function BeneficiosFiscaisPage() {
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{v.beneficioNome}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="text-[11px] border" style={{ color: cfg.color, borderColor: cfg.color + '55', backgroundColor: cfg.bg }}>
+                      <Badge variant="outline" className={cn('text-[11px]', BADGE[cfg.tone])}>
                         {fmtDateBR(v.dataVencimento)}
                       </Badge>
                     </TableCell>
@@ -690,7 +689,7 @@ function CatalogoModal({ open, onClose, catalogo, servicos, onChanged }: {
               <Plus className="h-3.5 w-3.5" /> Novo
             </Button>
           </div>
-          <div className="border rounded-lg divide-y max-h-[320px] overflow-y-auto">
+          <div className="border rounded-lg divide-y max-h-[320px] overflow-y-auto nice-scrollbar">
             {catalogo.length === 0 && <p className="text-sm text-muted-foreground p-4 text-center">Catálogo vazio.</p>}
             {catalogo.map(c => (
               <div key={c.id} className={cn('flex items-center gap-3 p-3', !c.ativo && 'opacity-50')}>

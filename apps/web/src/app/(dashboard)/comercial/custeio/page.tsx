@@ -4,13 +4,16 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Calculator, Users, TrendingUp, TrendingDown, Wallet, Settings2,
-  Loader2, RefreshCw, X, Save,
+  Loader2, RefreshCw, Save,
 } from 'lucide-react'
 import {
-  Button, Card, Input, Label,
+  Button, Card, Input, Label, Checkbox,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { TEXT } from '@/lib/color-styles'
 import { StatCard } from '@/components/stat-card'
 import { BackButton } from '@/components/ui/back-button'
 import Link from 'next/link'
@@ -58,9 +61,9 @@ function MargemBadge({ pct }: { pct: number | null }) {
   if (pct == null) return <span className="text-muted-foreground">—</span>
   const neg = pct < 0
   const low = pct >= 0 && pct < 20
-  const cls = neg ? 'text-rose-600 dark:text-rose-400'
-    : low ? 'text-amber-600 dark:text-amber-400'
-      : 'text-emerald-600 dark:text-emerald-400'
+  const cls = neg ? TEXT.rose
+    : low ? TEXT.amber
+      : TEXT.emerald
   return (
     <span className={cn('inline-flex items-center gap-1 font-medium tabular-nums', cls)}>
       {neg ? <TrendingDown className="h-3.5 w-3.5" /> : <TrendingUp className="h-3.5 w-3.5" />}
@@ -171,7 +174,7 @@ export default function CusteioPage() {
         <StatCard icon={Calculator} label="Margem média" value={margemMedia == null ? '—' : `${margemMedia}%`} color="#6366f1" loading={loading} />
       </div>
 
-      {erro && <div className="rounded border border-rose-500/20 bg-rose-500/10 px-4 py-2 text-sm text-rose-600 dark:text-rose-400">{erro}</div>}
+      {erro && <div className={cn('rounded border border-rose-500/20 bg-rose-500/10 px-4 py-2 text-sm', TEXT.rose)}>{erro}</div>}
 
       {/* Tabela */}
       <Card className="overflow-hidden">
@@ -185,7 +188,7 @@ export default function CusteioPage() {
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           )}
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto nice-scrollbar">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
@@ -226,18 +229,12 @@ export default function CusteioPage() {
       </Card>
 
       {/* Modal de parâmetros */}
-      {showParams && (
-        <>
-          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowParams(false)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="w-full max-w-lg rounded-lg bg-card shadow-xl" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between border-b border-border px-5 py-3">
-                <h4 className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
-                  <Settings2 className="h-4 w-4 text-muted-foreground" /> Parâmetros de custeio
-                </h4>
-                <button type="button" onClick={() => setShowParams(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
-              </div>
-              <div className="max-h-[65vh] space-y-4 overflow-y-auto p-5">
+      <Dialog open={showParams} onOpenChange={setShowParams}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeaderIcon icon={Settings2} color="rose">
+            <DialogTitle>Parâmetros de custeio</DialogTitle>
+          </DialogHeaderIcon>
+          <DialogBody className="max-h-[65vh] space-y-4">
                 {!params ? (
                   <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
                 ) : (
@@ -288,30 +285,28 @@ export default function CusteioPage() {
                     </div>
                     <div className="space-y-2">
                       <label className="flex items-center gap-2 text-xs cursor-pointer">
-                        <input type="checkbox" className="h-3.5 w-3.5 rounded border-border" checked={params.aplicarAumentoFaturamento}
-                          onChange={e => upd({ aplicarAumentoFaturamento: e.target.checked })} />
+                        <Checkbox checked={params.aplicarAumentoFaturamento}
+                          onCheckedChange={v => upd({ aplicarAumentoFaturamento: v === true })} />
                         Aplicar crescimento de faturamento na receita de referência
                       </label>
                       <label className="flex items-center gap-2 text-xs cursor-pointer">
-                        <input type="checkbox" className="h-3.5 w-3.5 rounded border-border" checked={params.usarHorasServicos}
-                          onChange={e => upd({ usarHorasServicos: e.target.checked })} />
+                        <Checkbox checked={params.usarHorasServicos}
+                          onCheckedChange={v => upd({ usarHorasServicos: v === true })} />
                         Incluir custo por horas de execução (TDABC)
                       </label>
                     </div>
                   </>
                 )}
-              </div>
-              <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
-                <Button variant="outline" size="sm" onClick={() => setShowParams(false)}>Fechar</Button>
-                <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }} onClick={salvarParams} disabled={savingParams || !params}>
-                  {savingParams ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                  {savingParams ? 'Salvando…' : 'Salvar'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setShowParams(false)}>Fechar</Button>
+            <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }} onClick={salvarParams} disabled={savingParams || !params}>
+              {savingParams ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              {savingParams ? 'Salvando…' : 'Salvar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

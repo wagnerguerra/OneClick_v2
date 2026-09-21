@@ -10,7 +10,9 @@ import { Button, Input, cn, DropdownMenu, DropdownMenuTrigger, DropdownMenuConte
 import { trpc } from '@/lib/trpc'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { alerts } from '@/lib/alerts'
+import { TEXT, BADGE, SURFACE } from '@/lib/color-styles'
 
 // ============================================================
 // Tipos
@@ -111,10 +113,6 @@ function presencaEfetiva(
   if (diffMin < ausenteAposMin) return 'online'
   if (diffMin < ausenteAposMin * 3) return 'ausente'
   return 'offline'
-}
-
-function initials(name: string): string {
-  return (name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
 }
 
 function timeRelative(d: Date | string | null | undefined): string {
@@ -792,7 +790,7 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
           title={`Status: ${STATUS_LABEL[meuStatus ?? minhaPresenca]}`}
         />
         {totalUnread > 0 && (
-          <span className="header-badge-pulse absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#dc2626] px-1 text-[10px] font-bold text-white ring-2 ring-card dark:bg-[#f87171]">
+          <span className="header-badge-pulse absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white ring-2 ring-card dark:bg-red-400">
             {totalUnread > 9 ? '9+' : totalUnread}
           </span>
         )}
@@ -879,17 +877,11 @@ function Avatar({ user, presenca, size = 'md' }: {
   const dotSz = size === 'lg' ? 'h-3 w-3' : 'h-2.5 w-2.5'
   return (
     <div className={cn('relative shrink-0', sz)}>
-      {user.image ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={resolveAssetUrl(user.image)} alt={user.name} className={cn('rounded-full object-cover', sz)} />
-      ) : (
-        <div className={cn(
-          'rounded-full bg-gradient-to-br flex items-center justify-center font-bold text-white shadow-sm',
-          sz, txt, avatarGradient(user.name || '?'),
-        )}>
-          {initials(user.name)}
-        </div>
-      )}
+      <UserAvatar
+        user={user}
+        className={cn(sz, txt)}
+        gradient={cn('bg-gradient-to-br shadow-sm', avatarGradient(user.name || '?'))}
+      />
       {presenca && (
         <span className={cn(
           'absolute bottom-0 right-0 rounded-full ring-2 ring-card',
@@ -1033,7 +1025,7 @@ function ConversasList({ conversas, meuId, conversaAtivaId, onClickConversa, onH
               <DropdownMenuContent align="end" className="w-44">
                 <DropdownMenuItem
                   onClick={e => { e.stopPropagation(); onHideConversa(c) }}
-                  className="text-xs gap-2 cursor-pointer text-rose-600 dark:text-rose-400"
+                  className={cn('text-xs gap-2 cursor-pointer', TEXT.rose)}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   Excluir conversa
@@ -1463,7 +1455,7 @@ function ChatView({ conversa, meuId, onMessageSent }: {
   }
 
   // ========== Renderização de mensagem com mentions ==========
-  function renderConteudo(texto: string): React.ReactNode {
+  function renderConteudo(texto: string, ehMinha: boolean): React.ReactNode {
     // Substitui <@userId> por nome do participante
     const parts: React.ReactNode[] = []
     const regex = /<@([a-z0-9]+)>/gi
@@ -1474,8 +1466,12 @@ function ChatView({ conversa, meuId, onMessageSent }: {
       if (match.index > lastIdx) parts.push(texto.slice(lastIdx, match.index))
       const userId = match[1]!
       const part = participantes.find(p => p.id === userId)
+      // Na bolha própria (fundo sky sólido, texto branco) a menção fica em
+      // branco translúcido; na bolha do outro (fundo muted) usa a cor sky do
+      // helper, que tem contraste correto em claro e dark.
       parts.push(
-        <span key={`m-${i++}`} className="font-semibold text-sky-300 bg-sky-500/20 rounded px-1">
+        <span key={`m-${i++}`} className={cn('font-semibold rounded px-1',
+          ehMinha ? 'text-white bg-white/20' : cn(TEXT.sky, 'bg-sky-500/15'))}>
           @{part?.name ?? 'usuário'}
         </span>,
       )
@@ -1523,7 +1519,7 @@ function ChatView({ conversa, meuId, onMessageSent }: {
         <div className="flex-1 min-w-0">
           <div className="text-[15px] font-bold truncate leading-tight">{conversa.nome}</div>
           {typingNames.length > 0 ? (
-            <div className="text-[11px] text-sky-600 dark:text-sky-400 italic flex items-center gap-1 mt-0.5">
+            <div className={cn('text-[11px] italic flex items-center gap-1 mt-0.5', TEXT.sky)}>
               <span className="flex gap-0.5">
                 <span className="h-1 w-1 rounded-full bg-sky-500 animate-bounce" style={{ animationDelay: '0ms' }} />
                 <span className="h-1 w-1 rounded-full bg-sky-500 animate-bounce" style={{ animationDelay: '120ms' }} />
@@ -1584,14 +1580,12 @@ function ChatView({ conversa, meuId, onMessageSent }: {
                 {!ehMinha && (
                   <div className="w-7 shrink-0">
                     {showAvatar && autorPart && (
-                      autorPart.image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={resolveAssetUrl(autorPart.image)} alt="" className="h-7 w-7 rounded-full object-cover" />
-                      ) : (
-                        <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground">
-                          {initials(autorPart.name)}
-                        </div>
-                      )
+                      <UserAvatar
+                        user={autorPart}
+                        className="h-7 w-7 text-[9px]"
+                        bg="bg-muted"
+                        fg="text-muted-foreground"
+                      />
                     )}
                   </div>
                 )}
@@ -1639,7 +1633,7 @@ function ChatView({ conversa, meuId, onMessageSent }: {
                               }}
                               autoFocus
                               rows={2}
-                              className="text-foreground rounded px-2 py-1 text-sm resize-none bg-background w-[260px]"
+                              className="text-foreground rounded px-2 py-1 text-sm resize-none w-[260px]"
                             />
                             <div className="flex justify-end gap-1">
                               <button type="button" onClick={() => setEditandoId(null)} className="text-[10px] opacity-70 hover:opacity-100">Cancelar</button>
@@ -1653,7 +1647,7 @@ function ChatView({ conversa, meuId, onMessageSent }: {
                           </span>
                         ) : (
                           <>
-                            {!apenasAnexo && renderConteudo(m.conteudo)}
+                            {!apenasAnexo && renderConteudo(m.conteudo, ehMinha)}
                             {m.editedAt && !apenasAnexo && <span className="text-[9px] opacity-50 ml-1">(editado)</span>}
                             {m.anexos.length > 0 && (
                               <div className={cn(!apenasAnexo && 'mt-1.5', 'space-y-1')}>
@@ -1667,7 +1661,7 @@ function ChatView({ conversa, meuId, onMessageSent }: {
                                         'flex items-center gap-1.5 text-xs underline truncate',
                                         apenasAnexo
                                           ? 'px-3 py-1.5 rounded-2xl ' + (ehMinha ? 'bg-sky-500 text-white' : 'bg-muted text-foreground')
-                                          : (ehMinha ? 'text-white/90' : 'text-sky-600'),
+                                          : (ehMinha ? 'text-white/90' : TEXT.sky),
                                       )}>
                                       <Paperclip className="h-3 w-3" />{a.fileName}
                                     </a>
@@ -1692,7 +1686,7 @@ function ChatView({ conversa, meuId, onMessageSent }: {
                           className={cn(
                             'inline-flex items-center gap-0.5 text-[11px] px-1.5 py-0.5 rounded-full border transition-colors',
                             info.reagi
-                              ? 'bg-sky-100 dark:bg-sky-950/40 border-sky-300 dark:border-sky-800 text-sky-700 dark:text-sky-300'
+                              ? BADGE.sky
                               : 'bg-muted border-border text-muted-foreground hover:bg-muted/80',
                           )}
                         >
@@ -1752,9 +1746,9 @@ function ChatView({ conversa, meuId, onMessageSent }: {
           <div ref={bottomRef} />
         </div>
         {messageScrollbar.visible && (
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-[30px] border-l border-slate-500/10 bg-[#1f2532]/95">
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-[30px] border-l border-border bg-muted/40">
             <div
-              className="absolute left-1/2 w-1.5 -translate-x-1/2 rounded-full bg-slate-500/90 shadow-[0_0_0_1px_rgba(15,23,42,0.18)]"
+              className="absolute left-1/2 w-1.5 -translate-x-1/2 rounded-full bg-muted-foreground/40"
               style={{ top: messageScrollbar.top, height: messageScrollbar.height }}
             />
           </div>
@@ -1846,7 +1840,7 @@ function ChatView({ conversa, meuId, onMessageSent }: {
           onKeyDown={onKey}
           rows={1}
           placeholder="Mensagem… (digite @ pra mencionar)"
-          className="flex-1 resize-none rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 max-h-24"
+          className="flex-1 resize-none rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 max-h-24"
         />
         <Button size="sm" onClick={enviar} disabled={enviando || (!texto.trim() && anexosPendentes.length === 0)}
           className="h-8 w-8 p-0 bg-sky-500 hover:bg-sky-600 text-white">
@@ -1917,7 +1911,7 @@ function NovoGrupoView({ meuId, onlineUsers, onCancel, onCreated, presencaPorUsu
           const sel = selecionados.includes(u.id)
           return (
             <button key={u.id} type="button" onClick={() => toggle(u.id)}
-              className={cn('w-full px-3 py-2 flex items-center gap-3 hover:bg-muted/50 text-left', sel && 'bg-sky-50 dark:bg-sky-950/30')}>
+              className={cn('w-full px-3 py-2 flex items-center gap-3 hover:bg-muted/50 text-left', sel && SURFACE.sky)}>
               <span className={cn('h-4 w-4 rounded border flex items-center justify-center shrink-0',
                 sel ? 'bg-sky-500 border-sky-500 text-white' : 'border-muted-foreground/40')}>
                 {sel && <Check className="h-3 w-3" />}

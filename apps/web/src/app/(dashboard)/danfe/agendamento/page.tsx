@@ -15,7 +15,6 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import {
   Clock, CheckCircle2, AlertCircle, XCircle, Loader2, RefreshCw,
   Activity, Users, Hourglass,
@@ -23,6 +22,8 @@ import {
 } from 'lucide-react'
 import { Button, Card, cn, Badge, Input } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { BADGE, TEXT } from '@/lib/color-styles'
+import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
@@ -107,11 +108,11 @@ const SCHEDULERS: Array<{ slug: SchedulerSlug; label: string; icon: typeof Recei
 ]
 
 function StatusBadge({ status }: { status: string }) {
-  const rodando = { cls: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-900/50', icon: Loader2, label: 'Rodando' }
+  const rodando = { cls: BADGE.sky, icon: Loader2, label: 'Rodando' }
   const variants: Record<string, { cls: string; icon: typeof CheckCircle2; label: string }> = {
-    OK:      { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/50', icon: CheckCircle2, label: 'OK' },
-    ERRO:    { cls: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/50', icon: XCircle, label: 'Erro' },
-    PARCIAL: { cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/50', icon: AlertCircle, label: 'Parcial' },
+    OK:      { cls: BADGE.emerald, icon: CheckCircle2, label: 'OK' },
+    ERRO:    { cls: BADGE.rose, icon: XCircle, label: 'Erro' },
+    PARCIAL: { cls: BADGE.amber, icon: AlertCircle, label: 'Parcial' },
     RODANDO: rodando,
   }
   const v = variants[status] ?? rodando
@@ -220,7 +221,7 @@ export default function AgendamentoPage() {
               label="Cron diário"
               valor={status.enabled ? 'Ativo' : 'Desligado'}
               sub={`${status.cronExpressao} (${status.timezone})`}
-              colorClass={status.enabled ? 'text-emerald-600' : 'text-muted-foreground'}
+              colorClass={status.enabled ? TEXT.emerald : 'text-muted-foreground'}
             />
             <KpiCard
               icon={Hourglass}
@@ -261,7 +262,7 @@ export default function AgendamentoPage() {
                     <span className="font-mono text-[12px]">
                       {status.ultimaExecucao.sucesso}/{status.ultimaExecucao.totalClientes} OK
                       {status.ultimaExecucao.erros > 0 && (
-                        <span className="text-rose-600 ml-1">· {status.ultimaExecucao.erros} erro(s)</span>
+                        <span className={cn('ml-1', TEXT.rose)}>· {status.ultimaExecucao.erros} erro(s)</span>
                       )}
                     </span>
                     <span>·</span>
@@ -284,7 +285,7 @@ export default function AgendamentoPage() {
                 Nenhuma execução registrada ainda. O log começa a popular após a primeira rodada do scheduler.
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto nice-scrollbar">
                 <table className="w-full text-[12px]">
                   <thead>
                     <tr className="text-left border-b border-border">
@@ -307,8 +308,8 @@ export default function AgendamentoPage() {
                           <Badge variant="outline" className="text-[10px]">{ex.trigger}</Badge>
                         </td>
                         <td className="py-1.5 px-2 text-right font-mono">{ex.totalClientes}</td>
-                        <td className="py-1.5 px-2 text-right font-mono text-emerald-700 dark:text-emerald-400">{ex.sucesso}</td>
-                        <td className={cn('py-1.5 px-2 text-right font-mono', ex.erros > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-muted-foreground')}>
+                        <td className={cn('py-1.5 px-2 text-right font-mono', TEXT.emerald)}>{ex.sucesso}</td>
+                        <td className={cn('py-1.5 px-2 text-right font-mono', ex.erros > 0 ? TEXT.rose : 'text-muted-foreground')}>
                           {ex.erros}
                         </td>
                         <td className="py-1.5 px-2 text-right text-muted-foreground">{fmtDuracao(ex.duracaoMs)}</td>
@@ -454,7 +455,7 @@ function ConfigPanel({ status, onChange }: { status: SchedulerStatus; onChange: 
               <div className="text-[11px] font-semibold uppercase text-muted-foreground">Cron diário</div>
               <div className="text-[12px] mt-0.5">
                 {status.enabled ? (
-                  <span className="text-emerald-700 dark:text-emerald-400">Ativo — roda automaticamente</span>
+                  <span className={TEXT.emerald}>Ativo — roda automaticamente</span>
                 ) : (
                   <span className="text-muted-foreground">Desligado — só sync manual funciona</span>
                 )}

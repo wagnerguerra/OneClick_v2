@@ -106,7 +106,7 @@ export function EntityCombobox({
               className="h-7 text-xs"
             />
           </div>
-          <div className="max-h-64 overflow-y-auto py-1">
+          <div className="max-h-64 overflow-y-auto py-1 nice-scrollbar">
             {filtered.length === 0 ? (
               <p className="px-3 py-3 text-center text-xs text-muted-foreground">{emptyText ?? 'Nenhum resultado'}</p>
             ) : filtered.map((i) => (

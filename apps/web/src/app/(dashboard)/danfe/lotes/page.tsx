@@ -11,15 +11,16 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { BADGE, TEXT, type ColorName } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 
 const MODULE_COLOR = 'var(--mod-fiscal, #0369a1)'
 
-const STATUS_CHIP: Record<string, string> = {
-  PROCESSANDO: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-300',
-  CONCLUIDO:   'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300',
-  CANCELADO:   'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300',
+const STATUS_TONE: Record<string, ColorName> = {
+  PROCESSANDO: 'sky',
+  CONCLUIDO: 'emerald',
+  CANCELADO: 'rose',
 }
 
 export default function LotesPage() {
@@ -47,7 +48,7 @@ export default function LotesPage() {
     <div className="space-y-4">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-          <BackButton href="/danfe" />
+          <BackButton href="/danfe" label="Voltar" />
       </>}>
         <h1 className="truncate">Lotes de DANFE</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -86,7 +87,7 @@ export default function LotesPage() {
                 <TableRow key={lote.id} className="hover:bg-muted/40 cursor-pointer" onClick={() => router.push(`/danfe/lotes/${lote.id}`)}>
                   <TableCell className="text-[12px] font-medium max-w-[300px] truncate" title={lote.nome}>{lote.nome}</TableCell>
                   <TableCell className="text-center">
-                    <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border', STATUS_CHIP[lote.status])}>
+                    <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border', BADGE[STATUS_TONE[lote.status] ?? 'slate'])}>
                       {lote.status === 'PROCESSANDO' && <Loader2 className="h-2.5 w-2.5 animate-spin" />}
                       {lote.status}
                     </span>
@@ -97,8 +98,8 @@ export default function LotesPage() {
                       <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: MODULE_COLOR }} />
                     </div>
                   </TableCell>
-                  <TableCell className="hidden xl:table-cell text-center text-[12px] tabular-nums font-medium text-emerald-700 dark:text-emerald-400">{lote.sucesso}</TableCell>
-                  <TableCell className="text-center text-[12px] tabular-nums font-medium text-rose-700 dark:text-rose-400">{lote.erros || '—'}</TableCell>
+                  <TableCell className={cn('hidden xl:table-cell text-center text-[12px] tabular-nums font-medium', TEXT.emerald)}>{lote.sucesso}</TableCell>
+                  <TableCell className={cn('text-center text-[12px] tabular-nums font-medium', TEXT.rose)}>{lote.erros || '—'}</TableCell>
                   <TableCell className="hidden md:table-cell text-[11px] text-muted-foreground tabular-nums">{new Date(lote.iniciadoEm).toLocaleString('pt-BR')}</TableCell>
                   <TableCell className="hidden xl:table-cell text-[11px]">{lote.uploadedBy?.name ?? '—'}</TableCell>
                   <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>

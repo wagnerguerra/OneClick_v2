@@ -9,7 +9,9 @@ import {
 import {
   Card, CardContent, Input, Button,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  cn,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { useState, useMemo, useEffect, useCallback, type ComponentType } from 'react'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { trpc } from '@/lib/trpc'
@@ -19,7 +21,7 @@ import { FAQ_ARTIGOS, CATEGORIA_ORDEM } from './_components/articles-catalog'
 import { resolveFaqIcon } from './_components/faq-icons'
 
 /** Acento da seção FAQ — o mesmo do cabeçalho dos artigos. */
-const FAQ_COLOR = '#0891b2'
+const FAQ_COLOR = 'var(--mod-ajuda, #0891b2)'
 
 /**
  * Ícone e cor de cada categoria.
@@ -434,8 +436,8 @@ function ArticleRow({ artigo: a, isMaster, onEditar, onExcluir }: {
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onEditar}><Pencil className="mr-2 h-3.5 w-3.5" /> Editar</DropdownMenuItem>
               {a.fonte === 'banco' && (
-                <DropdownMenuItem onClick={onExcluir} className="text-rose-600 focus:text-rose-600 dark:text-rose-400 dark:focus:text-rose-400">
-                  <Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir
+                <DropdownMenuItem onClick={onExcluir} className={cn(TEXT.rose, 'focus:text-rose-600 dark:focus:text-rose-400')}>
+                  <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>

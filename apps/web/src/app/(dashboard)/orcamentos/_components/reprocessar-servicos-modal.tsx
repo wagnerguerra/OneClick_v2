@@ -14,7 +14,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Wrench, Loader2, CheckCircle2 } from 'lucide-react'
-import { Button, Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription, Badge } from '@saas/ui'
+import { Button, Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription, Badge, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -85,7 +86,7 @@ export function ReprocessarServicosModal({ open, onOpenChange }: { open: boolean
 
           {!carregando && aplicado && (
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-emerald-600">
+              <div className={cn('flex items-center gap-2 text-sm font-medium', TEXT.emerald)}>
                 <CheckCircle2 className="h-4 w-4" /> {aplicado.criadas} serviço(s) criado(s).
               </div>
               <ul className="nice-scrollbar max-h-[280px] space-y-1 overflow-y-auto text-sm">

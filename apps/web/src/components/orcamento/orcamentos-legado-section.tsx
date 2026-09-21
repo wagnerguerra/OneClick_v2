@@ -5,6 +5,7 @@ import { Archive, Loader2, MessageSquare, History as HistoryIcon, Receipt } from
 import { cn, Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription, RichContent } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
+import { TEXT } from '@/lib/color-styles'
 
 interface ItemLegado { descricao: string | null; tipo: string | null; quantidade: string | number | null; valorUnitario: string | number | null }
 interface MsgLegado { conteudo: string; data: string | null }
@@ -66,7 +67,7 @@ export function OrcamentosLegadoSection({ clienteId, className }: { clienteId?: 
         <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{orcs.length}</span>
         <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">somente histórico</span>
       </div>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto nice-scrollbar">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border/60 text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -107,7 +108,7 @@ export function OrcamentosLegadoSection({ clienteId, className }: { clienteId?: 
               {[sel?.status, fmtData(sel?.dtFinalizado || sel?.dtAprovado || sel?.dtNovo || null)].filter(Boolean).join(' · ') || 'Histórico do sistema legado'}
             </DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-4 max-h-[min(70vh,640px)] nice-scrollbar">
+          <DialogBody className="space-y-4 max-h-[min(70vh,640px)]">
             {sel && (
               <>
                 {/* Resumo financeiro (com desconto, como no legado) */}
@@ -115,7 +116,7 @@ export function OrcamentosLegadoSection({ clienteId, className }: { clienteId?: 
                   {Number(sel.valorDesconto) > 0 ? (
                     <>
                       <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="tabular-nums">{fmtMoeda(Number(sel.valorTotal || 0) + Number(sel.valorDesconto || 0))}</span></div>
-                      <div className="flex justify-between text-rose-600 dark:text-rose-400"><span>Desconto</span><span className="tabular-nums">− {fmtMoeda(sel.valorDesconto)}</span></div>
+                      <div className={cn('flex justify-between', TEXT.rose)}><span>Desconto</span><span className="tabular-nums">− {fmtMoeda(sel.valorDesconto)}</span></div>
                       <div className="flex justify-between font-semibold border-t border-border/60 pt-1"><span>Total</span><span className="tabular-nums text-emerald-700 dark:text-emerald-400">{fmtMoeda(sel.valorTotal)}</span></div>
                     </>
                   ) : (

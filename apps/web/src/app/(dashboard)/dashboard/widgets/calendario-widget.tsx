@@ -3,10 +3,13 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Calendar, ChevronLeft, ChevronRight, Sparkles, ListChecks, FileText, ClipboardCheck, CalendarDays, Cake, PartyPopper } from 'lucide-react'
-import { resolveAssetUrl } from '@/lib/api-url'
 import { Card, CardContent, CardHeader, CardTitle, Button, cn, Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { trpc } from '@/lib/trpc'
+import { TEXT, SURFACE, PILL } from '@/lib/color-styles'
+import { coresTipoEvento } from '@/lib/event-type-colors'
+import { useIsDark } from '@/hooks/use-is-dark'
 
 const DIAS_SEMANA_MINI = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
 const DIAS_SEMANA_FULL = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
@@ -22,7 +25,12 @@ interface PrazoItem {
   data: string             // YYYY-MM-DD
   horaInicio?: string | null
   link?: string | null
+  /** Cor de FUNDO do tipo de evento (agenda). */
   cor?: string | null
+  /** Cor de BORDA do tipo (acento) — usada na tira/traço do evento. */
+  corBorda?: string | null
+  /** Cor de TEXTO do tipo (sobre o fundo). */
+  corTexto?: string | null
   atrasado?: boolean
 }
 
@@ -51,7 +59,7 @@ const TIPO_CONFIG: Record<PrazoTipo, {
     icon: CalendarDays,
     dotClass: 'bg-sky-500',
     bgClass: 'bg-sky-50/80 dark:bg-sky-950/40',
-    textClass: 'text-sky-800 dark:text-sky-200',
+    textClass: TEXT.sky,
     borderClass: 'border-sky-500',
   },
   servico: {
@@ -59,7 +67,7 @@ const TIPO_CONFIG: Record<PrazoTipo, {
     icon: ListChecks,
     dotClass: 'bg-emerald-500',
     bgClass: 'bg-emerald-50/80 dark:bg-emerald-950/40',
-    textClass: 'text-emerald-800 dark:text-emerald-200',
+    textClass: TEXT.emerald,
     borderClass: 'border-emerald-500',
   },
   orcamento: {
@@ -67,7 +75,7 @@ const TIPO_CONFIG: Record<PrazoTipo, {
     icon: FileText,
     dotClass: 'bg-amber-500',
     bgClass: 'bg-amber-50/80 dark:bg-amber-950/40',
-    textClass: 'text-amber-800 dark:text-amber-200',
+    textClass: TEXT.amber,
     borderClass: 'border-amber-500',
   },
   obrigacao: {
@@ -75,7 +83,7 @@ const TIPO_CONFIG: Record<PrazoTipo, {
     icon: ClipboardCheck,
     dotClass: 'bg-violet-500',
     bgClass: 'bg-violet-50/80 dark:bg-violet-950/40',
-    textClass: 'text-violet-800 dark:text-violet-200',
+    textClass: TEXT.violet,
     borderClass: 'border-violet-500',
   },
 }
@@ -331,9 +339,9 @@ export function CalendarioWidget({ title, expanded }: { canRead?: boolean; title
                       !isValid && 'text-muted-foreground/40 cursor-default',
                       isValid && temConteudo && 'cursor-pointer hover:bg-muted/60',
                       isValid && !temConteudo && 'cursor-default',
-                      isToday && 'border-2 border-sky-500 text-sky-700 dark:text-sky-300 font-bold',
-                      isValid && !isToday && especial?.tipo === 'feriado' && 'text-rose-600 dark:text-rose-400 font-semibold',
-                      isValid && !isToday && especial?.tipo === 'comemorativa' && 'text-fuchsia-600 dark:text-fuchsia-400 font-medium',
+                      isToday && cn('border-2 border-sky-500 font-bold', TEXT.sky),
+                      isValid && !isToday && especial?.tipo === 'feriado' && cn(TEXT.rose, 'font-semibold'),
+                      isValid && !isToday && especial?.tipo === 'comemorativa' && cn(TEXT.fuchsia, 'font-medium'),
                     )}
                   >
                     <span className="leading-none">{isValid ? dayNum : String(vizinho).padStart(2, '0')}</span>
@@ -360,7 +368,7 @@ export function CalendarioWidget({ title, expanded }: { canRead?: boolean; title
           /* ── Visão Dia: os compromissos de hoje, em lista ── */
           <div className="flex-1 min-h-0 overflow-y-auto nice-scrollbar space-y-1.5">
             {feriadoHoje && (
-              <div className="rounded-md bg-rose-50 dark:bg-rose-950/30 px-3 py-2 text-xs font-semibold text-rose-700 dark:text-rose-300">
+              <div className={cn('rounded-md px-3 py-2 text-xs font-semibold', SURFACE.rose, TEXT.rose)}>
                 {feriadoHoje.nome}
               </div>
             )}
@@ -411,11 +419,11 @@ export function CalendarioWidget({ title, expanded }: { canRead?: boolean; title
           {/* Feriados e comemorativas pintam o NÚMERO do dia — a amostra da
               legenda é um número, não bolinha, para ler igual à grade. */}
           <div className="flex items-center gap-1.5" title="O número do dia fica vermelho">
-            <span className="text-[11px] font-bold tabular-nums text-rose-600 dark:text-rose-400 leading-none">7</span>
+            <span className={cn('text-[11px] font-bold tabular-nums leading-none', TEXT.rose)}>7</span>
             <span className="text-[11px] text-foreground/80">Feriado</span>
           </div>
           <div className="flex items-center gap-1.5" title="O número do dia fica fúcsia">
-            <span className="text-[11px] font-bold tabular-nums text-fuchsia-600 dark:text-fuchsia-400 leading-none">24</span>
+            <span className={cn('text-[11px] font-bold tabular-nums leading-none', TEXT.fuchsia)}>24</span>
             <span className="text-[11px] text-foreground/80">Data comemorativa</span>
           </div>
         </div>
@@ -452,6 +460,7 @@ function DiaDetalheModal(props: {
   onNavigate: (link: string) => void
 }) {
   const { open, onOpenChange, year, month, day, prazos, comemoracoes, feriado, onNavigate } = props
+  const isDark = useIsDark()
   if (day === null) return null
   const dataObj = new Date(year, month, day)
   const diaSemana = DIAS_SEMANA_FULL[dataObj.getDay()]
@@ -468,20 +477,18 @@ function DiaDetalheModal(props: {
             {feriado && ` · ${feriado.nome}`}
           </DialogDescription>
         </DialogHeaderIcon>
-        <DialogBody className="overflow-y-auto space-y-4">
+        <DialogBody className="space-y-4">
           {/* Feriado/data especial */}
           {feriado && (
             <div
               className={cn(
                 'flex items-center gap-2 rounded-md border p-2.5',
-                feriado.tipo === 'feriado'
-                  ? 'bg-rose-50 border-rose-200 dark:bg-rose-950/30 dark:border-rose-900/50'
-                  : 'bg-fuchsia-50 border-fuchsia-200 dark:bg-fuchsia-950/30 dark:border-fuchsia-900/50',
+                feriado.tipo === 'feriado' ? SURFACE.rose : SURFACE.fuchsia,
               )}
             >
               {feriado.tipo === 'comemorativa'
-                ? <Sparkles className="h-4 w-4 text-fuchsia-600 shrink-0" />
-                : <Calendar className="h-4 w-4 text-rose-600 shrink-0" />}
+                ? <Sparkles className={cn('h-4 w-4 shrink-0', TEXT.fuchsia)} />
+                : <Calendar className={cn('h-4 w-4 shrink-0', TEXT.rose)} />}
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold">{feriado.nome}</p>
                 <p className="text-[10px] text-muted-foreground">
@@ -502,37 +509,21 @@ function DiaDetalheModal(props: {
                   key={c.id}
                   className={cn(
                     'flex items-center gap-2 rounded-md border p-2',
-                    c.tipo === 'aniversario'
-                      ? 'bg-pink-50 border-pink-200 dark:bg-pink-950/30 dark:border-pink-900/50'
-                      : 'bg-teal-50 border-teal-200 dark:bg-teal-950/30 dark:border-teal-900/50',
+                    c.tipo === 'aniversario' ? SURFACE.pink : SURFACE.teal,
                   )}
                 >
-                  {c.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={resolveAssetUrl(c.image)}
-                      alt={c.nome}
-                      className="h-9 w-9 rounded-full object-cover border border-background shadow-sm shrink-0"
-                    />
-                  ) : (
-                    <div className={cn(
-                      'h-9 w-9 rounded-full flex items-center justify-center shrink-0 border border-background shadow-sm',
-                      c.tipo === 'aniversario'
-                        ? 'bg-pink-200 dark:bg-pink-900/60'
-                        : 'bg-teal-200 dark:bg-teal-900/60',
-                    )}>
-                      {c.tipo === 'aniversario'
-                        ? <Cake className="h-4 w-4 text-pink-700 dark:text-pink-300" />
-                        : <PartyPopper className="h-4 w-4 text-teal-700 dark:text-teal-300" />}
-                    </div>
-                  )}
+                  <UserAvatar
+                    user={{ name: '', image: c.image }}
+                    icon={c.tipo === 'aniversario' ? Cake : PartyPopper}
+                    className="h-9 w-9 border border-background shadow-sm"
+                    bg={c.tipo === 'aniversario' ? 'bg-pink-200 dark:bg-pink-900/60' : 'bg-teal-200 dark:bg-teal-900/60'}
+                    fg={c.tipo === 'aniversario' ? TEXT.pink : TEXT.teal}
+                  />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold leading-tight truncate">{c.nome}</p>
                     <p className={cn(
                       'text-[10px] leading-tight mt-0.5',
-                      c.tipo === 'aniversario'
-                        ? 'text-pink-700 dark:text-pink-300'
-                        : 'text-teal-700 dark:text-teal-300',
+                      c.tipo === 'aniversario' ? TEXT.pink : TEXT.teal,
                     )}>
                       {c.tipo === 'aniversario'
                         ? (c.anos ? `${c.anos} anos 🎂` : 'Aniversário')
@@ -568,7 +559,7 @@ function DiaDetalheModal(props: {
                     <div className="flex items-start gap-2">
                       <div
                         className={cn('w-1 self-stretch rounded-full shrink-0', cfg.dotClass)}
-                        style={p.cor ? { backgroundColor: p.cor } : undefined}
+                        style={p.cor ? { backgroundColor: coresTipoEvento({ cor: p.cor, corBorda: p.corBorda, corTexto: p.corTexto }, isDark).borda } : undefined}
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1 mb-0.5">
@@ -577,7 +568,7 @@ function DiaDetalheModal(props: {
                             {cfg.label}
                           </span>
                           {p.atrasado && (
-                            <span className="ml-auto text-[9px] uppercase tracking-wider font-bold text-rose-600 dark:text-rose-400">
+                            <span className={cn('ml-auto text-[9px] uppercase tracking-wider font-bold', TEXT.rose)}>
                               Atrasado
                             </span>
                           )}
@@ -630,6 +621,7 @@ function CalendarioExpandido(props: {
   } = props
 
   const router = useRouter()
+  const isDark = useIsDark()
   const numRows = totalCells / 7
   const [selectedDay, setSelectedDay] = useState<number | null>(
     isCurrentMonth ? today.getDate() : null,
@@ -682,7 +674,7 @@ function CalendarioExpandido(props: {
               <p className="text-xs text-muted-foreground tabular-nums">
                 {year}
                 {isCurrentMonth && (
-                  <span className="ml-2 inline-flex items-center rounded-md bg-sky-100 dark:bg-sky-900/40 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:text-sky-300 uppercase tracking-wider">
+                  <span className={cn('ml-2 inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider', PILL.sky)}>
                     Mês atual
                   </span>
                 )}
@@ -771,7 +763,7 @@ function CalendarioExpandido(props: {
           </div>
           <div
             ref={scrollContainerRef}
-            className="grid grid-cols-7 flex-1 min-h-0 overflow-y-auto"
+            className="grid grid-cols-7 flex-1 min-h-0 overflow-y-auto nice-scrollbar"
             // Cada row com altura fixa (em vez de minmax(96px, 1fr)): garante
             // que TODAS as rows tenham o mesmo tamanho e que o overflow-y-auto
             // funcione previsivelmente. Com 1fr, uma row com muito conteúdo
@@ -817,8 +809,8 @@ function CalendarioExpandido(props: {
                         className={cn(
                           'absolute top-1.5 right-1.5 z-[1] inline-flex items-center justify-center h-6 min-w-[24px] rounded-full text-[11px] font-bold tabular-nums px-1.5',
                           isToday && 'bg-sky-500 text-white shadow-sm',
-                          !isToday && especial?.tipo === 'feriado' && 'text-rose-600 dark:text-rose-400',
-                          !isToday && especial?.tipo === 'comemorativa' && 'text-fuchsia-600 dark:text-fuchsia-400',
+                          !isToday && especial?.tipo === 'feriado' && TEXT.rose,
+                          !isToday && especial?.tipo === 'comemorativa' && TEXT.fuchsia,
                           !isToday && !especial && isFds && 'text-foreground/50',
                           !isToday && !especial && !isFds && 'text-foreground',
                         )}
@@ -832,9 +824,7 @@ function CalendarioExpandido(props: {
                           <span
                             className={cn(
                               'inline-flex items-center gap-0.5 rounded text-[8px] font-bold uppercase tracking-wider px-1 py-0.5 leading-none truncate max-w-full',
-                              especial.tipo === 'feriado'
-                                ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
-                                : 'bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300',
+                              especial.tipo === 'feriado' ? PILL.rose : PILL.violet,
                             )}
                             title={especial.nome}
                           >
@@ -852,31 +842,17 @@ function CalendarioExpandido(props: {
                               key={c.id}
                               className={cn(
                                 'flex items-center gap-1 truncate',
-                                c.tipo === 'aniversario'
-                                  ? 'text-pink-700 dark:text-pink-300'
-                                  : 'text-teal-700 dark:text-teal-300',
+                                c.tipo === 'aniversario' ? TEXT.pink : TEXT.teal,
                               )}
                               title={`${c.tipo === 'aniversario' ? 'Aniversário' : `${c.anos ?? '?'} ano${c.anos === 1 ? '' : 's'} de empresa`}: ${c.nome}`}
                             >
-                              {c.image ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={resolveAssetUrl(c.image)}
-                                  alt=""
-                                  className="h-4 w-4 rounded-full object-cover shrink-0 border border-pink-200 dark:border-pink-800"
-                                />
-                              ) : (
-                                <div className={cn(
-                                  'h-4 w-4 rounded-full flex items-center justify-center shrink-0',
-                                  c.tipo === 'aniversario'
-                                    ? 'bg-pink-100 dark:bg-pink-900/40'
-                                    : 'bg-teal-100 dark:bg-teal-900/40',
-                                )}>
-                                  {c.tipo === 'aniversario'
-                                    ? <Cake className="h-2.5 w-2.5 text-pink-600 dark:text-pink-400" />
-                                    : <PartyPopper className="h-2.5 w-2.5 text-teal-600 dark:text-teal-400" />}
-                                </div>
-                              )}
+                              <UserAvatar
+                                user={{ name: '', image: c.image }}
+                                icon={c.tipo === 'aniversario' ? Cake : PartyPopper}
+                                className="h-4 w-4 border border-pink-200 dark:border-pink-800"
+                                bg={c.tipo === 'aniversario' ? 'bg-pink-100 dark:bg-pink-900/40' : 'bg-teal-100 dark:bg-teal-900/40'}
+                                fg={c.tipo === 'aniversario' ? TEXT.pink : TEXT.teal}
+                              />
                               <span className="text-[10px] font-semibold truncate uppercase tracking-tight">
                                 {c.nome.split(' ')[0]}
                               </span>
@@ -902,7 +878,7 @@ function CalendarioExpandido(props: {
                                 cfg.bgClass, cfg.textClass, cfg.borderClass,
                                 p.atrasado && 'ring-1 ring-rose-300/50',
                               )}
-                              style={p.cor ? { borderLeftColor: p.cor } : undefined}
+                              style={p.cor ? { borderLeftColor: coresTipoEvento({ cor: p.cor, corBorda: p.corBorda, corTexto: p.corTexto }, isDark).borda } : undefined}
                               title={`${cfg.label}: ${p.titulo}${p.subtitulo ? ` · ${p.subtitulo}` : ''}${p.horaInicio ? ` · ${formatHora(p.horaInicio)}` : ''}`}
                             >
                               {!p.horaInicio && p.tipo !== 'agenda' && (
@@ -951,9 +927,7 @@ function CalendarioExpandido(props: {
                   <div
                     className={cn(
                       'mt-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold',
-                      feriadoSelecionado.tipo === 'feriado'
-                        ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
-                        : 'bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300',
+                      feriadoSelecionado.tipo === 'feriado' ? PILL.rose : PILL.violet,
                     )}
                   >
                     {feriadoSelecionado.tipo === 'comemorativa' && <Sparkles className="h-3 w-3" />}
@@ -965,7 +939,7 @@ function CalendarioExpandido(props: {
               <p className="text-xs text-muted-foreground py-1">Selecione um dia no calendário</p>
             )}
           </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          <div className="flex-1 overflow-y-auto nice-scrollbar p-3 space-y-3">
             {/* Comemorações do dia — sempre acima dos prazos */}
             {comemoracoesDoDiaSelecionado.length > 0 && (
               <div className="space-y-1.5">
@@ -977,37 +951,21 @@ function CalendarioExpandido(props: {
                     key={c.id}
                     className={cn(
                       'flex items-center gap-2 rounded-md border p-2',
-                      c.tipo === 'aniversario'
-                        ? 'bg-pink-50 border-pink-200 dark:bg-pink-950/30 dark:border-pink-900/50'
-                        : 'bg-teal-50 border-teal-200 dark:bg-teal-950/30 dark:border-teal-900/50',
+                      c.tipo === 'aniversario' ? SURFACE.pink : SURFACE.teal,
                     )}
                   >
-                    {c.image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={resolveAssetUrl(c.image)}
-                        alt={c.nome}
-                        className="h-8 w-8 rounded-full object-cover border border-background shadow-sm shrink-0"
-                      />
-                    ) : (
-                      <div className={cn(
-                        'h-8 w-8 rounded-full flex items-center justify-center shrink-0 border border-background shadow-sm',
-                        c.tipo === 'aniversario'
-                          ? 'bg-pink-200 dark:bg-pink-900/60'
-                          : 'bg-teal-200 dark:bg-teal-900/60',
-                      )}>
-                        {c.tipo === 'aniversario'
-                          ? <Cake className="h-4 w-4 text-pink-700 dark:text-pink-300" />
-                          : <PartyPopper className="h-4 w-4 text-teal-700 dark:text-teal-300" />}
-                      </div>
-                    )}
+                    <UserAvatar
+                      user={{ name: '', image: c.image }}
+                      icon={c.tipo === 'aniversario' ? Cake : PartyPopper}
+                      className="h-8 w-8 border border-background shadow-sm"
+                      bg={c.tipo === 'aniversario' ? 'bg-pink-200 dark:bg-pink-900/60' : 'bg-teal-200 dark:bg-teal-900/60'}
+                      fg={c.tipo === 'aniversario' ? TEXT.pink : TEXT.teal}
+                    />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold leading-tight truncate">{c.nome}</p>
                       <p className={cn(
                         'text-[10px] leading-tight mt-0.5',
-                        c.tipo === 'aniversario'
-                          ? 'text-pink-700 dark:text-pink-300'
-                          : 'text-teal-700 dark:text-teal-300',
+                        c.tipo === 'aniversario' ? TEXT.pink : TEXT.teal,
                       )}>
                         {c.tipo === 'aniversario'
                           ? (c.anos ? `${c.anos} anos 🎂` : 'Aniversário')
@@ -1051,7 +1009,7 @@ function CalendarioExpandido(props: {
                       <div className="flex items-start gap-2">
                         <div
                           className={cn('w-1 self-stretch rounded-full shrink-0', cfg.dotClass)}
-                          style={p.cor ? { backgroundColor: p.cor } : undefined}
+                          style={p.cor ? { backgroundColor: coresTipoEvento({ cor: p.cor, corBorda: p.corBorda, corTexto: p.corTexto }, isDark).borda } : undefined}
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1 mb-0.5">
@@ -1060,7 +1018,7 @@ function CalendarioExpandido(props: {
                               {cfg.label}
                             </span>
                             {p.atrasado && (
-                              <span className="ml-auto text-[9px] uppercase tracking-wider font-bold text-rose-600 dark:text-rose-400">
+                              <span className={cn('ml-auto text-[9px] uppercase tracking-wider font-bold', TEXT.rose)}>
                                 Atrasado
                               </span>
                             )}

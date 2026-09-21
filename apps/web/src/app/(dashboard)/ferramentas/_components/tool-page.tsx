@@ -11,6 +11,7 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { PageHeader } from '@/components/page-header'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import {
@@ -276,7 +277,7 @@ function ConverterTab({ config, color, blockColor, onDone }: { config: ToolUiCon
               )}
               {job.status === 'done' && (
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <span className="flex items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                  <span className={cn('flex items-center gap-1.5 text-sm font-semibold', TEXT.emerald)}>
                     <CheckCircle2 className="h-4 w-4" /> Planilha pronta!
                   </span>
                   <div className="ml-auto flex items-center gap-2">
@@ -290,7 +291,7 @@ function ConverterTab({ config, color, blockColor, onDone }: { config: ToolUiCon
                 </div>
               )}
               {job.status === 'failed' && (
-                <p className="flex items-start gap-1.5 text-sm text-rose-700 dark:text-rose-400">
+                <p className={cn('flex items-start gap-1.5 text-sm', TEXT.rose)}>
                   <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                   {job.errorMessage || 'Não foi possível processar o arquivo.'}
                 </p>

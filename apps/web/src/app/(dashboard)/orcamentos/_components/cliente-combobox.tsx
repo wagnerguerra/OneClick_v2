@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import { ChevronDown, Plus, Loader2 } from 'lucide-react'
 import { Input, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
+import { useAnchoredDropdown } from '@/components/ui/use-anchored-dropdown'
 
 /**
  * Formata documento (CPF 11 dígitos / CNPJ 14 dígitos) com máscara padrão.
@@ -34,7 +36,8 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const close = useCallback(() => { setOpen(false); setQuery('') }, [])
+  const { anchorRef, popRef, posRef, reposition } = useAnchoredDropdown(open, close)
   const selected = clientes.find(c => c.id === value)
   // Filtro busca tanto na razão social quanto no documento — com e sem
   // formatação. User pode digitar "07.567" ou "07567" e ambos casam.
@@ -50,17 +53,6 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
       })
     : clientes
 
-  useEffect(() => {
-    if (!open) return
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false); setQuery('')
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
-
   // Mostra o atalho de cadastro quando há texto digitado, há onCreate e o termo
   // não bate exatamente com a razão social de um cliente já listado.
   const nomeNovo = query.trim()
@@ -72,20 +64,20 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
     setCreating(true)
     try {
       const id = await onCreate(nomeNovo)
-      if (id) { onSelect(id); setOpen(false); setQuery('') }
+      if (id) { onSelect(id); close() }
     } finally {
       setCreating(false)
     }
   }
 
   return (
-    <div ref={ref} className="relative w-full">
+    <div ref={anchorRef} className="relative w-full">
       <button
         type="button"
         role="combobox"
         aria-expanded={open}
         disabled={disabled}
-        onClick={() => !disabled && setOpen(o => !o)}
+        onClick={() => { if (disabled) return; if (!open) reposition(); setOpen(o => !o) }}
         className={cn(
           // Sem bg/borda próprios: herda o visual da regra global de
           // `button[role="combobox"]` (globals.css), idêntico aos inputs.
@@ -105,8 +97,12 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
         )}
         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
       </button>
-      {open && (
-        <div className="absolute top-full left-0 right-0 z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-md">
+      {open && posRef.current && (
+        <div
+          ref={popRef}
+          className="fixed z-[9999] overflow-hidden rounded-md border bg-popover shadow-md"
+          style={{ top: posRef.current.top, left: posRef.current.left, width: posRef.current.width }}
+        >
           <div className="p-1.5 border-b bg-popover sticky top-0">
             <Input
               autoFocus
@@ -116,7 +112,7 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
               className="h-7 text-xs"
             />
           </div>
-          <div className="max-h-64 overflow-y-auto py-1">
+          <div className="max-h-64 overflow-y-auto nice-scrollbar py-1">
             {filtered.length === 0 ? (
               !podeCadastrar && <p className="px-3 py-3 text-xs text-muted-foreground text-center">Nenhum cliente encontrado</p>
             ) : filtered.map(c => (
@@ -127,7 +123,7 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
                   'w-full text-left px-3 py-2 text-sm hover:bg-muted flex flex-col gap-0',
                   value === c.id && 'bg-accent text-accent-foreground',
                 )}
-                onClick={() => { onSelect(c.id); setOpen(false); setQuery('') }}
+                onClick={() => { onSelect(c.id); close() }}
               >
                 <span className="text-sm font-medium leading-tight truncate">{c.razaoSocial}</span>
                 {c.documento && (
@@ -143,7 +139,7 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
                 disabled={creating}
                 className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2 border-t mt-1 text-foreground disabled:opacity-60"
               >
-                {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /> : <Plus className="h-3.5 w-3.5 shrink-0 text-emerald-600" />}
+                {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /> : <Plus className={cn('h-3.5 w-3.5 shrink-0', TEXT.emerald)} />}
                 <span className="truncate">
                   Cadastrar <span className="font-semibold">“{nomeNovo}”</span> como novo cliente
                 </span>

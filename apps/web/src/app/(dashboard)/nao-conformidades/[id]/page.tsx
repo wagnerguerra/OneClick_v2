@@ -19,6 +19,7 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { NC_SITUACAO_LABEL, NC_ACAO_TIPO_LABEL, NC_ACAO_TIPOS } from '@saas/types'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { MODULE_COLOR, NC_SITUACAO_BADGE, dataBR, dataHoraBR } from '../shared'
@@ -251,7 +252,7 @@ export default function NaoConformidadeDetalhePage() {
                 {NC_SITUACAO_LABEL[nc.situacao] ?? nc.situacao}
               </Badge>
               {nc.reincidencia && (
-                <Badge variant="outline" className="text-[11px] bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800">
+                <Badge variant="outline" className={cn('text-[11px]', BADGE.amber)}>
                   <RotateCcw className="h-3 w-3 mr-1" />Reincidência
                 </Badge>
               )}
@@ -278,7 +279,7 @@ export default function NaoConformidadeDetalhePage() {
             )}
             {nc.ncAnterior && (
               <button type="button" onClick={() => router.push(`/nao-conformidades/${nc.ncAnterior!.id}`)}
-                className="mt-2 text-[11px] text-amber-700 dark:text-amber-400 underline decoration-dotted">
+                className={cn('mt-2 text-[11px] underline decoration-dotted', TEXT.amber)}>
                 Reincidência da NC #{nc.ncAnterior.legacyId ?? ''} — abrir a anterior
               </button>
             )}
@@ -337,7 +338,7 @@ export default function NaoConformidadeDetalhePage() {
                         </div>
                         <RichContent className={cn('text-sm mt-1 [&_p]:my-0.5', a.concluida && 'text-muted-foreground')} html={a.descricao} />
                         {a.concluida && (
-                          <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1">
+                          <p className={cn('text-[11px] mt-1', TEXT.emerald)}>
                             Concluída{a.finalizadoPorNome ? ` por ${a.finalizadoPorNome}` : ''}{a.finalizadoEm ? ` em ${dataBR(a.finalizadoEm)}` : ''}
                           </p>
                         )}
@@ -396,9 +397,7 @@ export default function NaoConformidadeDetalhePage() {
 
             {nc.eficaz != null ? (
               <div className="space-y-2">
-                <Badge variant="outline" className={cn('text-[11px]', nc.eficaz
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800'
-                  : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800')}>
+                <Badge variant="outline" className={cn('text-[11px]', nc.eficaz ? BADGE.emerald : BADGE.rose)}>
                   {nc.eficaz ? 'Tratamento eficaz' : 'Tratamento não eficaz'}
                 </Badge>
                 {nc.avaliacao && <RichContent className="text-sm [&_p]:my-1" html={nc.avaliacao} />}
@@ -406,7 +405,7 @@ export default function NaoConformidadeDetalhePage() {
                   Avaliada{nc.avaliadoPorNomeResolvido ? ` por ${nc.avaliadoPorNomeResolvido}` : ''} em {dataBR(nc.avaliadoEm)}
                 </p>
                 {nc.reincidencias.length > 0 && (
-                  <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                  <p className={cn('text-[11px]', TEXT.amber)}>
                     Gerou reincidência:{' '}
                     {nc.reincidencias.map((r, i) => (
                       <button key={r.id} type="button" className="underline decoration-dotted" onClick={() => router.push(`/nao-conformidades/${r.id}`)}>

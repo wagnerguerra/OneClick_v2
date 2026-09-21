@@ -396,7 +396,7 @@ export class OrcamentoService {
     const cliente = orc.clienteId
       ? await prisma.cliente.findUnique({
           where: { id: orc.clienteId },
-          select: { id: true, razaoSocial: true, nomeFantasia: true, documento: true, tipoDocumento: true, email: true, telefone: true },
+          select: { id: true, razaoSocial: true, nomeFantasia: true, documento: true, tipoDocumento: true, email: true, telefone: true, logoUrl: true },
         }).catch(() => null)
       : null
 

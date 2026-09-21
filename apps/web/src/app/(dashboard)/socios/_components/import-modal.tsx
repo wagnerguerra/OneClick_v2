@@ -8,6 +8,7 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -99,7 +100,7 @@ export function ImportModal({ open, onClose, onSuccess }: ImportModalProps) {
                 <Button type="button" variant="soft" size="sm" onClick={() => generateTemplate(SOCIO_COLUMNS, 'template-socios')}><Download className="h-4 w-4" />Template Excel</Button>
                 <Button type="button" variant="soft" size="sm" onClick={() => generateTemplateCsv(SOCIO_COLUMNS, 'template-socios')}><Download className="h-4 w-4" />Template CSV</Button>
               </div>
-              <div className={cn('flex flex-col items-center justify-center gap-3 rounded-[2px] border-2 border-dashed px-6 py-10 transition-colors cursor-pointer', dragOver ? 'border-emerald-500 bg-emerald-50/50' : 'border-border bg-muted/10 hover:border-emerald-400/50')} onDragOver={e => { e.preventDefault(); setDragOver(true) }} onDragLeave={() => setDragOver(false)} onDrop={handleDrop} onClick={() => { const i = document.createElement('input'); i.type = 'file'; i.accept = '.xlsx,.xls,.csv'; i.onchange = e => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleFile(f) }; i.click() }}>
+              <div className={cn('flex flex-col items-center justify-center gap-3 rounded-[2px] border-2 border-dashed px-6 py-10 transition-colors cursor-pointer', dragOver ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20' : 'border-border bg-muted/10 hover:border-emerald-400/50')} onDragOver={e => { e.preventDefault(); setDragOver(true) }} onDragLeave={() => setDragOver(false)} onDrop={handleDrop} onClick={() => { const i = document.createElement('input'); i.type = 'file'; i.accept = '.xlsx,.xls,.csv'; i.onchange = e => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleFile(f) }; i.click() }}>
                 <FileUp className="h-10 w-10 text-muted-foreground/40" /><div className="text-center"><p className="text-sm font-medium">Clique ou arraste o arquivo aqui</p><p className="text-xs text-muted-foreground mt-1">.xlsx, .xls, .csv</p></div>
               </div>
             </div>
@@ -108,13 +109,13 @@ export function ImportModal({ open, onClose, onSuccess }: ImportModalProps) {
           {step === 'preview' && (
             <div className="space-y-3 py-2">
               <div className="flex items-center gap-3 text-sm">
-                <div className="flex items-center gap-1.5 text-emerald-600"><CheckCircle className="h-4 w-4" /><span className="font-medium">{validRows.length} válidos</span></div>
+                <div className={cn('flex items-center gap-1.5', TEXT.emerald)}><CheckCircle className="h-4 w-4" /><span className="font-medium">{validRows.length} válidos</span></div>
                 {invalidRows.length > 0 && <div className="flex items-center gap-1.5 text-destructive"><XCircle className="h-4 w-4" /><span className="font-medium">{invalidRows.length} erros</span></div>}
               </div>
               <div className="rounded-[2px] border"><Table><TableHeader><TableRow><TableHead className="w-[50px]">Linha</TableHead><TableHead>Nome</TableHead><TableHead className="hidden sm:table-cell">CPF</TableHead><TableHead className="w-[80px]">Status</TableHead></TableRow></TableHeader><TableBody>
-                {rows.map(r => (<TableRow key={r.rowIndex} className={cn(r.valid ? 'bg-emerald-50/30' : 'bg-destructive/5')}><TableCell className="text-xs font-mono">{r.rowIndex}</TableCell><TableCell className="text-sm font-medium">{r.data.nomeCompleto || '—'}</TableCell><TableCell className="hidden sm:table-cell text-sm text-muted-foreground">{r.data.cpf || '—'}</TableCell><TableCell>{r.valid ? <Badge variant="success" className="text-[10px]">OK</Badge> : <Badge variant="destructive" className="text-[10px]">Erro</Badge>}</TableCell></TableRow>))}
+                {rows.map(r => (<TableRow key={r.rowIndex} className={cn(r.valid ? 'bg-emerald-50/30 dark:bg-emerald-950/10' : 'bg-destructive/5')}><TableCell className="text-xs font-mono">{r.rowIndex}</TableCell><TableCell className="text-sm font-medium">{r.data.nomeCompleto || '—'}</TableCell><TableCell className="hidden sm:table-cell text-sm text-muted-foreground">{r.data.cpf || '—'}</TableCell><TableCell>{r.valid ? <Badge variant="success" className="text-[10px]">OK</Badge> : <Badge variant="destructive" className="text-[10px]">Erro</Badge>}</TableCell></TableRow>))}
               </TableBody></Table></div>
-              {invalidRows.length > 0 && <div className="flex items-start gap-2 rounded-[2px] bg-amber-500/10 px-3 py-2 text-xs text-amber-700"><AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" /><span>Registros com erros serão ignorados.</span></div>}
+              {invalidRows.length > 0 && <div className={cn('flex items-start gap-2 rounded-[2px] bg-amber-500/10 px-3 py-2 text-xs', TEXT.amber)}><AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" /><span>Registros com erros serão ignorados.</span></div>}
             </div>
           )}
         </DialogBody>

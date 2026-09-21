@@ -25,7 +25,7 @@ export function AbasAcessorias() {
   if (abas.length <= 1) return null
 
   return (
-    <div className="flex overflow-x-auto">
+    <div className="flex overflow-x-auto nice-scrollbar">
       <div className="flex min-w-max gap-1.5 rounded-full border border-border bg-muted/40 p-1 shadow-sm">
         {abas.map((a) => {
           const ativo = pathname === a.href || pathname.startsWith(`${a.href}/`)

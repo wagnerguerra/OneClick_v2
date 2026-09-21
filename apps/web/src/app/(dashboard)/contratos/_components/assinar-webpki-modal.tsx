@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react'
 import { Loader2, FileSignature, ShieldCheck, ExternalLink, AlertTriangle, KeyRound } from 'lucide-react'
 import {
-  Button, Label,
+  Button, Label, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { TEXT, SURFACE } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import type { AssinaturaParte } from '@saas/types'
@@ -186,12 +187,12 @@ export function AssinarWebPkiModal({ open, onOpenChange, contratoId, contratoTok
           )}
 
           {pkiStatus === 'no_extension' && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-2">
+            <div className={cn('rounded-md border p-4 space-y-2', SURFACE.amber)}>
               <div className="flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <AlertTriangle className={cn('h-4 w-4 shrink-0 mt-0.5', TEXT.amber)} />
                 <div className="text-xs flex-1">
                   <p className="font-semibold text-amber-800 dark:text-amber-300 mb-1">Extensão Web PKI não detectada</p>
-                  <p className="text-amber-700 dark:text-amber-400">
+                  <p className={TEXT.amber}>
                     Instale a extensão Lacuna Web PKI no seu navegador para listar os certificados ICP-Brasil instalados (A1 ou A3).
                   </p>
                 </div>
@@ -208,10 +209,10 @@ export function AssinarWebPkiModal({ open, onOpenChange, contratoId, contratoTok
           )}
 
           {pkiStatus === 'error' && (
-            <div className="rounded-md border border-rose-300 bg-rose-50 dark:bg-rose-950/20 p-4">
+            <div className={cn('rounded-md border p-4', SURFACE.rose)}>
               <div className="flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
-                <p className="text-xs text-rose-700 dark:text-rose-400">{pkiError}</p>
+                <AlertTriangle className={cn('h-4 w-4 shrink-0 mt-0.5', TEXT.rose)} />
+                <p className={cn('text-xs', TEXT.rose)}>{pkiError}</p>
               </div>
             </div>
           )}
@@ -230,7 +231,7 @@ export function AssinarWebPkiModal({ open, onOpenChange, contratoId, contratoTok
                   <p className="text-[10px] text-muted-foreground mt-1">Verifique se há certificados ICP-Brasil instalados no Windows ou tokens A3 conectados.</p>
                 </div>
               ) : (
-                <div className="space-y-1.5 max-h-60 overflow-y-auto">
+                <div className="space-y-1.5 max-h-60 overflow-y-auto nice-scrollbar">
                   {certificados.map(c => (
                     <button
                       key={c.thumbprint}
@@ -238,7 +239,7 @@ export function AssinarWebPkiModal({ open, onOpenChange, contratoId, contratoTok
                       onClick={() => setSelectedThumb(c.thumbprint)}
                       className={`w-full text-left p-2.5 rounded-md border transition-colors ${
                         selectedThumb === c.thumbprint
-                          ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20'
+                          ? 'border-emerald-400 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20'
                           : 'border-border hover:bg-muted/40'
                       }`}
                     >

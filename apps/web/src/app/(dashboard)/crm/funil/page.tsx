@@ -6,6 +6,7 @@ import { Sparkles, Loader2, Save, Copy, ExternalLink, Flame, Thermometer, Snowfl
 import { Button, Card, Input, Label, Switch, Badge, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn, Dialog, DialogContent } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { BADGE, DOT } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -178,7 +179,7 @@ export default function CrmFunilPage() {
       {report && report.porCampanha && report.porCampanha.length > 0 && (
         <Card className="p-5 space-y-3">
           <h4 className="text-sm font-semibold">Comparativo por campanha (30 dias)</h4>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto nice-scrollbar">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground border-b">
@@ -217,7 +218,7 @@ export default function CrmFunilPage() {
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Campanhas</h4>
               {podeGerir && <Button variant="success" size="sm" className="h-7 gap-1 text-xs" onClick={novaCampanha}><Plus className="h-3.5 w-3.5" /> Nova</Button>}
             </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-1 max-h-[520px]">
+            <div className="flex-1 overflow-y-auto nice-scrollbar p-2 space-y-1 max-h-[520px]">
               {campanhas.length === 0 && <p className="text-xs text-muted-foreground text-center py-6">Nenhuma campanha.</p>}
               {campanhas.map(c => {
                 const ativa = cfg?.id === c.id && cfg?.id !== null
@@ -227,7 +228,7 @@ export default function CrmFunilPage() {
                     <div className="flex items-center gap-2 min-w-0">
                       <Megaphone className="h-3.5 w-3.5 shrink-0" style={{ color: c.corPrimaria || '#10b981' }} />
                       <span className="text-sm font-medium truncate flex-1">{c.nome || c.slug}</span>
-                      <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', c.ativo ? 'bg-emerald-500' : 'bg-muted-foreground/40')} />
+                      <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', c.ativo ? DOT.emerald : 'bg-muted-foreground/40')} />
                     </div>
                     <p className="text-[10px] text-muted-foreground font-mono truncate pl-5">/{c.slug}</p>
                     <p className="text-[10px] text-muted-foreground pl-5">{c._registrados ?? 0} no CRM · {c._total ?? 0} sessões</p>
@@ -299,13 +300,13 @@ export default function CrmFunilPage() {
                   <Label className="text-[12px] font-semibold">Incorporar no site (botão de chat)</Label>
                   <p className="text-[11px] text-muted-foreground">Cole este código antes do <code>&lt;/body&gt;</code> do seu site — ele adiciona um botão flutuante de chat que abre este atendimento{cfg.roteador ? ' (Recepção — a IA identifica a trilha)' : ''}.</p>
                   <div className="flex flex-wrap items-start gap-2">
-                    <textarea className="h-16 text-[11px] font-mono flex-1 min-w-[240px] rounded-md border border-input bg-card px-2 py-1.5 resize-none" value={embedSnippet} readOnly onFocus={e => e.currentTarget.select()} placeholder="Salve a campanha para gerar o código" />
+                    <textarea className="h-16 text-[11px] font-mono flex-1 min-w-[240px] rounded-md px-2 py-1.5 resize-none" value={embedSnippet} readOnly onFocus={e => e.currentTarget.select()} placeholder="Salve a campanha para gerar o código" />
                     <Button variant="outline" size="sm" onClick={copiarEmbed} disabled={!cfg.slug} className="gap-1.5"><Copy className="h-4 w-4" /> Copiar código</Button>
                   </div>
                 </div>
 
                 {cfg.roteador && (
-                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/40 p-3 text-[12px] text-emerald-800 dark:text-emerald-300">
+                  <div className={cn('rounded-lg border p-3 text-[12px]', BADGE.emerald)}>
                     <strong>Modo Recepção.</strong> Esta campanha é o ponto de entrada único (ex.: o chat do site). A IA faz a triagem, identifica a intenção e <strong>encaminha o lead para a trilha certa</strong> (usando a &quot;descrição de roteamento&quot; de cada trilha), ou trata como fora de escopo (currículo/suporte/spam). A trilha e a rubrica abaixo <em>não</em> são usadas neste modo.
                   </div>
                 )}
@@ -314,7 +315,7 @@ export default function CrmFunilPage() {
                   <div className="space-y-1.5">
                     <Label className="text-[13px] font-semibold">Quando encaminhar para esta trilha (usado pela Recepção)</Label>
                     <p className="text-[11px] text-muted-foreground">Uma frase-gatilho pra IA da Recepção reconhecer e rotear pra cá. Ex.: &quot;Empresa querendo economizar com benefícios/incentivos fiscais (ICMS, créditos).&quot;</p>
-                    <textarea className="w-full min-h-[60px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={cfg.descricaoRoteamento ?? ''} onChange={e => upd({ descricaoRoteamento: e.target.value })} placeholder="Deixe em branco se esta trilha não deve receber leads pela Recepção." />
+                    <textarea className="w-full min-h-[60px] rounded-md px-3 py-2 text-sm" value={cfg.descricaoRoteamento ?? ''} onChange={e => upd({ descricaoRoteamento: e.target.value })} placeholder="Deixe em branco se esta trilha não deve receber leads pela Recepção." />
                   </div>
                 )}
 
@@ -322,13 +323,13 @@ export default function CrmFunilPage() {
                 <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold">Trilha de atendimento (foco desta campanha)</Label>
                   <p className="text-[11px] text-muted-foreground">O que a IA deve descobrir e como conduzir, voltado ao tema da campanha. Ex.: "Foque em recuperação de créditos e incentivos fiscais; descubra regime tributário, faturamento e se já houve apuração."</p>
-                  <textarea className="w-full min-h-[140px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={cfg.trilhaPrompt} onChange={e => upd({ trilhaPrompt: e.target.value })} placeholder="Deixe em branco para usar a trilha padrão." />
+                  <textarea className="w-full min-h-[140px] rounded-md px-3 py-2 text-sm" value={cfg.trilhaPrompt} onChange={e => upd({ trilhaPrompt: e.target.value })} placeholder="Deixe em branco para usar a trilha padrão." />
                 </div>
 
                 <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold">Rubrica de pontuação (pesos)</Label>
                   <p className="text-[11px] text-muted-foreground">Critérios e pesos (0–100 total) para qualificar o lead desta campanha.</p>
-                  <textarea className="w-full min-h-[100px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={cfg.rubrica} onChange={e => upd({ rubrica: e.target.value })} placeholder="Deixe em branco para usar a rubrica padrão." />
+                  <textarea className="w-full min-h-[100px] rounded-md px-3 py-2 text-sm" value={cfg.rubrica} onChange={e => upd({ rubrica: e.target.value })} placeholder="Deixe em branco para usar a rubrica padrão." />
                 </div>
 
                 <div className="grid grid-cols-12 gap-3">
@@ -349,14 +350,14 @@ export default function CrmFunilPage() {
                 <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold">Regras de finalização</Label>
                   <p className="text-[11px] text-muted-foreground">Como a IA encerra conforme a temperatura. Ex.: "Quente → convide para agendar; morno → ofereça WhatsApp; frio → agradeça."</p>
-                  <textarea className="w-full min-h-[100px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={cfg.regrasFinalizacao ?? ''} onChange={e => upd({ regrasFinalizacao: e.target.value })} placeholder="Deixe em branco para usar o padrão." />
+                  <textarea className="w-full min-h-[100px] rounded-md px-3 py-2 text-sm" value={cfg.regrasFinalizacao ?? ''} onChange={e => upd({ regrasFinalizacao: e.target.value })} placeholder="Deixe em branco para usar o padrão." />
                 </div>
 
                 <div className="grid grid-cols-12 gap-3">
                   <div className="col-span-12 sm:col-span-6 space-y-1.5">
                     <Label className="text-[13px] font-semibold">Tipo de evento da reunião</Label>
                     <Select value={cfg.tipoEventoReuniaoId ?? '__default__'} onValueChange={v => upd({ tipoEventoReuniaoId: v === '__default__' ? null : v })}>
-                      <SelectTrigger className="h-9 text-sm bg-card"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__default__">Padrão (Reunião com Lead)</SelectItem>
                         {tipos.map(t => <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>)}
@@ -367,11 +368,11 @@ export default function CrmFunilPage() {
 
                 <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold">Mensagem de boas-vindas</Label>
-                  <textarea className="w-full min-h-[60px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={cfg.mensagemBoasVindas ?? ''} onChange={e => upd({ mensagemBoasVindas: e.target.value })} />
+                  <textarea className="w-full min-h-[60px] rounded-md px-3 py-2 text-sm" value={cfg.mensagemBoasVindas ?? ''} onChange={e => upd({ mensagemBoasVindas: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold">Aviso de privacidade (LGPD)</Label>
-                  <textarea className="w-full min-h-[50px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={cfg.avisoLgpd ?? ''} onChange={e => upd({ avisoLgpd: e.target.value })} />
+                  <textarea className="w-full min-h-[50px] rounded-md px-3 py-2 text-sm" value={cfg.avisoLgpd ?? ''} onChange={e => upd({ avisoLgpd: e.target.value })} />
                 </div>
                 </fieldset>
               </div>
@@ -384,7 +385,7 @@ export default function CrmFunilPage() {
       <Card className="p-5 space-y-3">
         <h4 className="text-sm font-semibold">Sessões recentes</h4>
         {sessoes.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma sessão ainda.</p> : (
-          <div className="border rounded-lg divide-y max-h-[360px] overflow-y-auto">
+          <div className="border rounded-lg divide-y max-h-[360px] overflow-y-auto nice-scrollbar">
             {sessoes.map(s => {
               const t = s.temperatura ? TEMP_META[s.temperatura] : null
               const nome = s.dados?.nome || s.dados?.razaoSocial || '(sem identificação)'
@@ -407,7 +408,7 @@ export default function CrmFunilPage() {
       <Dialog open={conversaOpen} onOpenChange={(o) => { if (!o) { setConversaOpen(false); setConversa(null) } }}>
         <DialogContent className="max-w-lg">
           <DialogHeaderIcon icon={MessageSquare} color="violet">Conversa do atendimento</DialogHeaderIcon>
-          <div className="max-h-[60vh] space-y-3 overflow-y-auto rounded-2xl bg-muted/20 px-2 py-3">
+          <div className="max-h-[60vh] space-y-3 overflow-y-auto chat-scrollbar rounded-2xl bg-muted/20 px-2 py-3">
             {conversaLoading ? (
               <div className="py-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></div>
             ) : !conversa || !conversa.mensagens?.length ? (

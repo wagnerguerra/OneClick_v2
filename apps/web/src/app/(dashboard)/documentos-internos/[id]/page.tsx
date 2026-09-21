@@ -13,6 +13,7 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
+import { TEXT, SURFACE } from '@/lib/color-styles'
 import { UserMultiPicker } from '@/components/user-multi-picker'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -226,7 +227,7 @@ export default function DocumentoInternoDetalhePage() {
               return (
                 <div key={v.id} className={cn(
                   'rounded-lg border p-3 transition-colors',
-                  ehVigente ? 'border-amber-300/70 bg-amber-50/40 dark:border-amber-700/50 dark:bg-amber-950/10' : 'border-border bg-muted/20',
+                  ehVigente ? SURFACE.amber : 'border-border bg-muted/20',
                 )}>
                   <div className="flex items-start justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -285,7 +286,7 @@ export default function DocumentoInternoDetalhePage() {
                   )}
                   {/* Quem aprovou e quando — o dado que o v1 nunca gravou. */}
                   {v.aprovadoEm && (
-                    <p className="mt-1 text-[11px] text-emerald-700 dark:text-emerald-400">
+                    <p className={cn('mt-1 text-[11px]', TEXT.emerald)}>
                       Aprovada em {dataHoraBR(v.aprovadoEm)}
                     </p>
                   )}
@@ -392,7 +393,7 @@ export default function DocumentoInternoDetalhePage() {
               <Label className="text-[13px] font-semibold">Elaboradores</Label>
               <div className="mt-1.5">
                 <UserMultiPicker users={usuarios} value={revElaboradores} onChange={setRevElaboradores}
-                  placeholder="Quem elaborou esta revisão" accentClass="bg-amber-500 border-amber-500" />
+                  placeholder="Quem elaborou esta revisão" accentClass="bg-[var(--mod-qualidade,#fbbf24)] border-[var(--mod-qualidade,#fbbf24)]" />
               </div>
               <p className="text-[11px] text-muted-foreground mt-1">
                 Vínculo por pessoa, e não texto solto — é o que permite responder depois

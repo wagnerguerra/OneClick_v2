@@ -29,6 +29,7 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+import { TEXT } from '@/lib/color-styles'
 
 type Nivel = 'read' | 'write' | 'delete'
 
@@ -140,7 +141,7 @@ export function ModuloAcessoButton({
                   <Secao titulo="Acesso total" icon={Crown}>
                     {data.acessoTotal.map((p) => (
                       <LinhaPessoa key={p.id} p={p}>
-                        <Badge variant="outline" className="border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                        <Badge variant="outline" className={cn('border-amber-500/20 bg-amber-500/10', TEXT.amber)}>
                           {p.tipo === 'MASTER' ? 'Master' : 'Admin do tenant'}
                         </Badge>
                       </LinhaPessoa>
@@ -214,8 +215,8 @@ function NivelBadge({
   onClick?: () => void
 }) {
   const base = ativo
-    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-    : 'border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400'
+    ? cn('border-emerald-500/20 bg-emerald-500/10', TEXT.emerald)
+    : cn('border-sky-500/20 bg-sky-500/10', TEXT.sky)
   if (!canManage) {
     return <Badge variant="outline" className={cn('font-medium', base)}>{children}</Badge>
   }

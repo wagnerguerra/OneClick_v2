@@ -54,6 +54,7 @@ import {
   DialogFooter, DialogTitle, DialogDescription,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { PageHeaderIcon, type ModuleSlug } from '@/components/ui/page-header-icon'
 import { BackButton } from '@/components/ui/back-button'
@@ -142,7 +143,7 @@ export default function DesignSystemPage() {
         </CardHeader>
         <div className="flex min-h-[700px]">
           {/* Pills laterais com seções */}
-          <div className="w-[200px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+          <div className="w-[200px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
             <PillGroup label="Sistema" tabs={TABS_SISTEMA} activeTab={activeTab} onSelect={setActiveTab} />
             <PillGroup label="FAQ" tabs={TABS_FAQ} activeTab={activeTab} onSelect={setActiveTab} className="mt-4" />
             <PillGroup label="App Mobile" tabs={TABS_APP} activeTab={activeTab} onSelect={setActiveTab} className="mt-4" />
@@ -264,7 +265,7 @@ function CodeSnippet({ code, label = 'Código' }: { code: string; label?: string
           {copied ? 'Copiado!' : 'Copiar'}
         </Button>
       </div>
-      <pre className="text-[11px] font-mono p-3 overflow-x-auto whitespace-pre max-h-[500px] text-foreground/80 leading-relaxed">
+      <pre className="text-[11px] font-mono p-3 overflow-x-auto whitespace-pre max-h-[500px] text-foreground/80 leading-relaxed nice-scrollbar">
         {code}
       </pre>
     </div>
@@ -361,22 +362,31 @@ function ModuleColorsEditor() {
     setStatuses(prev => ({ ...prev, [slug]: s }))
   }
 
-  const MODULES: { slug: string; label: string; desc: string }[] = [
-    { slug: 'cadastros',     label: 'Cadastros',     desc: 'Verde — clientes, colaboradores, empresas' },
-    { slug: 'comercial',     label: 'Comercial',     desc: 'Rose — CRM, orçamentos, pipeline' },
-    { slug: 'corporativo',   label: 'Corporativo',   desc: 'Sky — TI, projetos, contratos' },
-    { slug: 'administrativo', label: 'Administrativo', desc: 'Sky claro — administrativo geral' },
-    { slug: 'legalizacao',   label: 'Legalização',   desc: 'Fuchsia — constituição, alterações' },
-    { slug: 'trabalhista',   label: 'Trabalhista',   desc: 'Lime — folha, holerites, eSocial' },
-    { slug: 'fiscal',        label: 'Fiscal',        desc: 'Indigo — CNDs, DCTFWeb, situação fiscal' },
-    { slug: 'contabil',      label: 'Contábil',      desc: 'Violet — balancetes, BI' },
-    { slug: 'ti',            label: 'TI',            desc: 'Cyan — ativos, helpdesk' },
-    { slug: 'qualidade',     label: 'Qualidade',     desc: 'Amber — não conformidades, melhorias' },
-    { slug: 'configuracoes', label: 'Configurações', desc: 'Orange — settings gerais' },
-    { slug: 'processos',     label: 'Processos',     desc: 'Violet — engine de processos' },
-    { slug: 'faq',           label: 'FAQ',           desc: 'Cyan — FAQ_COLOR (títulos de Section)' },
-    { slug: 'perfil',        label: 'Perfil',        desc: 'Sky suave — perfil, usuário' },
-  ]
+  // A LISTA de módulos vem do DEFAULT_MODULE_COLORS (fonte canônica, em sync com o
+  // backend) — assim nunca falta nem sobra slug aqui (era hardcoded e tinha drift:
+  // sobrava 'processos', que nem é slug de cor, e faltava 'ferramentas'). Só o
+  // rótulo/descrição humanos ficam neste mapa; slug sem entrada cai num label = slug.
+  const MODULE_META: Record<string, { label: string; desc: string }> = {
+    cadastros:      { label: 'Cadastros',     desc: 'Verde — clientes, colaboradores, empresas' },
+    comercial:      { label: 'Comercial',     desc: 'Rose — CRM, orçamentos, pipeline' },
+    corporativo:    { label: 'Corporativo',   desc: 'Sky — TI, projetos, contratos' },
+    administrativo: { label: 'Administrativo', desc: 'Sky claro — administrativo geral' },
+    legalizacao:    { label: 'Legalização',   desc: 'Fuchsia — constituição, alterações' },
+    trabalhista:    { label: 'Trabalhista',   desc: 'Lime — folha, holerites, eSocial' },
+    fiscal:         { label: 'Fiscal',        desc: 'Indigo — CNDs, DCTFWeb, situação fiscal' },
+    contabil:       { label: 'Contábil',      desc: 'Violet — balancetes, BI' },
+    ferramentas:    { label: 'Ferramentas',   desc: 'Violet — ferramentas e utilitários do sistema' },
+    ti:             { label: 'TI',            desc: 'Cyan — ativos, helpdesk' },
+    qualidade:      { label: 'Qualidade',     desc: 'Amber — não conformidades, melhorias' },
+    configuracoes:  { label: 'Configurações', desc: 'Orange — settings gerais' },
+    ajuda:          { label: 'Ajuda',         desc: 'Cyan — cor da seção Ajuda/FAQ (var(--mod-ajuda))' },
+    perfil:         { label: 'Perfil',        desc: 'Sky suave — perfil, usuário' },
+  }
+  const MODULES: { slug: string; label: string; desc: string }[] = Object.keys(DEFAULT_MODULE_COLORS).map(slug => ({
+    slug,
+    label: MODULE_META[slug]?.label ?? slug,
+    desc: MODULE_META[slug]?.desc ?? '',
+  }))
 
   // Optimistic update — chamado a cada movimento do color picker.
   function handleInput(slug: string, label: string, color: string) {
@@ -507,7 +517,7 @@ function ModuleColorsEditor() {
               <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px]" onClick={() => setLogs([])}>Limpar</Button>
             )}
           </div>
-          <div className="max-h-[400px] overflow-y-auto">
+          <div className="max-h-[400px] overflow-y-auto nice-scrollbar">
             {logs.length === 0 ? (
               <p className="text-[11px] text-muted-foreground/60 italic p-3 text-center">
                 Sem eventos. Mexa numa cor pra ver o tempo de resposta.
@@ -520,9 +530,9 @@ function ModuleColorsEditor() {
                       <span className="text-muted-foreground tabular-nums">{l.ts}</span>
                       <span className={cn(
                         'font-semibold',
-                        l.tipo === 'ok'  && 'text-emerald-600 dark:text-emerald-400',
-                        l.tipo === 'err' && 'text-rose-600 dark:text-rose-400',
-                        l.tipo === 'info' && 'text-sky-600 dark:text-sky-400',
+                        l.tipo === 'ok'  && TEXT.emerald,
+                        l.tipo === 'err' && TEXT.rose,
+                        l.tipo === 'info' && TEXT.sky,
                       )}>{l.slug}</span>
                     </div>
                     <p className="ml-[68px] text-foreground/80 break-all">{l.msg}</p>
@@ -540,10 +550,10 @@ function ModuleColorsEditor() {
 function StatusChip({ status }: { status: 'idle' | 'pending' | 'saving' | 'saved' | 'error' }) {
   if (status === 'idle') return null
   const cfg = {
-    pending: { label: '●', cls: 'text-amber-600 dark:text-amber-400', title: 'Alterado, aguardando debounce' },
-    saving:  { label: '⟳', cls: 'text-sky-600 dark:text-sky-400 animate-spin inline-block', title: 'Salvando no servidor' },
-    saved:   { label: '✓', cls: 'text-emerald-600 dark:text-emerald-400', title: 'Salvo' },
-    error:   { label: '!', cls: 'text-rose-600 dark:text-rose-400', title: 'Erro ao salvar' },
+    pending: { label: '●', cls: TEXT.amber, title: 'Alterado, aguardando debounce' },
+    saving:  { label: '⟳', cls: cn(TEXT.sky, 'animate-spin inline-block'), title: 'Salvando no servidor' },
+    saved:   { label: '✓', cls: TEXT.emerald, title: 'Salvo' },
+    error:   { label: '!', cls: TEXT.rose, title: 'Erro ao salvar' },
   }[status]
   return <span className={cn('text-[12px] font-bold', cfg.cls)} title={cfg.title}>{cfg.label}</span>
 }
@@ -786,17 +796,17 @@ function TablesSection() {
                   sm:flex-row sm:items-center sm:justify-between">
     <div className="flex items-center gap-2 flex-wrap">
       <Select value={String(limit)} onValueChange={...}>
-        <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
         <SelectContent>{[20, 50, 100].map(s => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
       </Select>
       <Select value={status} onValueChange={...}>
-        <SelectTrigger className="h-8 w-[170px] text-xs bg-card"><SelectValue placeholder="Status" /></SelectTrigger>
+        <SelectTrigger className="h-8 w-[170px] text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
         <SelectContent>...</SelectContent>
       </Select>
     </div>
     <div className="relative">
       <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-      <Input placeholder="Buscar..." className="h-8 pl-8 w-full sm:w-[260px] text-xs bg-card" />
+      <Input placeholder="Buscar..." className="h-8 pl-8 w-full sm:w-[260px] text-xs" />
     </div>
   </div>
 
@@ -849,17 +859,17 @@ function TablesSection() {
           <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2 flex-wrap">
               <Select defaultValue="20">
-                <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="20">20</SelectItem><SelectItem value="50">50</SelectItem></SelectContent>
               </Select>
               <Select defaultValue="__all__">
-                <SelectTrigger className="h-8 w-[140px] text-xs bg-card"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="__all__">Todos status</SelectItem></SelectContent>
               </Select>
             </div>
             <div className="relative">
               <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input placeholder="Buscar..." className="h-8 pl-8 w-[200px] text-xs bg-card" />
+              <Input placeholder="Buscar..." className="h-8 pl-8 w-[200px] text-xs" />
             </div>
           </div>
           <Table>
@@ -961,7 +971,7 @@ function FormsSection() {
   </div>
   <div className="col-span-12 space-y-1.5">
     <Label className="text-[13px] font-semibold">Observações</Label>
-    <textarea className="w-full text-sm rounded-md border border-input px-3 py-2 min-h-[80px]" />
+    <textarea className="w-full text-sm rounded-md px-3 py-2 min-h-[80px]" />
   </div>
 </div>`}
       >
@@ -1255,20 +1265,20 @@ async function handleDelete(id: string) {
  *  pra não criar dependência circular import na página do design system. */
 function DialogHeaderIconDemo({ icon: Icon, color, children }: { icon: typeof Database; color: string; children: React.ReactNode }) {
   const COLOR_CLS: Record<string, string> = {
-    sky:      'bg-sky-100 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400',
-    emerald:  'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400',
-    rose:     'bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400',
-    amber:    'bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400',
-    violet:   'bg-violet-100 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400',
-    indigo:   'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400',
-    cyan:     'bg-cyan-100 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-400',
-    orange:   'bg-orange-100 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400',
-    fuchsia:  'bg-fuchsia-100 dark:bg-fuchsia-950/40 text-fuchsia-600 dark:text-fuchsia-400',
-    lime:     'bg-lime-100 dark:bg-lime-950/40 text-lime-600 dark:text-lime-400',
+    sky:      cn('bg-sky-100 dark:bg-sky-950/40', TEXT.sky),
+    emerald:  cn('bg-emerald-100 dark:bg-emerald-950/40', TEXT.emerald),
+    rose:     cn('bg-rose-100 dark:bg-rose-950/40', TEXT.rose),
+    amber:    cn('bg-amber-100 dark:bg-amber-950/40', TEXT.amber),
+    violet:   cn('bg-violet-100 dark:bg-violet-950/40', TEXT.violet),
+    indigo:   cn('bg-indigo-100 dark:bg-indigo-950/40', TEXT.indigo),
+    cyan:     cn('bg-cyan-100 dark:bg-cyan-950/40', TEXT.cyan),
+    orange:   cn('bg-orange-100 dark:bg-orange-950/40', TEXT.orange),
+    fuchsia:  cn('bg-fuchsia-100 dark:bg-fuchsia-950/40', TEXT.fuchsia),
+    lime:     cn('bg-lime-100 dark:bg-lime-950/40', TEXT.lime),
     slate:    'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
-    red:      'bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400',
-    purple:   'bg-purple-100 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400',
-    blue:     'bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400',
+    red:      cn('bg-red-100 dark:bg-red-950/40', TEXT.red),
+    purple:   cn('bg-purple-100 dark:bg-purple-950/40', TEXT.purple),
+    blue:     cn('bg-blue-100 dark:bg-blue-950/40', TEXT.blue),
   }
   return (
     <DialogHeader>
@@ -1284,20 +1294,20 @@ function DialogHeaderIconDemo({ icon: Icon, color, children }: { icon: typeof Da
 
 function ColorDemo({ color }: { color: string }) {
   const COLOR_CLS: Record<string, string> = {
-    sky:      'bg-sky-100 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400',
-    emerald:  'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400',
-    rose:     'bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400',
-    amber:    'bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400',
-    violet:   'bg-violet-100 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400',
-    indigo:   'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400',
-    cyan:     'bg-cyan-100 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-400',
-    orange:   'bg-orange-100 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400',
-    fuchsia:  'bg-fuchsia-100 dark:bg-fuchsia-950/40 text-fuchsia-600 dark:text-fuchsia-400',
-    lime:     'bg-lime-100 dark:bg-lime-950/40 text-lime-600 dark:text-lime-400',
+    sky:      cn('bg-sky-100 dark:bg-sky-950/40', TEXT.sky),
+    emerald:  cn('bg-emerald-100 dark:bg-emerald-950/40', TEXT.emerald),
+    rose:     cn('bg-rose-100 dark:bg-rose-950/40', TEXT.rose),
+    amber:    cn('bg-amber-100 dark:bg-amber-950/40', TEXT.amber),
+    violet:   cn('bg-violet-100 dark:bg-violet-950/40', TEXT.violet),
+    indigo:   cn('bg-indigo-100 dark:bg-indigo-950/40', TEXT.indigo),
+    cyan:     cn('bg-cyan-100 dark:bg-cyan-950/40', TEXT.cyan),
+    orange:   cn('bg-orange-100 dark:bg-orange-950/40', TEXT.orange),
+    fuchsia:  cn('bg-fuchsia-100 dark:bg-fuchsia-950/40', TEXT.fuchsia),
+    lime:     cn('bg-lime-100 dark:bg-lime-950/40', TEXT.lime),
     slate:    'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
-    red:      'bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400',
-    purple:   'bg-purple-100 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400',
-    blue:     'bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400',
+    red:      cn('bg-red-100 dark:bg-red-950/40', TEXT.red),
+    purple:   cn('bg-purple-100 dark:bg-purple-950/40', TEXT.purple),
+    blue:     cn('bg-blue-100 dark:bg-blue-950/40', TEXT.blue),
   }
   return (
     <div className="rounded-md border border-border p-2 flex items-center gap-2 bg-card">
@@ -1311,11 +1321,11 @@ function ColorDemo({ color }: { color: string }) {
 
 function ContextRow({ color, icon: Icon, when }: { color: string; icon: typeof Plus; when: string }) {
   const COLOR_CLS: Record<string, string> = {
-    sky:      'bg-sky-100 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400',
-    emerald:  'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400',
-    rose:     'bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400',
-    amber:    'bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400',
-    violet:   'bg-violet-100 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400',
+    sky:      cn('bg-sky-100 dark:bg-sky-950/40', TEXT.sky),
+    emerald:  cn('bg-emerald-100 dark:bg-emerald-950/40', TEXT.emerald),
+    rose:     cn('bg-rose-100 dark:bg-rose-950/40', TEXT.rose),
+    amber:    cn('bg-amber-100 dark:bg-amber-950/40', TEXT.amber),
+    violet:   cn('bg-violet-100 dark:bg-violet-950/40', TEXT.violet),
     slate:    'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
   }
   return (

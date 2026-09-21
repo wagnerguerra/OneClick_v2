@@ -11,6 +11,7 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
@@ -348,7 +349,7 @@ export default function GestaoArquivosClientePage() {
                         <p className="truncate text-[11px] text-muted-foreground">
                           estava em {i.caminho}
                           {dias !== null && (
-                            <span className={dias <= 5 ? ' font-semibold text-amber-600 dark:text-amber-400' : ''}>
+                            <span className={dias <= 5 ? cn('font-semibold', TEXT.amber) : ''}>
                               {' · '}{dias === 0 ? 'some hoje' : `some em ${dias} dia(s)`}
                             </span>
                           )}

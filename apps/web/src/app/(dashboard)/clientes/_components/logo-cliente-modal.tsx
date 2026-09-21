@@ -18,6 +18,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
 import { cn } from '@saas/ui'
+import { BADGE } from '@/lib/color-styles'
 
 type Logo = {
   url: string; fonte: string
@@ -191,7 +192,7 @@ export function LogoClienteModal({ open, onOpenChange, clienteId, onAplicada }: 
               )}
 
               {sug?.aviso && (
-                <div className="flex items-start gap-2 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                <div className={cn('flex items-start gap-2 rounded-lg border px-3 py-2 text-xs', BADGE.amber)}>
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <span>{sug.aviso}</span>
                 </div>

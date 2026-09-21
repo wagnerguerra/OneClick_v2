@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Sparkles, Wrench, Bug, Megaphone, ArrowRight, Heart } from 'lucide-react'
 import {
-  Button, Card, CardContent,
+  Button, Card, CardContent, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
+import { TEXT, PILL } from '@/lib/color-styles'
 import { getModuleLabelForHref, getGroupLabelForHref, getGroupHexForHref } from '@/lib/navigation'
 import { EmptyState } from './empty-state'
 
@@ -27,14 +28,14 @@ interface Novidade {
 const TIPOS: Record<string, {
   label: string
   icon: typeof Sparkles
-  cor: string
-  fundo: string
+  /** Pílula (fundo+texto) da natureza — papel PILL do helper (fundo -100 + texto -700, com par dark). */
+  pill: string
   /** Cor do cabeçalho do modal (paleta do DialogHeaderIcon). */
   modal: 'emerald' | 'sky' | 'amber'
 }> = {
-  NOVO: { label: 'Novo', icon: Sparkles, cor: 'text-emerald-700 dark:text-emerald-400', fundo: 'bg-emerald-100 dark:bg-emerald-900/30', modal: 'emerald' },
-  MELHORIA: { label: 'Melhoria', icon: Wrench, cor: 'text-sky-700 dark:text-sky-400', fundo: 'bg-sky-100 dark:bg-sky-900/30', modal: 'sky' },
-  CORRECAO: { label: 'Correção', icon: Bug, cor: 'text-amber-700 dark:text-amber-400', fundo: 'bg-amber-100 dark:bg-amber-900/30', modal: 'amber' },
+  NOVO: { label: 'Novo', icon: Sparkles, pill: PILL.emerald, modal: 'emerald' },
+  MELHORIA: { label: 'Melhoria', icon: Wrench, pill: PILL.sky, modal: 'sky' },
+  CORRECAO: { label: 'Correção', icon: Bug, pill: PILL.amber, modal: 'amber' },
 }
 
 /** Data por extenso — no modal cabe a data inteira, ao contrário da lista. */
@@ -118,7 +119,7 @@ export function NovidadesWidget({ canRead, title, bloco, expanded }: {
       <CardContent className="flex h-full flex-col gap-3 overflow-hidden p-4 @sm:p-5">
         <Link href="/relatorios-ti" className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-50 dark:bg-cyan-900/20">
-            <Megaphone className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+            <Megaphone className={cn('h-4 w-4', TEXT.cyan)} />
           </span>
           <span className="min-w-0">
             <h3 className="truncate text-sm font-semibold">{titulo}</h3>
@@ -132,13 +133,13 @@ export function NovidadesWidget({ canRead, title, bloco, expanded }: {
             const Icone = t.icon
             const corpo = (
               <div className="flex gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-muted/50">
-                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ring-1 ring-inset ring-current/15 ${t.fundo} ${t.cor}`}>
+                <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-full ring-1 ring-inset ring-current/15', t.pill)}>
                   <Icone className="h-4 w-4" />
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <p className="truncate text-sm font-semibold text-foreground">{n.titulo}</p>
-                    <span className={`inline-flex shrink-0 items-center rounded-full px-2 py-px text-[11px] font-medium ${t.fundo} ${t.cor}`}>{t.label}</span>
+                    <span className={cn('inline-flex shrink-0 items-center rounded-full px-2 py-px text-[11px] font-medium', t.pill)}>{t.label}</span>
                   </div>
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
                     {n.descricao ? <>{n.descricao}<span className="px-1">·</span></> : null}{quando(n.publicadoEm)}

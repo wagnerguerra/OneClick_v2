@@ -12,10 +12,9 @@ import {
   ChevronDown, X, Database, Loader2, Sparkles, UserCog,
   FileSearch,
   Ban, RotateCcw, Building2, ExternalLink, Copy,
-  Calculator, FileText, Users, Briefcase, ClipboardList, Wallet, Tag,
+  Tag,
   ShieldCheck, ShieldAlert, ShieldX, ShieldOff,
   CalendarClock, BadgePercent, ArrowLeftRight,
-  type LucideIcon,
 } from 'lucide-react'
 import {
   Button, Input, Badge,
@@ -27,6 +26,8 @@ import {
   cn,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { BADGE, TEXT } from '@/lib/color-styles'
+import { AREA_BADGE_MAP } from './_lib/area-tone'
 import { trpc } from '@/lib/trpc'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { alerts } from '@/lib/alerts'
@@ -539,20 +540,6 @@ export default function ClientesPage() {
     return tipo === 'CPF' ? masks.cpf(doc) : masks.cnpj(doc)
   }
 
-  // Identidade visual dos badges de área: cor base + ícone (chave normalizada
-  // sem acento). Pílula com fundo suave tintado, texto/borda na cor, rótulo = nome.
-  const AREA_BADGE_MAP: Record<string, { color: string; Icon: LucideIcon }> = {
-    contabil: { color: '#0284c7', Icon: Calculator },
-    fiscal: { color: '#475569', Icon: FileText },
-    trabalhista: { color: '#16a34a', Icon: Users },
-    societario: { color: '#7c3aed', Icon: Briefcase },
-    legalizacao: { color: '#e11d48', Icon: Building2 },
-    administrativo: { color: '#64748b', Icon: ClipboardList },
-    financeiro: { color: '#0891b2', Icon: Wallet },
-    pessoal: { color: '#ea580c', Icon: UserCog },
-    dp: { color: '#ea580c', Icon: UserCog },
-  }
-
   function renderAreas(areas: string | null) {
     if (!areas) return <span className="text-muted-foreground">—</span>
     return (
@@ -562,16 +549,14 @@ export default function ClientesPage() {
           if (!trimmed) return null
           const key = trimmed.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
           const conf = AREA_BADGE_MAP[key]
-          const color = conf?.color || '#6b7280'
-          const Icon = conf?.Icon || Tag
+          const Icon = conf?.Icon ?? Tag
           return (
             <span
               key={trimmed}
               title={trimmed}
-              className="inline-flex items-center gap-1 rounded-[4px] border px-1.5 py-[1px] text-[9px] font-semibold uppercase leading-tight tracking-wide"
-              style={{ backgroundColor: `${color}14`, color, borderColor: `${color}40` }}
+              className={cn('inline-flex items-center gap-1 rounded-[4px] border px-1.5 py-[1px] text-[9px] font-semibold uppercase leading-tight tracking-wide', BADGE[conf?.tone ?? 'slate'])}
             >
-              <Icon className="h-2.5 w-2.5 shrink-0" style={{ color }} />
+              <Icon className="h-2.5 w-2.5 shrink-0" />
               {trimmed}
             </span>
           )
@@ -643,7 +628,7 @@ export default function ClientesPage() {
                   {/* Relatórios e Exportar ficam abertos a quem tem o módulo:
                       é o caminho de quem só precisa levar uma lista para fora,
                       e foi a regra combinada para os relatórios do sistema. */}
-                  <DropdownMenuItem onClick={() => router.push('/clientes/relatorios')}><BarChart3 className="h-4 w-4 text-emerald-600" />Relatórios</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push('/clientes/relatorios')}><BarChart3 className={cn('h-4 w-4', TEXT.emerald)} />Relatórios</DropdownMenuItem>
                   <DropdownMenuItem onClick={handleExport} disabled={exporting}><FileDown className="h-4 w-4" />Exportar</DropdownMenuItem>
                   {/* Importação tem sub-permissão própria, não `edit_details`:
                       cria cliente em massa, escreve por cima do que existe e não
@@ -670,12 +655,12 @@ export default function ClientesPage() {
                   )}
                   {(isMaster || isEmpresaMaster) && (
                     <DropdownMenuItem onClick={() => router.push('/clientes/duplicidades')}>
-                      <Copy className="h-4 w-4 text-amber-600" />Cadastros repetidos
+                      <Copy className={cn('h-4 w-4', TEXT.amber)} />Cadastros repetidos
                     </DropdownMenuItem>
                   )}
                   {isMaster && (
                     <DropdownMenuItem onClick={() => setDossieOpen(true)}>
-                      <FileSearch className="h-4 w-4 text-violet-600" />Varredura do dossiê
+                      <FileSearch className={cn('h-4 w-4', TEXT.violet)} />Varredura do dossiê
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
@@ -726,7 +711,7 @@ export default function ClientesPage() {
                   title={onlyMensal ? 'Filtrando somente os mensais — clique para limpar' : 'Filtrar somente os mensais'}
                   className={cn(
                     'rounded px-0.5 text-lg font-bold tabular-nums transition-colors hover:bg-muted',
-                    onlyMensal ? 'text-cyan-600 dark:text-cyan-400' : 'text-foreground',
+                    onlyMensal ? TEXT.cyan : 'text-foreground',
                   )}
                 >
                   {stats.mensais.toLocaleString('pt-BR')}
@@ -739,7 +724,7 @@ export default function ClientesPage() {
                   title={filterServico === '__com__' ? 'Filtrando quem tem serviço — clique para limpar' : 'Filtrar quem tem serviço contratado'}
                   className={cn(
                     'rounded px-0.5 text-lg font-bold tabular-nums transition-colors hover:bg-muted',
-                    filterServico === '__com__' ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground',
+                    filterServico === '__com__' ? TEXT.emerald : 'text-foreground',
                   )}
                 >
                   {stats.comServico.toLocaleString('pt-BR')}
@@ -800,11 +785,11 @@ export default function ClientesPage() {
             </span>
             <span className="min-w-0">
               <span className="flex items-baseline gap-2 leading-none">
-                <span className="flex items-baseline gap-0.5 text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                <span className={cn('flex items-baseline gap-0.5 text-lg font-bold tabular-nums', TEXT.emerald)}>
                   <ArrowUp className="h-3.5 w-3.5 self-center" />{stats.entraram90d}
                 </span>
                 <span className="text-muted-foreground/40">/</span>
-                <span className="flex items-baseline gap-0.5 text-lg font-bold tabular-nums text-rose-600 dark:text-rose-400">
+                <span className={cn('flex items-baseline gap-0.5 text-lg font-bold tabular-nums', TEXT.rose)}>
                   <ArrowDown className="h-3.5 w-3.5 self-center" />{stats.sairam90d}
                 </span>
               </span>
@@ -813,7 +798,7 @@ export default function ClientesPage() {
                 {(() => {
                   const saldo = stats.entraram90d - stats.sairam90d
                   if (saldo === 0) return null
-                  return <span className={saldo > 0 ? 'ml-1 font-medium text-emerald-600 dark:text-emerald-400' : 'ml-1 font-medium text-rose-600 dark:text-rose-400'}>
+                  return <span className={cn('ml-1 font-medium', saldo > 0 ? TEXT.emerald : TEXT.rose)}>
                     ({saldo > 0 ? '+' : ''}{saldo})
                   </span>
                 })()}
@@ -930,8 +915,7 @@ export default function ClientesPage() {
                     const ativoAqui = filterArea === a.area
                     const chave = a.area.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
                     const conf = AREA_BADGE_MAP[chave]
-                    const cor = conf?.color || '#6b7280'
-                    const Icone = conf?.Icon || Tag
+                    const Icone = conf?.Icon ?? Tag
                     return (
                       <button
                         key={a.area}
@@ -941,18 +925,15 @@ export default function ClientesPage() {
                         title={ativoAqui ? `Filtrando por ${a.area} — clique para limpar` : `Filtrar quem tem ${a.area}`}
                         className={cn(
                           'flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[10.5px] transition-all',
-                          ativoAqui ? 'font-semibold shadow-sm' : 'border-transparent text-muted-foreground hover:bg-muted',
+                          // Ativo = pastel da cor da área via helper (mesmos tons dos
+                          // badges da listagem); o ícone herda o texto (currentColor).
+                          ativoAqui ? cn('font-semibold shadow-sm', BADGE[conf?.tone ?? 'slate']) : 'border-transparent text-muted-foreground hover:bg-muted',
                           // Com uma área escolhida, as outras recuam sem sumir:
                           // continuam clicáveis para trocar de filtro.
                           filterArea && !ativoAqui && 'opacity-45 hover:opacity-100',
                         )}
-                        style={ativoAqui ? {
-                          color: cor,
-                          backgroundColor: `color-mix(in srgb, ${cor} 14%, transparent)`,
-                          borderColor: `color-mix(in srgb, ${cor} 45%, transparent)`,
-                        } : undefined}
                       >
-                        <Icone className="h-2.5 w-2.5 shrink-0" style={{ color: cor }} />
+                        <Icone className={cn('h-2.5 w-2.5 shrink-0', TEXT[conf?.tone ?? 'slate'])} />
                         {a.area}
                         <strong className={cn('font-semibold tabular-nums', !ativoAqui && 'text-foreground')}>{a.total}</strong>
                         {ativoAqui && <X className="h-3 w-3 shrink-0 opacity-70" />}
@@ -1024,12 +1005,12 @@ export default function ClientesPage() {
                 {/* Linha 1: Número · Grupo · Atividade · Município · Estado · Tributação */}
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Número</label>
-                  <Input value={filterNumero} onChange={(e) => setFilterNumero(e.target.value.replace(/\D/g, ''))} placeholder="Nº do cliente" inputMode="numeric" className="h-8 text-xs bg-card" />
+                  <Input value={filterNumero} onChange={(e) => setFilterNumero(e.target.value.replace(/\D/g, ''))} placeholder="Nº do cliente" inputMode="numeric" className="h-8 text-xs" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Grupo Empresarial</label>
                   <Select value={filterGrupo || '__all__'} onValueChange={(v) => { setFilterGrupo(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todos</SelectItem>
                       {filterOptions.grupos.map((g) => <SelectItem key={g} value={g!}>{g}</SelectItem>)}
@@ -1039,7 +1020,7 @@ export default function ClientesPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Atividade</label>
                   <Select value={filterAtividade || '__all__'} onValueChange={(v) => { setFilterAtividade(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todas</SelectItem>
                       {filterOptions.atividades.map((a) => <SelectItem key={a} value={a!}>{a}</SelectItem>)}
@@ -1049,7 +1030,7 @@ export default function ClientesPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Município</label>
                   <Select value={filterCidade || '__all__'} onValueChange={(v) => { setFilterCidade(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todos</SelectItem>
                       {filterOptions.cidades.map((c) => <SelectItem key={c} value={c!}>{c}</SelectItem>)}
@@ -1059,7 +1040,7 @@ export default function ClientesPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Estado</label>
                   <Select value={filterUf || '__all__'} onValueChange={(v) => { setFilterUf(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todos</SelectItem>
                       {filterOptions.estados.map((e) => <SelectItem key={e} value={e!}>{e}</SelectItem>)}
@@ -1069,7 +1050,7 @@ export default function ClientesPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Tributação</label>
                   <Select value={filterTributacao || '__all__'} onValueChange={(v) => { setFilterTributacao(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todas</SelectItem>
                       {Object.entries(TRIBUTACAO_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
@@ -1082,7 +1063,7 @@ export default function ClientesPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Áreas Contratadas</label>
                   <Select value={filterArea || '__all__'} onValueChange={(v) => { setFilterArea(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todas</SelectItem>
                       {filterOptions.areas.map((a) => <SelectItem key={a} value={a!}>{a}</SelectItem>)}
@@ -1092,7 +1073,7 @@ export default function ClientesPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Tipo de Cliente</label>
                   <Select value={filterTipo || '__all__'} onValueChange={(v) => { setFilterTipo(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todos</SelectItem>
                       {filterOptions.tipos.map((t) => <SelectItem key={t} value={t!}>{t}</SelectItem>)}
@@ -1102,7 +1083,7 @@ export default function ClientesPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Situação</label>
                   <Select value={(onlyMensal || onlyExCliente) ? 'MENSAL' : (filterSituacao || '__all__')} onValueChange={(v) => { setFilterSituacao(v === '__all__' ? '' : v); setPage(1) }} disabled={onlyMensal || onlyExCliente}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todas</SelectItem>
                       {Object.entries(SITUACAO_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
@@ -1112,7 +1093,7 @@ export default function ClientesPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Cliente com Benefício</label>
                   <Select value={filterBeneficio || '__all__'} onValueChange={(v) => { setFilterBeneficio(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todos</SelectItem>
                       <SelectItem value="__com__">Com benefício (qualquer)</SelectItem>
@@ -1127,7 +1108,7 @@ export default function ClientesPage() {
                       (`contratado = true` em cliente_areas_contratadas), para os
                       dois não divergirem. */}
                   <Select value={filterServico || '__all__'} onValueChange={(v) => { setFilterServico(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todos</SelectItem>
                       <SelectItem value="__com__">Com serviço contratado</SelectItem>
@@ -1139,7 +1120,7 @@ export default function ClientesPage() {
                   <label className="text-xs font-medium text-muted-foreground">Cliente Ativo / Inativo</label>
                   {/* #HLP0209 — Ativos (padrão) · Inativos · Todos (ativos+inativos). Ex-cliente trava em Inativos. */}
                   <Select value={onlyExCliente ? 'INATIVO' : filterStatus} onValueChange={(v) => { setFilterStatus(v); setPage(1) }} disabled={onlyExCliente}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ATIVO">Ativos</SelectItem>
                       <SelectItem value="INATIVO">Inativos</SelectItem>
@@ -1152,7 +1133,7 @@ export default function ClientesPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Ex-cliente</label>
                   <Select value={onlyExCliente ? 'sim' : 'nao'} onValueChange={(v) => setExCliente(v === 'sim')}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="nao">Não</SelectItem>
                       <SelectItem value="sim">Sim</SelectItem>
@@ -1168,7 +1149,7 @@ export default function ClientesPage() {
       {/* Seleção em lote */}
       {selected.size > 0 && (
         <div className="flex flex-col gap-2 rounded-lg bg-emerald-50 px-4 py-2.5 text-sm dark:bg-emerald-950/20 sm:flex-row sm:items-center sm:gap-3">
-          <span className="font-medium text-emerald-700 dark:text-emerald-400">{selected.size} selecionado{selected.size > 1 ? 's' : ''}</span>
+          <span className={cn('font-medium', TEXT.emerald)}>{selected.size} selecionado{selected.size > 1 ? 's' : ''}</span>
           {/* Âmbar soft com borda (tom do KPI "Backlog em aberto"): destaca sobre o fundo
               esmeralda da barra, onde o soft-warning (tint 10%) sumia. O per-row segue
               soft-warning (fica sobre a linha, homogêneo com o Editar/Reativar). */}
@@ -1185,7 +1166,7 @@ export default function ClientesPage() {
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="hidden sm:inline">Exibir</span>
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
             <span className="hidden sm:inline">registros</span>
@@ -1194,7 +1175,7 @@ export default function ClientesPage() {
               em 60% da linha impede que ele encoste no "Exibir N registros"
               num notebook 1366. */}
           <div className="w-full sm:w-[560px] sm:max-w-[60%]">
-            <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+            <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
 
@@ -1291,7 +1272,7 @@ export default function ClientesPage() {
                           <button
                             type="button"
                             onClick={e => { e.stopPropagation(); setFiliaisModal({ documento: cliente.documento, matrizNome: cliente.razaoSocial }) }}
-                            className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors"
+                            className={cn('inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full transition-colors hover:bg-violet-200 dark:hover:bg-violet-900/50', BADGE.violet)}
                             title={`Ver ${cliente.filiaisCount} ${cliente.filiaisCount === 1 ? 'filial' : 'filiais'} deste grupo`}
                           >
                             <Building2 className="h-2.5 w-2.5" />
@@ -1527,7 +1508,7 @@ export default function ClientesPage() {
             <div className="flex gap-1 mb-3 border-b">
               {(['ATIVIDADE', 'ORIGEM', 'GRUPO', 'BENEFICIO'] as const).map(tab => (
                 <button key={tab} type="button"
-                  className={cn('px-4 py-2 text-xs font-medium border-b-2 transition-colors -mb-px', opcoesTab === tab ? 'border-emerald-500 text-emerald-700' : 'border-transparent text-muted-foreground hover:text-foreground')}
+                  className={cn('px-4 py-2 text-xs font-medium border-b-2 transition-colors -mb-px', opcoesTab === tab ? cn('border-emerald-500', TEXT.emerald) : 'border-transparent text-muted-foreground hover:text-foreground')}
                   onClick={() => { setOpcoesTab(tab); loadOpcoes(tab) }}
                 >
                   {tab === 'ATIVIDADE' ? 'Atividades' : tab === 'ORIGEM' ? 'Origens' : tab === 'GRUPO' ? 'Grupos' : 'Benefícios'}
@@ -1543,7 +1524,7 @@ export default function ClientesPage() {
             {(() => {
               const filtradas = opcoes.filter(o => !opcoesBusca || o.valor.toLowerCase().includes(opcoesBusca.toLowerCase()))
               return (
-                <div className="h-[50vh] overflow-y-auto divide-y divide-border/50 -mx-1">
+                <div className="h-[50vh] overflow-y-auto nice-scrollbar divide-y divide-border/50 -mx-1">
                   {opcoesLoading ? (
                     <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
                   ) : opcoes.length === 0 ? (
@@ -1653,7 +1634,7 @@ function CelulaTexto({ clienteId, campo, valor, podeEditar, onUpdated, maxLength
           if (e.key === 'Enter') { e.preventDefault(); salvar() }
           if (e.key === 'Escape') { setRascunho(valor ?? ''); setEditando(false) }
         }}
-        className="w-full rounded border border-primary bg-background px-1.5 py-0.5 text-sm outline-none"
+        className="w-full rounded border border-primary px-1.5 py-0.5 text-sm outline-none"
       />
     )
   }

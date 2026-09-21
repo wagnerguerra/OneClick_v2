@@ -306,6 +306,8 @@ export class AgendaEmailTemplateService {
     // Monta o conjunto de fragmentos HTML por chave de elemento (string vazia = sem conteúdo).
     const fragmentosDoEvento = (ev: any) => {
       const cor = ev.tipo?.cor || template.accent
+      // Cor de BORDA do tipo (mais forte) — usada na tira/borda do card, não o fundo.
+      const corBorda = ev.tipo?.corBorda || cor
       const modalidadeLabel = ev.presenca === 'ONLINE' ? 'Online' : ev.presenca === 'HIBRIDO' ? 'Híbrido' : 'Presencial'
       const modalidadeIcon = ev.presenca === 'ONLINE' ? '💻' : ev.presenca === 'HIBRIDO' ? '🔄' : '🏢'
       const local = ev.salaRef?.nome || salaTexto(ev.sala) || ev.local || ''
@@ -399,6 +401,7 @@ export class AgendaEmailTemplateService {
 
       return {
         cor,
+        corBorda,
         molduraCor,
         molduraPad,
         frags: {
@@ -454,9 +457,9 @@ export class AgendaEmailTemplateService {
     // ── Builder: monta o corpo do card respeitando ordem/visibilidade; elementos
     //    inline vizinhos fluem na mesma linha (preserva o visual original). ──
     const renderCardBuilder = (ev: any) => {
-      const { cor, frags, molduraCor, molduraPad } = fragmentosDoEvento(ev)
+      const { frags, molduraCor, molduraPad, corBorda } = fragmentosDoEvento(ev)
       const horarioBlock = ev.diaInteiro
-        ? `<span class="em-evtimev" style="font-weight:700;color:${cor}">Dia inteiro</span>`
+        ? `<span class="em-evtimev" style="font-weight:700;color:#0f172a">Dia inteiro</span>`
         : `<div class="em-evtimev" style="font-weight:700;font-size:14px;color:#0f172a;line-height:1.1">${esc(ev.horaInicio ?? '')}</div>
            <div class="em-evtimev2" style="font-weight:500;font-size:11px;color:#94a3b8;line-height:1;margin-top:2px">${esc(ev.horaFim ?? '')}</div>`
 
@@ -480,7 +483,7 @@ export class AgendaEmailTemplateService {
   <tr><td class="em-evborder" bgcolor="${molduraCor}" style="background-color:${molduraCor};padding:${molduraPad};border-radius:10px">
     <table cellpadding="0" cellspacing="0" border="0" width="100%" class="em-evcard" style="background:#ffffff;border-radius:9px;overflow:hidden">
       <tr>
-        <td width="4" bgcolor="${cor}" style="background-color:${cor};width:4px;padding:0;line-height:0;font-size:0">&nbsp;</td>
+        <td width="4" bgcolor="${corBorda}" style="background-color:${corBorda};width:4px;padding:0;line-height:0;font-size:0">&nbsp;</td>
         <td width="68" valign="middle" class="em-evtime" style="padding:14px 10px 14px 14px;text-align:center;border-right:1px solid #f1f5f9;vertical-align:middle;background:#f8fafc">
           ${horarioBlock}
         </td>
@@ -539,31 +542,12 @@ export class AgendaEmailTemplateService {
     // CSS responsivo: dark mode (legibilidade no celular) + mobile (coluna de hora
     // mais estreita). Só afeta clientes que suportam <style>/media queries — desktop
     // e claro permanecem idênticos.
-    // Na prévia do painel, NÃO emitimos o bloco de dark adaptativo — assim a prévia
-    // mostra sempre o visual CLARO (canônico), independente do modo do navegador.
-    const darkCss = ctx.preview ? '' : `
-  @media (prefers-color-scheme: dark) {
-    .em-page { background:#0b1220 !important; }
-    .em-card { background:#0f172a !important; }
-    .em-pad { background:#0f172a !important; }
-    .em-logobar { background:#ffffff !important; }  /* logo sempre sobre fundo claro */
-    .em-sectitle { color:#f1f5f9 !important; }
-    .em-count { background:rgba(255,255,255,.10) !important; color:#cbd5e1 !important; }
-    .em-evborder { background-color:#334155 !important; }
-    .em-evcard { background:#1e293b !important; }
-    .em-evtime { background:#0f172a !important; border-right-color:rgba(255,255,255,.07) !important; }
-    .em-evtimev { color:#f1f5f9 !important; }
-    .em-evtimev2 { color:#64748b !important; }
-    .em-evtitle { color:#f8fafc !important; }
-    .em-meta { color:#94a3b8 !important; }
-    .em-evlabel { color:#cbd5e1 !important; }
-    .em-evlabelwrap { border-top-color:rgba(255,255,255,.10) !important; }
-    .em-chip { background:rgba(255,255,255,.07) !important; color:#cbd5e1 !important; border-color:rgba(255,255,255,.12) !important; }
-    .em-creator { border-top-color:rgba(255,255,255,.07) !important; color:#64748b !important; }
-  }`
-    const responsiveCss = `${darkCss}
-  /* MOBILE/ANDROID: força a paleta CLARA nos dois modos (vence o prefers-dark acima
-     por vir depois) + compacta a coluna de hora. */
+    // O email é SEMPRE claro (decisão do produto): não emitimos bloco de dark
+    // adaptativo em envio nenhum — o visual claro é o canônico, igual à prévia do
+    // painel. (Antes havia um @media (prefers-color-scheme: dark); removido para
+    // não escurecer em clientes/navegadores em modo escuro.)
+    const responsiveCss = `
+  /* MOBILE/ANDROID: reforça a paleta CLARA + compacta a coluna de hora. */
   @media only screen and (max-width:480px) {
     .em-page { background:#f1f5f9 !important; }
     .em-card { background:#ffffff !important; }
@@ -603,7 +587,7 @@ export class AgendaEmailTemplateService {
   [data-ogsb].em-chip, [data-ogsc] .em-chip { background:#f1f5f9 !important; color:#475569 !important; }
   [data-ogsc].em-creator, [data-ogsc] .em-creator { color:#94a3b8 !important; }`
 
-    const colorScheme = ctx.preview ? 'light' : 'light dark'
+    const colorScheme = 'light' // email é sempre claro (sem dark adaptativo)
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="${colorScheme}"><meta name="supported-color-schemes" content="${colorScheme}"><style>${responsiveCss}</style></head>
 <body class="em-page" style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" class="em-page" style="background:#f1f5f9;padding:24px 0"><tr><td align="center" style="padding:0 12px">

@@ -11,6 +11,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
+import { BADGE } from '@/lib/color-styles'
 import { alerts } from '@/lib/alerts'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { AnexosDropzone, type AnexoStaged } from './anexos-dropzone'
@@ -395,8 +396,8 @@ export function TicketFormFields({ form, variant = 'modal', onSubmitShortcut }: 
           parece que o sistema inventou o conteudo. */}
       {form.rascunhoRestaurado && (
         <div className={cn(
-          'flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-amber-800',
-          'dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300',
+          'flex items-start gap-2 rounded-md border px-3 py-2',
+          BADGE.amber,
           fab ? 'text-[11px]' : 'text-xs',
         )}>
           <RotateCcw className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -533,8 +534,10 @@ function ServicoSelect({ servicos, loading, value, onChange, semTipo }: {
     <div className="relative">
       <button
         type="button"
+        role="combobox"
+        aria-expanded={open}
         onClick={() => setOpen(o => !o)}
-        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+        className="flex h-9 w-full items-center justify-between rounded-md border border-input px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
       >
         {selected ? (
           <span className="flex items-center gap-2 truncate">
@@ -561,7 +564,7 @@ function ServicoSelect({ servicos, loading, value, onChange, semTipo }: {
               className="h-7 text-xs"
             />
           </div>
-          <div className="max-h-72 overflow-y-auto py-1">
+          <div className="nice-scrollbar max-h-72 overflow-y-auto py-1">
             {loading ? (
               <p className="px-3 py-3 text-xs text-muted-foreground text-center flex items-center justify-center gap-1.5">
                 <Loader2 className="h-3 w-3 animate-spin" /> Carregando...

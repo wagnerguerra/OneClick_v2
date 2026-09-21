@@ -12,14 +12,16 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT, BADGE } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
-import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
-import { resolveAssetUrl } from '@/lib/api-url'
+import { UserAvatar } from '@/components/ui/user-avatar'
+import { BackButton } from '@/components/ui/back-button'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LabelList,
 } from 'recharts'
+import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
 
@@ -194,17 +196,11 @@ function TabFunil({ dias }: { dias?: number }) {
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.etapas} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
                 <YAxis yAxisId="left" tick={{ fontSize: 10 }} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} tickFormatter={(v: number) => formatCompact(v)} />
-                <Tooltip
-                  contentStyle={{ fontSize: 11, borderRadius: 8 }}
-                  formatter={(value, name) => [
-                    name === 'valor' ? formatCurrency(Number(value)) : value,
-                    name === 'valor' ? 'Valor' : 'Quantidade',
-                  ]}
-                />
+                <Tooltip content={<ChartTooltip format={(v, n) => (n === 'valor' ? formatCurrency(v) : v)} />} cursor={{ fill: CHART_CURSOR_FILL }} />
                 <Bar yAxisId="left" dataKey="count" name="Quantidade" radius={[4, 4, 0, 0]}>
                   {data.etapas.map((e: any) => (
                     <Cell key={e.etapaId} fill={e.cor || MODULE_COLOR} opacity={0.85} />
@@ -229,7 +225,7 @@ function TabFunil({ dias }: { dias?: number }) {
                   <ArrowRight className="h-3 w-3 text-muted-foreground" />
                   <span className={cn(
                     'text-[12px] font-bold',
-                    c.taxa >= 50 ? 'text-emerald-600' : c.taxa >= 25 ? 'text-amber-600' : 'text-red-500',
+                    c.taxa >= 50 ? TEXT.emerald : c.taxa >= 25 ? TEXT.amber : TEXT.red,
                   )}>
                     {c.taxa}%
                   </span>
@@ -273,10 +269,10 @@ function TabDesempenho({ dias }: { dias?: number }) {
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8 }} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Bar dataKey="ganhos" name="Ganhos" fill="#10b981" radius={[4, 4, 0, 0]} />
               <Bar dataKey="perdidos" name="Perdidos" fill="#ef4444" radius={[4, 4, 0, 0]} />
               <Bar dataKey="total" name="Total" fill={MODULE_COLOR} radius={[4, 4, 0, 0]} opacity={0.4} />
@@ -287,7 +283,7 @@ function TabDesempenho({ dias }: { dias?: number }) {
 
       {/* Table */}
       <Card className="overflow-hidden">
-        <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.08)]">
+        <div className="px-4 py-3 border-b border-border">
           <h3 className="text-[13px] font-semibold text-foreground">Detalhamento por Responsavel</h3>
         </div>
         <Table>
@@ -308,38 +304,28 @@ function TabDesempenho({ dias }: { dias?: number }) {
               <TableRow key={row.responsavelId || 'sem'}>
                 <TableCell className="text-xs font-medium">
                   <div className="flex items-center gap-2">
-                    {row.image ? (
-                      <img src={resolveAssetUrl(row.image)} className="h-6 w-6 rounded-full" alt="" />
-                    ) : (
-                      <div className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: MODULE_COLOR }}>
-                        {(row.nome || '?')[0].toUpperCase()}
-                      </div>
-                    )}
+                    <UserAvatar user={{ name: row.nome, image: row.image }} bg="bg-rose-500" className="h-6 w-6 text-[10px]" />
                     {row.nome}
                   </div>
                 </TableCell>
                 <TableCell className="text-xs text-center">{row.total}</TableCell>
                 <TableCell className="text-xs text-center">
-                  <span className="text-emerald-600 font-medium">{row.ganhos}</span>
+                  <span className={cn('font-medium', TEXT.emerald)}>{row.ganhos}</span>
                 </TableCell>
                 <TableCell className="text-xs text-center">
-                  <span className="text-red-500 font-medium">{row.perdidos}</span>
+                  <span className={cn('font-medium', TEXT.red)}>{row.perdidos}</span>
                 </TableCell>
                 <TableCell className="text-xs text-center">{row.total - row.ganhos - row.perdidos}</TableCell>
                 <TableCell className="text-xs text-center">
                   <Badge
-                    variant="secondary"
-                    className="text-[10px]"
-                    style={{
-                      backgroundColor: row.taxaConversao >= 50 ? '#d1fae5' : row.taxaConversao >= 25 ? '#fef3c7' : '#fee2e2',
-                      color: row.taxaConversao >= 50 ? '#065f46' : row.taxaConversao >= 25 ? '#92400e' : '#991b1b',
-                    }}
+                    variant="outline"
+                    className={cn('text-[10px]', row.taxaConversao >= 50 ? BADGE.emerald : row.taxaConversao >= 25 ? BADGE.amber : BADGE.red)}
                   >
                     {row.taxaConversao}%
                   </Badge>
                 </TableCell>
                 <TableCell className="text-xs text-right">{formatCurrency(row.valor)}</TableCell>
-                <TableCell className="text-xs text-right font-medium text-emerald-600">
+                <TableCell className={cn('text-xs text-right font-medium', TEXT.emerald)}>
                   {formatCurrency(row.valorGanho)}
                 </TableCell>
               </TableRow>
@@ -400,10 +386,7 @@ function TabOrigem({ dias }: { dias?: number }) {
                     <Cell key={idx} fill={entry.fill} />
                   ))}
                 </Pie>
-                <Tooltip
-                  contentStyle={{ fontSize: 11, borderRadius: 8 }}
-                  formatter={(value: any) => [value, 'Quantidade']}
-                />
+                <Tooltip content={<ChartTooltip />} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -415,13 +398,10 @@ function TabOrigem({ dias }: { dias?: number }) {
           <div className="h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.origens} layout="vertical" margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v: number) => formatCompact(v)} />
                 <YAxis type="category" dataKey="origem" tick={{ fontSize: 10 }} width={100} />
-                <Tooltip
-                  contentStyle={{ fontSize: 11, borderRadius: 8 }}
-                  formatter={(value: any) => [formatCurrency(value), 'Valor']}
-                />
+                <Tooltip content={<ChartTooltip format={(v) => formatCurrency(v)} />} cursor={{ fill: CHART_CURSOR_FILL }} />
                 <Bar dataKey="valor" name="Valor" radius={[0, 4, 4, 0]}>
                   {data.origens.map((_: any, idx: number) => (
                     <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} opacity={0.85} />
@@ -435,7 +415,7 @@ function TabOrigem({ dias }: { dias?: number }) {
 
       {/* Table */}
       <Card className="overflow-hidden">
-        <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.08)]">
+        <div className="px-4 py-3 border-b border-border">
           <h3 className="text-[13px] font-semibold text-foreground">Detalhamento por Origem</h3>
         </div>
         <Table>
@@ -464,19 +444,15 @@ function TabOrigem({ dias }: { dias?: number }) {
                   {data.total > 0 ? Math.round((row.count / data.total) * 100) : 0}%
                 </TableCell>
                 <TableCell className="text-xs text-center">
-                  <span className="text-emerald-600 font-medium">{row.ganhos}</span>
+                  <span className={cn('font-medium', TEXT.emerald)}>{row.ganhos}</span>
                 </TableCell>
                 <TableCell className="text-xs text-center">
-                  <span className="text-red-500 font-medium">{row.perdidos}</span>
+                  <span className={cn('font-medium', TEXT.red)}>{row.perdidos}</span>
                 </TableCell>
                 <TableCell className="text-xs text-center">
                   <Badge
-                    variant="secondary"
-                    className="text-[10px]"
-                    style={{
-                      backgroundColor: row.taxaConversao >= 50 ? '#d1fae5' : row.taxaConversao >= 25 ? '#fef3c7' : '#fee2e2',
-                      color: row.taxaConversao >= 50 ? '#065f46' : row.taxaConversao >= 25 ? '#92400e' : '#991b1b',
-                    }}
+                    variant="outline"
+                    className={cn('text-[10px]', row.taxaConversao >= 50 ? BADGE.emerald : row.taxaConversao >= 25 ? BADGE.amber : BADGE.red)}
                   >
                     {row.taxaConversao}%
                   </Badge>
@@ -520,13 +496,10 @@ function TabTempoMedio() {
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip
-                contentStyle={{ fontSize: 11, borderRadius: 8 }}
-                formatter={(value: any) => [`${value} dias`, 'Tempo Medio']}
-              />
+              <Tooltip content={<ChartTooltip format={(v) => `${v} dias`} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Bar dataKey="mediaDias" name="Dias" radius={[4, 4, 0, 0]}>
                 {data.map((e: any) => (
                   <Cell key={e.etapaId} fill={e.cor || MODULE_COLOR} opacity={0.85} />
@@ -540,7 +513,7 @@ function TabTempoMedio() {
 
       {/* Visual bars + table */}
       <Card className="overflow-hidden">
-        <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.08)]">
+        <div className="px-4 py-3 border-b border-border">
           <h3 className="text-[13px] font-semibold text-foreground">Detalhamento</h3>
         </div>
         <div className="p-4 space-y-2.5">

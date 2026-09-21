@@ -15,6 +15,7 @@ import Link from 'next/link'
 import { Button, Input, Label, Card, CardHeader, cn, Switch } from '@saas/ui'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
+import { BADGE, STRONG, TEXT } from '@/lib/color-styles'
 import { alerts } from '@/lib/alerts'
 import { useRouter } from 'next/navigation'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
@@ -539,7 +540,7 @@ export default function ConfiguracoesPage() {
         <div className="flex" style={{ borderRadius: '0.25rem', overflow: 'hidden' }}>
           {field.type === 'textarea' ? (
             <textarea
-              className="w-full min-h-[80px] rounded border border-[#ced4da] bg-white px-3 py-2 text-xs placeholder:text-[#878a99] focus:border-[#5ea3cb] focus:outline-none"
+              className="w-full min-h-[80px] rounded px-3 py-2 text-xs placeholder:text-muted-foreground focus:outline-none"
               placeholder={field.placeholder || field.key}
               value={values[field.key] === '__CLEAR__' ? '' : (values[field.key] || '')}
               onChange={(e) => setValues(prev => ({ ...prev, [field.key]: e.target.value }))}
@@ -558,7 +559,7 @@ export default function ConfiguracoesPage() {
                   <button
                     type="button"
                     onClick={() => setShowSecret(prev => ({ ...prev, [field.key]: !prev[field.key] }))}
-                    style={{ padding: '0.55rem 0.6rem', backgroundColor: '#fff', color: '#495057', border: '1px solid #ced4da', borderLeft: 'none', cursor: 'pointer' }}
+                    style={{ padding: '0.55rem 0.6rem', backgroundColor: 'var(--color-card)', color: 'var(--color-muted-foreground)', border: '1px solid var(--color-input)', borderLeft: 'none', cursor: 'pointer' }}
                   >
                     {showSecret[field.key] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                   </button>
@@ -566,7 +567,7 @@ export default function ConfiguracoesPage() {
                     type="button"
                     onClick={() => handleClear(field.key)}
                     title="Limpar valor"
-                    style={{ padding: '0.55rem 0.6rem', backgroundColor: '#fff', color: '#dc3545', border: '1px solid #ced4da', borderLeft: 'none', borderRadius: '0 0.25rem 0.25rem 0', cursor: 'pointer' }}
+                    style={{ padding: '0.55rem 0.6rem', backgroundColor: 'var(--color-card)', color: 'var(--color-destructive)', border: '1px solid var(--color-input)', borderLeft: 'none', borderRadius: '0 0.25rem 0.25rem 0', cursor: 'pointer' }}
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -625,7 +626,7 @@ export default function ConfiguracoesPage() {
         </CardHeader>
         <div className="flex min-h-[500px]">
           {/* Abas verticais (pills) */}
-          <div className="w-[200px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+          <div className="w-[200px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
             <div className="space-y-1">
               {groups.map((group) => {
                 const Icon = GROUP_ICONS[group] || Settings
@@ -641,9 +642,9 @@ export default function ConfiguracoesPage() {
                       'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                       activeGroup === group
                         ? 'text-white shadow-sm'
-                        : 'text-muted-foreground hover:bg-white hover:text-foreground'
+                        : 'text-muted-foreground hover:bg-white dark:hover:bg-accent hover:text-foreground'
                     )}
-                    style={activeGroup === group ? { backgroundColor: '#f97316' } : undefined}
+                    style={activeGroup === group ? { backgroundColor: 'var(--mod-configuracoes, #f97316)' } : undefined}
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0" />
                     {group}
@@ -662,7 +663,7 @@ export default function ConfiguracoesPage() {
             {activeGroup === 'Banco de Dados' ? (
               <div className="flex flex-col h-full">
                 {/* Header com título + salvar */}
-                <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-hairline">
                   <h4 className="text-[13px] font-semibold text-foreground">Banco de Dados</h4>
                   <Button variant="success" size="sm" onClick={handleSave} disabled={saving}>
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -671,7 +672,7 @@ export default function ConfiguracoesPage() {
                 </div>
 
                 {/* Sub-abas horizontais */}
-                <div className="border-b border-[rgba(0,0,0,0.08)] px-5">
+                <div className="border-b border-hairline px-5">
                   <div className="flex gap-0">
                     {DB_SUBTABS.map((tab) => {
                       const Icon = tab.icon
@@ -684,7 +685,7 @@ export default function ConfiguracoesPage() {
                             'px-4 py-2.5 text-xs font-medium transition-all flex items-center gap-2 border-b-2 -mb-px',
                             dbSubtab === tab.key
                               ? 'border-orange-500 text-orange-600'
-                              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300'
+                              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                           )}
                         >
                           <Icon className="h-3.5 w-3.5" />
@@ -713,7 +714,7 @@ export default function ConfiguracoesPage() {
                   </div>
 
                   {/* Área de teste de conexão */}
-                  <div className="mt-5 pt-4 border-t border-[rgba(0,0,0,0.08)]">
+                  <div className="mt-5 pt-4 border-t border-hairline">
                     <div className="flex items-center gap-3">
                       <Button
                         type="button"
@@ -733,10 +734,8 @@ export default function ConfiguracoesPage() {
                       {/* Resultado do teste */}
                       {testResults[dbSubtab] && (
                         <div className={cn(
-                          'flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium',
-                          testResults[dbSubtab]!.ok
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'bg-red-50 text-red-700 border border-red-200'
+                          'flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium border',
+                          testResults[dbSubtab]!.ok ? BADGE.emerald : BADGE.red
                         )}>
                           {testResults[dbSubtab]!.ok
                             ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
@@ -752,7 +751,7 @@ export default function ConfiguracoesPage() {
                   </div>
 
                   {/* Console SQL */}
-                  <div className="mt-5 pt-4 border-t border-[rgba(0,0,0,0.08)]">
+                  <div className="mt-5 pt-4 border-t border-hairline">
                     <div className="flex items-center justify-between">
                       <button
                         type="button"
@@ -788,14 +787,14 @@ export default function ConfiguracoesPage() {
                         className={cn(
                           'space-y-3',
                           expandedConsole
-                            ? 'fixed inset-4 z-[101] bg-white rounded-xl shadow-2xl p-5 overflow-y-auto'
+                            ? 'fixed inset-4 z-[101] bg-popover rounded-xl shadow-2xl p-5 overflow-y-auto nice-scrollbar'
                             : 'mt-3'
                         )}
                         style={{ animation: 'fadeSlideIn 0.2s ease-out' }}
                       >
                         {/* Header do modo expandido */}
                         {expandedConsole && (
-                          <div className="flex items-center justify-between pb-3 border-b border-[rgba(0,0,0,0.08)]">
+                          <div className="flex items-center justify-between pb-3 border-b border-hairline">
                             <div className="flex items-center gap-2">
                               <Terminal className="h-4 w-4 text-orange-500" />
                               <span className="text-sm font-semibold">Console SQL</span>
@@ -814,8 +813,8 @@ export default function ConfiguracoesPage() {
 
                         {/* Painel do template ativo com variáveis */}
                         {activeTemplate[dbSubtab] && Object.keys(templateVars[dbSubtab] || {}).length > 0 && (
-                          <div className="rounded border border-orange-200 bg-orange-50/50">
-                            <div className="flex items-center justify-between px-3 py-2 border-b border-orange-200/60">
+                          <div className="rounded border border-orange-200 bg-orange-50/50 dark:bg-orange-950/20">
+                            <div className="flex items-center justify-between px-3 py-2 border-b border-orange-200/60 dark:border-orange-800/40">
                               <div className="flex items-center gap-2">
                                 <Bookmark className="h-3.5 w-3.5 text-orange-500" />
                                 <span className="text-xs font-semibold text-orange-700">{activeTemplate[dbSubtab]!.name}</span>
@@ -849,9 +848,9 @@ export default function ConfiguracoesPage() {
                                 ))}
                               </div>
                               {/* Preview do SQL resolvido */}
-                              <div className="mt-2 pt-2 border-t border-orange-200/60">
+                              <div className="mt-2 pt-2 border-t border-orange-200/60 dark:border-orange-800/40">
                                 <div className="text-[10px] text-orange-600 font-medium mb-1">Preview:</div>
-                                <div className="text-[11px] font-mono text-orange-900 bg-orange-100/60 rounded px-2 py-1.5 max-h-[60px] overflow-auto whitespace-pre-wrap">
+                                <div className="text-[11px] font-mono text-orange-900 dark:text-orange-200 bg-orange-100/60 dark:bg-orange-900/20 rounded px-2 py-1.5 max-h-[60px] overflow-auto whitespace-pre-wrap nice-scrollbar">
                                   {resolveTemplate(activeTemplate[dbSubtab]!.sql, templateVars[dbSubtab]!)}
                                 </div>
                               </div>
@@ -861,7 +860,7 @@ export default function ConfiguracoesPage() {
 
                         <textarea
                           className={cn(
-                            'w-full rounded border border-[#ced4da] bg-[#1e1e2e] text-[#cdd6f4] px-3 py-2 text-xs font-mono placeholder:text-[#6c7086] focus:border-orange-400 focus:outline-none',
+                            'w-full rounded text-popover-foreground px-3 py-2 text-xs font-mono placeholder:text-muted-foreground focus:outline-none',
                             expandedConsole ? 'min-h-[200px]' : 'min-h-[120px]'
                           )}
                           placeholder={`Digite sua query SQL aqui...\nEx: SELECT * FROM clientes WHERE id = {{cliente_id}}\nUse {{variavel}} para criar templates reutilizáveis`}
@@ -971,7 +970,7 @@ export default function ConfiguracoesPage() {
                                           <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                                             <input
                                               autoFocus
-                                              className="flex-1 min-w-0 h-6 px-1.5 text-xs border border-orange-300 rounded bg-white focus:outline-none focus:border-orange-500"
+                                              className="flex-1 min-w-0 h-6 px-1.5 text-xs rounded focus:outline-none"
                                               value={editingQueryName}
                                               onChange={(e) => setEditingQueryName(e.target.value)}
                                               onKeyDown={(e) => {
@@ -1006,11 +1005,11 @@ export default function ConfiguracoesPage() {
                                 }
 
                                 return (
-                                  <div className="absolute top-full left-0 mt-1 z-50 w-[350px] bg-white rounded-lg border shadow-lg" style={{ animation: 'fadeSlideIn 0.15s ease-out' }}>
-                                    <div className="px-3 py-2 border-b border-[rgba(0,0,0,0.08)] text-xs font-semibold text-muted-foreground">
+                                  <div className="absolute top-full left-0 mt-1 z-50 w-[350px] bg-popover rounded-lg border shadow-lg" style={{ animation: 'fadeSlideIn 0.15s ease-out' }}>
+                                    <div className="px-3 py-2 border-b border-hairline text-xs font-semibold text-muted-foreground">
                                       Consultas salvas — {DB_SUBTABS.find(t => t.key === dbSubtab)?.label}
                                     </div>
-                                    <div className="max-h-[300px] overflow-y-auto">
+                                    <div className="max-h-[300px] overflow-y-auto nice-scrollbar">
                                       {/* Originais */}
                                       {originals.length > 0 && (
                                         <>
@@ -1025,7 +1024,7 @@ export default function ConfiguracoesPage() {
                                       {/* Templates */}
                                       {templates.length > 0 && (
                                         <>
-                                          <div className="px-3 py-1.5 bg-orange-50/80 border-b border-orange-100 flex items-center gap-1.5">
+                                          <div className="px-3 py-1.5 bg-orange-50/80 dark:bg-orange-950/20 border-b border-orange-100 dark:border-orange-900/40 flex items-center gap-1.5">
                                             <Bookmark className="h-3 w-3 text-orange-500" />
                                             <span className="text-[10px] font-semibold text-orange-600 uppercase tracking-wider">Templates</span>
                                             <span className="text-[10px] text-orange-400">({templates.length})</span>
@@ -1042,7 +1041,7 @@ export default function ConfiguracoesPage() {
 
                           <span className="text-[10px] text-muted-foreground ml-auto">Ctrl+Enter para executar</span>
                           {sqlResult[dbSubtab] && !sqlResult[dbSubtab]!.error && (
-                            <span className="text-[10px] text-emerald-600 font-medium">
+                            <span className={cn('text-[10px] font-medium', TEXT.emerald)}>
                               {sqlResult[dbSubtab]!.rowCount} linha(s) · {sqlResult[dbSubtab]!.ms}ms
                             </span>
                           )}
@@ -1050,7 +1049,7 @@ export default function ConfiguracoesPage() {
 
                         {/* Resultado — Erro */}
                         {sqlResult[dbSubtab]?.error && (
-                          <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 font-mono whitespace-pre-wrap">
+                          <div className={cn('min-w-0 rounded border px-3 py-2 text-xs font-mono whitespace-pre-wrap [overflow-wrap:anywhere]', BADGE.red)}>
                             {sqlResult[dbSubtab]!.error}
                           </div>
                         )}
@@ -1093,13 +1092,13 @@ export default function ConfiguracoesPage() {
                               </div>
 
                               {/* Tabela */}
-                              <div className={cn('rounded border border-[rgba(0,0,0,0.08)] overflow-auto', expandedConsole ? 'max-h-[calc(100vh-400px)]' : 'max-h-[400px]')}>
+                              <div className={cn('rounded border border-hairline overflow-auto nice-scrollbar', expandedConsole ? 'max-h-[calc(100vh-400px)]' : 'max-h-[400px]')}>
                                 <table className="w-full text-xs">
                                   <thead className="bg-muted/40 sticky top-0">
                                     <tr>
-                                      <th className="px-3 py-2 text-left font-semibold text-muted-foreground border-b border-[rgba(0,0,0,0.08)] w-[50px]">#</th>
+                                      <th className="px-3 py-2 text-left font-semibold text-muted-foreground border-b border-hairline w-[50px]">#</th>
                                       {sqlResult[dbSubtab]!.columns.map((col, i) => (
-                                        <th key={i} className="px-3 py-2 text-left font-semibold text-muted-foreground border-b border-[rgba(0,0,0,0.08)] whitespace-nowrap">
+                                        <th key={i} className="px-3 py-2 text-left font-semibold text-muted-foreground border-b border-hairline whitespace-nowrap">
                                           {col}
                                         </th>
                                       ))}
@@ -1133,7 +1132,7 @@ export default function ConfiguracoesPage() {
 
                         {/* Resultado — Query sem retorno (INSERT/UPDATE/DELETE) */}
                         {sqlResult[dbSubtab] && !sqlResult[dbSubtab]!.error && sqlResult[dbSubtab]!.columns.length === 0 && (
-                          <div className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                          <div className={cn('rounded border px-3 py-2 text-xs', BADGE.emerald)}>
                             ✓ Query executada com sucesso ({sqlResult[dbSubtab]!.ms}ms)
                           </div>
                         )}
@@ -1147,7 +1146,7 @@ export default function ConfiguracoesPage() {
               /* GRUPO ESPECIAL: GOOGLE (com sub-abas)                        */
               /* ============================================================ */
               <div className="flex flex-col h-full">
-                <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-hairline">
                   <h4 className="text-[13px] font-semibold text-foreground">Google</h4>
                   <Button variant="success" size="sm" onClick={handleSave} disabled={saving}>
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -1156,7 +1155,7 @@ export default function ConfiguracoesPage() {
                 </div>
 
                 {/* Sub-abas horizontais */}
-                <div className="border-b border-[rgba(0,0,0,0.08)] px-5">
+                <div className="border-b border-hairline px-5">
                   <div className="flex gap-0">
                     {GOOGLE_SUBTABS.map((tab) => {
                       const Icon = tab.icon
@@ -1168,7 +1167,7 @@ export default function ConfiguracoesPage() {
                             'px-4 py-2.5 text-xs font-medium transition-all flex items-center gap-2 border-b-2 -mb-px',
                             googleSubtab === tab.key
                               ? 'border-orange-500 text-orange-600'
-                              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300'
+                              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                           )}
                         >
                           <Icon className="h-3.5 w-3.5" />
@@ -1210,7 +1209,7 @@ export default function ConfiguracoesPage() {
               /* PILL ESPECIAL: NOTIFICAÇÕES — toggles de remoção por origem  */
               /* ============================================================ */
               <div className="flex flex-col h-full">
-                <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-hairline">
                   <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
                     <Bell className="h-4 w-4 text-orange-500" />
                     Notificações — controle de remoção pelo usuário
@@ -1243,14 +1242,14 @@ export default function ConfiguracoesPage() {
                       Nenhuma origem cadastrada.
                     </div>
                   ) : (
-                    <div className="rounded border border-[rgba(0,0,0,0.08)] overflow-hidden">
+                    <div className="rounded border border-hairline overflow-hidden">
                       <table className="w-full text-xs">
                         <thead className="bg-muted/40">
                           <tr>
-                            <th className="text-left px-3 py-2 font-semibold text-muted-foreground border-b border-[rgba(0,0,0,0.08)]">Origem / Módulo</th>
-                            <th className="text-left px-3 py-2 font-semibold text-muted-foreground border-b border-[rgba(0,0,0,0.08)]">Descrição</th>
-                            <th className="text-center px-3 py-2 font-semibold text-muted-foreground border-b border-[rgba(0,0,0,0.08)] w-[110px]">Ativos</th>
-                            <th className="text-center px-3 py-2 font-semibold text-muted-foreground border-b border-[rgba(0,0,0,0.08)] w-[180px]">Removível pelo usuário</th>
+                            <th className="text-left px-3 py-2 font-semibold text-muted-foreground border-b border-hairline">Origem / Módulo</th>
+                            <th className="text-left px-3 py-2 font-semibold text-muted-foreground border-b border-hairline">Descrição</th>
+                            <th className="text-center px-3 py-2 font-semibold text-muted-foreground border-b border-hairline w-[110px]">Ativos</th>
+                            <th className="text-center px-3 py-2 font-semibold text-muted-foreground border-b border-hairline w-[180px]">Removível pelo usuário</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1261,14 +1260,14 @@ export default function ConfiguracoesPage() {
                                 <td className="px-3 py-2.5 align-top">
                                   <div className="flex items-center gap-2">
                                     {o.removivelAtual
-                                      ? <Unlock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                                      : <Lock className="h-3.5 w-3.5 text-rose-600 shrink-0" />}
+                                      ? <Unlock className={cn('h-3.5 w-3.5 shrink-0', TEXT.emerald)} />
+                                      : <Lock className={cn('h-3.5 w-3.5 shrink-0', TEXT.rose)} />}
                                     <div className="min-w-0">
                                       <div className="font-semibold text-foreground">{o.label}</div>
                                       <div className="text-[10px] text-muted-foreground">
                                         {o.modulo}
                                         {!o.conhecida && (
-                                          <span className="ml-1 inline-flex items-center rounded-sm px-1 py-0 text-[9px] uppercase tracking-wider bg-amber-100 text-amber-800">
+                                          <span className={cn('ml-1 inline-flex items-center rounded-sm px-1 py-0 text-[9px] uppercase tracking-wider', STRONG.amber)}>
                                             não mapeada
                                           </span>
                                         )}
@@ -1287,24 +1286,12 @@ export default function ConfiguracoesPage() {
                                 </td>
                                 <td className="px-3 py-2.5 align-top text-center">
                                   <div className="flex items-center justify-center gap-2">
-                                    <button
-                                      type="button"
-                                      role="switch"
-                                      aria-checked={o.removivelAtual}
-                                      onClick={() => toggleNotifOrigem(o.origem)}
-                                      className={cn(
-                                        'relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0',
-                                        o.removivelAtual ? 'bg-emerald-500' : 'bg-rose-300 dark:bg-rose-900/50',
-                                      )}
+                                    <Switch
+                                      checked={o.removivelAtual}
+                                      onCheckedChange={() => toggleNotifOrigem(o.origem)}
+                                      className={cn(o.removivelAtual ? 'bg-emerald-500' : 'bg-rose-300 dark:bg-rose-900/50')}
                                       title={o.removivelAtual ? 'Usuário pode remover' : 'Sistema gerencia (não removível)'}
-                                    >
-                                      <span
-                                        className={cn(
-                                          'inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform',
-                                          o.removivelAtual ? 'translate-x-[18px]' : 'translate-x-0.5',
-                                        )}
-                                      />
-                                    </button>
+                                    />
                                     {alterado && (
                                       <button
                                         type="button"
@@ -1331,7 +1318,7 @@ export default function ConfiguracoesPage() {
               /* PILL ESPECIAL: HELPDESK — Geral (SLA/inbound) + Triagem IA   */
               /* ============================================================ */
               <div className="flex flex-col h-full">
-                <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-hairline">
                   <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
                     <Headphones className="h-4 w-4 text-cyan-500" />
                     HelpDesk
@@ -1344,7 +1331,7 @@ export default function ConfiguracoesPage() {
                   )}
                 </div>
                 {/* Sub-abas */}
-                <div className="px-5 pt-3 flex items-center gap-1 border-b border-[rgba(0,0,0,0.06)]">
+                <div className="px-5 pt-3 flex items-center gap-1 border-b border-hairline">
                   <button
                     type="button"
                     onClick={() => setHdSubtab('geral')}
@@ -1496,7 +1483,7 @@ export default function ConfiguracoesPage() {
                       </p>
                       <Link
                         href="/configuracoes/certificado"
-                        className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-sky-700 hover:underline dark:text-sky-400"
+                        className={cn('mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium hover:underline', TEXT.sky)}
                       >
                         Abrir certificados digitais
                         <ChevronRight className="h-3.5 w-3.5" />
@@ -1569,9 +1556,7 @@ export default function ConfiguracoesPage() {
                       {acessResult && (
                         <div className={cn(
                           'flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border',
-                          acessResult.ok
-                            ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300'
-                            : 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-300',
+                          acessResult.ok ? BADGE.emerald : BADGE.red,
                         )}>
                           {acessResult.ok ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
                           <span className="font-medium">

@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { FERRAMENTAS } from './catalogo'
@@ -142,7 +143,7 @@ export function JuntarPdfModal({ onClose }: { onClose: () => void }) {
           <DialogDescription>{FERRAMENTA.descricao}</DialogDescription>
         </DialogHeaderIcon>
 
-        <DialogBody className="max-h-[70vh] space-y-4 overflow-y-auto">
+        <DialogBody className="max-h-[70vh] space-y-4">
           <div
             onDragOver={(e) => { e.preventDefault(); setArrastando(true) }}
             onDragLeave={() => setArrastando(false)}
@@ -185,7 +186,7 @@ export function JuntarPdfModal({ onClose }: { onClose: () => void }) {
 
           {resultado && (
             <div className="flex flex-wrap items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 dark:border-emerald-900/50 dark:bg-emerald-950/20">
-              <p className="text-[13px] font-semibold text-emerald-800 dark:text-emerald-300">
+              <p className={cn('text-[13px] font-semibold', TEXT.emerald)}>
                 Pronto — {resultado.paginas} página(s)
               </p>
               <Button asChild variant="outline" size="sm">

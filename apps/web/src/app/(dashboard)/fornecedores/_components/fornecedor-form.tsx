@@ -15,7 +15,7 @@ import {
   Save, HelpCircle,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Checkbox, Card,
+  Button, Input, Label, Checkbox, Card, Textarea,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
@@ -129,7 +129,7 @@ export function FornecedorForm({ mode, fornecedorId, currentUserId, title, descr
 
         <Card className="overflow-hidden">
           <div className="flex min-h-[550px]">
-            <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+            <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
               <div className="space-y-1">
                 {FORM_TABS.map((t) => {
                   const Icon = t.icon
@@ -291,7 +291,7 @@ export function FornecedorForm({ mode, fornecedorId, currentUserId, title, descr
                       </Select>
                     )} />
                   </div>
-                  <div className="col-span-12 -mx-5 px-5 py-3 border-t border-[rgba(0,0,0,0.08)]"><h4 className="text-[13px] font-semibold text-foreground">PIX</h4></div>
+                  <div className="col-span-12 -mx-5 px-5 py-3 border-t border-border"><h4 className="text-[13px] font-semibold text-foreground">PIX</h4></div>
                   <div className="col-span-4">
                     <Label>Tipo de Chave PIX</Label>
                     <Controller control={control} name="pixTipo" render={({ field }) => (
@@ -310,7 +310,7 @@ export function FornecedorForm({ mode, fornecedorId, currentUserId, title, descr
                 <div className="grid grid-cols-12 gap-4">
                   <div className="col-span-12">
                     <Label htmlFor="observacoes">Observações</Label>
-                    <textarea id="observacoes" rows={6} placeholder="Observações sobre o fornecedor..." {...register('observacoes')} className="mt-1.5 w-full rounded border border-[#ced4da] bg-transparent px-3 py-2 text-sm focus:border-[#5ea3cb] focus:outline-none" />
+                    <Textarea id="observacoes" rows={6} placeholder="Observações sobre o fornecedor..." {...register('observacoes')} className="mt-1.5" />
                   </div>
                 </div>
               )}

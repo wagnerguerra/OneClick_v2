@@ -141,7 +141,7 @@ export function ProjetoSidebar({ projetoId, canWrite }: Props) {
             Nenhum anexo
           </div>
         ) : (
-          <div className="divide-y divide-border max-h-[300px] overflow-y-auto">
+          <div className="nice-scrollbar divide-y divide-border max-h-[300px] overflow-y-auto">
             {anexos.map((a) => (
               <AnexoItem key={a.id} anexo={a} canDelete={canWrite} onRemove={() => handleRemove(a.id)} />
             ))}
@@ -166,7 +166,7 @@ export function ProjetoSidebar({ projetoId, canWrite }: Props) {
             Sem eventos
           </div>
         ) : (
-          <div className="divide-y divide-border max-h-[400px] overflow-y-auto">
+          <div className="nice-scrollbar divide-y divide-border max-h-[400px] overflow-y-auto">
             {eventos.map((ev) => (
               <EventoItem key={ev.id} evento={ev} />
             ))}

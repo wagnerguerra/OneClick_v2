@@ -18,6 +18,7 @@ import {
   cn,
 } from '@saas/ui'
 import { UFS_BRASIL, INSCRICAO_TIPOS, INSCRICAO_TIPO_LABELS, type InscricaoTipo } from '@saas/types'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { toDateInputValue, fmtDateBR } from '@/lib/date'
@@ -280,7 +281,7 @@ export function RegistroInscricoesCard({ clienteId }: { clienteId: string }) {
       ) : visiveis.length === 0 ? (
         <p className="text-xs text-muted-foreground">Nenhuma inscrição encontrada para “{busca}”.</p>
       ) : (
-        <div className="overflow-x-auto rounded-md border border-border">
+        <div className="overflow-x-auto nice-scrollbar rounded-md border border-border">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -328,7 +329,7 @@ export function RegistroInscricoesCard({ clienteId }: { clienteId: string }) {
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void saveEdit() } if (e.key === 'Escape') cancelEdit() }} />
                   </td>
                   <td className="px-3 py-1.5 text-right whitespace-nowrap">
-                    <button type="button" onClick={() => void saveEdit()} disabled={saving} className="mr-2 text-emerald-600 hover:text-emerald-700" title="Salvar"><Check className="h-4 w-4" /></button>
+                    <button type="button" onClick={() => void saveEdit()} disabled={saving} className={cn('mr-2 hover:text-emerald-700', TEXT.emerald)} title="Salvar"><Check className="h-4 w-4" /></button>
                     <button type="button" onClick={cancelEdit} className="text-muted-foreground hover:text-foreground" title="Cancelar"><X className="h-4 w-4" /></button>
                   </td>
                 </tr>
@@ -342,10 +343,10 @@ export function RegistroInscricoesCard({ clienteId }: { clienteId: string }) {
                   {(canWrite || canDelete) && (
                     <td className="px-3 py-2 text-right whitespace-nowrap">
                       {canWrite && (
-                        <button type="button" onClick={() => startEdit(r)} className="mr-2 text-muted-foreground hover:text-sky-600" title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
+                        <button type="button" onClick={() => startEdit(r)} className="mr-2 text-muted-foreground hover:text-sky-600 dark:hover:text-sky-400" title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
                       )}
                       {canDelete && (
-                        <button type="button" onClick={() => handleRemove(r.id)} className="text-muted-foreground hover:text-rose-600" title="Remover"><Trash2 className="h-3.5 w-3.5" /></button>
+                        <button type="button" onClick={() => handleRemove(r.id)} className="text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400" title="Remover"><Trash2 className="h-3.5 w-3.5" /></button>
                       )}
                     </td>
                   )}

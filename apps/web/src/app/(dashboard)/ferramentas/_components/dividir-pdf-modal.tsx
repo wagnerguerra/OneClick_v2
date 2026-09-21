@@ -7,6 +7,7 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { FERRAMENTAS } from './catalogo'
@@ -191,7 +192,7 @@ export function DividirPdfModal({ onClose }: { onClose: () => void }) {
           <DialogDescription>{FERRAMENTA.descricao}</DialogDescription>
         </DialogHeaderIcon>
 
-        <DialogBody className="nice-scrollbar max-h-[70vh] space-y-4 overflow-y-auto">
+        <DialogBody className="max-h-[70vh] space-y-4">
           {!arquivo ? (
             <div
               onDragOver={(e) => { e.preventDefault(); setArrastando(true) }}
@@ -265,7 +266,7 @@ export function DividirPdfModal({ onClose }: { onClose: () => void }) {
                     <input
                       value={texto} onChange={(e) => digitar(e.target.value)} disabled={dividindo}
                       placeholder="ex.: 1-3, 7, 12"
-                      className="h-9 min-w-[180px] flex-1 rounded-md border border-border bg-background px-3 text-sm"
+                      className="h-9 min-w-[180px] flex-1 rounded-md px-3 text-sm"
                     />
                     <span className="text-[12px] text-muted-foreground">
                       {escolhidas.size === 0
@@ -313,7 +314,7 @@ export function DividirPdfModal({ onClose }: { onClose: () => void }) {
               {resultado && (
                 <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 dark:border-emerald-900/50 dark:bg-emerald-950/20">
                   <div className="flex flex-wrap items-center gap-3">
-                    <p className="flex-1 text-[13px] font-semibold text-emerald-800 dark:text-emerald-300">
+                    <p className={cn('flex-1 text-[13px] font-semibold', TEXT.emerald)}>
                       {resultado.arquivos.length === 1
                         ? `Pronto — ${resultado.arquivos[0]!.paginas} página(s)`
                         : `Pronto — ${resultado.arquivos.length} arquivos`}

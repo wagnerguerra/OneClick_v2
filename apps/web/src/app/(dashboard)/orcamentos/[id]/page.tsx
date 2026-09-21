@@ -11,7 +11,7 @@ import {
   Sparkles, Star, Link2, Hash, Building2, Calendar, Layers, Bell, Undo2,
 } from 'lucide-react'
 import {
-  Button, Input, Badge, Card, CardHeader, CardContent, Label,
+  Button, Input, Badge, Card, CardHeader, CardContent, Label, Checkbox,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Tabs, TabsContent,
@@ -24,6 +24,7 @@ import {
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT, BADGE, SURFACE } from '@/lib/color-styles'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { SectionCard } from '@/components/section-card'
@@ -32,6 +33,7 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { UserMultiPicker } from '@/components/user-multi-picker'
 import { OrcamentosLegadoSection } from '@/components/orcamento/orcamentos-legado-section'
 import { OrcamentoIaSection } from '@/components/orcamento/orcamento-ia-section'
+import { EmailChipsInput } from '@/components/ui/email-chips-input'
 import { masks } from '@/lib/masks'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -198,7 +200,7 @@ interface Orcamento {
   reaberturasCount?: number
   createdAt: string
   updatedAt: string
-  cliente: { id: string; razaoSocial: string; documento?: string; email?: string | null } | null
+  cliente: { id: string; razaoSocial: string; documento?: string; email?: string | null; logoUrl?: string | null } | null
   itens: OrcamentoItem[]
   mensagens: OrcamentoMensagem[]
   arquivos: OrcamentoArquivo[]
@@ -281,172 +283,6 @@ function TipoBadge({ tipo }: { tipo: string }) {
 // CatalogoCombobox foi extraído para ../_components/catalogo-combobox (compartilhado
 // com o filtro "Item" da lista de orçamentos — #HLP0296).
 
-// Input estilo Gmail: emails viram badges ao pressionar Enter/Tab/espaco/virgula/ponto-e-virgula.
-// Sugestoes filtraveis aparecem ao digitar, baseadas na lista fornecida.
-// O valor e persistido como string separada por '; '.
-function EmailChipsInput({ value, onChange, suggestions, placeholder }: {
-  value: string
-  onChange: (next: string) => void
-  suggestions: string[]
-  placeholder?: string
-}) {
-  const emails = value ? value.split(/[,;]/).map(e => e.trim()).filter(Boolean) : []
-  const [draft, setDraft] = useState('')
-  const [open, setOpen] = useState(false)
-  const [highlight, setHighlight] = useState(0)
-  const ref = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  // Sugestoes filtradas: nao repete o que ja virou chip e bate com o que esta sendo digitado
-  const filtered = (() => {
-    const q = draft.trim().toLowerCase()
-    const out = suggestions.filter(s => !emails.includes(s) && (q ? s.toLowerCase().includes(q) : true))
-    return out.slice(0, 8)
-  })()
-
-  // Reseta o highlight quando a lista muda
-  useEffect(() => { setHighlight(0) }, [draft, value])
-
-  // Fecha ao clicar fora
-  useEffect(() => {
-    if (!open) return
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
-
-  // Regex pragmática de e-mail (rfc 5322 simplificada). Casa "a@b.c" e variações
-  // razoáveis; rejeita strings sem @ ou sem TLD. Suficiente pra evitar lixo.
-  const EMAIL_RE = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/
-
-  function commitDraft(raw?: string) {
-    const candidate = (raw ?? draft).trim().replace(/[,;]+$/, '')
-    if (!candidate) { setDraft(''); return }
-    if (emails.includes(candidate)) { setDraft(''); return }
-    // Bloqueia entradas inválidas — mantém no draft pra o user corrigir
-    // (não cria chip "abc" sem @ que depois fica difícil de remover).
-    if (!EMAIL_RE.test(candidate)) return
-    onChange([...emails, candidate].join('; '))
-    setDraft('')
-  }
-
-  function removeAt(i: number) {
-    const next = emails.filter((_, idx) => idx !== i)
-    onChange(next.join('; '))
-    inputRef.current?.focus()
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    // Navegacao de sugestoes
-    if (open && filtered.length > 0) {
-      if (e.key === 'ArrowDown') { e.preventDefault(); setHighlight(h => Math.min(h + 1, filtered.length - 1)); return }
-      if (e.key === 'ArrowUp') { e.preventDefault(); setHighlight(h => Math.max(h - 1, 0)); return }
-      if (e.key === 'Enter' || e.key === 'Tab') {
-        e.preventDefault()
-        commitDraft(filtered[highlight])
-        setOpen(false)
-        return
-      }
-    }
-    // Confirma o draft
-    if (e.key === 'Enter' || e.key === ',' || e.key === ';' || e.key === ' ' || e.key === 'Tab') {
-      if (draft.trim()) {
-        e.preventDefault()
-        commitDraft()
-      }
-      return
-    }
-    // Backspace remove o ultimo chip quando o input esta vazio
-    if (e.key === 'Backspace' && !draft && emails.length > 0) {
-      e.preventDefault()
-      removeAt(emails.length - 1)
-    }
-  }
-
-  function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
-    const txt = e.clipboardData.getData('text')
-    if (txt && /[,;\s]/.test(txt)) {
-      e.preventDefault()
-      const parts = txt.split(/[,;\s]+/).map(p => p.trim()).filter(Boolean)
-      const merged = Array.from(new Set([...emails, ...parts]))
-      onChange(merged.join('; '))
-      setDraft('')
-    }
-  }
-
-  return (
-    <div ref={ref} className="relative">
-      <div
-        className="flex flex-wrap gap-1.5 items-center min-h-[36px] px-2 py-1 border border-input rounded-md bg-transparent text-sm focus-within:ring-1 focus-within:ring-ring cursor-text"
-        onClick={() => inputRef.current?.focus()}
-      >
-        {emails.map((email, i) => (
-          <span
-            key={`${email}-${i}`}
-            className="inline-flex items-center gap-1 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 pl-2.5 pr-1 py-0.5 text-xs font-medium"
-          >
-            {email}
-            <button
-              type="button"
-              // preventDefault no mousedown evita que o input perca foco e
-              // dispare onBlur antes do click — sem isso, um draft em curso
-              // virava chip junto com a remoção (chip removido reaparecia).
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={(e) => { e.stopPropagation(); removeAt(i) }}
-              className="rounded-full hover:bg-rose-200 dark:hover:bg-rose-900/50 p-0.5"
-              title="Remover"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </span>
-        ))}
-        <input
-          ref={inputRef}
-          type="email"
-          value={draft}
-          onChange={e => { setDraft(e.target.value); setOpen(true) }}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          onFocus={() => setOpen(true)}
-          // No blur, só tenta commitar — se o draft for inválido,
-          // commitDraft devolve sem limpar; o user vê o texto e pode corrigir.
-          onBlur={() => { if (draft.trim()) commitDraft() }}
-          placeholder={emails.length === 0 ? placeholder : ''}
-          className={cn(
-            'flex-1 min-w-[140px] border-none bg-transparent outline-none shadow-none p-0 py-1 h-auto rounded-none focus:border-none focus:shadow-none focus:outline-none text-sm',
-            // Feedback visual: texto vermelho quando o draft não é um e-mail válido
-            draft.trim() && !EMAIL_RE.test(draft.trim()) && 'text-rose-600 dark:text-rose-400',
-          )}
-          style={{ width: 'auto', display: 'inline-block' }}
-        />
-      </div>
-      {open && filtered.length > 0 && (
-        <div className="absolute top-full left-0 right-0 z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-md max-h-56 overflow-y-auto">
-          {filtered.map((s, i) => (
-            <button
-              key={s}
-              type="button"
-              onMouseDown={(e) => { e.preventDefault(); commitDraft(s); setOpen(false) }}
-              onMouseEnter={() => setHighlight(i)}
-              className={cn(
-                'w-full text-left px-3 py-1.5 text-sm flex items-center gap-2',
-                i === highlight ? 'bg-accent text-accent-foreground' : 'hover:bg-muted',
-              )}
-            >
-              <span className="h-5 w-5 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 flex items-center justify-center text-[9px] font-bold shrink-0">
-                {s[0]?.toUpperCase() || '?'}
-              </span>
-              <span className="truncate">{s}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // Item de timeline vertical para o card "Datas Importantes" da sidebar.
 // Renderiza um marker (bolinha colorida) + linha conectora + label/data
 // empilhados verticalmente. Inline edit nativo via <input type="date">.
@@ -513,7 +349,7 @@ function TimelineDateRow({
                   className="h-7 text-xs flex-1 min-w-0"
                   autoFocus
                 />
-                <button type="button" onClick={handleSave} disabled={saving} title="Salvar" className="text-emerald-600 hover:text-emerald-700 disabled:opacity-50">
+                <button type="button" onClick={handleSave} disabled={saving} title="Salvar" className={cn(TEXT.emerald, 'hover:text-emerald-700 disabled:opacity-50')}>
                   {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                 </button>
                 <button type="button" onClick={() => setEditing(false)} disabled={saving} title="Cancelar" className="text-muted-foreground hover:text-foreground disabled:opacity-50">
@@ -1822,8 +1658,8 @@ export default function OrcamentoDetailPage() {
               <span className={cn(
                 'inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md transition-opacity',
                 autoSaveStatus === 'saving' && 'text-muted-foreground bg-muted/60',
-                autoSaveStatus === 'saved' && 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20',
-                autoSaveStatus === 'error' && 'text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20',
+                autoSaveStatus === 'saved' && BADGE.emerald,
+                autoSaveStatus === 'error' && BADGE.rose,
               )}>
                 {autoSaveStatus === 'saving' && (<><Loader2 className="h-3 w-3 animate-spin" /> Salvando...</>)}
                 {autoSaveStatus === 'saved' && (<><CheckCircle2 className="h-3 w-3" /> Salvo</>)}
@@ -2007,7 +1843,7 @@ export default function OrcamentoDetailPage() {
         <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
         {/* Controles de capa — base do background, visiveis apenas para Master ao passar o mouse */}
         {isMaster && (
-          <div className="absolute right-4 top-4 z-20 flex items-center gap-1.5">
+          <div className="absolute right-4 top-4 z-10 flex items-center gap-1.5">
             <button
               type="button"
               onClick={() => coverInputRef.current?.click()}
@@ -2046,8 +1882,14 @@ export default function OrcamentoDetailPage() {
         <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-end gap-4">
             <div className="relative shrink-0">
-              <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-card shadow-lg ring-4 ring-white/50">
-                <FileText className="h-10 w-10" style={{ color: MODULE_COLOR }} />
+              <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl bg-card shadow-lg ring-4 ring-white/50">
+                {orc.cliente?.logoUrl ? (
+                  // Logo do cliente quando houver; senão, o ícone do orçamento.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={resolveAssetUrl(orc.cliente.logoUrl)} alt={orc.cliente.razaoSocial} className="h-full w-full object-cover" />
+                ) : (
+                  <FileText className="h-10 w-10" style={{ color: MODULE_COLOR }} />
+                )}
               </div>
             </div>
             <div className="min-w-0">
@@ -2169,7 +2011,7 @@ export default function OrcamentoDetailPage() {
         {/* Tira de tabs do modelo: botoes simples (fora do [role=tablist] global,
             que impoe borda inferior/raio 0/cores antigas). O estado continua no
             <Tabs value={activeTab}> — os TabsContent abaixo reagem normalmente. */}
-        <div className="flex gap-1.5 overflow-x-auto py-2">
+        <div className="flex gap-1.5 overflow-x-auto nice-scrollbar py-2">
           {([
             { value: 'detalhes', icon: FileText, label: 'Detalhes' },
             { value: 'itens', icon: Package, label: 'Itens', badge: orc.itens.length },
@@ -2208,20 +2050,20 @@ export default function OrcamentoDetailPage() {
 
       {/* Banner de paralizacao */}
       {orc.paralizado && (
-        <Card className="p-3 border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-900/30 mt-5">
+        <Card className={cn('p-3 mt-5', SURFACE.amber)}>
           <div className="flex items-start gap-3">
-            <Pause className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <Pause className={cn('h-5 w-5 shrink-0 mt-0.5', TEXT.amber)} />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Orçamento Paralizado</p>
-              <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">{orc.paralizadoMotivo}</p>
+              <p className={cn('text-xs mt-0.5', TEXT.amber)}>{orc.paralizadoMotivo}</p>
               {orc.paralizadoEm && (
-                <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                <p className={cn('text-[10px]', TEXT.amber, 'mt-1')}>
                   Desde {new Date(orc.paralizadoEm).toLocaleString('pt-BR')}
                 </p>
               )}
             </div>
             {canRetomar && (
-              <Button size="xs" variant="outline" className="gap-1 border-amber-300 text-amber-800 hover:bg-amber-100" onClick={handleRetomar}>
+              <Button size="xs" variant="outline" className="gap-1 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30" onClick={handleRetomar}>
                 <Play className="h-3 w-3" /> Retomar
               </Button>
             )}
@@ -2312,6 +2154,7 @@ export default function OrcamentoDetailPage() {
                             onChange={setFormEmails}
                             suggestions={emailSuggestions}
                             placeholder="Digite e pressione Enter, vírgula ou espaço para adicionar"
+                            chipClassName={BADGE.rose}
                           />
                         </div>
 
@@ -2322,7 +2165,7 @@ export default function OrcamentoDetailPage() {
 
                   {activePill === 'itens' && (
                     <div className="-m-5">
-                      <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
+                      <div className="px-5 py-3 border-b border-border flex items-center justify-between">
                         <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
                           Itens do Orçamento
                           {orc.itens.length > 0 && (
@@ -2334,7 +2177,7 @@ export default function OrcamentoDetailPage() {
                         <div className="flex items-center gap-2" data-editable>
                           {canManageItens && !isLocked && (
                             <Button type="button" variant="outline" size="xs" className="gap-1" onClick={abrirGrupoOrc} title="Adicionar em lote os serviços de um grupo de orçamento">
-                              <ListPlus className="h-3.5 w-3.5 text-emerald-600" /> Aplicar grupo
+                              <ListPlus className={cn('h-3.5 w-3.5', TEXT.emerald)} /> Aplicar grupo
                             </Button>
                           )}
                           {canManageCatalogo && (
@@ -2462,7 +2305,7 @@ export default function OrcamentoDetailPage() {
                         <TableBody>
                           {!orc.itens.length ? (
                             <TableRow><TableCell colSpan={7} className="text-center py-6 text-xs">
-                              <div className="flex items-center justify-center gap-2 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-900/30 px-4 py-3 text-amber-800 dark:text-amber-300">
+                              <div className={cn('flex items-center justify-center gap-2 rounded-md border px-4 py-3', BADGE.amber)}>
                                 <AlertTriangle className="h-4 w-4" />
                                 <span className="font-medium">Atenção!</span>
                                 <span>Não é possível enviar orçamentos sem itens adicionados.</span>
@@ -2575,13 +2418,13 @@ export default function OrcamentoDetailPage() {
                                     const bruto = (parseFloat(editQtde) || 0) * (parseFloat(editValor) || 0)
                                     const desc = editTipo === 'SERVICO' ? Math.min(bruto, bruto * (parseFloat(editDescPct) || 0) / 100 + (parseFloat(editDescValor) || 0)) : 0
                                     return desc > 0 ? (
-                                      <span className="text-emerald-600" title={`Sem desconto: ${formatCurrency(bruto)}`}>{formatCurrency(bruto - desc)}</span>
+                                      <span className={TEXT.emerald} title={`Sem desconto: ${formatCurrency(bruto)}`}>{formatCurrency(bruto - desc)}</span>
                                     ) : formatCurrency(bruto)
                                   })()}
                                 </TableCell>
                                 <TableCell className="text-right">
                                   <div className="flex justify-end gap-1">
-                                    <Button variant="ghost" size="icon-sm" onClick={handleSaveItem} title="Salvar"><Check className="h-3.5 w-3.5 text-emerald-600" /></Button>
+                                    <Button variant="ghost" size="icon-sm" onClick={handleSaveItem} title="Salvar"><Check className={cn('h-3.5 w-3.5', TEXT.emerald)} /></Button>
                                     <Button variant="ghost" size="icon-sm" onClick={() => setEditingItemId(null)} title="Cancelar"><X className="h-3.5 w-3.5 text-muted-foreground" /></Button>
                                   </div>
                                 </TableCell>
@@ -2599,12 +2442,12 @@ export default function OrcamentoDetailPage() {
                                   {(item.subservico?.nome || item.catalogoTexto?.titulo) && (
                                     <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
                                       {item.subservico?.nome && (
-                                        <span className="rounded bg-violet-50 px-1.5 py-0.5 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300">
+                                        <span className={cn('rounded px-1.5 py-0.5', BADGE.violet)}>
                                           {item.subservico.nome}
                                         </span>
                                       )}
                                       {item.catalogoTexto?.titulo && (
-                                        <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                                        <span className={cn('rounded px-1.5 py-0.5', BADGE.amber)}>
                                           {item.catalogoTexto.titulo}
                                         </span>
                                       )}
@@ -2620,8 +2463,8 @@ export default function OrcamentoDetailPage() {
                                     return desc > 0 ? (
                                       <>
                                         <div className="text-[10px] text-muted-foreground line-through">{formatCurrency(bruto)}</div>
-                                        <div className="text-emerald-600">{formatCurrency(bruto - desc)}</div>
-                                        <div className="text-[10px] text-emerald-600">−{Number(item.descontoPct) > 0 ? `${Number(item.descontoPct)}%` : ''}{Number(item.descontoPct) > 0 && Number(item.descontoValor) > 0 ? ' + ' : ''}{Number(item.descontoValor) > 0 ? formatCurrency(Number(item.descontoValor)) : ''}</div>
+                                        <div className={TEXT.emerald}>{formatCurrency(bruto - desc)}</div>
+                                        <div className={cn('text-[10px]', TEXT.emerald)}>−{Number(item.descontoPct) > 0 ? `${Number(item.descontoPct)}%` : ''}{Number(item.descontoPct) > 0 && Number(item.descontoValor) > 0 ? ' + ' : ''}{Number(item.descontoValor) > 0 ? formatCurrency(Number(item.descontoValor)) : ''}</div>
                                       </>
                                     ) : formatCurrency(item.valorTotal || bruto)
                                   })()}
@@ -2648,11 +2491,11 @@ export default function OrcamentoDetailPage() {
                       {/* Desconto e Pagamento — era uma pill própria; agora fecha a
                           aba Itens, porque desconto e forma de pagamento são a
                           continuação natural da lista de itens. */}
-                      <div className="px-5 py-3 border-y border-[rgba(0,0,0,0.08)] mt-4">
+                      <div className="px-5 py-3 border-y border-border mt-4">
                         <h4 className="text-[13px] font-semibold text-foreground">Desconto e Pagamento</h4>
                       </div>
                       {apenasDescontoItem && (
-                        <div className="mx-5 mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-900/30 px-3 py-2 text-[12px] text-amber-800 dark:text-amber-300">
+                        <div className={cn('mx-5 mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]', BADGE.amber)}>
                           <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                           <span>O desconto geral está desativado nas configurações (&ldquo;Usar apenas desconto por item&rdquo;). Aplique o desconto item a item na aba <strong>Itens</strong>.</span>
                         </div>
@@ -2804,7 +2647,7 @@ export default function OrcamentoDetailPage() {
               {!orc.eventos?.length ? (
                 <div className="px-5 py-8 text-center text-xs text-muted-foreground">Nenhum evento registrado ainda</div>
               ) : (
-                <div className="max-h-[640px] overflow-y-auto px-2 sm:px-6 py-8">
+                <div className="max-h-[640px] overflow-y-auto nice-scrollbar px-2 sm:px-6 py-8">
                   {/* Timeline central: espinha colorida no meio + eventos alternando
                       lados (zig-zag), cada nó com dot/conector na cor do tipo. */}
                   <div className="relative mx-auto w-full max-w-3xl">
@@ -2888,7 +2731,7 @@ export default function OrcamentoDetailPage() {
                 bodyClassName="p-0"
               >
                 <CardContent className="p-0">
-                  <div className="max-h-[280px] overflow-y-auto">
+                  <div className="max-h-[280px] overflow-y-auto nice-scrollbar">
                     {historicoCliente.map(o => {
                       const tipoLabel = o.tipo === 'SERVICO_MENSAL' ? 'Serviço Mensal' : o.tipo === 'SERVICO_EXTRA' ? 'Serviço Extra' : null
                       const servicoDesc = o.itens?.[0]?.descricao ?? null
@@ -2964,7 +2807,7 @@ export default function OrcamentoDetailPage() {
               </div>
               <div className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">Desconto ({descontoPercentCalc.toFixed(1)}%)</span>
-                <span className="font-medium text-orange-600 dark:text-orange-400">- {formatCurrency(descontoAplicado)}</span>
+                <span className={cn('font-medium', TEXT.orange)}>- {formatCurrency(descontoAplicado)}</span>
               </div>
               <div className="border-t border-border/60 pt-2 mt-2 flex items-center justify-between">
                 <span className="text-sm font-semibold">Total Geral</span>
@@ -3137,7 +2980,7 @@ export default function OrcamentoDetailPage() {
                         <ExternalLink className="h-3.5 w-3.5" /> Ver resumo
                       </Button>
                       {(orc as any)?.podeVincularCrm && (
-                        <Button type="button" variant="ghost" size="xs" className="h-7 gap-1 text-[11px] text-rose-600 dark:text-rose-400" onClick={handleDesvincularCrm} title="Desvincular">
+                        <Button type="button" variant="ghost" size="xs" className={cn('h-7 gap-1 text-[11px]', TEXT.rose)} onClick={handleDesvincularCrm} title="Desvincular">
                           <X className="h-3.5 w-3.5" /> Desvincular
                         </Button>
                       )}
@@ -3217,7 +3060,7 @@ export default function OrcamentoDetailPage() {
                       type="button"
                       onClick={() => toggleArquivoPublico(arq.id, !arq.publico)}
                       title={arq.publico ? 'Público — aparece na proposta do cliente. Clique para tornar privado.' : 'Privado — só interno. Clique para publicar na proposta do cliente.'}
-                      className={`shrink-0 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors ${arq.publico ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
+                      className={cn('shrink-0 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors', arq.publico ? BADGE.emerald : 'bg-muted text-muted-foreground hover:bg-muted/70')}
                     >
                       {arq.publico ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
                       {arq.publico ? 'Público' : 'Privado'}
@@ -3450,7 +3293,7 @@ export default function OrcamentoDetailPage() {
               </p>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          <div className="flex-1 overflow-y-auto nice-scrollbar px-5 py-4 space-y-4">
             {(pesquisaResumo?.itens ?? []).length === 0 && <p className="text-sm text-muted-foreground">Sem itens.</p>}
             {(pesquisaResumo?.itens ?? []).map((it: any, i: number) => (
               <div key={i} className="space-y-1">
@@ -3482,7 +3325,7 @@ export default function OrcamentoDetailPage() {
               Serviço já presente ou indisponível é ignorado.
             </DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-3 overflow-auto">
+          <DialogBody className="space-y-3">
             {loadingGruposOrc ? (
               <div className="flex items-center justify-center py-10">
                 <Loader2 className="h-5 w-5 animate-spin text-emerald-500" />
@@ -3596,7 +3439,7 @@ export default function OrcamentoDetailPage() {
             {formasPagamento.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhuma forma de pagamento cadastrada</p>
             ) : (
-              <div className="space-y-1 max-h-[340px] overflow-y-auto">
+              <div className="space-y-1 max-h-[340px] overflow-y-auto nice-scrollbar">
                 {formasPagamento.map(f => (
                   <div key={f.id} className="flex items-center gap-2 rounded-md border border-border px-3 py-2 group hover:bg-muted/30 transition-colors">
                     <span className="text-sm flex-1">{f.valor}</span>
@@ -3628,7 +3471,7 @@ export default function OrcamentoDetailPage() {
           </DialogHeaderIcon>
           <DialogBody className="space-y-4">
             <label className="flex items-start gap-2.5 rounded-md border border-border bg-muted/30 px-3 py-2.5 cursor-pointer">
-              <input type="checkbox" checked={enviarNotificar} onChange={e => setEnviarNotificar(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--mod-comercial,#3b82f6)]" />
+              <Checkbox checked={enviarNotificar} onCheckedChange={v => setEnviarNotificar(v === true)} accentColor="var(--mod-comercial, #3b82f6)" className="mt-0.5" />
               <div className="text-xs">
                 <p className="font-semibold text-foreground">Notificar o cliente por e-mail</p>
                 <p className="text-muted-foreground">{enviarNotificar ? 'O cliente receberá o e-mail com o link da proposta.' : 'O orçamento será marcado como Enviado, mas o cliente NÃO será notificado (envio por outro canal).'}</p>
@@ -3716,7 +3559,7 @@ export default function OrcamentoDetailPage() {
           </DialogHeaderIcon>
           <DialogBody className="space-y-3">
             {reabrirStatusOptions.length === 0 ? (
-              <div className="flex items-start gap-2 text-[12px] text-rose-700 bg-rose-50 dark:bg-rose-900/10 dark:text-rose-300 rounded p-3 border border-rose-200 dark:border-rose-900/30">
+              <div className={cn('flex items-start gap-2 text-[12px] rounded p-3 border', BADGE.rose)}>
                 <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                 <p>Este orçamento está no status "Novo" — não há status anterior para o qual voltar.</p>
               </div>
@@ -3748,11 +3591,10 @@ export default function OrcamentoDetailPage() {
                 <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold text-foreground">Datas dos marcos</Label>
                   <label className="flex items-start gap-2 text-xs cursor-pointer rounded-md border border-border/60 px-3 py-2 hover:bg-muted/30 transition-colors">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={reabrirManterDatas}
-                      onChange={e => setReabrirManterDatas(e.target.checked)}
-                      className="h-3.5 w-3.5 rounded mt-0.5 shrink-0"
+                      onCheckedChange={v => setReabrirManterDatas(v === true)}
+                      className="mt-0.5 shrink-0"
                     />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-foreground">Manter as datas dos marcos já registrados</p>
@@ -3764,7 +3606,7 @@ export default function OrcamentoDetailPage() {
                 </div>
                 {/* Aviso contextual sobre o efeito da reabertura */}
                 {reabrirManterDatas ? (
-                  <div className="flex items-start gap-2 text-[11px] text-emerald-700 bg-emerald-50 dark:bg-emerald-900/10 dark:text-emerald-300 rounded p-3 border border-emerald-200 dark:border-emerald-900/30">
+                  <div className={cn('flex items-start gap-2 text-[11px] rounded p-3 border', BADGE.emerald)}>
                     <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
                     <div className="space-y-1">
                       <p className="font-medium">Datas dos marcos serão preservadas.</p>
@@ -3772,7 +3614,7 @@ export default function OrcamentoDetailPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-start gap-2 text-[11px] text-amber-700 bg-amber-50 dark:bg-amber-900/10 dark:text-amber-300 rounded p-3 border border-amber-200 dark:border-amber-900/30">
+                  <div className={cn('flex items-start gap-2 text-[11px] rounded p-3 border', BADGE.amber)}>
                     <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                     <div className="space-y-1">
                       <p className="font-medium">Datas dos marcos posteriores a &quot;{STATUS_LABELS[reabrirStatus] || reabrirStatus}&quot; serão limpas.</p>
@@ -3841,7 +3683,7 @@ export default function OrcamentoDetailPage() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-[13px] font-semibold">Mensagem</Label>
-              <textarea className="w-full min-h-[160px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={emailCorpo} onChange={e => setEmailCorpo(e.target.value)} placeholder="Escreva a mensagem para o cliente..." />
+              <textarea className="w-full min-h-[160px] rounded-md px-3 py-2 text-sm" value={emailCorpo} onChange={e => setEmailCorpo(e.target.value)} placeholder="Escreva a mensagem para o cliente..." />
             </div>
           </DialogBody>
           <DialogFooter>
@@ -3993,7 +3835,7 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
         <div className="flex items-center justify-between gap-2 mb-1">
           <div className="flex items-baseline gap-2 flex-wrap min-w-0">
             <span className="text-sm font-semibold text-foreground truncate">{nome}</span>
-            {autorExterno && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300">cliente · e-mail</span>}
+            {autorExterno && <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded-full', BADGE.sky)}>cliente · e-mail</span>}
             {viaEmail && !autorExterno && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">enviado por e-mail</span>}
             <span className="text-[11px] text-muted-foreground" title={dataAbsoluta}>{dataRelativa}</span>
             {editadoAbsoluto && (
@@ -4006,7 +3848,7 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
             )}
             {restritaIds.length > 0 && (
               <span
-                className="inline-flex items-center gap-1 text-[10px] text-blue-700 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-300 rounded-full px-2 py-0.5"
+                className={cn('inline-flex items-center gap-1 text-[10px] rounded-full px-2 py-0.5', BADGE.blue)}
                 title={restritaNomes.length > 0 ? `Visível apenas para: ${restritaNomes.join(', ')}` : `Restrito a ${restritaIds.length} usuário(s)`}
               >
                 <Shield className="h-2.5 w-2.5" /> Restrita

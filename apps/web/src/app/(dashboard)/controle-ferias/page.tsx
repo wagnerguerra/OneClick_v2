@@ -13,18 +13,18 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
-  Avatar, AvatarImage, AvatarFallback,
 } from '@saas/ui'
 import Link from 'next/link'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { UserCombobox } from '../orcamentos/_components/user-combobox'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
-import { resolveAssetUrl } from '@/lib/api-url'
 import { InlineEditCell } from '@/components/ui/inline-edit-cell'
 import { corSaldo, tituloSaldo } from './_lib/cores'
+import { BADGE, TEXT, BORDER } from '@/lib/color-styles'
 
 const PAGE_SIZES = [10, 20, 50]
 
@@ -68,7 +68,7 @@ function Indicador({ label, valor, hint, cor, icone: Icone, ativo, onClick, dest
       className={cn(
         'flex w-full items-center gap-3 rounded-lg border bg-card px-3 py-2.5 text-left transition-colors',
         'hover:border-foreground/20 hover:bg-muted/30',
-        ativo ? 'border-transparent ring-2' : destaque ? 'border-rose-300 dark:border-rose-800' : 'border-border',
+        ativo ? 'border-transparent ring-2' : destaque ? BORDER.rose : 'border-border',
       )}
       style={ativo ? { boxShadow: `0 0 0 2px ${corFinal}`, background: `color-mix(in srgb, ${corFinal} 7%, transparent)` } : undefined}
     >
@@ -92,10 +92,6 @@ const INDICADOR_LABEL: Record<IndicadorKey, string> = {
   GOZO_MES: 'em gozo neste mês',
   A_PAGAR: 'a pagar',
 }
-
-/** Iniciais para a bolinha quando o colaborador não tem foto. */
-const iniciais = (nome: string | null | undefined) =>
-  (nome || '?').split(' ').filter(Boolean).map((n) => n[0]).slice(0, 2).join('').toUpperCase()
 
 interface Row {
   id: string
@@ -416,7 +412,7 @@ export default function ControleFeriasPage() {
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Select value={fSituacao || '__all__'} onValueChange={(v) => { setFSituacao(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[150px] text-xs bg-card"><SelectValue placeholder="Situação" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos</SelectItem>
                 <SelectItem value="ABERTOS">Em aberto</SelectItem>
@@ -424,14 +420,14 @@ export default function ControleFeriasPage() {
               </SelectContent>
             </Select>
             <Select value={fColaborador || '__all__'} onValueChange={(v) => { setFColaborador(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[210px] text-xs bg-card"><SelectValue placeholder="Colaborador" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[210px] text-xs"><SelectValue placeholder="Colaborador" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os colaboradores</SelectItem>
                 {usuarios.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={fColaboradores} onValueChange={(v) => { setFColaboradores(v as 'ATIVOS' | 'TODOS'); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[190px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[190px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="ATIVOS">Colaboradores ativos</SelectItem>
                 <SelectItem value="TODOS">Incluir desligados</SelectItem>
@@ -454,7 +450,7 @@ export default function ControleFeriasPage() {
                 type="button"
                 onClick={() => { setFColaboradores('TODOS'); setPage(1) }}
                 title="Registros de colaboradores desligados no cadastro — clique para incluí-los"
-                className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-400"
+                className={cn('inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-amber-100 dark:hover:bg-amber-900/40', BADGE.amber)}
               >
                 +{data!.ocultosPorInatividade} desligado{data!.ocultosPorInatividade === 1 ? '' : 's'}
               </button>
@@ -465,13 +461,13 @@ export default function ControleFeriasPage() {
               </Button>
             )}
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="relative w-full sm:w-64">
             <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Buscar em todas as colunas..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 pl-8 text-xs bg-card" />
+            <Input placeholder="Buscar em todas as colunas..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 pl-8 text-xs" />
           </div>
         </div>
 
@@ -512,12 +508,12 @@ export default function ControleFeriasPage() {
                     {r.semPeriodo ? <span className="text-muted-foreground/50">—</span> : r.numero}
                   </TableCell>
                   <TableCell>
-                    <Avatar className="h-7 w-7">
-                      {r.colaboradorImagem && <AvatarImage src={resolveAssetUrl(r.colaboradorImagem)} alt={r.colaboradorNomeResolvido ?? ''} />}
-                      <AvatarFallback className="bg-muted text-[10px] font-semibold text-muted-foreground">
-                        {iniciais(r.colaboradorNomeResolvido)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <UserAvatar
+                      user={{ name: r.colaboradorNomeResolvido ?? '', image: r.colaboradorImagem }}
+                      className="h-7 w-7 text-[10px]"
+                      bg="bg-muted"
+                      fg="text-muted-foreground"
+                    />
                   </TableCell>
                   <TableCell className="text-sm">
                     <span className="flex items-center gap-1.5 min-w-0">
@@ -535,7 +531,7 @@ export default function ControleFeriasPage() {
                       {r.semPeriodo && (
                         <Badge
                           variant="outline"
-                          className="shrink-0 gap-1 border-amber-200 bg-amber-50 text-[10px] text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400"
+                          className={cn('shrink-0 gap-1 text-[10px]', BADGE.amber)}
                           title="Está no controle de férias, mas ainda não tem período aquisitivo lançado"
                         >
                           <CalendarPlus className="h-3 w-3" />sem período
@@ -602,7 +598,7 @@ export default function ControleFeriasPage() {
                       disabled={!podeEscrever}
                       display={() => (r.previsao
                         ? <span className="text-muted-foreground">{dataBR(r.previsao)}</span>
-                        : <span className="text-amber-600 dark:text-amber-400">Incluir previsão</span>)}
+                        : <span className={TEXT.amber}>Incluir previsão</span>)}
                       onSave={(v) => inlineUpdate(r.id, { previsao: v || null })}
                     />
                     )}
@@ -616,11 +612,11 @@ export default function ControleFeriasPage() {
                       value={isoDe(r.pagamento1)}
                       disabled={!podeEscrever}
                       display={() => (r.pagamento1 ? (
-                        <Badge variant="outline" className="justify-center text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">
+                        <Badge variant="outline" className={cn('justify-center text-[10px]', BADGE.emerald)}>
                           <Check className="h-3 w-3 mr-0.5" />{dataBR(r.pagamento1)}
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="justify-center text-[10px] bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800">
+                        <Badge variant="outline" className={cn('justify-center text-[10px]', BADGE.amber)}>
                           A pagar
                         </Badge>
                       ))}

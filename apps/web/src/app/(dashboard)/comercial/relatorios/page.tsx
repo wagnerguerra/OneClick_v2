@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Loader2, Filter, Megaphone, Target, Send, CheckCircle2, FileCheck, DollarSign, Users, Percent, Landmark, Repeat, Zap, Users2, Trophy, TicketPercent, Scissors, Wallet, TrendingDown } from 'lucide-react'
-import { Card, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, Avatar, AvatarImage, AvatarFallback, cn } from '@saas/ui'
+import { Card, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn } from '@saas/ui'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { BackButton } from '@/components/ui/back-button'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -11,6 +12,7 @@ import { trpc } from '@/lib/trpc'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
+import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 import type { inferRouterOutputs } from '@trpc/server'
 import type { AppRouter } from '@saas/api/src/trpc/trpc.service'
 
@@ -27,21 +29,6 @@ const formatCurrency = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 const formatCompact = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 1 }).format(v || 0)
-
-function ChartTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="rounded-lg border border-border bg-popover px-3 py-2 shadow-md text-xs">
-      {label != null && <p className="font-semibold text-foreground mb-1">{label}</p>}
-      {payload.map((p: any, i: number) => (
-        <p key={i} className="text-muted-foreground flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full" style={{ background: p.color || p.fill }} />
-          {p.name}: <span className="font-medium text-foreground">{formatCurrency(p.value)}</span>
-        </p>
-      ))}
-    </div>
-  )
-}
 
 const TABS = [
   { key: 'funil', label: 'Funil unificado', icon: Filter },
@@ -110,7 +97,7 @@ export default function ComercialRelatoriosPage() {
       </PageHeaderBar>
 
       {/* Pills */}
-      <div className="flex gap-1 border-b border-border/40 overflow-x-auto">
+      <div className="flex gap-1 border-b border-border/40 overflow-x-auto nice-scrollbar">
         {TABS.map(t => {
           const Icon = t.icon
           const active = tab === t.key
@@ -224,7 +211,7 @@ function MrrReport({ mrr }: { mrr: MrrData }) {
         <KpiCard icon={Landmark} label="MRR atual" value={formatCompact(mrr.mrrAtual)} sub={formatCurrency(mrr.mrrAtual)} cor={COR_RECORRENTE} />
         <KpiCard icon={Repeat} label="Receita anualizada" value={formatCompact(mrr.mrrAnualizado)} sub="MRR × 12" cor="#34d399" />
         <KpiCard icon={Users2} label="Contratos recorrentes" value={String(mrr.contratosRecorrentes)} sub="vigentes + assinados" cor="#818cf8" />
-        <KpiCard icon={Zap} label="Ticket médio MRR" value={formatCompact(mrr.ticketMedioMrr)} sub="por contrato/mês" cor="#fb7185" />
+        <KpiCard icon={Zap} label="Ticket médio MRR" value={formatCompact(mrr.ticketMedioMrr)} sub="por contrato/mês" cor={MODULE_COLOR} />
       </div>
 
       {/* Mix de vendas aprovadas no período */}
@@ -266,10 +253,10 @@ function MrrReport({ mrr }: { mrr: MrrData }) {
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={serie12m} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis dataKey="mes" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => formatCompact(v)} width={56} />
-              <Tooltip content={<ChartTooltip />} cursor={{ fill: 'hsl(var(--muted))' }} />
+              <Tooltip content={<ChartTooltip format={formatCurrency} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="recorrente" name="Recorrente" stackId="a" fill={COR_RECORRENTE} radius={[0, 0, 0, 0]} />
               <Bar dataKey="avulso" name="Avulso" stackId="a" fill={COR_AVULSO} radius={[4, 4, 0, 0]} />
@@ -279,11 +266,6 @@ function MrrReport({ mrr }: { mrr: MrrData }) {
       </Card>
     </div>
   )
-}
-
-function iniciais(nome: string) {
-  const parts = nome.trim().split(/\s+/)
-  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1]![0] : '')).toUpperCase() || '?'
 }
 
 const MEDALHAS = ['#fbbf24', '#94a3b8', '#d97706'] // ouro, prata, bronze
@@ -301,7 +283,7 @@ function VendedoresReport({ data }: { data: VendedoresData }) {
         <KpiCard icon={Send} label="Orçamentos enviados" value={String(totais.enviados)} cor="#60a5fa" />
         <KpiCard icon={CheckCircle2} label="Aprovados" value={String(totais.aprovados)} sub={`${totais.enviados > 0 ? Math.round((totais.aprovados / totais.enviados) * 100) : 0}% de aprovação`} cor={COR_RECORRENTE} />
         <KpiCard icon={DollarSign} label="Valor aprovado" value={formatCompact(totais.valorAprovado)} sub={formatCurrency(totais.valorAprovado)} cor="#34d399" />
-        <KpiCard icon={FileCheck} label="Contratos efetivados" value={String(totais.contratos)} sub={`${formatCompact(totais.mrr)} em MRR`} cor="#fb7185" />
+        <KpiCard icon={FileCheck} label="Contratos efetivados" value={String(totais.contratos)} sub={`${formatCompact(totais.mrr)} em MRR`} cor={MODULE_COLOR} />
       </div>
 
       {/* Tabela ranking */}
@@ -313,13 +295,10 @@ function VendedoresReport({ data }: { data: VendedoresData }) {
         <div className="divide-y divide-border">
           {ranking.map((v, i) => (
             <div key={v.id} className="flex items-center gap-3 px-5 py-3">
-              <div className="w-6 shrink-0 text-center text-sm font-bold tabular-nums" style={{ color: i < 3 ? MEDALHAS[i] : 'hsl(var(--muted-foreground))' }}>
+              <div className="w-6 shrink-0 text-center text-sm font-bold tabular-nums" style={{ color: i < 3 ? MEDALHAS[i] : 'var(--color-muted-foreground)' }}>
                 {i + 1}
               </div>
-              <Avatar className="h-9 w-9 shrink-0">
-                {v.image && <AvatarImage src={v.image} alt={v.nome} />}
-                <AvatarFallback className="text-[11px]">{iniciais(v.nome)}</AvatarFallback>
-              </Avatar>
+              <UserAvatar user={{ name: v.nome, image: v.image }} className="h-9 w-9 shrink-0 text-[11px]" bg="bg-muted" fg="text-muted-foreground" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-medium truncate">{v.nome}</span>
@@ -357,7 +336,7 @@ function DescontosReport({ data }: { data: DescontosData }) {
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KpiCard icon={Wallet} label="Valor bruto" value={formatCompact(kpis.brutoTotal)} sub={`${kpis.totalAprovados} aprovado(s)`} cor="#60a5fa" />
-        <KpiCard icon={Scissors} label="Desconto concedido" value={formatCompact(kpis.descTotal)} sub={formatCurrency(kpis.descTotal)} cor="#fb7185" />
+        <KpiCard icon={Scissors} label="Desconto concedido" value={formatCompact(kpis.descTotal)} sub={formatCurrency(kpis.descTotal)} cor={MODULE_COLOR} />
         <KpiCard icon={TicketPercent} label="Desconto médio" value={`${kpis.descontoMedioPct}%`} sub="sobre o bruto" cor="#f97316" />
         <KpiCard icon={TrendingDown} label="Com desconto" value={`${kpis.pctComDesconto}%`} sub={`${kpis.comDesconto} de ${kpis.totalAprovados}`} cor="#fbbf24" />
       </div>
@@ -426,7 +405,7 @@ function DescontosReport({ data }: { data: DescontosData }) {
               <div key={v.id} className="flex items-center gap-3">
                 <span className="w-[150px] shrink-0 text-xs font-medium truncate">{v.nome}</span>
                 <div className="flex-1 h-5 bg-muted/30 rounded overflow-hidden">
-                  <div className="h-full rounded transition-all" style={{ width: `${Math.max((v.descontoMedioPct / maxVend) * 100, v.descontoMedioPct > 0 ? 4 : 0)}%`, backgroundColor: '#fb7185' }} />
+                  <div className="h-full rounded transition-all" style={{ width: `${Math.max((v.descontoMedioPct / maxVend) * 100, v.descontoMedioPct > 0 ? 4 : 0)}%`, backgroundColor: MODULE_COLOR }} />
                 </div>
                 <span className="w-12 shrink-0 text-right text-xs font-semibold tabular-nums">{v.descontoMedioPct}%</span>
                 <span className="w-20 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums">{formatCompact(v.desconto)}</span>
@@ -452,7 +431,7 @@ function DescontosReport({ data }: { data: DescontosData }) {
                   <p className="text-[11px] text-muted-foreground truncate">{d.vendedor}</p>
                 </div>
                 <span className="w-24 shrink-0 text-right text-muted-foreground tabular-nums">{formatCurrency(d.bruto)}</span>
-                <span className="w-24 shrink-0 text-right tabular-nums" style={{ color: '#fb7185' }}>−{formatCurrency(d.desconto)}</span>
+                <span className="w-24 shrink-0 text-right tabular-nums" style={{ color: MODULE_COLOR }}>−{formatCurrency(d.desconto)}</span>
                 <span className="w-14 shrink-0 text-right font-semibold tabular-nums">{d.pct}%</span>
               </div>
             ))}

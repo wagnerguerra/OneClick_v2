@@ -5,7 +5,9 @@ import { PenLine, Loader2, Upload, Download, ChevronLeft, ChevronRight, Eraser, 
 import {
   Button,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  cn,
 } from '@saas/ui'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { EntityCombobox } from '@/components/ui/entity-combobox'
 import { trpc } from '@/lib/trpc'
@@ -296,7 +298,7 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
           <DialogDescription>{FERRAMENTA.descricao}</DialogDescription>
         </DialogHeaderIcon>
 
-        <DialogBody className="max-h-[70vh] space-y-4 overflow-y-auto">
+        <DialogBody className="max-h-[70vh] space-y-4">
           {!arquivo ? (
             <div
               onDragOver={(e) => e.preventDefault()}
@@ -323,7 +325,7 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
               <div className="nice-scrollbar max-h-[220px] divide-y divide-border/60 overflow-y-auto rounded-lg border border-border">
                 {historico.map((h) => (
                   <div key={h.id} className="flex items-center gap-3 px-3 py-2">
-                    <FileCheck2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                    <FileCheck2 className={cn('h-4 w-4 shrink-0', TEXT.emerald)} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px]" title={h.nome}>{h.nome}</p>
                       <p className="text-[11px] text-muted-foreground">
@@ -453,7 +455,7 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
               {resultado && (
                 <div className="flex flex-wrap items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 dark:border-emerald-900/50 dark:bg-emerald-950/20">
                   <div className="text-[13px]">
-                    <p className="font-semibold text-emerald-800 dark:text-emerald-300">
+                    <p className={cn('font-semibold', TEXT.emerald)}>
                       Assinado por {resultado.titular}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
@@ -465,7 +467,7 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
                         falha fica à vista, em vez de o documento sair em
                         silêncio num nível abaixo do esperado. */}
                     {resultado.padesLevel === 'BES' && resultado.tsaInfo && (
-                      <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-400">
+                      <p className={cn('mt-0.5 text-[11px]', TEXT.amber)}>
                         {resultado.tsaInfo}
                       </p>
                     )}
@@ -483,7 +485,7 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
           )}
 
           {arquivo && certificados.length === 0 && (
-            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+            <p className={cn('rounded-lg border px-3 py-2 text-[13px]', BADGE.amber)}>
               Nenhum certificado A1 válido com senha guardada. Cadastre em Certificados Digitais.
             </p>
           )}
@@ -493,7 +495,7 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
           {/* O motivo do bloqueio fica à vista. Botão desabilitado sem
               explicação é o que fez "marquei a área e nada acontece". */}
           {arquivo && !certificadoId && certificados.length > 0 && (
-            <span className="mr-auto text-[12px] text-amber-600 dark:text-amber-400">
+            <span className={cn('mr-auto text-[12px]', TEXT.amber)}>
               Escolha o certificado para assinar
             </span>
           )}

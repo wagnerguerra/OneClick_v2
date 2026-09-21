@@ -9,6 +9,7 @@ import {
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { TEXT } from '@/lib/color-styles'
 
 /**
  * Correção das pendências de cadastro sem sair do relatório.
@@ -269,7 +270,7 @@ export function PendenciasModal({ aberto, abaInicial, semAdmissao, semPeriodo, f
             ) : (
               <div className="space-y-2">
                 {semSugestao > 0 && (
-                  <p className="flex items-start gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+                  <p className={cn('flex items-start gap-1.5 text-[11px]', TEXT.amber)}>
                     <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0" />
                     {semSugestao} colaborador(es) estão sem data de admissão, então os anos não puderam ser sugeridos — confira antes de lançar (ou preencha a admissão na outra aba).
                   </p>

@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { ListChecks, AlertTriangle, Clock, CheckCircle2, ArrowRight } from 'lucide-react'
-import { Card, CardContent } from '@saas/ui'
+import { Card, CardContent, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
+import { TEXT, BADGE, PILL, type ColorName } from '@/lib/color-styles'
 import { getApiUrl } from '@/lib/api-url'
 import { EmptyState } from './empty-state'
 
@@ -28,12 +29,14 @@ interface ExecucaoItem {
   } | null
 }
 
-// Cores das situacoes — mesmos hex usados no fluxo-editor pra manter a linguagem visual
-const SITUACAO_CORES = {
-  atrasada: { dot: '#e11d48', label: 'Atrasada', bg: 'rgba(225,29,72,0.10)', text: '#9f1239' },
-  a_vencer: { dot: '#f59e0b', label: 'A vencer', bg: 'rgba(245,158,11,0.10)', text: '#92400e' },
-  no_prazo: { dot: '#10b981', label: 'No prazo', bg: 'rgba(16,185,129,0.10)', text: '#065f46' },
-} as const
+// Situações → cor de conceito. `tone` é a ColorName do helper (chips = BADGE[tone],
+// já dark-aware). `dot` (o -500) fica como hex só pros indicadores de tom único
+// (bolinhas/borda tingida das linhas), que leem nos dois temas.
+const SITUACAO_CORES: Record<'atrasada' | 'a_vencer' | 'no_prazo', { dot: string; label: string; tone: ColorName }> = {
+  atrasada: { dot: '#e11d48', label: 'Atrasada', tone: 'rose' },
+  a_vencer: { dot: '#f59e0b', label: 'A vencer', tone: 'amber' },
+  no_prazo: { dot: '#10b981', label: 'No prazo', tone: 'emerald' },
+}
 
 /**
  * Formata o prazo de forma relativa amigavel.
@@ -153,7 +156,7 @@ function ServicosExpanded({ titulo: _titulo }: { titulo: string }) {
   }
   if (erro) {
     return (
-      <div className="h-full flex items-center justify-center text-sm text-rose-600">
+      <div className={cn('h-full flex items-center justify-center text-sm', TEXT.rose)}>
         Erro: {erro}
       </div>
     )
@@ -162,7 +165,7 @@ function ServicosExpanded({ titulo: _titulo }: { titulo: string }) {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-3 text-center px-6 py-12">
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-900/20">
-          <CheckCircle2 className="h-7 w-7 text-emerald-600" />
+          <CheckCircle2 className={cn('h-7 w-7', TEXT.emerald)} />
         </div>
         <div>
           <p className="text-sm font-semibold">Você está em dia!</p>
@@ -172,7 +175,7 @@ function ServicosExpanded({ titulo: _titulo }: { titulo: string }) {
         </div>
         <Link
           href="/meus-servicos"
-          className="text-xs font-medium text-sky-600 hover:text-sky-700 hover:underline mt-1"
+          className={cn('text-xs font-medium hover:text-sky-700 hover:underline mt-1', TEXT.sky)}
         >
           Abrir Meus Serviços
         </Link>
@@ -189,12 +192,8 @@ function ServicosExpanded({ titulo: _titulo }: { titulo: string }) {
       <button
         type="button"
         onClick={() => setFiltro(prev => prev === k ? null : k)}
-        className="flex-1 min-w-[110px] rounded-lg border px-3 py-2 transition-all hover:shadow-sm text-left"
-        style={{
-          backgroundColor: ativo ? cor.dot : cor.bg,
-          borderColor: ativo ? cor.dot : `${cor.dot}40`,
-          color: ativo ? '#fff' : cor.text,
-        }}
+        className={cn('flex-1 min-w-[110px] rounded-lg border px-3 py-2 transition-all hover:shadow-sm text-left', !ativo && BADGE[cor.tone])}
+        style={ativo ? { backgroundColor: cor.dot, borderColor: cor.dot, color: '#fff' } : undefined}
         title={`Filtrar por ${label.toLowerCase()}`}
       >
         <div className="flex items-center gap-1.5">
@@ -223,7 +222,7 @@ function ServicosExpanded({ titulo: _titulo }: { titulo: string }) {
         </p>
         <Link
           href="/meus-servicos"
-          className="text-[11px] font-medium text-sky-600 hover:text-sky-700 hover:underline inline-flex items-center gap-1"
+          className={cn('text-[11px] font-medium hover:text-sky-700 hover:underline inline-flex items-center gap-1', TEXT.sky)}
         >
           Ver todas <ArrowRight className="h-3 w-3" />
         </Link>
@@ -238,7 +237,7 @@ function ServicosExpanded({ titulo: _titulo }: { titulo: string }) {
 
       {filtro && (
         <div className="shrink-0 mb-2 text-[11px] text-muted-foreground">
-          Filtrando: <strong style={{ color: SITUACAO_CORES[filtro].dot }}>{SITUACAO_CORES[filtro].label}</strong>
+          Filtrando: <strong className={TEXT[SITUACAO_CORES[filtro].tone]}>{SITUACAO_CORES[filtro].label}</strong>
           {' · '}
           <button
             type="button"
@@ -251,7 +250,7 @@ function ServicosExpanded({ titulo: _titulo }: { titulo: string }) {
       )}
 
       {/* Lista */}
-      <div className="flex-1 min-h-0 overflow-y-auto -mx-1 pr-1">
+      <div className="flex-1 min-h-0 overflow-y-auto nice-scrollbar -mx-1 pr-1">
         {filtrados.length === 0 ? (
           <p className="text-center text-xs text-muted-foreground py-10">
             Nenhuma execução nessa categoria.
@@ -278,10 +277,7 @@ function ServicosExpanded({ titulo: _titulo }: { titulo: string }) {
                       <span className="text-[13px] font-semibold truncate flex-1" title={it.servicoNome}>
                         {it.servicoNome}
                       </span>
-                      <span
-                        className="text-[10px] font-bold uppercase tracking-wider shrink-0 px-1.5 py-0.5 rounded"
-                        style={{ background: cor.bg, color: cor.text }}
-                      >
+                      <span className={cn('text-[10px] font-bold uppercase tracking-wider shrink-0 px-1.5 py-0.5 rounded-full', PILL[cor.tone])}>
                         {prazoLabel}
                       </span>
                     </div>
@@ -430,12 +426,7 @@ function ServicosInitial({ title, bloco }: { title?: string; bloco?: string }) {
     return (
       <Link
         href={`/meus-servicos?situacao=${k}`}
-        className="flex items-center gap-1.5 rounded-md border px-2 py-1 transition-shadow hover:shadow-sm shrink-0"
-        style={{
-          backgroundColor: cor.bg,
-          borderColor: `${cor.dot}40`,
-          color: cor.text,
-        }}
+        className={cn('flex items-center gap-1.5 rounded-md border px-2 py-1 transition-shadow hover:shadow-sm shrink-0', BADGE[cor.tone])}
         title={`${n} ${label.toLowerCase()}`}
       >
         <Icon className="h-3 w-3 shrink-0" />
@@ -463,7 +454,7 @@ function ServicosInitial({ title, bloco }: { title?: string; bloco?: string }) {
           className="flex items-center gap-3 hover:opacity-80 transition-opacity min-w-0 shrink-0"
         >
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-50 dark:bg-sky-900/20">
-            <ListChecks className="h-4 w-4 text-sky-600" />
+            <ListChecks className={cn('h-4 w-4', TEXT.sky)} />
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-semibold truncate">{titulo}</h3>
@@ -491,11 +482,11 @@ function ServicosInitial({ title, bloco }: { title?: string; bloco?: string }) {
         {/* Lista compacta — flex-1 + overflow pra usar a altura restante do
             card. max-h tampa em caso de card muito alto (evita lista
             quilometrica). */}
-        <div className="flex-1 min-h-0 overflow-y-auto -mx-1 pr-1">
+        <div className="flex-1 min-h-0 overflow-y-auto nice-scrollbar -mx-1 pr-1">
           {!itemsLoaded ? (
             <p className="text-center text-[11px] text-muted-foreground py-3">Carregando execuções...</p>
           ) : itemsErro ? (
-            <p className="text-center text-[11px] text-rose-600 py-3">Erro: {itemsErro}</p>
+            <p className={cn('text-center text-[11px] py-3', TEXT.rose)}>Erro: {itemsErro}</p>
           ) : visiveis.length === 0 ? (
             <p className="text-center text-[11px] text-muted-foreground py-3">Nenhuma execução em andamento.</p>
           ) : (
@@ -520,10 +511,7 @@ function ServicosInitial({ title, bloco }: { title?: string; bloco?: string }) {
                         <span className="text-[12px] font-medium truncate flex-1">
                           {it.servicoNome}
                         </span>
-                        <span
-                          className="text-[10px] font-medium tabular-nums shrink-0"
-                          style={{ color: cor.dot }}
-                        >
+                        <span className={cn('text-[10px] font-medium tabular-nums shrink-0 px-1.5 py-0.5 rounded-full', PILL[cor.tone])}>
                           {prazoLabel}
                         </span>
                       </div>
@@ -553,7 +541,7 @@ function ServicosInitial({ title, bloco }: { title?: string; bloco?: string }) {
         {itemsLoaded && restantes > 0 && (
           <Link
             href="/meus-servicos"
-            className="shrink-0 inline-flex items-center justify-center gap-1 text-[11px] font-medium text-sky-600 hover:text-sky-700 hover:underline"
+            className={cn('shrink-0 inline-flex items-center justify-center gap-1 text-[11px] font-medium hover:text-sky-700 hover:underline', TEXT.sky)}
           >
             +{restantes} {restantes === 1 ? 'execução' : 'execuções'} · Ver todas
             <ArrowRight className="h-3 w-3" />

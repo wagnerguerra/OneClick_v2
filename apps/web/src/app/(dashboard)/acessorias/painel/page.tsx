@@ -23,6 +23,7 @@ import { PERIODOS, filtroDe, rotuloCompetencia, competenciasDisponiveis, type Re
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { AbasAcessorias } from '../_components/abas-acessorias'
 import { BadgeEntrega } from '../_components/badge-entrega'
+import { BADGE, TEXT } from '@/lib/color-styles'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
 
@@ -148,7 +149,7 @@ function situacao(l: Linha) {
         adiantada ? `antes do prazo técnico (${fmtData(l.prazo)})` : `prazo técnico ${fmtData(l.prazo)}`,
         `prazo legal ${fmtData(l.vencimento)}`,
       ].join(' · '),
-      cor: 'text-emerald-600 dark:text-emerald-400',
+      cor: TEXT.emerald,
     }
   }
   // Conta contra o prazo LEGAL, não contra o técnico: é a data em que o
@@ -158,9 +159,9 @@ function situacao(l: Linha) {
     ? `Guia entregue em ${fmtData(l.dtEntrega)}, cliente ainda não abriu · prazo legal ${fmtData(l.vencimento)}`
     : `Ainda não entregue · prazo legal ${fmtData(l.vencimento)} · prazo técnico ${fmtData(l.prazo)}`
   if (dias === null) return { texto: 'sem prazo', titulo: t, cor: 'text-muted-foreground' }
-  if (dias < 0) return { texto: `venceu há ${Math.abs(dias)}d`, titulo: t, cor: 'text-rose-600 dark:text-rose-400 font-semibold' }
-  if (dias === 0) return { texto: 'vence hoje', titulo: t, cor: 'text-rose-600 dark:text-rose-400 font-semibold' }
-  if (dias <= 3) return { texto: `vence em ${dias}d`, titulo: t, cor: 'text-amber-600 dark:text-amber-400 font-semibold' }
+  if (dias < 0) return { texto: `venceu há ${Math.abs(dias)}d`, titulo: t, cor: cn(TEXT.rose, 'font-semibold') }
+  if (dias === 0) return { texto: 'vence hoje', titulo: t, cor: cn(TEXT.rose, 'font-semibold') }
+  if (dias <= 3) return { texto: `vence em ${dias}d`, titulo: t, cor: cn(TEXT.amber, 'font-semibold') }
   return { texto: `vence em ${dias}d`, titulo: t, cor: 'text-muted-foreground' }
 }
 
@@ -358,28 +359,28 @@ export default function PainelEntregasPage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <CartaoFoco
           ativo={foco === 'a_vencer'} onClick={() => setFoco('a_vencer')}
-          icone={<AlertTriangle className="h-4 w-4" />} cor="text-rose-600 dark:text-rose-400"
+          icone={<AlertTriangle className="h-4 w-4" />} cor={TEXT.rose}
           valor={resumo?.naoLidasCriticas ?? 0}
           titulo="Obrigações entregues e não lidas"
           nota={`Obrigações entregues, porém os clientes não abriram, vencendo em ${janelaDias} ${janelaDias === 1 ? 'dia' : 'dias'}`}
         />
         <CartaoFoco
           ativo={foco === 'atrasadas'} onClick={() => setFoco('atrasadas')}
-          icone={<Clock className="h-4 w-4" />} cor="text-orange-600 dark:text-orange-400"
+          icone={<Clock className="h-4 w-4" />} cor={TEXT.orange}
           valor={resumo?.atrasadas ?? 0}
           titulo="Entregas atrasadas"
           nota="não entregues com vencimento passado"
         />
         <CartaoFoco
           ativo={foco === 'nao_lidas'} onClick={() => setFoco('nao_lidas')}
-          icone={<MailWarning className="h-4 w-4" />} cor="text-amber-600 dark:text-amber-400"
+          icone={<MailWarning className="h-4 w-4" />} cor={TEXT.amber}
           valor={resumo?.naoLidas ?? 0}
           titulo="Obrigações entregues, porém não lidas pelo cliente"
           nota="em todo o período consultado"
         />
         <CartaoFoco
           ativo={foco === 'todas'} onClick={() => setFoco('todas')}
-          icone={<CheckCircle2 className="h-4 w-4" />} cor="text-emerald-600 dark:text-emerald-400"
+          icone={<CheckCircle2 className="h-4 w-4" />} cor={TEXT.emerald}
           valor={resumo?.lidas ?? 0}
           titulo="Guias abertas"
           nota={resumo ? `de ${resumo.comGuia} com guia · ver tudo` : 'ver tudo'}
@@ -403,7 +404,7 @@ export default function PainelEntregasPage() {
             </div>
 
             <Select value={dpto || '__all__'} onValueChange={(v) => setDpto(v === '__all__' ? '' : v)}>
-              <SelectTrigger className="h-8 w-[160px] bg-card text-xs"><SelectValue placeholder="Departamento" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Departamento" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os departamentos</SelectItem>
                 {opcoes.departamentos.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
@@ -411,7 +412,7 @@ export default function PainelEntregasPage() {
             </Select>
 
             <Select value={responsavelId || '__all__'} onValueChange={(v) => setResponsavelId(v === '__all__' ? '' : v)}>
-              <SelectTrigger className="h-8 w-[190px] bg-card text-xs"><SelectValue placeholder="Responsável" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[190px] text-xs"><SelectValue placeholder="Responsável" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os responsáveis</SelectItem>
                 {opcoes.responsaveis.map((r) => <SelectItem key={r.id} value={r.id}>{r.nome}</SelectItem>)}
@@ -433,7 +434,7 @@ export default function PainelEntregasPage() {
             {/* Um campo só, com as duas formas de recortar o tempo. Separados,
                 dava para combinar recortes que se anulam e receber tela vazia. */}
             <Select value={recorte} onValueChange={(v) => setRecorte(v as Recorte)}>
-              <SelectTrigger className="h-8 w-[170px] bg-card text-xs"><SelectValue placeholder="Recorte" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[170px] text-xs"><SelectValue placeholder="Recorte" /></SelectTrigger>
               <SelectContent>
                 <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Por vencimento
@@ -449,14 +450,14 @@ export default function PainelEntregasPage() {
             </Select>
 
             <Select value={String(janelaDias)} onValueChange={(v) => setJanelaDias(Number(v))}>
-              <SelectTrigger className="h-8 w-[130px] bg-card text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {[3, 5, 7, 10, 15, 30].map((d) => <SelectItem key={d} value={String(d)}>janela de {d}d</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <Input value={busca} onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar cliente, obrigação ou competência..." className="h-8 bg-card text-xs lg:w-80" />
+            placeholder="Buscar cliente, obrigação ou competência..." className="h-8 text-xs lg:w-80" />
         </div>
 
         {loading ? (
@@ -492,7 +493,7 @@ export default function PainelEntregasPage() {
                     {c.naoLidasCriticas > 0 && (
                       <button type="button" title="Ver as obrigações vencendo"
                         onClick={() => setDrill({ cliente: c, foco: 'a_vencer', rotulo: 'Vencendo' })}>
-                        <Badge className="cursor-pointer bg-rose-100 text-[10px] text-rose-700 hover:brightness-95 dark:bg-rose-950/40 dark:text-rose-400">
+                        <Badge variant="outline" className={cn('cursor-pointer text-[10px] hover:brightness-95', BADGE.rose)}>
                           {c.naoLidasCriticas} vencendo
                         </Badge>
                       </button>
@@ -508,7 +509,7 @@ export default function PainelEntregasPage() {
                     {c.atrasadas > 0 && (
                       <button type="button" title="Ver as obrigações atrasadas"
                         onClick={() => setDrill({ cliente: c, foco: 'atrasadas', rotulo: 'Atrasadas' })}>
-                        <Badge className="cursor-pointer bg-amber-100 text-[10px] text-amber-800 hover:brightness-95 dark:bg-amber-950/40 dark:text-amber-400">
+                        <Badge variant="outline" className={cn('cursor-pointer text-[10px] hover:brightness-95', BADGE.amber)}>
                           {c.atrasadas} atrasadas
                         </Badge>
                       </button>
@@ -524,9 +525,9 @@ export default function PainelEntregasPage() {
         ) : linhasFiltradas.length === 0 ? (
           <VazioPainel />
         ) : (
-          <div className="max-h-[620px] overflow-auto">
+          <div className="max-h-[620px] overflow-auto nice-scrollbar">
             {truncado && (
-              <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-[12px] text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+              <p className={cn('border-b px-4 py-2 text-[12px]', BADGE.amber)}>
                 Mostrando as primeiras {truncado.limite} linhas. Os indicadores acima contam
                 a carteira inteira — use os filtros para reduzir a lista.
               </p>
@@ -564,7 +565,7 @@ export default function PainelEntregasPage() {
                         <div className="flex items-center gap-1.5">
                           {l.lida === false && (
                             <span title="Cliente ainda não abriu a guia" className="inline-flex">
-                              <MailWarning className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                              <MailWarning className={cn('h-4 w-4', TEXT.amber)} />
                             </span>
                           )}
                           {l.lida === true && (
@@ -572,7 +573,7 @@ export default function PainelEntregasPage() {
                               title={l.lidaEm ? `Cliente abriu a guia em ${fmtDataHora(l.lidaEm)}` : 'Cliente abriu a guia'}
                               className="inline-flex"
                             >
-                              <MailOpen className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                              <MailOpen className={cn('h-4 w-4', TEXT.emerald)} />
                             </span>
                           )}
                           {l.multa && (
@@ -761,7 +762,7 @@ function ObrigacoesDoClienteModal({
             #{cliente.clienteCode} — {cliente.clienteNome} · {masks.cpfCnpj(cliente.documento)}
           </DialogDescription>
         </DialogHeaderIcon>
-        <DialogBody className="max-h-[65vh] overflow-y-auto p-0">
+        <DialogBody className="max-h-[65vh] p-0">
           {carregando ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -863,7 +864,7 @@ function DetalheEntregaModal({ linha: l, urlTemplate, onClose }: {
             #{l.clienteCode} — {l.clienteNome} · {masks.cpfCnpj(l.documento)}
           </DialogDescription>
         </DialogHeaderIcon>
-        <DialogBody className="max-h-[65vh] space-y-4 overflow-y-auto">
+        <DialogBody className="max-h-[65vh] space-y-4">
           <Secao titulo="Datas">
             <Campo label="Competência" valor={fmtComp(l.competencia)} />
             <Campo label="Prazo técnico (EntDtPrazo)" valor={fmtData(l.prazo)} />
@@ -1064,7 +1065,7 @@ function RegrasModal({ onClose, onMudou }: { onClose: () => void; onMudou: () =>
             O que a sincronização deixa de trazer. Regra por cliente vence a regra geral.
           </DialogDescription>
         </DialogHeaderIcon>
-        <DialogBody className="overflow-y-auto">
+        <DialogBody>
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Carregando...
@@ -1081,8 +1082,8 @@ function RegrasModal({ onClose, onMudou }: { onClose: () => void; onMudou: () =>
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="truncate text-sm font-medium">{r.nome}</span>
                       {r.considerar
-                        ? <Badge className="bg-emerald-100 text-[10px] text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">exceção: considerar</Badge>
-                        : <Badge className="bg-rose-100 text-[10px] text-rose-700 dark:bg-rose-950/40 dark:text-rose-400">não considerar</Badge>}
+                        ? <Badge variant="outline" className={cn('text-[10px]', BADGE.emerald)}>exceção: considerar</Badge>
+                        : <Badge variant="outline" className={cn('text-[10px]', BADGE.rose)}>não considerar</Badge>}
                     </div>
                     <p className="truncate text-[11px] text-muted-foreground">
                       {r.cliente ? `#${r.cliente.code} — ${r.cliente.razaoSocial}` : 'todos os clientes'}

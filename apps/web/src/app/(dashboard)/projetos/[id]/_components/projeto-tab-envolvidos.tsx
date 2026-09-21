@@ -25,8 +25,8 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
-import { resolveAssetUrl } from '@/lib/api-url'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -68,16 +68,7 @@ const PALETA_FRENTES: Array<{ nome: string; hex: string }> = [
 ]
 
 function Avatar({ nome, image }: { nome: string; image: string | null }) {
-  const iniciais = nome.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase()
-  if (image) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={resolveAssetUrl(image)} alt={nome} className="h-9 w-9 shrink-0 rounded-full border border-background object-cover" />
-  }
-  return (
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#5ea3cb] text-xs font-bold text-white">
-      {iniciais || '?'}
-    </span>
-  )
+  return <UserAvatar user={{ name: nome, image }} className="h-9 w-9 shrink-0 text-xs" />
 }
 
 function Caixa({ children, destaque, cor, aoRemover, titulo }: {

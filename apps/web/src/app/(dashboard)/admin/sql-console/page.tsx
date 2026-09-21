@@ -16,6 +16,7 @@ import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+import { TEXT } from '@/lib/color-styles'
 
 type DbInfo = {
   database: string; usuario: string; versao: string; host: string | null
@@ -186,10 +187,10 @@ export default function SqlConsolePage() {
             <div className="flex items-center gap-2 rounded-lg bg-muted/60 px-2.5 py-1.5 focus-within:ring-1 focus-within:ring-ring">
               <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <input value={filtro} onChange={e => setFiltro(e.target.value)} placeholder="Filtrar tabela ou campo"
-                className="flex-1 bg-transparent text-[13px] focus:outline-none placeholder:text-muted-foreground/70" />
+                className="flex-1 text-[13px] focus:outline-none placeholder:text-muted-foreground/70" />
             </div>
           </div>
-          <div className="flex-1 overflow-auto py-1.5">
+          <div className="flex-1 overflow-auto nice-scrollbar py-1.5">
             {schemaLoading && schema.length === 0 ? (
               <div className="flex items-center justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
             ) : (
@@ -278,7 +279,7 @@ export default function SqlConsolePage() {
               {sel && colunasSel.length > 0 && (
                 <div className="shrink-0 border-b border-border px-3 py-2 bg-muted/10">
                   <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">{colunasSel.length} colunas · <span className="text-rose-500">•</span> = NOT NULL</div>
-                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-auto">
+                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-auto nice-scrollbar">
                     {colunasSel.map(c => (
                       <span key={c.name} className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[11px] shadow-sm">
                         {c.name === 'id' && <KeyRound className="h-3 w-3 text-amber-500 shrink-0" />}
@@ -372,7 +373,7 @@ function ResultGrid({ res, loading, empty }: { res: RunResult | null; loading?: 
   if (!res) return <div className="flex-1 flex flex-col items-center justify-center gap-2 text-muted-foreground">{empty}</div>
   if (res.ok === false) {
     return (
-      <div className="flex-1 overflow-auto bg-rose-500/5 min-h-0">
+      <div className="flex-1 overflow-auto nice-scrollbar bg-rose-500/5 min-h-0">
         <div className="flex items-center gap-2 px-3 py-2 border-b border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300 text-[12px] font-semibold">
           <AlertTriangle className="h-3.5 w-3.5" /> Erro · {res.ms} ms
         </div>
@@ -386,7 +387,7 @@ function ResultGrid({ res, loading, empty }: { res: RunResult | null; loading?: 
     </div>
   }
   return (
-    <div className="flex-1 overflow-auto min-h-0">
+    <div className="flex-1 overflow-auto nice-scrollbar min-h-0">
       <table className="w-full text-[12px] border-collapse">
         <thead className="sticky top-0 z-10">
           <tr>{res.columns.map(c => (
@@ -439,8 +440,8 @@ function fmt(v: unknown): string {
 }
 function cell(v: unknown) {
   if (v === null || v === undefined) return <span className="text-muted-foreground/50 italic">null</span>
-  if (typeof v === 'boolean') return <span className={v ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>{String(v)}</span>
-  if (typeof v === 'number') return <span className="text-sky-700 dark:text-sky-300">{String(v)}</span>
+  if (typeof v === 'boolean') return <span className={v ? TEXT.emerald : TEXT.rose}>{String(v)}</span>
+  if (typeof v === 'number') return <span className={TEXT.sky}>{String(v)}</span>
   if (typeof v === 'object') return JSON.stringify(v)
   return String(v)
 }

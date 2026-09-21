@@ -23,6 +23,7 @@ import {
   RichContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { BackButton } from '@/components/ui/back-button'
 import Link from 'next/link'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -399,7 +400,7 @@ function EmailChipsInput({ value, onChange, suggestions, placeholder }: {
           className={cn(
             'flex-1 min-w-[140px] border-none bg-transparent outline-none shadow-none p-0 py-1 h-auto rounded-none focus:border-none focus:shadow-none focus:outline-none text-sm',
             // Feedback visual: texto vermelho quando o draft não é um e-mail válido
-            draft.trim() && !EMAIL_RE.test(draft.trim()) && 'text-rose-600 dark:text-rose-400',
+            draft.trim() && !EMAIL_RE.test(draft.trim()) && TEXT.rose,
           )}
           style={{ width: 'auto', display: 'inline-block' }}
         />
@@ -2037,7 +2038,7 @@ export default function OrcamentoDetailPage() {
               <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Orçamento Paralizado</p>
               <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">{orc.paralizadoMotivo}</p>
               {orc.paralizadoEm && (
-                <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                <p className={cn('text-[10px] mt-1', TEXT.amber)}>
                   Desde {new Date(orc.paralizadoEm).toLocaleString('pt-BR')}
                 </p>
               )}
@@ -2063,10 +2064,10 @@ export default function OrcamentoDetailPage() {
               : 'border-rose-200 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/40')}>
               <CardHeader className="border-b border-border/40 px-5 py-3 flex flex-row items-center gap-2">
                 {orc.decisaoTipo === 'APROVADO'
-                  ? <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  ? <CheckCircle2 className={cn('h-4 w-4', TEXT.emerald)} />
                   : orc.decisaoTipo === 'REVISAO_SOLICITADA'
-                  ? <Pencil className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                  : <ThumbsDown className="h-4 w-4 text-rose-600 dark:text-rose-400" />}
+                  ? <Pencil className={cn('h-4 w-4', TEXT.amber)} />
+                  : <ThumbsDown className={cn('h-4 w-4', TEXT.rose)} />}
                 <h3 className="text-sm font-semibold flex-1">Resposta do cliente pelo link</h3>
                 <Badge className={cn('text-[10px]', orc.decisaoTipo === 'APROVADO'
                   ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
@@ -2848,7 +2849,7 @@ export default function OrcamentoDetailPage() {
               </div>
               <div className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">Desconto ({descontoPercentCalc.toFixed(1)}%)</span>
-                <span className="font-medium text-orange-600 dark:text-orange-400">- {formatCurrency(descontoAplicado)}</span>
+                <span className={cn('font-medium', TEXT.orange)}>- {formatCurrency(descontoAplicado)}</span>
               </div>
               <div className="border-t border-border/60 pt-2 mt-2 flex items-center justify-between">
                 <span className="text-sm font-semibold">Total Geral</span>
@@ -2882,7 +2883,7 @@ export default function OrcamentoDetailPage() {
                         <ExternalLink className="h-3.5 w-3.5" /> Ver resumo
                       </Button>
                       {(orc as any)?.podeVincularCrm && (
-                        <Button type="button" variant="ghost" size="xs" className="h-7 gap-1 text-[11px] text-rose-600 dark:text-rose-400" onClick={handleDesvincularCrm} title="Desvincular">
+                        <Button type="button" variant="ghost" size="xs" className={cn('h-7 gap-1 text-[11px]', TEXT.rose)} onClick={handleDesvincularCrm} title="Desvincular">
                           <X className="h-3.5 w-3.5" /> Desvincular
                         </Button>
                       )}

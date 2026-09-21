@@ -8,7 +8,7 @@ import {
   CalendarPlus, Clock, Users, Video, Monitor, DoorOpen, MapPin,
   Maximize2, Minimize2, ArrowLeftToLine, ArrowRightToLine, Trash2,
 } from 'lucide-react'
-import { Button, cn, RichEditor } from '@saas/ui'
+import { Button, cn, RichEditor, Checkbox } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
@@ -16,6 +16,7 @@ import { renderConflitosHtml, type ConflitoAgenda, type ConflitoModo } from '@/l
 import { AreasNotificarPicker, useAreasNotificaveis } from '@/components/orcamento/areas-notificar-picker'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { useTicketForm, TicketFormFields } from '@/app/(dashboard)/helpdesk/_components/ticket-form'
+import { TEXT } from '@/lib/color-styles'
 
 /**
  * FAB ("Fale com a TI") — sempre visível no canto inferior direito.
@@ -708,7 +709,7 @@ function OrcamentoRequestForm({
                   onChange={(e) => { setBusca(e.target.value); setDropdownOpen(true) }}
                   onFocus={() => { if (resultados.length) setDropdownOpen(true) }}
                   placeholder="Buscar cliente ou digitar o nome..."
-                  className="w-full h-9 rounded-md border border-border bg-background pl-8 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full h-9 rounded-md pl-8 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
                 {buscando && <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />}
               </div>
@@ -747,7 +748,7 @@ function OrcamentoRequestForm({
             <input
               value={contatos} onChange={e => setContatos(e.target.value)}
               placeholder="Nome do contato"
-              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+              className="h-9 w-full rounded-md px-3 text-sm"
             />
           </div>
           <div className="col-span-12 sm:col-span-7 space-y-1.5">
@@ -755,7 +756,7 @@ function OrcamentoRequestForm({
             <input
               type="email" value={emailContato} onChange={e => setEmailContato(e.target.value)}
               placeholder="contato@empresa.com.br"
-              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+              className="h-9 w-full rounded-md px-3 text-sm"
             />
           </div>
         </div>
@@ -769,7 +770,7 @@ function OrcamentoRequestForm({
                 <label className="text-[13px] font-semibold text-foreground">Tipo</label>
                 <select
                   value={tipo} onChange={e => setTipo(e.target.value)}
-                  className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+                  className="h-9 w-full rounded-md px-2 text-sm"
                 >
                   <option value="SERVICO_EXTRA">Serviço Extra</option>
                   <option value="SERVICO_MENSAL">Serviço Mensal</option>
@@ -780,7 +781,7 @@ function OrcamentoRequestForm({
                 <div className="flex">
                   <input
                     type="number" min={1} value={validadeDias} onChange={e => setValidadeDias(e.target.value)}
-                    className="h-9 w-full rounded-l-md border border-border bg-background px-3 text-sm"
+                    className="h-9 w-full rounded-l-md px-3 text-sm"
                   />
                   <span className="inline-flex h-9 items-center rounded-r-md border border-l-0 border-border bg-muted px-2 text-xs text-muted-foreground">
                     dias
@@ -794,7 +795,7 @@ function OrcamentoRequestForm({
               <input
                 value={formaPagamento} onChange={e => setFormaPagamento(e.target.value)}
                 placeholder="Ex.: 30 dias"
-                className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+                className="h-9 w-full rounded-md px-3 text-sm"
               />
             </div>
 
@@ -804,7 +805,7 @@ function OrcamentoRequestForm({
                 <input
                   type="number" min={0} max={100} step="0.01" value={descontoPct}
                   onChange={e => setDescontoPct(e.target.value)} placeholder="0"
-                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+                  className="h-9 w-full rounded-md px-3 text-sm"
                 />
               </div>
               <div className="col-span-6 space-y-1.5">
@@ -812,7 +813,7 @@ function OrcamentoRequestForm({
                 <input
                   type="number" min={0} step="0.01" value={descontoValor}
                   onChange={e => setDescontoValor(e.target.value)} placeholder="0,00"
-                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+                  className="h-9 w-full rounded-md px-3 text-sm"
                 />
               </div>
             </div>
@@ -1042,28 +1043,28 @@ function EventoRequestForm({
         {/* Título */}
         <div className="space-y-1.5">
           <label className="text-[13px] font-semibold text-foreground">Título</label>
-          <input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Nome do evento" className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+          <input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Nome do evento" className="w-full h-9 rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
         </div>
 
         {/* Tipo + Data */}
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
             <label className="text-[13px] font-semibold text-foreground">Tipo</label>
-            <select value={tipoId} onChange={e => setTipoId(e.target.value)} className="w-full h-9 rounded-md border border-border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+            <select value={tipoId} onChange={e => setTipoId(e.target.value)} className="w-full h-9 rounded-md px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
               <option value="" disabled>Selecione…</option>
               {tipos.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
             <label className="text-[13px] font-semibold text-foreground">Data</label>
-            <input type="date" value={data} onChange={e => setData(e.target.value)} className="w-full h-9 rounded-md border border-border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            <input type="date" value={data} onChange={e => setData(e.target.value)} className="w-full h-9 rounded-md px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
           </div>
         </div>
 
         {/* Configurações do evento — regras por tipo (sala, garagem, modalidade...) */}
         {temConfigEvento && (
           <div className="space-y-3 rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
-            <p className="text-[10px] font-medium text-sky-600 dark:text-sky-400">Configurações do evento</p>
+            <p className={cn('text-[10px] font-medium', TEXT.sky)}>Configurações do evento</p>
 
             {/* Modalidade */}
             {permiteModalidade && (
@@ -1077,7 +1078,7 @@ function EventoRequestForm({
                       onClick={() => setPresenca(v)}
                       className={cn(
                         'flex items-center justify-center gap-1 h-8 rounded-md border text-[11px] font-medium transition-colors',
-                        presenca === v ? 'border-sky-500/40 bg-sky-500/10 text-sky-600 dark:text-sky-400' : 'border-border hover:bg-muted/60',
+                        presenca === v ? cn('border-sky-500/40 bg-sky-500/10', TEXT.sky) : 'border-border hover:bg-muted/60',
                       )}
                     >
                       <I className="h-3.5 w-3.5" />{l}
@@ -1093,23 +1094,23 @@ function EventoRequestForm({
                 <label className="text-[12px] font-medium text-foreground">Sala</label>
                 <div className="space-y-1">
                   {salasDisponiveis.map(s => (
-                    <label key={s.id} className={cn('flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors', salaId === s.id ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400' : 'hover:bg-muted/50')}>
+                    <label key={s.id} className={cn('flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors', salaId === s.id ? cn('bg-sky-500/10', TEXT.sky) : 'hover:bg-muted/50')}>
                       <input type="radio" name="fab-sala" checked={salaId === s.id} onChange={() => { setSalaId(s.id); setSala(s.nome); setLocal('') }} className="accent-sky-500" />
                       <DoorOpen className="h-3.5 w-3.5" />{s.nome}
                     </label>
                   ))}
-                  <label className={cn('flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors', sala === 'Outro' ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400' : 'hover:bg-muted/50')}>
+                  <label className={cn('flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors', sala === 'Outro' ? cn('bg-sky-500/10', TEXT.sky) : 'hover:bg-muted/50')}>
                     <input type="radio" name="fab-sala" checked={sala === 'Outro'} onChange={() => { setSalaId(''); setSala('Outro') }} className="accent-sky-500" />
                     <MapPin className="h-3.5 w-3.5" />Outro local
                   </label>
                 </div>
                 {sala === 'Outro' && (
-                  <input value={local} onChange={e => setLocal(e.target.value)} placeholder="Qual local?" className="w-full h-8 rounded-md border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                  <input value={local} onChange={e => setLocal(e.target.value)} placeholder="Qual local?" className="w-full h-8 rounded-md px-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20" />
                 )}
                 {/* Arrumar a sala — só quando uma sala cadastrada é escolhida */}
                 {salaId && (
                   <label className="flex items-center gap-2 cursor-pointer text-xs text-foreground">
-                    <input type="checkbox" checked={arrumarSala} onChange={e => setArrumarSala(e.target.checked)} className="h-3.5 w-3.5 rounded border-border accent-sky-500" />
+                    <Checkbox checked={arrumarSala} onCheckedChange={v => setArrumarSala(v === true)} />
                     Será necessário arrumar a sala?
                   </label>
                 )}
@@ -1120,28 +1121,28 @@ function EventoRequestForm({
             {needsLink && (
               <div className="space-y-1.5">
                 <label className="text-[12px] font-medium text-foreground">Link da reunião *</label>
-                <input value={link} onChange={e => setLink(e.target.value)} placeholder="https://meet.google.com/..." className="w-full h-8 rounded-md border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                <input value={link} onChange={e => setLink(e.target.value)} placeholder="https://meet.google.com/..." className="w-full h-8 rounded-md px-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20" />
               </div>
             )}
 
             {/* Garagem + vagas (presencial/híbrido) */}
             {needsGaragem && (
               <label className="flex items-center gap-2 cursor-pointer text-xs text-foreground">
-                <input type="checkbox" checked={garagem} onChange={e => setGaragem(e.target.checked)} className="h-3.5 w-3.5 rounded border-border accent-sky-500" />
+                <Checkbox checked={garagem} onCheckedChange={v => setGaragem(v === true)} />
                 Reservar garagem
               </label>
             )}
             {needsGaragem && garagem && (
               <div className="space-y-1">
                 <label className="text-[12px] font-medium text-foreground">Vagas *</label>
-                <input type="number" min={1} value={vagas ?? ''} onChange={e => setVagas(Number(e.target.value) || undefined)} className="h-8 w-20 rounded-md border border-border bg-background px-2 text-xs" />
+                <input type="number" min={1} value={vagas ?? ''} onChange={e => setVagas(Number(e.target.value) || undefined)} className="h-8 w-20 rounded-md px-2 text-xs" />
               </div>
             )}
 
             {/* Equipamentos */}
             {permiteEquipamentos && (
               <label className="flex items-center gap-2 cursor-pointer text-xs text-foreground">
-                <input type="checkbox" checked={equipamentos} onChange={e => setEquipamentos(e.target.checked)} className="h-3.5 w-3.5 rounded border-border accent-sky-500" />
+                <Checkbox checked={equipamentos} onCheckedChange={v => setEquipamentos(v === true)} />
                 Solicitar equipamentos
               </label>
             )}
@@ -1153,14 +1154,14 @@ function EventoRequestForm({
           <div className="flex items-center justify-between">
             <label className="text-[13px] font-semibold text-foreground flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />Horário</label>
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-              <input type="checkbox" checked={diaInteiro} onChange={e => setDiaInteiro(e.target.checked)} className="h-3.5 w-3.5 rounded border-border" /> Dia inteiro
+              <Checkbox checked={diaInteiro} onCheckedChange={v => setDiaInteiro(v === true)} /> Dia inteiro
             </label>
           </div>
           {!diaInteiro && (
             <div className="flex items-center gap-2">
-              <input type="time" value={horaInicio} onChange={e => { setHoraInicio(e.target.value); if (e.target.value >= horaFim) { const [h, m] = e.target.value.split(':'); setHoraFim(`${String((Number(h) + 1) % 24).padStart(2, '0')}:${m}`) } }} className="h-9 rounded-md border border-border bg-background px-2 text-sm flex-1" />
+              <input type="time" value={horaInicio} onChange={e => { setHoraInicio(e.target.value); if (e.target.value >= horaFim) { const [h, m] = e.target.value.split(':'); setHoraFim(`${String((Number(h) + 1) % 24).padStart(2, '0')}:${m}`) } }} className="h-9 rounded-md px-2 text-sm flex-1" />
               <span className="text-muted-foreground text-sm">—</span>
-              <input type="time" value={horaFim} onChange={e => setHoraFim(e.target.value)} className="h-9 rounded-md border border-border bg-background px-2 text-sm flex-1" />
+              <input type="time" value={horaFim} onChange={e => setHoraFim(e.target.value)} className="h-9 rounded-md px-2 text-sm flex-1" />
             </div>
           )}
         </div>
@@ -1180,7 +1181,7 @@ function EventoRequestForm({
           )}
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <input value={buscaUser} onChange={e => { setBuscaUser(e.target.value); setUserDropdown(true) }} onFocus={() => setUserDropdown(true)} placeholder="Adicionar participante..." className="w-full h-9 rounded-md border border-border bg-background pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            <input value={buscaUser} onChange={e => { setBuscaUser(e.target.value); setUserDropdown(true) }} onFocus={() => setUserDropdown(true)} placeholder="Adicionar participante..." className="w-full h-9 rounded-md pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
             {userDropdown && usuariosFiltrados.length > 0 && (
               <div className="absolute z-10 mt-1 w-full max-h-40 overflow-auto rounded-md border border-border bg-popover shadow-lg">
                 {usuariosFiltrados.map(u => (
@@ -1194,7 +1195,7 @@ function EventoRequestForm({
         {/* Descrição */}
         <div className="space-y-1.5">
           <label className="text-[13px] font-semibold text-foreground">Descrição</label>
-          <textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={3} placeholder="Detalhes do evento (opcional)..." className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+          <textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={3} placeholder="Detalhes do evento (opcional)..." className="w-full rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
         </div>
       </div>
 
@@ -1221,7 +1222,7 @@ function SuccessState({
 }) {
   return (
     <div className="px-4 py-6 flex flex-col items-center text-center gap-3">
-      <div className="h-12 w-12 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+      <div className={cn('h-12 w-12 rounded-full bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center', TEXT.emerald)}>
         <Check className="h-6 w-6" />
       </div>
       <div>

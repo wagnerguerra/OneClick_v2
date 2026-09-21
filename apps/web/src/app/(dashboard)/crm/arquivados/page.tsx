@@ -8,11 +8,12 @@ import {
   ChevronLeft, ChevronRight, Search as SearchIcon, AlertCircle,
 } from 'lucide-react'
 import {
-  Button, Input, Badge, Card,
+  Button, Input, Badge, Card, cn,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
+import { STRONG, type ColorName } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
@@ -46,9 +47,9 @@ interface Resposta {
 
 const LIMITE = 50
 
-const SITUACAO_META: Record<Linha['situacao'], { label: string; classe: string }> = {
-  ARQUIVADO: { label: 'Arquivado', classe: 'bg-slate-500 text-white' },
-  DECLINIO: { label: 'Em declínio', classe: 'bg-amber-500 text-white' },
+const SITUACAO_META: Record<Linha['situacao'], { label: string; tone: ColorName }> = {
+  ARQUIVADO: { label: 'Arquivado', tone: 'slate' },
+  DECLINIO: { label: 'Em declínio', tone: 'amber' },
 }
 
 export default function CrmArquivadosPage() {
@@ -216,7 +217,7 @@ export default function CrmArquivadosPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <Badge className={`px-1.5 py-0.5 text-[10px] ${SITUACAO_META[l.situacao].classe}`}>
+                    <Badge variant="outline" className={cn('px-1.5 py-0.5 text-[10px]', STRONG[SITUACAO_META[l.situacao].tone])}>
                       {SITUACAO_META[l.situacao].label}
                     </Badge>
                   </TableCell>

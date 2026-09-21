@@ -8,6 +8,7 @@ import {
   Avatar, AvatarImage, AvatarFallback,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import type { TreatmentDefinition } from '@saas/types'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -171,7 +172,7 @@ export function VersionHistoryDialog({ modelId, modelNome, open, onOpenChange, c
               {/* Banner da versão + picker de comparação */}
               <div className="space-y-3 rounded-[4px] border border-border/60 bg-muted/20 p-3">
                 <div className={cn('flex items-start gap-2 text-xs',
-                  viewingIsCurrent ? 'text-sky-700 dark:text-sky-300' : 'text-amber-700 dark:text-amber-300')}>
+                  viewingIsCurrent ? TEXT.sky : TEXT.amber)}>
                   <Eye className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>
                     Visualizando a <strong>versão {viewingVersion.versionNumber}</strong>
@@ -183,7 +184,7 @@ export function VersionHistoryDialog({ modelId, modelNome, open, onOpenChange, c
                 <div className="flex flex-wrap items-center gap-2">
                   <label className="text-[11px] font-semibold text-muted-foreground">Comparar com</label>
                   <Select value={compareId || NONE} onValueChange={(v) => setCompareId(v === NONE ? '' : v)}>
-                    <SelectTrigger className="h-8 w-[240px] text-xs bg-card"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 w-[240px] text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value={NONE}>Nenhuma (só visualizar)</SelectItem>
                       {versions.filter((v) => v.id !== viewingId).map((v) => (
@@ -193,7 +194,7 @@ export function VersionHistoryDialog({ modelId, modelNome, open, onOpenChange, c
                   </Select>
                   {comparing && !loadingView && (
                     totalChanges === 0 ? (
-                      <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+                      <span className={cn('flex items-center gap-1 text-[11px]', TEXT.emerald)}>
                         <Check className="h-3.5 w-3.5" /> Sem diferenças
                       </span>
                     ) : (

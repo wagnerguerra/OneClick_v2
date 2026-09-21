@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowLeft, Calendar, Plus, Edit2, Trash2, MoreVertical, Loader2, Settings, DoorOpen,
+  Calendar, Plus, Edit2, Trash2, MoreVertical, Loader2, Settings, DoorOpen,
   Mail, Send, X, ChevronDown, Search, RefreshCw, Check, FileText, Eye, Upload, GripVertical,
 } from 'lucide-react'
 import {
@@ -18,7 +18,10 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type D
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
+import { TEXT, SURFACE, PILL } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { BackButton } from '@/components/ui/back-button'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -566,14 +569,7 @@ export default function AgendaConfiguracoesPage() {
       {/* Header */}
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-        <Button
-          variant="outline" size="icon"
-          onClick={() => router.push('/agenda')}
-          title="Voltar pra Agenda"
-          className="h-9 w-9"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        <BackButton href="/agenda" />
       </>}>
         <h1 className="truncate">Configurações da agenda</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -598,7 +594,7 @@ export default function AgendaConfiguracoesPage() {
         </CardHeader>
         <div className="flex min-h-[450px]">
           {/* Pills laterais */}
-          <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+          <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
             <div className="space-y-1">
               {([
                 { key: 'regras',  label: 'Regras de conflito', icon: Calendar },
@@ -617,7 +613,7 @@ export default function AgendaConfiguracoesPage() {
                       'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                       active
                         ? 'text-white shadow-sm'
-                        : 'text-muted-foreground hover:bg-white hover:text-foreground',
+                        : 'text-muted-foreground hover:bg-background hover:text-foreground',
                     )}
                     style={active ? { backgroundColor: 'var(--mod-administrativo, #38bdf8)' } : undefined}
                   >
@@ -759,7 +755,7 @@ export default function AgendaConfiguracoesPage() {
                                   <Edit2 className="h-3.5 w-3.5" />Editar
                                 </DropdownMenuItem>
                                 {s.ativo && (
-                                  <DropdownMenuItem onClick={() => deleteSala(s)} className="text-xs gap-2 cursor-pointer text-rose-600 dark:text-rose-400">
+                                  <DropdownMenuItem onClick={() => deleteSala(s)} className={cn('text-xs gap-2 cursor-pointer', TEXT.rose)}>
                                     <Trash2 className="h-3.5 w-3.5" />Desativar
                                   </DropdownMenuItem>
                                 )}
@@ -884,7 +880,7 @@ export default function AgendaConfiguracoesPage() {
                               const u = usuarios.find(x => x.id === id)
                               if (!u) return null
                               return (
-                                <span key={id} className="flex items-center gap-1 text-xs bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 px-2.5 py-1 rounded-full">
+                                <span key={id} className={cn('flex items-center gap-1 text-xs px-2.5 py-1 rounded-full', PILL.sky)}>
                                   {u.name}
                                   <button type="button" onClick={() => toggleDestinatario(id)} className="hover:text-rose-500">
                                     <X className="h-3 w-3" />
@@ -898,9 +894,10 @@ export default function AgendaConfiguracoesPage() {
                         <div ref={destSearchRef} className="relative max-w-md mt-2">
                           <button
                             type="button"
+                            role="combobox"
                             onClick={() => setDestSearchOpen(o => !o)}
                             className={cn(
-                              'flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1 text-sm',
+                              'flex h-9 w-full items-center justify-between rounded-md border border-input px-3 py-1 text-sm',
                               'focus:outline-none focus:ring-1 focus:ring-ring',
                             )}
                           >
@@ -921,7 +918,7 @@ export default function AgendaConfiguracoesPage() {
                                   className="h-7 text-xs"
                                 />
                               </div>
-                              <div className="max-h-56 overflow-y-auto py-1">
+                              <div className="max-h-56 overflow-y-auto nice-scrollbar py-1">
                                 {(() => {
                                   const disp = usuarios.filter(u => !disparo.destinatariosIds.includes(u.id))
                                   const filtered = destSearchQuery.trim()
@@ -947,11 +944,7 @@ export default function AgendaConfiguracoesPage() {
                                       }}
                                       className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2"
                                     >
-                                      <span className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0">
-                                        <span className="text-[9px] font-bold text-muted-foreground">
-                                          {(u.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                                        </span>
-                                      </span>
+                                      <UserAvatar user={{ name: u.name, image: null }} className="h-6 w-6 text-[9px] text-muted-foreground shrink-0" bg="bg-muted" />
                                       <span className="truncate">{u.name}</span>
                                     </button>
                                   ))
@@ -1052,11 +1045,11 @@ export default function AgendaConfiguracoesPage() {
                                 {modoLabel}
                               </span>
                               <span className="text-muted-foreground">disparado em {dataDispFmt}</span>
-                              <span className="text-emerald-600 dark:text-emerald-400 font-semibold inline-flex items-center gap-1">
+                              <span className={cn(TEXT.emerald, 'font-semibold inline-flex items-center gap-1')}>
                                 <Check className="h-3 w-3" /> {log.enviados}
                               </span>
                               {log.falhas > 0 && (
-                                <span className="text-rose-600 dark:text-rose-400 font-semibold inline-flex items-center gap-1">
+                                <span className={cn(TEXT.rose, 'font-semibold inline-flex items-center gap-1')}>
                                   <X className="h-3 w-3" /> {log.falhas}
                                 </span>
                               )}
@@ -1104,7 +1097,7 @@ export default function AgendaConfiguracoesPage() {
                                 )}
                                 {log.erros && log.erros.length > 0 && (
                                   <div className="text-[11px]">
-                                    <div className="text-rose-600 dark:text-rose-400 font-semibold mb-1">{log.erros.length} falha(s):</div>
+                                    <div className={cn(TEXT.rose, 'font-semibold mb-1')}>{log.erros.length} falha(s):</div>
                                     <div className="space-y-1">
                                       {log.erros.map((er, idx) => {
                                         const u = usuarios.find(x => x.id === er.userId)
@@ -1137,7 +1130,7 @@ export default function AgendaConfiguracoesPage() {
             {activeTab === 'modelo' && tpl && (
               <div className="space-y-5">
                 {/* Aviso paralelo + toggle ativo */}
-                <label className={cn('flex items-start gap-3 rounded-md border p-3 cursor-pointer', tpl.ativo ? 'border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20' : 'border-amber-300 bg-amber-50 dark:bg-amber-900/20')}>
+                <label className={cn('flex items-start gap-3 rounded-md border p-3 cursor-pointer', tpl.ativo ? SURFACE.emerald : SURFACE.amber)}>
                   <Checkbox checked={tpl.ativo} onCheckedChange={v => setTplField('ativo', !!v)} className="mt-0.5" />
                   <div className="text-xs">
                     <p className="font-semibold">Usar este modelo no disparo automático</p>
@@ -1231,7 +1224,7 @@ export default function AgendaConfiguracoesPage() {
                         onChange={e => setTplField('headerHtml', e.target.value)}
                         rows={12}
                         placeholder="HTML do cabeçalho — use as variáveis acima ({{saudacao}}, {{nomePrimeiro}}, {{diaNum}}…)"
-                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs font-mono resize-y focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        className="w-full rounded-md px-3 py-2 text-xs font-mono resize-y focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       />
                     </div>
 
@@ -1292,7 +1285,7 @@ export default function AgendaConfiguracoesPage() {
                             onChange={e => setTplField('eventoLinhaHtml', e.target.value)}
                             rows={14}
                             placeholder="HTML do card — ex.: <table>…{{evento.titulo}}…</table>"
-                            className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs font-mono resize-y focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            className="w-full rounded-md px-3 py-2 text-xs font-mono resize-y focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                           />
                         </>
                       )}

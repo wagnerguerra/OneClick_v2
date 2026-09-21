@@ -6,11 +6,12 @@ import {
   Loader2, ClipboardList, Building2,
 } from 'lucide-react'
 import {
-  Button, Input,
+  Button, Input, Checkbox,
   Dialog, DialogContent, DialogBody, DialogFooter,
   DialogTitle, DialogDescription, DialogClose,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -53,18 +54,18 @@ interface IntegracoesModalProps {
 
 const CARDS = [
   { section: 'Cadastros', items: [
-    { id: 'cadastrarConsultas', label: 'Cadastrar das Consultas', desc: 'Cadastra clientes a partir das consultas de situação fiscal já realizadas', icon: ClipboardList, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20' },
-    { id: 'cadastrarCnpj', label: 'Cadastrar pelo CNPJ', desc: 'Cadastra um novo cliente buscando dados pelo CNPJ', icon: Search, color: 'text-sky-600 bg-sky-50 dark:bg-sky-900/20' },
-    { id: 'importarClientes', label: 'Importar Clientes', desc: 'Importa lista de clientes a partir de texto (CSV ou um por linha)', icon: Upload, color: 'text-violet-600 bg-violet-50 dark:bg-violet-900/20' },
+    { id: 'cadastrarConsultas', label: 'Cadastrar das Consultas', desc: 'Cadastra clientes a partir das consultas de situação fiscal já realizadas', icon: ClipboardList, color: cn(TEXT.emerald, 'bg-emerald-50 dark:bg-emerald-900/20') },
+    { id: 'cadastrarCnpj', label: 'Cadastrar pelo CNPJ', desc: 'Cadastra um novo cliente buscando dados pelo CNPJ', icon: Search, color: cn(TEXT.sky, 'bg-sky-50 dark:bg-sky-900/20') },
+    { id: 'importarClientes', label: 'Importar Clientes', desc: 'Importa lista de clientes a partir de texto (CSV ou um por linha)', icon: Upload, color: cn(TEXT.violet, 'bg-violet-50 dark:bg-violet-900/20') },
   ]},
   { section: 'Importações em lote', items: [
-    { id: 'sciLote', label: 'Importação de dados do SCI', desc: 'Atualiza tributação/regime via SCI (Firebird) para clientes CNPJ', icon: Server, color: 'text-amber-600 bg-amber-50 dark:bg-amber-900/20' },
-    { id: 'oneclickLote', label: 'Importar dados do OneClick', desc: 'Importa dados do banco OneClick legado com opções granulares', icon: Database, color: 'text-orange-600 bg-orange-50 dark:bg-orange-900/20' },
-    { id: 'idSistemaSci', label: 'Atualizar ID Sistema (SCI)', desc: 'Busca e atualiza o ID Sistema (BDCODEMP) do SCI para cada cliente CNPJ', icon: Server, color: 'text-teal-600 bg-teal-50 dark:bg-teal-900/20' },
+    { id: 'sciLote', label: 'Importação de dados do SCI', desc: 'Atualiza tributação/regime via SCI (Firebird) para clientes CNPJ', icon: Server, color: cn(TEXT.amber, 'bg-amber-50 dark:bg-amber-900/20') },
+    { id: 'oneclickLote', label: 'Importar dados do OneClick', desc: 'Importa dados do banco OneClick legado com opções granulares', icon: Database, color: cn(TEXT.orange, 'bg-orange-50 dark:bg-orange-900/20') },
+    { id: 'idSistemaSci', label: 'Atualizar ID Sistema (SCI)', desc: 'Busca e atualiza o ID Sistema (BDCODEMP) do SCI para cada cliente CNPJ', icon: Server, color: cn(TEXT.teal, 'bg-teal-50 dark:bg-teal-900/20') },
   ]},
   { section: 'Atualizações', items: [
-    { id: 'receitaws', label: 'Atualizar ReceitaWS', desc: 'Atualiza dados cadastrais via BrasilAPI/ReceitaWS (~20s por CNPJ)', icon: RefreshCw, color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' },
-    { id: 'serproCnpj', label: 'Atualizar SERPRO CNPJ', desc: 'Atualiza dados via SERPRO Consulta CNPJ (~1s por CNPJ) com importação de sócios', icon: Building2, color: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20' },
+    { id: 'receitaws', label: 'Atualizar ReceitaWS', desc: 'Atualiza dados cadastrais via BrasilAPI/ReceitaWS (~20s por CNPJ)', icon: RefreshCw, color: cn(TEXT.blue, 'bg-blue-50 dark:bg-blue-900/20') },
+    { id: 'serproCnpj', label: 'Atualizar SERPRO CNPJ', desc: 'Atualiza dados via SERPRO Consulta CNPJ (~1s por CNPJ) com importação de sócios', icon: Building2, color: cn(TEXT.indigo, 'bg-indigo-50 dark:bg-indigo-900/20') },
   ]},
 ] as const
 
@@ -198,7 +199,7 @@ function ProgressDisplay({ progress, title, extraFields, logs }: {
       {logs && logs.length > 0 && (
         <div className="mt-3">
           <div className="text-[11px] font-semibold text-muted-foreground mb-1">Log de importacao ({logs.length} registros)</div>
-          <div className="rounded-md border bg-slate-900 dark:bg-slate-950 text-[11px] font-mono max-h-[250px] overflow-y-auto p-2 space-y-px">
+          <div className="nice-scrollbar rounded-md border bg-slate-900 dark:bg-slate-950 text-[11px] font-mono max-h-[250px] overflow-y-auto p-2 space-y-px">
             {logs.map((log, i) => (
               <div key={i} className={cn(
                 'flex gap-2 px-1 py-0.5 rounded-sm',
@@ -520,13 +521,13 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
                 Cole a lista de clientes. Formato: <code className="bg-muted px-1 rounded text-[10px]">documento;razao_social;email;telefone;cidade;estado</code> (uma por linha). Separadores aceitos: <code className="bg-muted px-1 rounded text-[10px]">;</code> <code className="bg-muted px-1 rounded text-[10px]">,</code> <code className="bg-muted px-1 rounded text-[10px]">tab</code>
               </p>
               <textarea
-                className="w-full h-40 rounded-md border bg-card px-3 py-2 text-xs font-mono resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full h-40 rounded-md px-3 py-2 text-xs font-mono resize-y focus:outline-none focus:ring-2 focus:ring-ring"
                 placeholder="12345678000100;Empresa Exemplo;email@ex.com;11999990000;Sao Paulo;SP"
                 value={importText}
                 onChange={e => setImportText(e.target.value)}
               />
               <label className="flex items-center gap-2 text-xs">
-                <input type="checkbox" checked={importPreencherCnpj} onChange={e => setImportPreencherCnpj(e.target.checked)} className="h-3.5 w-3.5 rounded" />
+                <Checkbox checked={importPreencherCnpj} onCheckedChange={v => setImportPreencherCnpj(v === true)} />
                 Preencher dados automaticamente pelo CNPJ (ReceitaWS)
               </label>
             </div>
@@ -543,7 +544,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
                 </div>
                 <div className="space-y-1 flex items-end">
                   <label className="flex items-center gap-2 text-xs pb-1.5">
-                    <input type="checkbox" checked={sciForce} onChange={e => setSciForce(e.target.checked)} className="h-3.5 w-3.5 rounded" />
+                    <Checkbox checked={sciForce} onCheckedChange={v => setSciForce(v === true)} />
                     Forcar sobrescrita
                   </label>
                 </div>
@@ -580,11 +581,10 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
                         ocFlags[key as keyof typeof ocFlags] && 'bg-emerald-50/60 dark:bg-emerald-950/20',
                       )}
                     >
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={ocFlags[key as keyof typeof ocFlags]}
-                        onChange={e => setOcFlags(prev => ({ ...prev, [key]: e.target.checked }))}
-                        className="h-3.5 w-3.5 rounded accent-emerald-600"
+                        onCheckedChange={v => setOcFlags(prev => ({ ...prev, [key]: v === true }))}
+                        className="shrink-0"
                       />
                       <div className="min-w-0">
                         <div className="text-[11px] font-medium leading-tight">{label}</div>
@@ -616,7 +616,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
                       { state: ocSkipLeads, setter: setOcSkipLeads, label: 'Ignorar Leads' },
                     ] as const).map(({ state, setter, label }) => (
                       <label key={label} className="flex items-center gap-2 text-[11px] cursor-pointer">
-                        <input type="checkbox" checked={state} onChange={e => (setter as (v: boolean) => void)(e.target.checked)} className="h-3.5 w-3.5 rounded accent-emerald-600" />
+                        <Checkbox checked={state} onCheckedChange={v => (setter as (v: boolean) => void)(v === true)} />
                         {label}
                       </label>
                     ))}
@@ -637,7 +637,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
                 </div>
                 <div className="space-y-1 flex items-end">
                   <label className="flex items-center gap-2 text-xs pb-1.5">
-                    <input type="checkbox" checked={idSciForce} onChange={e => setIdSciForce(e.target.checked)} className="h-3.5 w-3.5 rounded" />
+                    <Checkbox checked={idSciForce} onCheckedChange={v => setIdSciForce(v === true)} />
                     Forcar sobrescrita
                   </label>
                 </div>
@@ -650,12 +650,12 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
             <div className="space-y-4">
               <p className="text-xs text-muted-foreground">Atualiza dados cadastrais via API SERPRO Consulta CNPJ com importacao opcional de socios (QSA).</p>
               <label className="flex items-center gap-2 text-xs">
-                <input type="checkbox" checked={serproSocios} onChange={e => setSerproSocios(e.target.checked)} className="h-3.5 w-3.5 rounded" />
+                <Checkbox checked={serproSocios} onCheckedChange={v => setSerproSocios(v === true)} />
                 Importar QSA (socios) automaticamente
               </label>
               {serproSocios && (
                 <label className="flex items-center gap-2 text-xs ml-5">
-                  <input type="checkbox" checked={serproForceSocios} onChange={e => setSerproForceSocios(e.target.checked)} className="h-3.5 w-3.5 rounded" />
+                  <Checkbox checked={serproForceSocios} onCheckedChange={v => setSerproForceSocios(v === true)} />
                   Forcar reimportacao de socios (remove auto-importados e reimporta)
                 </label>
               )}

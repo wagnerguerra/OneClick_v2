@@ -45,7 +45,7 @@ const MAPA: Record<string, string> = {
   // Outros
   'helpdesk': 'helpdesk',
   'feriados': 'feriados',
-  'faq': 'faq',
+  'faq': 'ajuda',
 }
 
 export function detectarModulo(href?: string | null): string | null {

@@ -18,13 +18,18 @@ import { SidebarItem } from './sidebar-item'
 import { useNavegacaoPermitida } from '@/hooks/use-navegacao-permitida'
 
 interface SidebarProps {
+  /** Estado VISUAL (largura/ícones): reduzida quando não está no hover-expand. */
   collapsed: boolean
+  /** Estado REAL/fixado da preferência: true = a barra está reduzida (fixada
+   *  recolhida). Difere de `collapsed` durante o hover-expand — e é o que decide
+   *  o que o botão de toggle FAZ (recolher x fixar aberta). */
+  reduzida: boolean
   onToggle: () => void
   mobileOpen: boolean
   onCloseMobile: () => void
 }
 
-export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: SidebarProps) {
+export function Sidebar({ collapsed, reduzida, onToggle, mobileOpen, onCloseMobile }: SidebarProps) {
   // Sidebar é sempre dark, logo sempre versão light
   const logoSrc = '/logo-light.png'
 
@@ -190,7 +195,9 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
         <div className="hidden lg:block border-t border-sidebar-border p-3">
           <button
             onClick={onToggle}
-            aria-label={collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+            // O rótulo/ação seguem o estado REAL (`reduzida`), não o visual: no
+            // hover-expand a barra parece aberta, mas clicar FIXA ela aberta.
+            aria-label={reduzida ? 'Fixar menu lateral aberto' : 'Recolher menu lateral'}
             className={cn(
               'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors',
               'hover:bg-muted hover:text-foreground',
@@ -199,6 +206,11 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
           >
             {collapsed ? (
               <PanelLeft className="h-4 w-4" />
+            ) : reduzida ? (
+              <>
+                <PanelLeft className="h-4 w-4 shrink-0" />
+                <span>Fixar</span>
+              </>
             ) : (
               <>
                 <PanelLeftClose className="h-4 w-4 shrink-0" />

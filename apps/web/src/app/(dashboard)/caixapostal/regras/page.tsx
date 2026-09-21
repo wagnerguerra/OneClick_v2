@@ -12,9 +12,10 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Collapsible, CollapsibleTrigger, CollapsibleContent,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
-  Checkbox,
+  Checkbox, Switch,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { BADGE, STRONG, TEXT, SURFACE, BORDER } from '@/lib/color-styles'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import Link from 'next/link'
@@ -50,9 +51,9 @@ interface Regra {
 }
 
 const TIPO_LABELS: Record<string, { label: string; color: string }> = {
-  PRIORIDADE: { label: 'Prioridade', color: 'bg-sky-100 text-sky-800 border-sky-200' },
-  RELEVANCIA: { label: 'Relevância', color: 'bg-amber-100 text-amber-800 border-amber-200' },
-  DESCONSIDERAR: { label: 'Desconsiderar', color: 'bg-gray-100 text-gray-600 border-gray-200' },
+  PRIORIDADE: { label: 'Prioridade', color: STRONG.sky },
+  RELEVANCIA: { label: 'Relevância', color: STRONG.amber },
+  DESCONSIDERAR: { label: 'Desconsiderar', color: 'bg-muted text-muted-foreground border-border' },
 }
 
 const EMPTY_FORM: Omit<Regra, 'id'> = {
@@ -451,10 +452,10 @@ export default function CaixaPostalRegrasPage() {
             : <span className={cn('text-[10px] font-bold', className)}>+{value} pts</span>
         )
 
-        const KW_STYLES: Record<string, { border: string; bg: string; text: string; icon: typeof AlertTriangle; label: string }> = {
-          criticas: { border: 'border-red-200 dark:border-red-800', bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-700 dark:text-red-400', icon: AlertTriangle, label: 'Críticas' },
-          medias: { border: 'border-amber-200 dark:border-amber-800', bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-400', icon: Clock, label: 'Médias' },
-          baixas: { border: 'border-gray-200 dark:border-gray-700', bg: 'bg-gray-50 dark:bg-gray-800/50', text: 'text-gray-600 dark:text-gray-400', icon: Mail, label: 'Baixas' },
+        const KW_STYLES: Record<string, { badge: string; border: string; text: string; icon: typeof AlertTriangle; label: string }> = {
+          criticas: { badge: BADGE.red, border: BORDER.red, text: TEXT.red, icon: AlertTriangle, label: 'Críticas' },
+          medias: { badge: BADGE.amber, border: BORDER.amber, text: TEXT.amber, icon: Clock, label: 'Médias' },
+          baixas: { badge: BADGE.slate, border: BORDER.slate, text: TEXT.slate, icon: Mail, label: 'Baixas' },
         }
 
         return (
@@ -464,7 +465,7 @@ export default function CaixaPostalRegrasPage() {
                 <button className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-muted/30 transition-colors rounded-lg">
                   <div className="flex items-center gap-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-indigo-50 dark:bg-indigo-900/20">
-                      <Zap className="h-4 w-4 text-indigo-600" />
+                      <Zap className={cn('h-4 w-4', TEXT.indigo)} />
                     </div>
                     <div>
                       <h3 className="text-sm font-semibold">Regras do Sistema</h3>
@@ -481,7 +482,7 @@ export default function CaixaPostalRegrasPage() {
                     {configEditing ? (
                       <>
                         <Button variant="ghost" size="sm" onClick={() => { setConfigEditing(false); setConfigDraft(null) }} className="text-[11px] h-7">Cancelar</Button>
-                        <Button variant="outline" size="sm" onClick={handleResetConfig} className="text-[11px] h-7 gap-1 text-amber-600">
+                        <Button variant="outline" size="sm" onClick={handleResetConfig} className={cn('text-[11px] h-7 gap-1', TEXT.amber)}>
                           <RotateCcw className="h-3 w-3" />Restaurar padrões
                         </Button>
                         <Button variant="success" size="sm" onClick={handleSaveConfig} disabled={configSaving} className="text-[11px] h-7 gap-1">
@@ -501,13 +502,13 @@ export default function CaixaPostalRegrasPage() {
                     <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Faixas de Prioridade (Score)</h4>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                       {([
-                        { key: 'P0' as const, label: 'P0 — Crítica', icon: AlertTriangle, border: 'border-red-200 dark:border-red-800', bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-700 dark:text-red-400' },
-                        { key: 'P1' as const, label: 'P1 — Alta', icon: MailWarning, border: 'border-orange-200 dark:border-orange-800', bg: 'bg-orange-50 dark:bg-orange-900/20', text: 'text-orange-700 dark:text-orange-400' },
-                        { key: 'P2' as const, label: 'P2 — Média', icon: Clock, border: 'border-amber-200 dark:border-amber-800', bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-400' },
+                        { key: 'P0' as const, label: 'P0 — Crítica', icon: AlertTriangle, surface: SURFACE.red, text: TEXT.red },
+                        { key: 'P1' as const, label: 'P1 — Alta', icon: MailWarning, surface: SURFACE.orange, text: TEXT.orange },
+                        { key: 'P2' as const, label: 'P2 — Média', icon: Clock, surface: SURFACE.amber, text: TEXT.amber },
                       ]).map(p => {
                         const Icon = p.icon
                         return (
-                          <div key={p.key} className={cn('rounded-lg border p-3 text-center', p.border, p.bg)}>
+                          <div key={p.key} className={cn('rounded-lg border p-3 text-center', p.surface)}>
                             <div className="flex items-center justify-center gap-1.5 mb-1">
                               <Icon className={cn('h-3.5 w-3.5', p.text)} />
                               <span className={cn('text-xs font-bold', p.text)}>{p.label}</span>
@@ -523,12 +524,12 @@ export default function CaixaPostalRegrasPage() {
                           </div>
                         )
                       })}
-                      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3 text-center">
+                      <div className={cn('rounded-lg border p-3 text-center', SURFACE.slate)}>
                         <div className="flex items-center justify-center gap-1.5 mb-1">
-                          <Mail className="h-3.5 w-3.5 text-gray-500" />
-                          <span className="text-xs font-bold text-gray-600 dark:text-gray-400">P3 — Baixa</span>
+                          <Mail className={cn('h-3.5 w-3.5', TEXT.slate)} />
+                          <span className={cn('text-xs font-bold', TEXT.slate)}>P3 — Baixa</span>
                         </div>
-                        <p className="text-lg font-bold text-gray-600 dark:text-gray-400">&lt; {cfg.thresholds.P2}</p>
+                        <p className={cn('text-lg font-bold', TEXT.slate)}>&lt; {cfg.thresholds.P2}</p>
                       </div>
                     </div>
                   </div>
@@ -545,9 +546,9 @@ export default function CaixaPostalRegrasPage() {
                         </div>
                         <div className="space-y-1">
                           {([
-                            { label: 'Prazo vencido (≤ 0 dias)', field: 'vencido' as const, color: 'bg-red-50 text-red-700 border-red-200' },
-                            { label: 'Prazo urgente (1–3 dias)', field: 'urgente' as const, color: 'bg-orange-50 text-orange-700 border-orange-200' },
-                            { label: 'Prazo próximo (4–10 dias)', field: 'proximo' as const, color: 'bg-amber-50 text-amber-700 border-amber-200' },
+                            { label: 'Prazo vencido (≤ 0 dias)', field: 'vencido' as const, color: BADGE.red },
+                            { label: 'Prazo urgente (1–3 dias)', field: 'urgente' as const, color: BADGE.orange },
+                            { label: 'Prazo próximo (4–10 dias)', field: 'proximo' as const, color: BADGE.amber },
                             { label: 'Prazo válido (> 10 dias)', field: 'valido' as const, color: '' },
                           ]).map(item => (
                             <div key={item.field} className="flex items-center justify-between text-[11px]">
@@ -569,7 +570,7 @@ export default function CaixaPostalRegrasPage() {
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-[11px]">
                             <span className="text-muted-foreground">Alta relevância (API)</span>
-                            <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                            <Badge variant="outline" className={cn('text-[10px]', BADGE.amber)}>
                               <ScoreInput value={cfg.relevance.alta} onChange={v => updateDraft('relevance', { ...cfg.relevance, alta: v })} />
                             </Badge>
                           </div>
@@ -593,7 +594,7 @@ export default function CaixaPostalRegrasPage() {
                           </div>
                           <div className="flex items-center justify-between text-[11px]">
                             <span className="text-muted-foreground">Não lida + prazo urgente</span>
-                            <Badge variant="outline" className="text-[10px] bg-red-50 text-red-700 border-red-200">
+                            <Badge variant="outline" className={cn('text-[10px]', BADGE.red)}>
                               <ScoreInput value={cfg.unread.prazoUrgente} onChange={v => updateDraft('unread', { ...cfg.unread, prazoUrgente: v })} />
                             </Badge>
                           </div>
@@ -617,7 +618,7 @@ export default function CaixaPostalRegrasPage() {
                                 <KwIcon className={cn('h-3.5 w-3.5', style.text)} />
                                 <span className={cn('text-xs font-semibold', style.text)}>{style.label}</span>
                               </div>
-                              <Badge variant="outline" className={cn('text-[10px]', style.bg, style.text, style.border)}>
+                              <Badge variant="outline" className={cn('text-[10px]', style.badge)}>
                                 {configEditing ? (
                                   <div className="flex items-center gap-1">
                                     <span>+</span>
@@ -631,7 +632,7 @@ export default function CaixaPostalRegrasPage() {
                             </div>
                             <div className="flex flex-wrap gap-1">
                               {catCfg.palavras.map(kw => (
-                                <span key={kw} className={cn('inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[10px] font-mono', style.bg, style.border, style.text)}>
+                                <span key={kw} className={cn('inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[10px] font-mono', style.badge)}>
                                   {kw}
                                   {configEditing && (
                                     <button onClick={() => removeKeyword(cat, kw)} className="ml-0.5 hover:opacity-70">
@@ -666,9 +667,9 @@ export default function CaixaPostalRegrasPage() {
                     <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Ações Recomendadas por Prioridade</h4>
                     <div className="space-y-2">
                       {([
-                        { key: 'P0' as const, color: 'bg-red-50 text-red-700 border-red-200' },
-                        { key: 'P1' as const, color: 'bg-orange-50 text-orange-700 border-orange-200' },
-                        { key: 'P2' as const, color: 'bg-amber-50 text-amber-700 border-amber-200' },
+                        { key: 'P0' as const, color: BADGE.red },
+                        { key: 'P1' as const, color: BADGE.orange },
+                        { key: 'P2' as const, color: BADGE.amber },
                         { key: 'P3' as const, color: '' },
                       ]).map(item => (
                         <div key={item.key} className="flex items-start gap-2 text-[11px]">
@@ -747,11 +748,11 @@ export default function CaixaPostalRegrasPage() {
                   <TableCell className="hidden lg:table-cell">
                     <div className="flex flex-wrap gap-1">
                       {acoes.length === 0 && <span className="text-[10px] text-muted-foreground">—</span>}
-                      {acoes.map(a => <Badge key={a} variant="outline" className="text-[9px] bg-sky-50 text-sky-700 border-sky-200">{a}</Badge>)}
+                      {acoes.map(a => <Badge key={a} variant="outline" className={cn('text-[9px]', BADGE.sky)}>{a}</Badge>)}
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
-                    <button onClick={() => handleToggleAtivo(r)} className={cn('h-4 w-4 rounded-full border-2 transition-colors', r.ativo ? 'bg-emerald-500 border-emerald-500' : 'bg-transparent border-gray-300')} />
+                    <Switch checked={r.ativo} onCheckedChange={() => handleToggleAtivo(r)} className="mx-auto" />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">

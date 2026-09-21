@@ -5,11 +5,13 @@ import {
   MessageSquare, Send, Loader2, Search, Check, CheckCheck, AlertTriangle,
   UserPlus, StickyNote, Phone,
 } from 'lucide-react'
-import { Button, Input, Badge, cn } from '@saas/ui'
+import { Button, Input, Badge, cn, Checkbox } from '@saas/ui'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
 import { useTabLabel } from '@/hooks/use-tab-label'
+import { UserAvatar } from '@/components/ui/user-avatar'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
 const wa = () => (trpc as any).whatsapp
@@ -33,10 +35,6 @@ const FILTROS: { key: Status | null; label: string }[] = [
   { key: 'RESOLVIDA', label: 'Resolvidas' },
 ]
 
-function iniciais(nome?: string | null, tel?: string | null) {
-  const base = (nome || tel || '?').trim()
-  return base.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()
-}
 function horaCurta(d: string | null) {
   if (!d) return ''
   const dt = new Date(d)
@@ -139,7 +137,7 @@ export default function WhatsappPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-90px)]">
       {!configurado && (
-        <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-800 dark:text-amber-300 mb-2">
+        <div className={cn('flex items-center gap-2 rounded-md border px-3 py-2 text-xs mb-2', BADGE.amber)}>
           <AlertTriangle className="h-4 w-4 shrink-0" />
           Integração do WhatsApp ainda não configurada. Preencha as credenciais da Meta em <a href="/configuracoes" className="underline font-medium">Configurações → WhatsApp</a>.
         </div>
@@ -177,7 +175,7 @@ export default function WhatsappPage() {
             ) : conversas.map(c => (
               <button key={c.id} onClick={() => setSelId(c.id)}
                 className={cn('w-full flex items-start gap-2.5 px-3 py-2.5 border-b border-border/50 text-left hover:bg-muted/40', selId === c.id && 'bg-muted/60')}>
-                <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-[11px] font-semibold shrink-0">{iniciais(c.contatoNome, c.contatoTelefone)}</div>
+                <UserAvatar user={{ name: c.contatoNome ?? '' }} phone={c.contatoTelefone} className="h-9 w-9 text-[11px] font-semibold shrink-0" bg="bg-muted" fg="text-foreground" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-medium truncate">{c.contatoNome || c.contatoTelefone || c.waId}</span>
@@ -204,7 +202,7 @@ export default function WhatsappPage() {
             <>
               <div className="h-14 px-4 flex items-center justify-between border-b border-border shrink-0">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-[11px] font-semibold">{iniciais(sel.contatoNome, sel.contatoTelefone)}</div>
+                  <UserAvatar user={{ name: sel.contatoNome ?? '' }} phone={sel.contatoTelefone} className="h-9 w-9 text-[11px] font-semibold" bg="bg-muted" fg="text-foreground" />
                   <div className="min-w-0">
                     <p className="text-sm font-semibold truncate">{sel.contatoNome || sel.contatoTelefone || sel.waId}</p>
                     <p className="text-[11px] text-muted-foreground">{sel.contatoTelefone || '+' + sel.waId}</p>
@@ -222,9 +220,9 @@ export default function WhatsappPage() {
                 ) : mensagens.map(m => (
                   <div key={m.id} className={cn('flex', m.direcao === 'OUT' ? 'justify-end' : 'justify-start')}>
                     <div className={cn('max-w-[72%] rounded-lg px-3 py-2 text-sm shadow-sm',
-                      m.interna ? 'bg-amber-100 dark:bg-amber-900/40 border border-amber-300' :
+                      m.interna ? 'bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-800/60' :
                       m.direcao === 'OUT' ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-card border border-border')}>
-                      {m.interna && <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 mb-0.5 flex items-center gap-1"><StickyNote className="h-3 w-3" /> Nota interna</p>}
+                      {m.interna && <p className={cn('text-[10px] font-semibold mb-0.5 flex items-center gap-1', TEXT.amber)}><StickyNote className="h-3 w-3" /> Nota interna</p>}
                       {m.midiaUrl && <a href={m.midiaUrl} target="_blank" rel="noreferrer" className="text-xs text-primary underline block mb-1">[{m.tipo}]</a>}
                       <p className="whitespace-pre-wrap break-words">{m.conteudo}</p>
                       <div className="flex items-center justify-end gap-1 mt-0.5">
@@ -243,7 +241,7 @@ export default function WhatsappPage() {
 
               <div className="p-3 border-t border-border shrink-0 space-y-2">
                 <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer w-fit">
-                  <input type="checkbox" checked={interna} onChange={e => setInterna(e.target.checked)} className="h-3.5 w-3.5" />
+                  <Checkbox checked={interna} onCheckedChange={v => setInterna(!!v)} />
                   <StickyNote className="h-3 w-3" /> Nota interna (não envia ao cliente)
                 </label>
                 <div className="flex items-end gap-2">
@@ -253,7 +251,7 @@ export default function WhatsappPage() {
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar() } }}
                     placeholder={interna ? 'Escreva uma nota interna…' : 'Digite uma mensagem…'}
                     rows={1}
-                    className="flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus-visible:ring-1 focus-visible:ring-ring max-h-32"
+                    className="flex-1 resize-none rounded-md px-3 py-2 text-sm focus:outline-none focus-visible:ring-1 focus-visible:ring-ring max-h-32"
                   />
                   <Button onClick={enviar} disabled={enviando || !texto.trim()} className="text-white gap-1.5 shrink-0" style={{ background: MODULE_COLOR }}>
                     {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -268,7 +266,7 @@ export default function WhatsappPage() {
         {sel && (
           <div className="w-[260px] shrink-0 border-l border-border p-4 hidden xl:block">
             <div className="flex flex-col items-center text-center">
-              <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center text-lg font-semibold mb-2">{iniciais(sel.contatoNome, sel.contatoTelefone)}</div>
+              <UserAvatar user={{ name: sel.contatoNome ?? '' }} phone={sel.contatoTelefone} className="h-16 w-16 text-lg font-semibold mb-2" bg="bg-muted" fg="text-foreground" />
               <p className="font-semibold text-sm">{sel.contatoNome || 'Sem nome'}</p>
               <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5"><Phone className="h-3 w-3" /> {sel.contatoTelefone || '+' + sel.waId}</p>
             </div>

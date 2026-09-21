@@ -17,6 +17,8 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT, BADGE, PILL, BORDER, SURFACE } from '@/lib/color-styles'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import Link from 'next/link'
@@ -711,7 +713,6 @@ export default function MeuPerfilPage() {
     return <div className="py-20 text-center text-muted-foreground">Perfil não encontrado</div>
   }
 
-  const initials = (profile.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
 
   return (
     <div className="space-y-0 pb-12">
@@ -753,7 +754,7 @@ export default function MeuPerfilPage() {
         {profile.coverImage && (
           <div
             className="absolute inset-0"
-            style={{ backgroundImage: 'linear-gradient(to right, rgba(94, 163, 203, 0) 0%, rgba(94, 163, 203, 0.8) 100%)' }}
+            style={{ backgroundImage: `linear-gradient(to right, transparent 0%, color-mix(in srgb, ${MODULE_COLOR} 80%, transparent) 100%)` }}
           />
         )}
         {/* Decoração: blobs sutis (apenas no modo gradiente padrao) */}
@@ -784,7 +785,7 @@ export default function MeuPerfilPage() {
               type="button"
               onClick={handleCoverRemove}
               disabled={uploadingCover}
-              className="inline-flex items-center gap-1.5 rounded-md bg-card/95 hover:bg-card text-rose-600 dark:text-rose-400 border border-border/40 px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors disabled:opacity-60"
+              className={cn('inline-flex items-center gap-1.5 rounded-md bg-card/95 hover:bg-card', TEXT.rose, 'border border-border/40 px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors disabled:opacity-60')}
               title="Remover capa"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -814,17 +815,12 @@ export default function MeuPerfilPage() {
                 className="relative shrink-0 group"
                 title="Clique para alterar"
               >
-                <div
-                  className="flex h-[88px] w-[88px] items-center justify-center rounded-full bg-white dark:bg-gray-800 overflow-hidden shadow-lg"
-                  style={{ boxShadow: 'inset 0 0 0 3px #d4d4d4' }}
-                >
-                  {profile.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={resolveAssetUrl(profile.image)} alt={profile.name} className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-2xl font-bold" style={{ color: MODULE_COLOR }}>{initials}</span>
-                  )}
-                </div>
+                <UserAvatar
+                  user={{ name: profile.name, image: profile.image }}
+                  className="h-[88px] w-[88px] text-2xl ring-2 ring-white shadow-lg"
+                  bg="bg-white dark:bg-gray-800"
+                  fg="text-[var(--mod-perfil,#5ea3cb)]"
+                />
                 <div className="absolute bottom-0 right-0 h-7 w-7 rounded-full flex items-center justify-center shadow-lg border-2 border-white group-hover:scale-110 transition-transform" style={{ backgroundColor: MODULE_COLOR }}>
                   {uploadingAvatar ? (
                     <Loader2 className="h-3.5 w-3.5 text-white animate-spin" />
@@ -856,12 +852,12 @@ export default function MeuPerfilPage() {
                 </p>
                 <div className="flex flex-wrap gap-2 mt-2.5">
                   {profile.area?.name && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300 px-3 py-1 text-xs font-medium uppercase border border-slate-200 dark:border-slate-700">
+                    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium uppercase border', BADGE.slate)}>
                       <MapPin className="h-3 w-3" /> {profile.area.name}
                     </span>
                   )}
                   {profile.empresa && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300 px-3 py-1 text-xs font-medium uppercase border border-slate-200 dark:border-slate-700">
+                    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium uppercase border', BADGE.slate)}>
                       <Building2 className="h-3 w-3" /> {profile.empresa.nomeFantasia || profile.empresa.razaoSocial}
                     </span>
                   )}
@@ -877,15 +873,15 @@ export default function MeuPerfilPage() {
         </div>
 
         {/* Tabs em pills — mesmo padrão de /orcamentos/[id] (cor do módulo: blue/sky) */}
-        <div className="relative z-10 px-4 sm:px-6 pb-2 overflow-x-auto flex justify-center">
+        <div className="relative z-10 px-4 sm:px-6 pb-2 overflow-x-auto nice-scrollbar flex justify-center">
           <SlidingTabsList activeValue={activeTab} className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit">
-            <TabsTrigger value="overview" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-sky-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-sky-400 gap-1.5">
+            <TabsTrigger value="overview" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-perfil,#5ea3cb)] dark:data-[state=active]:!text-[color-mix(in_srgb,var(--mod-perfil,#5ea3cb)_50%,white)] dark:data-[state=active]:!bg-transparent gap-1.5">
               <UserIcon className="h-3.5 w-3.5" /> Visão Geral
             </TabsTrigger>
-            <TabsTrigger value="dados" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-sky-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-sky-400 gap-1.5">
+            <TabsTrigger value="dados" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-perfil,#5ea3cb)] dark:data-[state=active]:!text-[color-mix(in_srgb,var(--mod-perfil,#5ea3cb)_50%,white)] dark:data-[state=active]:!bg-transparent gap-1.5">
               <Pencil className="h-3.5 w-3.5" /> Meus Dados
             </TabsTrigger>
-            <TabsTrigger value="carteira" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-sky-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-sky-400 gap-1.5">
+            <TabsTrigger value="carteira" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-perfil,#5ea3cb)] dark:data-[state=active]:!text-[color-mix(in_srgb,var(--mod-perfil,#5ea3cb)_50%,white)] dark:data-[state=active]:!bg-transparent gap-1.5">
               <Users className="h-3.5 w-3.5" /> Carteira
               {!carteiraLoading && carteira.length > 0 && (
                 <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-sky-500/15 text-sky-700 dark:text-sky-300 text-[10px] font-bold tabular-nums">
@@ -893,10 +889,10 @@ export default function MeuPerfilPage() {
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="assinatura" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-sky-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-sky-400 gap-1.5">
+            <TabsTrigger value="assinatura" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-perfil,#5ea3cb)] dark:data-[state=active]:!text-[color-mix(in_srgb,var(--mod-perfil,#5ea3cb)_50%,white)] dark:data-[state=active]:!bg-transparent gap-1.5">
               <Mail className="h-3.5 w-3.5" /> Assinatura
             </TabsTrigger>
-            <TabsTrigger value="seguranca" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-sky-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-sky-400 gap-1.5">
+            <TabsTrigger value="seguranca" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-perfil,#5ea3cb)] dark:data-[state=active]:!text-[color-mix(in_srgb,var(--mod-perfil,#5ea3cb)_50%,white)] dark:data-[state=active]:!bg-transparent gap-1.5">
               <Shield className="h-3.5 w-3.5" /> Segurança
             </TabsTrigger>
           </SlidingTabsList>
@@ -938,7 +934,7 @@ export default function MeuPerfilPage() {
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
-                          <Clock className="h-5 w-5 text-emerald-600" />
+                          <Clock className={cn('h-5 w-5', TEXT.emerald)} />
                         </div>
                         <div>
                           <p className="text-sm font-semibold">{formatDateTime(profile.lastLogin.createdAt)}</p>
@@ -998,7 +994,7 @@ export default function MeuPerfilPage() {
 
                   <div className="col-span-12 space-y-1.5">
                     <Label className="text-[13px] font-semibold">E-mail</Label>
-                    <Input value={profile.email} disabled className="h-9 text-sm bg-muted/40" />
+                    <Input value={profile.email} disabled className="h-9 text-sm" />
                     <p className="text-[10px] text-muted-foreground">Usado para login. Solicite a um administrador para alterar.</p>
                   </div>
 
@@ -1046,7 +1042,7 @@ export default function MeuPerfilPage() {
                       onChange={e => setField('bio', e.target.value.slice(0, 500))}
                       rows={3}
                       placeholder="Conte um pouco sobre você — área de atuação, interesses..."
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+                      className="w-full rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-y"
                     />
                     <p className="text-[10px] text-muted-foreground text-right">{form.bio.length}/500</p>
                   </div>
@@ -1072,7 +1068,7 @@ export default function MeuPerfilPage() {
                   </div>
                   <div className="col-span-12 sm:col-span-6 space-y-1.5">
                     <Label className="text-[13px] font-semibold flex items-center gap-1.5">
-                      <MessageCircle className="h-3.5 w-3.5 text-emerald-600" /> WhatsApp
+                      <MessageCircle className={cn('h-3.5 w-3.5', TEXT.emerald)} /> WhatsApp
                     </Label>
                     <Input value={form.whatsapp} onChange={e => setField('whatsapp', e.target.value)} className="h-9 text-sm" placeholder="(00) 00000-0000" />
                   </div>
@@ -1195,13 +1191,13 @@ export default function MeuPerfilPage() {
               <div className="mt-0.5 text-2xl font-semibold tabular-nums">{carteiraStats.total}</div>
               <div className="text-[11px] text-muted-foreground">cliente{carteiraStats.total === 1 ? '' : 's'} na carteira</div>
             </Card>
-            <Card className="p-3 border-l-2 border-sky-300">
-              <div className="text-[11px] uppercase tracking-wide text-sky-700">Responsável</div>
+            <Card className={cn('p-3 border-l-2', BORDER.sky)}>
+              <div className={cn('text-[11px] uppercase tracking-wide', TEXT.sky)}>Responsável</div>
               <div className="mt-0.5 text-2xl font-semibold tabular-nums">{carteiraStats.resp}</div>
               <div className="text-[11px] text-muted-foreground">titular em pelo menos 1 área</div>
             </Card>
-            <Card className="p-3 border-l-2 border-violet-300">
-              <div className="text-[11px] uppercase tracking-wide text-violet-700">Substituto</div>
+            <Card className={cn('p-3 border-l-2', BORDER.violet)}>
+              <div className={cn('text-[11px] uppercase tracking-wide', TEXT.violet)}>Substituto</div>
               <div className="mt-0.5 text-2xl font-semibold tabular-nums">{carteiraStats.subst}</div>
               <div className="text-[11px] text-muted-foreground">cobertura em pelo menos 1 área</div>
             </Card>
@@ -1238,7 +1234,7 @@ export default function MeuPerfilPage() {
                     placeholder="Buscar cliente ou CNPJ..."
                     value={carteiraSearch}
                     onChange={(e) => setCarteiraSearch(e.target.value)}
-                    className="h-8 pl-8 text-xs bg-card"
+                    className="h-8 pl-8 text-xs"
                   />
                 </div>
               </div>
@@ -1264,7 +1260,7 @@ export default function MeuPerfilPage() {
                       className="flex items-center gap-3 px-5 py-3 hover:bg-muted/30 transition-colors group"
                     >
                       <div className="h-9 w-9 rounded-md bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center shrink-0">
-                        <Building2 className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                        <Building2 className={cn('h-4 w-4', TEXT.sky)} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate" title={c.razaoSocial}>{c.razaoSocial}</p>
@@ -1276,9 +1272,7 @@ export default function MeuPerfilPage() {
                             key={i}
                             className={cn(
                               'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border',
-                              a.role === 'Responsável'
-                                ? 'bg-sky-50 border-sky-200 text-sky-700 dark:bg-sky-950/40 dark:border-sky-800 dark:text-sky-300'
-                                : 'bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-300',
+                              a.role === 'Responsável' ? BADGE.sky : BADGE.violet,
                             )}
                             title={`${a.role} · ${a.areaNome}`}
                           >
@@ -1443,7 +1437,7 @@ export default function MeuPerfilPage() {
               {/* Senha */}
               <div className="rounded-md border border-border/60 p-4 flex items-start gap-3">
                 <div className="h-9 w-9 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
-                  <Key className="h-4 w-4 text-amber-600" />
+                  <Key className={cn('h-4 w-4', TEXT.amber)} />
                 </div>
                 <div className="flex-1">
                   <h4 className="text-sm font-semibold">Senha de acesso</h4>
@@ -1476,7 +1470,7 @@ export default function MeuPerfilPage() {
                 )}>
                   <Smartphone className={cn(
                     'h-4 w-4',
-                    profile.twoFactorEnabled ? 'text-emerald-600' : 'text-sky-600',
+                    profile.twoFactorEnabled ? TEXT.emerald : TEXT.sky,
                   )} />
                 </div>
                 <div className="flex-1">
@@ -1510,13 +1504,13 @@ export default function MeuPerfilPage() {
                 <div className="rounded-md border border-border/60 p-4 space-y-3">
                   <div className="flex items-start gap-3">
                     <div className="h-9 w-9 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
-                      <Monitor className="h-4 w-4 text-violet-600" />
+                      <Monitor className={cn('h-4 w-4', TEXT.violet)} />
                     </div>
                     <div className="flex-1">
                       <h4 className="text-sm font-semibold flex items-center gap-2">
                         Dispositivos confiáveis
                         {trustedDevices.length > 0 && (
-                          <span className="inline-flex items-center rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-2 py-0.5 text-[10px] font-medium">
+                          <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium', PILL.violet)}>
                             {trustedDevices.length}
                           </span>
                         )}
@@ -1590,7 +1584,7 @@ export default function MeuPerfilPage() {
                 autoComplete="new-password"
               />
               {pwdConfirm && pwdNew !== pwdConfirm && (
-                <p className="text-[10px] text-rose-600">A confirmação não coincide com a nova senha.</p>
+                <p className={cn('text-[10px]', TEXT.rose)}>A confirmação não coincide com a nova senha.</p>
               )}
             </div>
           </DialogBody>
@@ -1642,13 +1636,16 @@ export default function MeuPerfilPage() {
 
             {mfaStep === 'qr' && mfaQrUrl && (
               <div className="space-y-3">
-                <div className="flex flex-col items-center gap-3 p-4 bg-white rounded-md border border-border/60">
+                <div className="flex flex-col items-center gap-3 p-4 bg-muted/30 rounded-md border border-border/60">
+                  {/* O QR precisa de fundo branco pra escanear — vai num "quadro"
+                      branco próprio, e o container acompanha o tema. */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(mfaQrUrl)}`}
                     alt="QR Code MFA"
                     width={200}
                     height={200}
+                    className="rounded bg-white p-2"
                   />
                   {mfaSecret && (
                     <div className="text-center">
@@ -1700,9 +1697,9 @@ export default function MeuPerfilPage() {
 
             {mfaStep === 'codes' && (
               <div className="space-y-3">
-                <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-900/10 p-3 flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                  <p className="text-xs text-amber-800 dark:text-amber-300">
+                <div className={cn('rounded-md border p-3 flex items-start gap-2', SURFACE.amber)}>
+                  <AlertTriangle className={cn('h-4 w-4 shrink-0 mt-0.5', TEXT.amber)} />
+                  <p className={cn('text-xs', TEXT.amber)}>
                     Guarde estes códigos em local seguro (gerenciador de senhas, cofre etc.). Cada um pode ser usado <strong>uma única vez</strong> caso você perca acesso ao app autenticador.
                   </p>
                 </div>

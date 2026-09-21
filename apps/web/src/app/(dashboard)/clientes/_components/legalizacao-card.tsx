@@ -2,14 +2,15 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Shield, ShieldCheck, Loader2, Users, ExternalLink, Plus, Trash2, Eye, EyeOff, Check, CheckCircle2, XCircle, AlertTriangle, FileText, FileLock, KeyRound, Clock, ListChecks, Link2, Download, Printer, Pencil, X, MoreVertical, ChevronDown } from 'lucide-react'
+import { Shield, ShieldCheck, Loader2, Users, ExternalLink, Plus, Trash2, Eye, EyeOff, Check, CheckCircle2, XCircle, AlertTriangle, FileText, FileLock, KeyRound, Clock, ListChecks, Link2, Download, Printer, Pencil, MoreVertical, ChevronDown } from 'lucide-react'
 import {
-  Button, Input, Label, Card,
+  Button, Input, Label, Card, Checkbox,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { MioloColapsavel } from './card-colapsavel'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { CertDetalhesModal } from '@/components/certificado/cert-detalhes-modal'
@@ -195,6 +196,14 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
   const [andModalOpen, setAndModalOpen] = useState(false)
   const [andEditId, setAndEditId] = useState<string | null>(null)
   const [andForm, setAndForm] = useState({ tipo: 'Localização', titulo: '', vencimento: '', descricao: '' })
+  // Modal CNAE manual
+  const [cnaeModalOpen, setCnaeModalOpen] = useState(false)
+  const [cnaeForm, setCnaeForm] = useState({ codigo: '', descricao: '' })
+  const [cnaeSalvando, setCnaeSalvando] = useState(false)
+  // Modal DT-e nova mensagem
+  const [dteModalOpen, setDteModalOpen] = useState(false)
+  const [dteForm, setDteForm] = useState({ titulo: '', tipo: '' })
+  const [dteSalvando, setDteSalvando] = useState(false)
 
   const [certPdfData, setCertPdfData] = useState<string | null>(null)
   const [certPdfOpen, setCertPdfOpen] = useState(false)
@@ -420,15 +429,30 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
     try { await (trpc.cliente as any).removeAndamento.mutate({ id }); setAndamentos(prev => prev.filter(a => a.id !== id)) } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
-  async function addCnae() {
-    if (!clienteId) return
-    const codigo = prompt('Codigo CNAE (ex: 6202-3/00):')
-    if (!codigo) return
-    const descricao = prompt('Descricao:') || ''
+  function openCnaeModal() {
+    setCnaeForm({ codigo: '', descricao: '' })
+    setCnaeModalOpen(true)
+  }
+  async function saveCnae() {
+    if (!clienteId || !cnaeForm.codigo.trim()) return
+    setCnaeSalvando(true)
     try {
-      await (trpc.cliente as any).addCnae.mutate({ clienteId, codigo, descricao })
+      await (trpc.cliente as any).addCnae.mutate({ clienteId, codigo: cnaeForm.codigo.trim(), descricao: cnaeForm.descricao.trim() })
+      setCnaeModalOpen(false)
       setCnaes([])
     } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setCnaeSalvando(false) }
+  }
+  async function saveDteMensagem() {
+    if (!clienteId || !dteForm.titulo.trim()) return
+    setDteSalvando(true)
+    try {
+      await (trpc.cliente as any).dteAddMensagem.mutate({ clienteId, titulo: dteForm.titulo.trim(), tipo: dteForm.tipo.trim(), dataMensagem: new Date().toISOString() })
+      const data = await (trpc.cliente as any).dteMensagens.query({ clienteId }) as typeof dteMensagens
+      setDteMensagens(data)
+      setDteModalOpen(false)
+    } catch (err) { alerts.error('Erro', (err as Error).message) }
+    finally { setDteSalvando(false) }
   }
 
   async function removeCnae(id: string) {
@@ -471,7 +495,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
       <div className="flex items-center gap-2 border-b border-border px-5 py-3">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-emerald-600" />
+            <Shield className={cn('h-4 w-4', TEXT.emerald)} />
             <h5 className="text-[13px] font-semibold">Legalização</h5>
           </div>
         </div>
@@ -582,7 +606,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     ? 'text-white shadow-sm'
                     : 'text-muted-foreground hover:bg-muted/60',
                 )}
-                style={activeTab === pill.id ? { backgroundColor: '#10b981' } : undefined}
+                style={activeTab === pill.id ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
               >
                 <Icon className="h-3.5 w-3.5 shrink-0" />
                 <span className="flex-1 truncate">{pill.label}</span>
@@ -731,8 +755,8 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                       <thead>
                         <tr className="bg-muted/30 text-[11px] text-muted-foreground">
                           <th className="px-3 py-2 w-8">
-                            <input type="checkbox" className="cursor-pointer align-middle" checked={allSociosSelected}
-                              onChange={toggleSelectAllSocios} title="Selecionar todos" />
+                            <Checkbox className="cursor-pointer align-middle" checked={allSociosSelected}
+                              onCheckedChange={toggleSelectAllSocios} title="Selecionar todos" />
                           </th>
                           <th className="text-left px-3 py-2 font-medium">Nome</th>
                           <th className="text-left px-3 py-2 font-medium">CPF/CNPJ</th>
@@ -748,8 +772,8 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                           return (
                           <tr key={s.id} className={cn('hover:bg-muted/20', selectedSocioIds.has(s.id) && 'bg-primary/5')}>
                             <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
-                              <input type="checkbox" className="cursor-pointer align-middle" checked={selectedSocioIds.has(s.id)}
-                                onChange={() => toggleSocioSelected(s.id)} />
+                              <Checkbox className="cursor-pointer align-middle" checked={selectedSocioIds.has(s.id)}
+                                onCheckedChange={() => toggleSocioSelected(s.id)} />
                             </td>
                             <td className="px-3 py-2 font-medium text-foreground">{s.nomeCompleto}</td>
                             <td className="px-3 py-2 font-mono text-muted-foreground">{fmtDocumento(s.cpf)}</td>
@@ -795,7 +819,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                                         alerts.success('Excluído', 'Sócio removido com sucesso.')
                                       } catch (err) { alerts.error('Erro', (err as Error).message) }
                                     }}
-                                    className="text-xs gap-2 cursor-pointer text-rose-600 dark:text-rose-400"
+                                    className={cn('text-xs gap-2 cursor-pointer', TEXT.rose)}
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
                                     Excluir
@@ -932,13 +956,13 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                           const vencido = diffDays !== null && diffDays < 0 && !v.concluido
                           const proximo = diffDays !== null && diffDays >= 0 && diffDays <= (v.alerta_dias || 30) && !v.concluido
                           return (
-                            <tr key={v.id} className={cn('border-b last:border-b-0 hover:bg-muted/20', vencido && 'bg-red-50/50', proximo && 'bg-amber-50/50', v.concluido && 'opacity-50')}>
+                            <tr key={v.id} className={cn('border-b last:border-b-0 hover:bg-muted/20', vencido && 'bg-red-50/50 dark:bg-red-950/30', proximo && 'bg-amber-50/50 dark:bg-amber-950/30', v.concluido && 'opacity-50')}>
                               <td className={cn('px-3 py-2 font-medium', v.concluido && 'line-through')}>{v.descricao}</td>
                               <td className="px-3 py-2 text-muted-foreground max-w-[150px] truncate" title={v.observacoes || ''}>{v.observacoes || '—'}</td>
                               <td className="px-3 py-2">
-                                {dt ? <span className={cn('font-medium', vencido && 'text-red-600', proximo && 'text-amber-600', !vencido && !proximo && 'text-emerald-600')}>{dt.toLocaleDateString('pt-BR')}</span> : '—'}
-                                {vencido && <span className="text-[9px] text-red-500 ml-1">(vencido)</span>}
-                                {proximo && !vencido && diffDays !== null && <span className="text-[9px] text-amber-500 ml-1">({diffDays}d)</span>}
+                                {dt ? <span className={cn('font-medium', vencido && TEXT.red, proximo && TEXT.amber, !vencido && !proximo && TEXT.emerald)}>{dt.toLocaleDateString('pt-BR')}</span> : '—'}
+                                {vencido && <span className={cn('text-[9px] ml-1', TEXT.red)}>(vencido)</span>}
+                                {proximo && !vencido && diffDays !== null && <span className={cn('text-[9px] ml-1', TEXT.amber)}>({diffDays}d)</span>}
                               </td>
                               <td className="px-3 py-2 text-center">
                                 <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleVencimento(v.id) }} className={cn('h-5 w-5 rounded-full border-2 flex items-center justify-center mx-auto', v.concluido ? 'bg-emerald-500 border-emerald-500' : 'border-muted-foreground/40')}>
@@ -991,10 +1015,10 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                             <td className="px-3 py-2">{a.descricao}</td>
                             <td className="px-3 py-2">
                               <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium',
-                                a.status === 'concluido' || a.status === 'Concluído' ? 'bg-emerald-100 text-emerald-700' :
-                                a.status === 'em_andamento' || a.status === 'Em andamento' ? 'bg-sky-100 text-sky-700' :
-                                a.status === 'cancelado' || a.status === 'Cancelado' ? 'bg-red-100 text-red-700' :
-                                'bg-amber-100 text-amber-700')}>
+                                a.status === 'concluido' || a.status === 'Concluído' ? BADGE.emerald :
+                                a.status === 'em_andamento' || a.status === 'Em andamento' ? BADGE.sky :
+                                a.status === 'cancelado' || a.status === 'Cancelado' ? BADGE.red :
+                                BADGE.amber)}>
                                 {a.status || 'Pendente'}
                               </span>
                             </td>
@@ -1020,7 +1044,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                 <div className="px-5 py-3 border-b border-border flex items-center justify-between">
                   <h4 className="text-[13px] font-semibold text-foreground">CNAE (Receita Federal / Serpro)</h4>
                   <div className="flex items-center gap-1.5">
-                    {clienteId && canManageFiscal && <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); addCnae() }} className="gap-1.5 h-7 text-[11px]"><Plus className="h-3 w-3" /> Manual</Button>}
+                    {clienteId && canManageFiscal && <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openCnaeModal() }} className="gap-1.5 h-7 text-[11px]"><Plus className="h-3 w-3" /> Manual</Button>}
                   </div>
                 </div>
               </div>
@@ -1042,7 +1066,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                           <tr key={c.id} className="border-b last:border-b-0 hover:bg-muted/20">
                             <td className="px-3 py-2">
                               <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border',
-                                c.principal ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-muted/50 border-border text-muted-foreground')}>
+                                c.principal ? BADGE.emerald : 'bg-muted/50 border-border text-muted-foreground')}>
                                 {c.principal ? 'Principal' : 'Secundário'}
                               </span>
                             </td>
@@ -1114,9 +1138,9 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                           const val = new Date(c.dataValidade + 'T00:00:00')
                           const diff = Math.ceil((val.getTime() - Date.now()) / 86400000)
                           const formatted = val.toLocaleDateString('pt-BR')
-                          if (diff < 0) valBadge = <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-[10px] font-medium text-red-700">{formatted} <span className="text-[9px] opacity-70">(vencida)</span></span>
-                          else if (diff <= 15) valBadge = <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-medium text-amber-700">{formatted} <span className="text-[9px] opacity-70">({diff}d)</span></span>
-                          else valBadge = <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-medium text-emerald-700">{formatted}</span>
+                          if (diff < 0) valBadge = <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.red)}>{formatted} <span className="text-[9px] opacity-70">(vencida)</span></span>
+                          else if (diff <= 15) valBadge = <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.amber)}>{formatted} <span className="text-[9px] opacity-70">({diff}d)</span></span>
+                          else valBadge = <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.emerald)}>{formatted}</span>
                         }
 
                         return (
@@ -1125,15 +1149,15 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                             <td className="px-2 py-2.5">
                               {c.sucesso ? (
                                 <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border',
-                                  isPositive ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
-                                  isWarning ? 'bg-amber-50 border-amber-200 text-amber-700' :
-                                  isNeg ? 'bg-red-50 border-red-200 text-red-700' :
-                                  'bg-emerald-50 border-emerald-200 text-emerald-700')}>
+                                  isPositive ? BADGE.emerald :
+                                  isWarning ? BADGE.amber :
+                                  isNeg ? BADGE.red :
+                                  BADGE.emerald)}>
                                   {isPositive ? <CheckCircle2 className="h-3 w-3" /> : isNeg ? <XCircle className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
                                   {c.situacao || 'Emitida'}
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-[10px] font-medium text-red-700">
+                                <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.red)}>
                                   <XCircle className="h-3 w-3" />{c.situacao || 'Não emitida'}
                                 </span>
                               )}
@@ -1214,10 +1238,10 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                       const expColor = diasParaExpirar === null
                         ? 'text-muted-foreground'
                         : diasParaExpirar < 0
-                          ? 'text-rose-600 dark:text-rose-400 font-semibold'
+                          ? cn(TEXT.rose, 'font-semibold')
                           : diasParaExpirar < 30
-                            ? 'text-amber-600 dark:text-amber-400 font-semibold'
-                            : 'text-emerald-600 dark:text-emerald-400'
+                            ? cn(TEXT.amber, 'font-semibold')
+                            : TEXT.emerald
                       return (
                         <div
                           key={cert.id}
@@ -1228,7 +1252,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                           className="flex items-center gap-3 px-3 py-2.5 rounded-md border border-border hover:bg-muted/30 hover:border-fuchsia-300 dark:hover:border-fuchsia-800 cursor-pointer transition-colors"
                           title="Ver detalhes do certificado"
                         >
-                          <FileLock className="h-5 w-5 text-fuchsia-600 shrink-0" />
+                          <FileLock className={cn('h-5 w-5 shrink-0', TEXT.fuchsia)} />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">
                               {cert.titular || cert.id}
@@ -1334,7 +1358,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                         onChange={(e) => setCertEdit(c => (c ? { ...c, observacoes: e.target.value } : c))}
                         rows={4}
                         placeholder="Anotações internas sobre este certificado..."
-                        className="mt-1.5 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
+                        className="mt-1.5 w-full rounded-md px-3 py-2 text-sm text-foreground"
                       />
                     </div>
                   </DialogBody>
@@ -1359,17 +1383,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                   <h4 className="text-[13px] font-semibold text-foreground">DT-e — Domicílio Tributário Eletrônico</h4>
                   {clienteId && canManageFiscal && (
                     <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1" type="button"
-                      onClick={async (e) => {
-                        e.preventDefault(); e.stopPropagation()
-                        const titulo = prompt('Título da mensagem:')
-                        if (!titulo) return
-                        const tipo = prompt('Tipo (ex: Intimação, Notificação, Ciência):') || ''
-                        try {
-                          await (trpc.cliente as any).dteAddMensagem.mutate({ clienteId, titulo, tipo, dataMensagem: new Date().toISOString() })
-                          const data = await (trpc.cliente as any).dteMensagens.query({ clienteId }) as typeof dteMensagens
-                          setDteMensagens(data)
-                        } catch (err) { alerts.error('Erro', (err as Error).message) }
-                      }}>
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDteForm({ titulo: '', tipo: '' }); setDteModalOpen(true) }}>
                       <Plus className="h-3 w-3" />Nova Mensagem
                     </Button>
                   )}
@@ -1435,7 +1449,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 rounded-lg border p-3 text-sm hover:bg-muted/40 transition-colors"
                   >
-                    <ExternalLink className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <ExternalLink className={cn('h-4 w-4 shrink-0', TEXT.emerald)} />
                     {link.label}
                   </a>
                 ))}
@@ -1448,79 +1462,101 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
     </Card>
 
     {/* Modal Acesso */}
-    {aceModalOpen && typeof document !== 'undefined' && createPortal(
-      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ animation: "dialog-fade-in 200ms ease-out" }}>
-        <div className="fixed inset-0 bg-black/60" onClick={() => setAceModalOpen(false)} />
-        <div className="relative bg-background rounded-xl shadow-2xl border w-full max-w-md" style={{ animation: "dialog-zoom-in 200ms ease-out" }}>
-          <div className="flex items-center justify-between border-b px-5 py-3">
-            <h3 className="text-sm font-semibold">{aceEditId ? 'Editar Acesso' : 'Novo Acesso'}</h3>
-            <button type="button" onClick={() => setAceModalOpen(false)} className="rounded-md p-1.5 hover:bg-muted"><X className="h-4 w-4" /></button>
-          </div>
-          <div className="px-5 py-4 space-y-3">
-            <div><Label className="text-xs">Tipo do Acesso *</Label><Input value={aceForm.portal} onChange={e => setAceForm(p => ({ ...p, portal: e.target.value }))} placeholder="Ex: Portal, Sistema" className="text-xs mt-1" /></div>
-            <div><Label className="text-xs">Usuário</Label><Input value={aceForm.usuario} onChange={e => setAceForm(p => ({ ...p, usuario: e.target.value }))} className="text-xs mt-1" /></div>
-            <div><Label className="text-xs">Senha {aceEditId ? '(vazio = não alterar)' : ''}</Label><Input value={aceForm.senha} onChange={e => setAceForm(p => ({ ...p, senha: e.target.value }))} placeholder={aceEditId ? 'Deixar vazio para não alterar' : ''} className="text-xs mt-1" /></div>
-            <div><Label className="text-xs">Link</Label><Input value={aceForm.link} onChange={e => setAceForm(p => ({ ...p, link: e.target.value }))} placeholder="https://" className="text-xs mt-1" /></div>
-          </div>
-          <div className="flex justify-end gap-2 border-t px-5 py-3">
-            <Button type="button" variant="outline" size="sm" onClick={() => setAceModalOpen(false)}>Fechar</Button>
-            <Button type="button" size="sm" onClick={saveAcesso} disabled={!aceForm.portal}>Salvar</Button>
-          </div>
-        </div>
-      </div>,
-      document.body,
-    )}
+    <Dialog open={aceModalOpen} onOpenChange={setAceModalOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeaderIcon icon={aceEditId ? Pencil : KeyRound} color={aceEditId ? 'sky' : 'emerald'}>
+          <DialogTitle>{aceEditId ? 'Editar Acesso' : 'Novo Acesso'}</DialogTitle>
+        </DialogHeaderIcon>
+        <DialogBody className="space-y-3">
+          <div><Label className="text-xs">Tipo do Acesso *</Label><Input value={aceForm.portal} onChange={e => setAceForm(p => ({ ...p, portal: e.target.value }))} placeholder="Ex: Portal, Sistema" className="text-xs mt-1" /></div>
+          <div><Label className="text-xs">Usuário</Label><Input value={aceForm.usuario} onChange={e => setAceForm(p => ({ ...p, usuario: e.target.value }))} className="text-xs mt-1" /></div>
+          <div><Label className="text-xs">Senha {aceEditId ? '(vazio = não alterar)' : ''}</Label><Input value={aceForm.senha} onChange={e => setAceForm(p => ({ ...p, senha: e.target.value }))} placeholder={aceEditId ? 'Deixar vazio para não alterar' : ''} className="text-xs mt-1" /></div>
+          <div><Label className="text-xs">Link</Label><Input value={aceForm.link} onChange={e => setAceForm(p => ({ ...p, link: e.target.value }))} placeholder="https://" className="text-xs mt-1" /></div>
+        </DialogBody>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={() => setAceModalOpen(false)}>Fechar</Button>
+          <Button type="button" size="sm" onClick={saveAcesso} disabled={!aceForm.portal}>Salvar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     {/* Modal Vencimento */}
-    {vncModalOpen && typeof document !== 'undefined' && createPortal(
-      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ animation: "dialog-fade-in 200ms ease-out" }}>
-        <div className="fixed inset-0 bg-black/60" onClick={() => setVncModalOpen(false)} />
-        <div className="relative bg-background rounded-xl shadow-2xl border w-full max-w-md" style={{ animation: "dialog-zoom-in 200ms ease-out" }}>
-          <div className="flex items-center justify-between border-b px-5 py-3">
-            <h3 className="text-sm font-semibold">{vncEditId ? 'Editar Vencimento' : 'Novo Vencimento'}</h3>
-            <button type="button" onClick={() => setVncModalOpen(false)} className="rounded-md p-1.5 hover:bg-muted"><X className="h-4 w-4" /></button>
-          </div>
-          <div className="px-5 py-4 space-y-3">
-            <div><Label className="text-xs">Tipo do Alvará *</Label><Input value={vncForm.descricao} onChange={e => setVncForm(p => ({ ...p, descricao: e.target.value }))} className="text-xs mt-1" /></div>
-            <div><Label className="text-xs">Vencimento</Label><Input type="date" value={vncForm.dataVencimento} onChange={e => setVncForm(p => ({ ...p, dataVencimento: e.target.value }))} className="text-xs mt-1" /></div>
-            <div><Label className="text-xs">Observações</Label><textarea value={vncForm.observacoes} onChange={e => setVncForm(p => ({ ...p, observacoes: e.target.value }))} rows={3} className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs mt-1 resize-none" /></div>
-          </div>
-          <div className="flex justify-end gap-2 border-t px-5 py-3">
-            <Button type="button" variant="outline" size="sm" onClick={() => setVncModalOpen(false)}>Fechar</Button>
-            <Button type="button" size="sm" onClick={saveVencimento} disabled={!vncForm.descricao}>Salvar</Button>
-          </div>
-        </div>
-      </div>,
-      document.body,
-    )}
+    <Dialog open={vncModalOpen} onOpenChange={setVncModalOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeaderIcon icon={vncEditId ? Pencil : Clock} color={vncEditId ? 'sky' : 'emerald'}>
+          <DialogTitle>{vncEditId ? 'Editar Vencimento' : 'Novo Vencimento'}</DialogTitle>
+        </DialogHeaderIcon>
+        <DialogBody className="space-y-3">
+          <div><Label className="text-xs">Tipo do Alvará *</Label><Input value={vncForm.descricao} onChange={e => setVncForm(p => ({ ...p, descricao: e.target.value }))} className="text-xs mt-1" /></div>
+          <div><Label className="text-xs">Vencimento</Label><Input type="date" value={vncForm.dataVencimento} onChange={e => setVncForm(p => ({ ...p, dataVencimento: e.target.value }))} className="text-xs mt-1" /></div>
+          <div><Label className="text-xs">Observações</Label><textarea value={vncForm.observacoes} onChange={e => setVncForm(p => ({ ...p, observacoes: e.target.value }))} rows={3} className="w-full rounded-md px-3 py-2 text-xs mt-1 resize-none" /></div>
+        </DialogBody>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={() => setVncModalOpen(false)}>Fechar</Button>
+          <Button type="button" size="sm" onClick={saveVencimento} disabled={!vncForm.descricao}>Salvar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     {/* Modal Andamento */}
-    {andModalOpen && typeof document !== 'undefined' && createPortal(
-      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ animation: "dialog-fade-in 200ms ease-out" }}>
-        <div className="fixed inset-0 bg-black/60" onClick={() => setAndModalOpen(false)} />
-        <div className="relative bg-background rounded-xl shadow-2xl border w-full max-w-lg" style={{ animation: "dialog-zoom-in 200ms ease-out" }}>
-          <div className="flex items-center justify-between border-b px-5 py-3">
-            <h3 className="text-sm font-semibold">{andEditId ? 'Editar Andamento' : 'Novo Andamento'}</h3>
-            <button type="button" onClick={() => setAndModalOpen(false)} className="rounded-md p-1.5 hover:bg-muted"><X className="h-4 w-4" /></button>
+    <Dialog open={andModalOpen} onOpenChange={setAndModalOpen}>
+      <DialogContent className="max-w-lg">
+        <DialogHeaderIcon icon={andEditId ? Pencil : ListChecks} color={andEditId ? 'sky' : 'emerald'}>
+          <DialogTitle>{andEditId ? 'Editar Andamento' : 'Novo Andamento'}</DialogTitle>
+        </DialogHeaderIcon>
+        <DialogBody className="space-y-3">
+          <div>
+            <Label className="text-xs">Tipo *</Label>
+            <Select value={andForm.tipo} onValueChange={v => setAndForm(p => ({ ...p, tipo: v }))}>
+              <SelectTrigger className="mt-1 text-xs"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+              <SelectContent>
+                {TIPOS_ANDAMENTO.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="px-5 py-4 space-y-3">
-            <div>
-              <Label className="text-xs">Tipo *</Label>
-              <select value={andForm.tipo} onChange={e => setAndForm(p => ({ ...p, tipo: e.target.value }))} className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs mt-1">
-                {TIPOS_ANDAMENTO.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-            <div><Label className="text-xs">Título</Label><Input value={andForm.titulo} onChange={e => setAndForm(p => ({ ...p, titulo: e.target.value }))} placeholder="Título do andamento" className="text-xs mt-1" /></div>
-            <div><Label className="text-xs">Descrição</Label><textarea value={andForm.descricao} onChange={e => setAndForm(p => ({ ...p, descricao: e.target.value }))} rows={4} className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs mt-1 resize-none" placeholder="Descrição detalhada..." /></div>
-          </div>
-          <div className="flex justify-end gap-2 border-t px-5 py-3">
-            <Button type="button" variant="outline" size="sm" onClick={() => setAndModalOpen(false)}>Fechar</Button>
-            <Button type="button" size="sm" onClick={saveAndamento} disabled={!andForm.tipo}>Salvar</Button>
-          </div>
-        </div>
-      </div>,
-      document.body,
-    )}
+          <div><Label className="text-xs">Título</Label><Input value={andForm.titulo} onChange={e => setAndForm(p => ({ ...p, titulo: e.target.value }))} placeholder="Título do andamento" className="text-xs mt-1" /></div>
+          <div><Label className="text-xs">Descrição</Label><textarea value={andForm.descricao} onChange={e => setAndForm(p => ({ ...p, descricao: e.target.value }))} rows={4} className="w-full rounded-md px-3 py-2 text-xs mt-1 resize-none" placeholder="Descrição detalhada..." /></div>
+        </DialogBody>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={() => setAndModalOpen(false)}>Fechar</Button>
+          <Button type="button" size="sm" onClick={saveAndamento} disabled={!andForm.tipo}>Salvar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Modal CNAE manual */}
+    <Dialog open={cnaeModalOpen} onOpenChange={setCnaeModalOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeaderIcon icon={FileText} color="emerald">
+          <DialogTitle>Adicionar CNAE</DialogTitle>
+        </DialogHeaderIcon>
+        <DialogBody className="space-y-3">
+          <div><Label className="text-xs">Código CNAE *</Label><Input value={cnaeForm.codigo} onChange={e => setCnaeForm(p => ({ ...p, codigo: e.target.value }))} placeholder="Ex: 6202-3/00" className="text-xs mt-1" /></div>
+          <div><Label className="text-xs">Descrição</Label><Input value={cnaeForm.descricao} onChange={e => setCnaeForm(p => ({ ...p, descricao: e.target.value }))} placeholder="Descrição da atividade" className="text-xs mt-1" /></div>
+        </DialogBody>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={() => setCnaeModalOpen(false)}>Fechar</Button>
+          <Button type="button" size="sm" onClick={saveCnae} disabled={!cnaeForm.codigo.trim() || cnaeSalvando}>{cnaeSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Modal DT-e nova mensagem */}
+    <Dialog open={dteModalOpen} onOpenChange={setDteModalOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeaderIcon icon={FileText} color="emerald">
+          <DialogTitle>Nova mensagem DT-e</DialogTitle>
+        </DialogHeaderIcon>
+        <DialogBody className="space-y-3">
+          <div><Label className="text-xs">Título da mensagem *</Label><Input value={dteForm.titulo} onChange={e => setDteForm(p => ({ ...p, titulo: e.target.value }))} placeholder="Título da mensagem" className="text-xs mt-1" /></div>
+          <div><Label className="text-xs">Tipo</Label><Input value={dteForm.tipo} onChange={e => setDteForm(p => ({ ...p, tipo: e.target.value }))} placeholder="Ex: Intimação, Notificação, Ciência" className="text-xs mt-1" /></div>
+        </DialogBody>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={() => setDteModalOpen(false)}>Fechar</Button>
+          <Button type="button" size="sm" onClick={saveDteMensagem} disabled={!dteForm.titulo.trim() || dteSalvando}>{dteSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     {certPdfOpen && certPdfData && typeof document !== 'undefined' && createPortal(
       <Dialog open={certPdfOpen} onOpenChange={setCertPdfOpen}>
@@ -1745,7 +1781,7 @@ function EditSocioModal(props: {
         <DialogHeaderIcon icon={mode === 'create' ? Plus : Pencil} color={mode === 'create' ? 'emerald' : 'sky'}>
           <DialogTitle>{mode === 'create' ? 'Novo Sócio' : 'Editar Sócio'}</DialogTitle>
         </DialogHeaderIcon>
-        <DialogBody className="overflow-y-auto">
+        <DialogBody>
           {loading || !socio ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando...
@@ -1860,8 +1896,8 @@ function EditSocioModal(props: {
                       onChange={e => setField('dataSaida', e.target.value)} />
                   </div>
                   <div className="col-span-6 flex items-center gap-2 mt-1">
-                    <input type="checkbox" id="responsavelLegal" checked={socio.responsavelLegal}
-                      onChange={e => setField('responsavelLegal', e.target.checked)} />
+                    <Checkbox id="responsavelLegal" checked={socio.responsavelLegal}
+                      onCheckedChange={v => setField('responsavelLegal', v === true)} />
                     <Label htmlFor="responsavelLegal" className="text-[13px] font-semibold cursor-pointer">Responsável legal</Label>
                   </div>
                 </div>
@@ -1870,7 +1906,7 @@ function EditSocioModal(props: {
               {/* Observações */}
               <div className="space-y-1.5">
                 <Label htmlFor="observacoes" className="text-[13px] font-semibold">Observações</Label>
-                <textarea id="observacoes" rows={3} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                <textarea id="observacoes" rows={3} className="w-full rounded-md px-3 py-2 text-sm"
                   value={socio.observacoes ?? ''}
                   onChange={e => setField('observacoes', e.target.value)} />
               </div>

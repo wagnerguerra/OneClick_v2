@@ -17,7 +17,7 @@ import {
   Lock, RotateCcw, Ban,
 } from 'lucide-react'
 import {
-  cn, Button, Input, Label, Card, Checkbox, RichEditor, Badge,
+  cn, Button, Input, Label, Card, Checkbox, RichEditor, Badge, Textarea,
   Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Tabs, TabsContent, TooltipProvider,
@@ -61,6 +61,7 @@ import { ProtocolosCard } from './protocolos-card'
 import { DriveSyncCard } from './drive-sync-card'
 import { ContratoChartModal } from './contrato-charts'
 import { masks, limparCnpj } from '@/lib/masks'
+import { TEXT, STRONG, BADGE, SURFACE } from '@/lib/color-styles'
 import {
   createClienteSchema,
   SITUACAO_LABELS, SITUACAO_COLORS,
@@ -589,7 +590,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                 cadastro, então acompanha a permissão de editar detalhes; a capa
                 GLOBAL (padrão do módulo) segue restrita ao master, no modal. */}
             {mode === 'edit' && clienteId && canEditDetails && (
-              <div className="absolute right-4 top-4 z-20 flex items-center gap-1.5">
+              <div className="absolute right-4 top-4 z-10 flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => setCapaModal(true)}
@@ -826,7 +827,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                     não passa nem perto. */}
                 {isEdit && canEditDetails && watchedValues.status === 'ATIVO' && (
                   <div className={cn('mt-5 rounded-xl border p-5', ZONA_PERIGO_SURFACE_CLASS)}>
-                    <h5 className="mb-0 text-sm font-semibold text-amber-600 dark:text-amber-400">
+                    <h5 className={cn('mb-0 text-sm font-semibold', TEXT.amber)}>
                       Zona de perigo
                     </h5>
                     <p className="mt-0.5 text-xs text-muted-foreground">
@@ -1020,7 +1021,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                   <p className="text-xs text-muted-foreground">{progress.filled} de {progress.total} campos preenchidos</p>
                   {progress.percent < 100 && (
                     <details className="mt-3">
-                      <summary className="text-[11px] text-emerald-600 cursor-pointer hover:underline">Ver campos pendentes</summary>
+                      <summary className={cn('text-[11px] cursor-pointer hover:underline', TEXT.emerald)}>Ver campos pendentes</summary>
                       <ul className="mt-2 space-y-1">
                         {/* Sócios pendentes (#HLP0068): só pra PJ, quando ainda não cadastrou nenhum */}
                         {watchedValues.tipoDocumento === 'CNPJ' && sociosCount === 0 && (
@@ -1161,7 +1162,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
     <CardColapsavel titulo="Detalhes do Cliente" icone={FileText}>
       <div className="flex min-h-[450px]">
         {/* Pills laterais */}
-        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
           <div className="space-y-1">
             {tabs.map((tab) => {
               const Icon = tab.icon
@@ -1229,9 +1230,9 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                         className="rounded-r-none border-r-0"
                       />
                     )} />
-                    <button type="button" className="shrink-0 rounded-none border border-l-0 border-r-0 border-sky-500 h-9 px-3 text-[12px] font-medium bg-sky-500 text-white cursor-pointer hover:bg-sky-600" onClick={() => buscarCnpj()}>
+                    <Button type="button" variant="info" className="shrink-0 rounded-none border-y border-sky-500 h-9 px-3 text-[12px]" onClick={() => buscarCnpj()}>
                       Completar
-                    </button>
+                    </Button>
                     <button type="button" className="shrink-0 rounded-r-[0.25rem] border border-l-0 border-input h-9 px-3 text-[12px] font-medium cursor-pointer hover:bg-accent flex items-center gap-1" onClick={() => consultarCartaoCnpj()} disabled={cnpjCardLoading}>
                       {cnpjCardLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SearchIcon className="h-3.5 w-3.5" />} {cnpjCardLoading ? 'Consultando...' : 'Consultar'}
                     </button>
@@ -1246,7 +1247,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                     return (
                       <label className="flex items-start gap-2 mt-1.5 text-[12px] cursor-pointer select-none text-muted-foreground">
                         <Controller control={control} name="ehMatriz" render={({ field }) => (
-                          <input type="checkbox" checked={field.value !== false} onChange={e => field.onChange(e.target.checked)} className="mt-0.5 h-4 w-4 accent-sky-500" />
+                          <Checkbox checked={field.value !== false} onCheckedChange={v => field.onChange(v === true)} className="mt-0.5" />
                         )} />
                         <span>Este CNPJ é <strong className="text-foreground">matriz</strong> — desmarque se for filial. No CNPJ alfanumérico o <code>/0001</code> não identifica mais a matriz automaticamente.</span>
                       </label>
@@ -1483,7 +1484,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
         const cellL = 'border-left: none; border-right: 1px solid #000; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 3.5pt;'
         return (
         <Dialog open={!!cnpjCard} onOpenChange={(open) => { if (!open) setCnpjCard(null) }}>
-          <DialogContent className="max-w-[700px] max-h-[90vh] overflow-y-auto p-0 gap-0">
+          <DialogContent className="max-w-[700px] p-0 gap-0">
             <DialogHeaderIcon icon={FileText} color="emerald">
               <DialogTitle className="text-[15px]">Cartao CNPJ (Consulta)</DialogTitle>
               <DialogDescription className="text-[11px]">
@@ -1837,7 +1838,7 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
     <CardColapsavel titulo="Comercial" icone={ShoppingCart}>
       <div className="flex min-h-[450px]">
         {/* Pills laterais */}
-        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
           <div className="space-y-1">
             {tabs.map((tab) => {
               const Icon = tab.icon
@@ -1971,14 +1972,14 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
                         <div className={cn(
                           'max-w-[80%] rounded-lg px-4 py-2.5 relative group',
                           h.tipo === 'cliente'
-                            ? 'bg-white border border-border/60 dark:bg-gray-800'
+                            ? 'bg-card border border-border/60'
                             : 'text-white'
                         )} style={h.tipo !== 'cliente' ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}>
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] font-semibold" style={h.tipo !== 'cliente' ? { color: 'rgba(255,255,255,0.8)' } : { color: '#495057' }}>
+                            <span className={cn('text-[10px] font-semibold', h.tipo === 'cliente' && 'text-foreground')} style={h.tipo !== 'cliente' ? { color: 'rgba(255,255,255,0.8)' } : undefined}>
                               {h.tipo === 'cliente' ? 'Cliente' : (h.user?.name || 'Equipe')}
                             </span>
-                            <span className="text-[9px]" style={h.tipo !== 'cliente' ? { color: 'rgba(255,255,255,0.6)' } : { color: '#878a99' }}>
+                            <span className={cn('text-[9px]', h.tipo === 'cliente' && 'text-muted-foreground')} style={h.tipo !== 'cliente' ? { color: 'rgba(255,255,255,0.6)' } : undefined}>
                               {new Date(h.createdAt).toLocaleString('pt-BR')}
                             </span>
                           </div>
@@ -2308,7 +2309,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
                             <a href={fullUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground" title="Visualizar">
                               <ExternalLink className="h-3.5 w-3.5" />
                             </a>
-                            <button type="button" onClick={() => deleteFile(f.id, f.fileName)} className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-red-50 hover:text-red-600" title="Excluir">
+                            <button type="button" onClick={() => deleteFile(f.id, f.fileName)} className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 dark:hover:text-red-400" title="Excluir">
                               <X className="h-3.5 w-3.5" />
                             </button>
                           </div>
@@ -2525,25 +2526,24 @@ function AcessoriasIntegracao({ clienteId }: { clienteId: string | null }) {
   }
 
   return (
-    <>
-      <div className="col-span-12 md:col-span-6 space-y-1.5">
-        <Label>ID Acessórias</Label>
-        <Input value={idAtual != null ? String(idAtual) : ''} readOnly placeholder="—" />
-        <p className="text-[11px] text-muted-foreground">Atualizado automaticamente ao cadastrar via botão</p>
-      </div>
-      <div className="col-span-12 md:col-span-6 flex items-end">
+    <div className="col-span-12 md:col-span-7 space-y-1.5">
+      <Label>ID Acessórias</Label>
+      {/* Input e botão na MESMA linha */}
+      <div className="flex items-center gap-2">
+        <Input value={idAtual != null ? String(idAtual) : ''} readOnly placeholder="—" className="flex-1 min-w-0" />
         <Button
           type="button"
           onClick={handleCadastrar}
           disabled={loading || !clienteId}
-          className="gap-2"
+          className="gap-2 shrink-0"
           style={{ backgroundColor: '#0ea5e9', color: '#fff' }}
         >
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
           {idAtual ? 'Sincronizar no Acessórias' : 'Cadastrar no Acessórias'}
         </Button>
       </div>
-    </>
+      <p className="text-[11px] text-muted-foreground">Atualizado automaticamente ao cadastrar via botão</p>
+    </div>
   )
 }
 
@@ -2685,7 +2685,7 @@ function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }
     <CardColapsavel titulo="Fiscal" icone={Receipt}>
       <div className="flex min-h-[450px]">
         {/* Pills laterais */}
-        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
           <div className="space-y-1">
             {tabs.map((tab) => {
               const Icon = tab.icon
@@ -2876,10 +2876,10 @@ function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }
 // ============================================================
 
 const CERTIDAO_COLORS_INLINE: Record<string, string> = {
-  'Negativa': 'bg-emerald-100 text-emerald-800',
-  'Positiva': 'bg-red-100 text-red-800',
-  'Positiva com Efeitos de Negativa': 'bg-amber-100 text-amber-800',
-  'Pendente': 'bg-gray-100 text-gray-600',
+  'Negativa': BADGE.emerald,
+  'Positiva': STRONG.red,
+  'Positiva com Efeitos de Negativa': STRONG.amber,
+  'Pendente': STRONG.slate,
 }
 
 function SituacaoFiscalCard({ clienteId, documento }: { clienteId: string; documento: string }) {
@@ -2958,7 +2958,7 @@ function SituacaoFiscalCard({ clienteId, documento }: { clienteId: string; docum
           <p className="text-xs">Nenhuma consulta de situação fiscal realizada para este cliente.</p>
         </div>
       ) : (
-        <div className="space-y-2 max-h-[300px] overflow-y-auto">
+        <div className="space-y-2 max-h-[300px] overflow-y-auto nice-scrollbar">
           {consultas.map(c => (
             <div key={c.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/10">
               <div className="flex items-center gap-3">
@@ -2966,7 +2966,7 @@ function SituacaoFiscalCard({ clienteId, documento }: { clienteId: string; docum
                 <div>
                   <div className="flex items-center gap-2">
                     {c.tipoCertidao && (
-                      <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full', CERTIDAO_COLORS_INLINE[c.tipoCertidao] || 'bg-gray-100 text-gray-600')}>
+                      <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full', CERTIDAO_COLORS_INLINE[c.tipoCertidao] || STRONG.slate)}>
                         {c.tipoCertidao}
                       </span>
                     )}
@@ -3267,7 +3267,7 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
                         type="button"
                         onClick={() => handleRemove(a.id, a.valor)}
                         title="Remover"
-                        className="shrink-0 rounded-full p-0.5 opacity-40 hover:opacity-100 hover:bg-rose-500/15 hover:text-rose-600 transition"
+                        className="shrink-0 rounded-full p-0.5 opacity-40 hover:opacity-100 hover:bg-rose-500/15 hover:text-rose-600 dark:hover:text-rose-400 transition"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -3423,8 +3423,8 @@ type CertSidebarItem = {
 /** Cor do prazo, igual à do certificado: vencido grita, perto de vencer avisa. */
 function corDoVencimento(dias: number | null) {
   if (dias === null) return 'text-muted-foreground'
-  if (dias < 0) return 'text-rose-600 dark:text-rose-400 font-semibold'
-  if (dias < 30) return 'text-amber-600 dark:text-amber-400 font-semibold'
+  if (dias < 0) return cn(TEXT.rose, 'font-semibold')
+  if (dias < 30) return cn(TEXT.amber, 'font-semibold')
   return 'text-muted-foreground'
 }
 function diasAte(data: string | null) {
@@ -3612,7 +3612,7 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
                   className="flex items-start gap-2 text-xs group rounded-md border border-border p-2 bg-muted/30 cursor-pointer hover:bg-muted/50 hover:border-fuchsia-300 dark:hover:border-fuchsia-800 transition-colors"
                   title="Ver detalhes do certificado"
                 >
-                  <ShieldCheck className="h-4 w-4 shrink-0 text-fuchsia-600 dark:text-fuchsia-400 mt-0.5" />
+                  <ShieldCheck className={cn('h-4 w-4 shrink-0 mt-0.5', TEXT.fuchsia)} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <span className="truncate font-medium">
@@ -3768,8 +3768,8 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
             </div>
             <div className="space-y-1.5">
               <Label className="text-[13px] font-semibold">Detalhes / observações</Label>
-              <textarea
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              <Textarea
+                className="min-h-[80px]"
                 value={editingCert?.observacoes || ''}
                 onChange={(e) => setEditingCert((s) => (s ? { ...s, observacoes: e.target.value } : s))}
                 placeholder="Anotações internas sobre este certificado..."
@@ -3957,7 +3957,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
       <div className="p-5">
         {/* Form inline para adicionar */}
         {adding && (
-          <div className="mb-4 p-4 rounded-lg border border-emerald-200 bg-emerald-50/50">
+          <div className={cn('mb-4 p-4 rounded-lg border', SURFACE.emerald)}>
             <h5 className="text-xs font-semibold text-foreground mb-3">Novo Contato</h5>
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-12 md:col-span-4 space-y-1.5">
@@ -3986,7 +3986,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
               </div>
             </div>
             <div className="flex gap-2 mt-3">
-              <Button type="button" size="sm" className="bg-emerald-500 text-white hover:bg-emerald-600" onClick={handleAdd} disabled={!fNome.trim()}>
+              <Button type="button" variant="success" size="sm" onClick={handleAdd} disabled={!fNome.trim()}>
                 <Plus className="h-4 w-4" /> Adicionar
               </Button>
               <Button type="button" variant="ghost" size="sm" onClick={() => { setAdding(false); resetForm() }}>Cancelar</Button>
@@ -3996,7 +3996,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
 
         {/* Form inline para editar */}
         {editingId && (
-          <div className="mb-4 p-4 rounded-lg border border-sky-200 bg-sky-50/50">
+          <div className={cn('mb-4 p-4 rounded-lg border', SURFACE.sky)}>
             <h5 className="text-xs font-semibold text-foreground mb-3">Editar Contato</h5>
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-12 md:col-span-4 space-y-1.5">
@@ -4025,7 +4025,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
               </div>
             </div>
             <div className="flex gap-2 mt-3">
-              <Button type="button" size="sm" className="bg-sky-500 text-white hover:bg-sky-600" onClick={handleUpdate} disabled={!fNome.trim()}>
+              <Button type="button" variant="info" size="sm" onClick={handleUpdate} disabled={!fNome.trim()}>
                 <Save className="h-4 w-4" /> Salvar
               </Button>
               <Button type="button" variant="ghost" size="sm" onClick={cancelEdit}>Cancelar</Button>
@@ -4043,7 +4043,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
             <p className="text-xs mt-1">Clique em &quot;Novo Contato&quot; para adicionar.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto nice-scrollbar">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border">
@@ -4081,12 +4081,12 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
                     </td>
                     <td className="py-2.5 px-3">
                       <span className="font-medium">{c.nome}</span>
-                      {c.principal && <span className="ml-1.5 inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 px-1.5 py-0.5 text-[10px] font-medium">Principal</span>}
+                      {c.principal && <span className={cn('ml-1.5 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium', BADGE.emerald)}>Principal</span>}
                     </td>
                     <td className="py-2.5 px-3 text-muted-foreground">{c.cargo || '—'}</td>
                     <td className="py-2.5 px-3">
                       {c.area ? (
-                        <span className="inline-flex items-center rounded-full bg-sky-50 text-sky-700 px-2 py-0.5 text-[10px] font-medium border border-sky-200">
+                        <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border', BADGE.sky)}>
                           {c.area.name}
                         </span>
                       ) : (
@@ -4099,11 +4099,11 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
                     <td className="py-2.5 px-3">
                       <div className="flex items-center justify-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <button type="button" title="Editar" onClick={() => startEdit(c)}
-                          className="p-1 rounded hover:bg-sky-100 text-sky-600 transition-colors">
+                          className={cn('p-1 rounded hover:bg-sky-100 dark:hover:bg-sky-900/30 transition-colors', TEXT.sky)}>
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button type="button" title="Excluir" onClick={() => handleRemove(c.id, c.nome)}
-                          className="p-1 rounded hover:bg-red-100 text-destructive transition-colors">
+                          className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-destructive transition-colors">
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
@@ -4309,12 +4309,12 @@ function CaixaPostalClienteCard({ documento }: { documento: string }) {
                       <div><span className="text-muted-foreground">Origem: </span><span className="font-medium">{detalheMsg.descricaoOrigem || detalheMsg.origemModelo || '—'}</span></div>
                       <div><span className="text-muted-foreground">Data envio: </span><span className="font-medium">{formatDateSerpro(detalheMsg.dataEnvio)}</span></div>
                       {detalheMsg.sla_dias !== null && detalheMsg.sla_dias !== undefined && (
-                        <div><span className="text-muted-foreground">SLA: </span><span className={cn('font-medium', detalheMsg.sla_dias <= 0 ? 'text-red-600' : detalheMsg.sla_dias <= 3 ? 'text-orange-600' : '')}>{detalheMsg.sla_dias} dia(s)</span></div>
+                        <div><span className="text-muted-foreground">SLA: </span><span className={cn('font-medium', detalheMsg.sla_dias <= 0 ? TEXT.red : detalheMsg.sla_dias <= 3 ? TEXT.orange : '')}>{detalheMsg.sla_dias} dia(s)</span></div>
                       )}
                       <div><span className="text-muted-foreground">Score: </span><span className="font-medium">{detalheMsg.score}/100</span></div>
                     </div>
                     {typeof detalheMsg.acao_recomendada === 'string' && detalheMsg.acao_recomendada && (
-                      <div className="text-xs p-2 rounded bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300">
+                      <div className={cn('text-xs p-2 rounded border', BADGE.amber)}>
                         <strong>Ação recomendada:</strong> {detalheMsg.acao_recomendada as string}
                       </div>
                     )}
@@ -4325,7 +4325,7 @@ function CaixaPostalClienteCard({ documento }: { documento: string }) {
                 {(() => {
                   const corpo = extrairCorpoMensagem(detalheData)
                   if (corpo) return <RichContent className="text-sm leading-relaxed [&_p]:mb-3 [&_a]:text-sky-600" html={corpo} />
-                  if (detalheData) return (<div><p className="text-xs text-muted-foreground mb-2">Resposta bruta da API:</p><pre className="text-xs whitespace-pre-wrap bg-muted/30 rounded-lg p-4 overflow-x-auto max-h-[400px]">{JSON.stringify(detalheData, null, 2)}</pre></div>)
+                  if (detalheData) return (<div><p className="text-xs text-muted-foreground mb-2">Resposta bruta da API:</p><pre className="text-xs whitespace-pre-wrap bg-muted/30 rounded-lg p-4 overflow-x-auto max-h-[400px] nice-scrollbar">{JSON.stringify(detalheData, null, 2)}</pre></div>)
                   return <p className="text-center text-muted-foreground py-10">Nenhum conteúdo disponível.</p>
                 })()}
 
@@ -4361,7 +4361,7 @@ function CaixaPostalClienteCard({ documento }: { documento: string }) {
               <Badge variant="outline" className="text-[10px]">{mensagens.length} mensagem(ns)</Badge>
               {naoLidas > 0 && <Badge variant="destructive" className="text-[10px]">{naoLidas} não lida(s)</Badge>}
               {importantes > 0 && (
-                <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300">
+                <Badge variant="outline" className={cn('text-[10px]', BADGE.amber)}>
                   <Star className="h-3 w-3 fill-amber-400 mr-0.5" />{importantes} importante(s)
                 </Badge>
               )}
@@ -4433,7 +4433,7 @@ function CaixaPostalClienteCard({ documento }: { documento: string }) {
                     <td className="px-3 py-2 text-muted-foreground">{formatDateSerpro(m.dataEnvio)}</td>
                     <td className="px-3 py-2 text-center">
                       {m.sla_dias !== null && m.sla_dias !== undefined ? (
-                        <span className={cn('font-mono text-[10px]', m.sla_dias <= 0 ? 'text-red-600 font-bold' : m.sla_dias <= 3 ? 'text-orange-600' : 'text-muted-foreground')}>
+                        <span className={cn('font-mono text-[10px]', m.sla_dias <= 0 ? `${TEXT.red} font-bold` : m.sla_dias <= 3 ? TEXT.orange : 'text-muted-foreground')}>
                           {m.sla_dias}d
                         </span>
                       ) : '—'}

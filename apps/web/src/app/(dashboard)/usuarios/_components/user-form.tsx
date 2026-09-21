@@ -10,15 +10,16 @@ import {
   MODULE_GROUPS, MODULE_LABELS, USER_ROLE_LABELS_ESCRITORIO, USER_PROFILE_LABELS,
   MODULE_SUB_PERMISSIONS,
 } from '@saas/types'
-import { HelpCircle, User, Briefcase, Calendar, Building2, Shield, ChevronDown, ShieldCheck, Save, ArrowLeft, Handshake, Loader2, Download, Settings } from 'lucide-react'
+import { HelpCircle, User, Briefcase, Calendar, Building2, Shield, ChevronDown, ShieldCheck, Save, Handshake, Loader2, Download, Settings, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import {
-  Button, Input, Label, Checkbox, Card,
+  Button, Input, Label, Checkbox, Card, Switch,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription, DialogFooter, DialogClose,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT, BADGE, STRONG } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { MODULE_ICONS, GROUP_ICONS } from '@/lib/navigation'
@@ -44,61 +45,61 @@ const GROUP_COLORS: Record<string, {
   hoverBg: string; hoverBorder: string; decoration: string
 }> = {
   'Cadastros': {
-    bar: 'bg-emerald-500', title: 'text-emerald-700 dark:text-emerald-400', toggle: 'bg-emerald-500', icon: 'text-emerald-600 dark:text-emerald-400',
+    bar: 'bg-emerald-500', title: TEXT.emerald, toggle: 'bg-emerald-500', icon: TEXT.emerald,
     activeBg: 'bg-emerald-50 dark:bg-emerald-950/30', activeBorder: 'border-emerald-200 dark:border-emerald-800/50',
     hoverBg: 'hover:bg-emerald-50/50 dark:hover:bg-emerald-950/10', hoverBorder: 'hover:border-emerald-200/60',
     decoration: 'decoration-emerald-400/40',
   },
   'Comercial': {
-    bar: 'bg-sky-500', title: 'text-sky-700 dark:text-sky-400', toggle: 'bg-sky-500', icon: 'text-sky-600 dark:text-sky-400',
+    bar: 'bg-sky-500', title: TEXT.sky, toggle: 'bg-sky-500', icon: TEXT.sky,
     activeBg: 'bg-sky-50 dark:bg-sky-950/30', activeBorder: 'border-sky-200 dark:border-sky-800/50',
     hoverBg: 'hover:bg-sky-50/50 dark:hover:bg-sky-950/10', hoverBorder: 'hover:border-sky-200/60',
     decoration: 'decoration-sky-400/40',
   },
   'Administrativo': {
-    bar: 'bg-indigo-500', title: 'text-indigo-700 dark:text-indigo-400', toggle: 'bg-indigo-500', icon: 'text-indigo-600 dark:text-indigo-400',
+    bar: 'bg-indigo-500', title: TEXT.indigo, toggle: 'bg-indigo-500', icon: TEXT.indigo,
     activeBg: 'bg-indigo-50 dark:bg-indigo-950/30', activeBorder: 'border-indigo-200 dark:border-indigo-800/50',
     hoverBg: 'hover:bg-indigo-50/50 dark:hover:bg-indigo-950/10', hoverBorder: 'hover:border-indigo-200/60',
     decoration: 'decoration-indigo-400/40',
   },
   'Legalização': {
-    bar: 'bg-violet-500', title: 'text-violet-700 dark:text-violet-400', toggle: 'bg-violet-500', icon: 'text-violet-600 dark:text-violet-400',
+    bar: 'bg-violet-500', title: TEXT.violet, toggle: 'bg-violet-500', icon: TEXT.violet,
     activeBg: 'bg-violet-50 dark:bg-violet-950/30', activeBorder: 'border-violet-200 dark:border-violet-800/50',
     hoverBg: 'hover:bg-violet-50/50 dark:hover:bg-violet-950/10', hoverBorder: 'hover:border-violet-200/60',
     decoration: 'decoration-violet-400/40',
   },
   'Trabalhista': {
-    bar: 'bg-teal-500', title: 'text-teal-700 dark:text-teal-400', toggle: 'bg-teal-500', icon: 'text-teal-600 dark:text-teal-400',
+    bar: 'bg-teal-500', title: TEXT.teal, toggle: 'bg-teal-500', icon: TEXT.teal,
     activeBg: 'bg-teal-50 dark:bg-teal-950/30', activeBorder: 'border-teal-200 dark:border-teal-800/50',
     hoverBg: 'hover:bg-teal-50/50 dark:hover:bg-teal-950/10', hoverBorder: 'hover:border-teal-200/60',
     decoration: 'decoration-teal-400/40',
   },
   'Fiscal': {
-    bar: 'bg-rose-500', title: 'text-rose-700 dark:text-rose-400', toggle: 'bg-rose-500', icon: 'text-rose-600 dark:text-rose-400',
+    bar: 'bg-rose-500', title: TEXT.rose, toggle: 'bg-rose-500', icon: TEXT.rose,
     activeBg: 'bg-rose-50 dark:bg-rose-950/30', activeBorder: 'border-rose-200 dark:border-rose-800/50',
     hoverBg: 'hover:bg-rose-50/50 dark:hover:bg-rose-950/10', hoverBorder: 'hover:border-rose-200/60',
     decoration: 'decoration-rose-400/40',
   },
   'Contábil': {
-    bar: 'bg-cyan-500', title: 'text-cyan-700 dark:text-cyan-400', toggle: 'bg-cyan-500', icon: 'text-cyan-600 dark:text-cyan-400',
+    bar: 'bg-cyan-500', title: TEXT.cyan, toggle: 'bg-cyan-500', icon: TEXT.cyan,
     activeBg: 'bg-cyan-50 dark:bg-cyan-950/30', activeBorder: 'border-cyan-200 dark:border-cyan-800/50',
     hoverBg: 'hover:bg-cyan-50/50 dark:hover:bg-cyan-950/10', hoverBorder: 'hover:border-cyan-200/60',
     decoration: 'decoration-cyan-400/40',
   },
   'TI': {
-    bar: 'bg-slate-500', title: 'text-slate-700 dark:text-slate-400', toggle: 'bg-slate-500', icon: 'text-slate-600 dark:text-slate-400',
+    bar: 'bg-slate-500', title: TEXT.slate, toggle: 'bg-slate-500', icon: TEXT.slate,
     activeBg: 'bg-slate-50 dark:bg-slate-950/30', activeBorder: 'border-slate-200 dark:border-slate-800/50',
     hoverBg: 'hover:bg-slate-50/50 dark:hover:bg-slate-950/10', hoverBorder: 'hover:border-slate-200/60',
     decoration: 'decoration-slate-400/40',
   },
   'Qualidade': {
-    bar: 'bg-amber-500', title: 'text-amber-700 dark:text-amber-400', toggle: 'bg-amber-500', icon: 'text-amber-600 dark:text-amber-400',
+    bar: 'bg-amber-500', title: TEXT.amber, toggle: 'bg-amber-500', icon: TEXT.amber,
     activeBg: 'bg-amber-50 dark:bg-amber-950/30', activeBorder: 'border-amber-200 dark:border-amber-800/50',
     hoverBg: 'hover:bg-amber-50/50 dark:hover:bg-amber-950/10', hoverBorder: 'hover:border-amber-200/60',
     decoration: 'decoration-amber-400/40',
   },
   'Configurações': {
-    bar: 'bg-orange-700', title: 'text-orange-800 dark:text-orange-400', toggle: 'bg-orange-700', icon: 'text-orange-700 dark:text-orange-400',
+    bar: 'bg-orange-700', title: TEXT.orange, toggle: 'bg-orange-700', icon: TEXT.orange,
     activeBg: 'bg-orange-50 dark:bg-orange-950/30', activeBorder: 'border-orange-200 dark:border-orange-800/50',
     hoverBg: 'hover:bg-orange-50/50 dark:hover:bg-orange-950/10', hoverBorder: 'hover:border-orange-200/60',
     decoration: 'decoration-orange-400/40',
@@ -377,7 +378,7 @@ function UserDetailsCard({ activeTab, mode, userId, register, control, errors, a
           {/* DADOS PESSOAIS */}
           {activeTab === 'dados' && (
             <div className="-m-0">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-5 py-3 border-b border-hairline">
                 <h4 className="text-[13px] font-semibold text-foreground">Dados Pessoais</h4>
               </div>
               <div className="p-5 grid grid-cols-12 gap-3">
@@ -472,7 +473,7 @@ function UserDetailsCard({ activeTab, mode, userId, register, control, errors, a
           {/* ENDEREÇO */}
           {activeTab === 'endereco' && (
             <div className="-m-0">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-5 py-3 border-b border-hairline">
                 <h4 className="text-[13px] font-semibold text-foreground">Endereço</h4>
               </div>
               <div className="p-5 grid grid-cols-12 gap-3">
@@ -511,7 +512,7 @@ function UserDetailsCard({ activeTab, mode, userId, register, control, errors, a
           {/* ORGANIZACIONAL */}
           {activeTab === 'organizacional' && (
             <div className="-m-0">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-5 py-3 border-b border-hairline">
                 <h4 className="text-[13px] font-semibold text-foreground">Organizacional</h4>
               </div>
               <div className="p-5 grid grid-cols-12 gap-3">
@@ -553,7 +554,7 @@ function UserDetailsCard({ activeTab, mode, userId, register, control, errors, a
           {/* FÉRIAS / RH */}
           {activeTab === 'ferias' && (
             <div className="-m-0">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
+              <div className="px-5 py-3 border-b border-hairline flex items-center justify-between">
                 <h4 className="text-[13px] font-semibold text-foreground">Férias / RH</h4>
                 {mode === 'edit' && (
                   <Button
@@ -644,7 +645,7 @@ function UserDetailsCard({ activeTab, mode, userId, register, control, errors, a
           {/* EMPRESA */}
           {activeTab === 'empresa' && (
             <div className="-m-0">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-5 py-3 border-b border-hairline">
                 <h4 className="text-[13px] font-semibold text-foreground">Empresa</h4>
               </div>
               <div className="p-5 grid grid-cols-12 gap-3">
@@ -657,7 +658,7 @@ function UserDetailsCard({ activeTab, mode, userId, register, control, errors, a
                 </div>
                 {isMaster && (
                   <div className="col-span-12">
-                    <div className="rounded-lg bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400">
+                    <div className={cn('rounded-lg bg-amber-500/10 px-4 py-3 text-sm', TEXT.amber)}>
                       Este é o usuário MASTER. Ele possui acesso total ao sistema independente das permissões.
                     </div>
                   </div>
@@ -669,18 +670,18 @@ function UserDetailsCard({ activeTab, mode, userId, register, control, errors, a
           {/* PERMISSÕES */}
           {activeTab === 'permissoes' && (
             <div className="-m-0">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
+              <div className="px-5 py-3 border-b border-hairline flex items-center justify-between">
                 <h4 className="text-[13px] font-semibold text-foreground">Permissões</h4>
                 {permSaving && (
                   <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" />Salvando...</span>
                 )}
                 {!permSaving && permSaved && (
-                  <span className="flex items-center gap-1.5 text-[11px] text-emerald-600 animate-in fade-in duration-300"><ShieldCheck className="h-3.5 w-3.5" />Salvo</span>
+                  <span className={cn('flex items-center gap-1.5 text-[11px] animate-in fade-in duration-300', TEXT.emerald)}><ShieldCheck className="h-3.5 w-3.5" />Salvo</span>
                 )}
               </div>
               <div>
                 {isMaster ? (
-                  <div className="p-5 rounded-lg bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400">
+                  <div className={cn('p-5 rounded-lg bg-amber-500/10 px-4 py-3 text-sm', TEXT.amber)}>
                     O usuário MASTER possui acesso total. As permissões não se aplicam.
                   </div>
                 ) : (
@@ -741,18 +742,21 @@ function UserDetailsCard({ activeTab, mode, userId, register, control, errors, a
                                       <span className={cn('text-sm truncate transition-colors duration-300', isActive ? 'text-foreground font-medium' : 'text-muted-foreground group-hover:text-foreground/80')}>{label}</span>
                                     )}
                                   </div>
-                                  <button type="button" onClick={() => {
-                                    let newMap: Record<string, PermissionInput>
-                                    if (isActive) {
-                                      newMap = { ...permissionsMap }; delete newMap[slug]
-                                    } else {
-                                      newMap = { ...permissionsMap, [slug]: { moduleSlug: slug, canRead: true, canWrite: true, canDelete: true, subPermissions: {} } }
-                                    }
-                                    setPermissionsMap(newMap)
-                                    autoSavePermissions(newMap)
-                                  }} className={cn('relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-300', isActive ? gc.toggle : 'bg-muted-foreground/20')}>
-                                    <span className={cn('pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-300 mt-0.5', isActive ? 'translate-x-4 ml-0.5' : 'translate-x-0.5')} />
-                                  </button>
+                                  {/* Switch centralizado; ON assume a cor do grupo via className (vence bg-primary no cn) */}
+                                  <Switch
+                                    checked={isActive}
+                                    onCheckedChange={() => {
+                                      let newMap: Record<string, PermissionInput>
+                                      if (isActive) {
+                                        newMap = { ...permissionsMap }; delete newMap[slug]
+                                      } else {
+                                        newMap = { ...permissionsMap, [slug]: { moduleSlug: slug, canRead: true, canWrite: true, canDelete: true, subPermissions: {} } }
+                                      }
+                                      setPermissionsMap(newMap)
+                                      autoSavePermissions(newMap)
+                                    }}
+                                    className={cn(isActive && gc.toggle)}
+                                  />
                                 </div>
                               )
                             })}
@@ -770,7 +774,7 @@ function UserDetailsCard({ activeTab, mode, userId, register, control, errors, a
           {/* CLIENTES VINCULADOS */}
           {activeTab === 'clientes' && mode === 'edit' && userId && (
             <div className="-m-0">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-5 py-3 border-b border-hairline">
                 <h4 className="text-[13px] font-semibold text-foreground">Clientes Vinculados</h4>
               </div>
               <div className="p-5">
@@ -870,7 +874,7 @@ function SubPermissionsModal({ slug, permissionsMap, setPermissionsMap, onClose,
         <DialogBody className="space-y-4">
           {/* Marcar todas */}
           <label className="flex items-center gap-3 cursor-pointer py-1">
-            <ToggleSwitch checked={allChecked} onChange={v => toggleAllSubs(v)} />
+            <Switch checked={allChecked} onCheckedChange={v => toggleAllSubs(v)} />
             <span className="text-sm font-medium">Marcar todas</span>
           </label>
 
@@ -926,7 +930,7 @@ function SubPermissionsModal({ slug, permissionsMap, setPermissionsMap, onClose,
                   }
                   return (
                     <label key={d.key} className="flex items-start gap-2.5 py-2 cursor-pointer group">
-                      <ToggleSwitch checked={subs[d.key] === true} onChange={v => setSub(d.key, v)} />
+                      <Switch checked={subs[d.key] === true} onCheckedChange={v => setSub(d.key, v)} />
                       <span className="flex flex-col">
                         <span className={cn(
                           'text-sm transition-colors duration-200',
@@ -955,26 +959,6 @@ function SubPermissionsModal({ slug, permissionsMap, setPermissionsMap, onClose,
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
-}
-
-// ── Toggle switch reutilizável ──────────────────────────
-
-function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      className={cn(
-        'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-300',
-        checked ? 'bg-primary' : 'bg-muted-foreground/20',
-      )}
-    >
-      <span className={cn(
-        'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-300 mt-0.5',
-        checked ? 'translate-x-4 ml-0.5' : 'translate-x-0.5',
-      )} />
-    </button>
   )
 }
 
@@ -1065,13 +1049,13 @@ function ClientesVinculados({ userId }: { userId: string }) {
           </Button>
         </div>
         <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
-          <input type="checkbox" checked={onlyMyArea} onChange={e => setOnlyMyArea(e.target.checked)} className="h-3 w-3 rounded accent-emerald-600" />
+          <Checkbox checked={onlyMyArea} onCheckedChange={v => setOnlyMyArea(v === true)} />
           Somente a area deste usuario
         </label>
       </div>
 
       {importResult && (
-        <div className={cn('rounded-lg px-4 py-3 text-xs', importResult.dryRun ? 'bg-sky-50 text-sky-700 dark:bg-sky-950/20 dark:text-sky-400' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400')}>
+        <div className={cn('rounded-lg px-4 py-3 text-xs', importResult.dryRun ? BADGE.sky : BADGE.emerald)}>
           <span className="font-semibold">{importResult.dryRun ? 'Previa:' : 'Resultado:'}</span>{' '}
           {importResult.totalLinhasOneClick} no OneClick | {importResult.vinculados} vinculo(s) {importResult.dryRun ? 'encontrado(s)' : 'importado(s)'} | {importResult.ignoradosSemCliente} sem cliente local
         </div>
@@ -1130,11 +1114,11 @@ function ClientesVinculados({ userId }: { userId: string }) {
                     <td className="px-3 py-2">
                       <span className={cn(
                         'inline-flex items-center rounded-[3px] px-2 py-0.5 text-[10px] font-medium',
-                        item.role === 'Responsável' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+                        item.role === 'Responsável' ? STRONG.emerald : STRONG.sky,
                       )}>
                         {item.role}
                       </span>
-                      {item.encerrado && <span className="ml-1 text-[10px] text-amber-600">Encerrado</span>}
+                      {item.encerrado && <span className={cn('ml-1 text-[10px]', TEXT.amber)}>Encerrado</span>}
                     </td>
                   </tr>
                 ))}

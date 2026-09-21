@@ -6,11 +6,13 @@ import {
   FileText, Download, Trash2, Pencil, Send, AlertCircle, Settings, Megaphone, EyeOff, Eye, FolderUp, X,
 } from 'lucide-react'
 import {
-  Button, Card, Input, Label, cn,
+  Button, Card, Input, Label, cn, Checkbox,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Sheet, SheetContent, SheetTitle, SheetDescription,
   RichEditor, RichContent,
 } from '@saas/ui'
+import { TEXT, SURFACE, STRONG } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -548,13 +550,13 @@ export default function RelatoriosTiPage() {
 
       {/* Pendentes de hoje — a pergunta que o líder faz todo fim de tarde. */}
       {pendentesHoje.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 dark:border-amber-900/50 dark:bg-amber-950/20">
-          <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-          <span className="text-[13px] text-amber-900 dark:text-amber-300">
+        <div className={cn('flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2', SURFACE.amber)}>
+          <AlertCircle className={cn('h-4 w-4 shrink-0', TEXT.amber)} />
+          <span className={cn('text-[13px]', TEXT.amber)}>
             Ainda sem relatório hoje:
           </span>
           {pendentesHoje.map(u => (
-            <span key={u.id} className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
+            <span key={u.id} className={cn('rounded-full px-2 py-0.5 text-[11px]', STRONG.amber)}>
               {u.name}
             </span>
           ))}
@@ -627,7 +629,7 @@ export default function RelatoriosTiPage() {
                     {envio && (
                       <span title={`Enviado à diretoria em ${new Date(envio.enviadoEm).toLocaleString('pt-BR')}`}
                         className="inline-flex items-center rounded-full bg-emerald-100 p-1 dark:bg-emerald-900/40">
-                        <Send className="h-2.5 w-2.5 text-emerald-700 dark:text-emerald-400" />
+                        <Send className={cn('h-2.5 w-2.5', TEXT.emerald)} />
                       </span>
                     )}
                     {itens.length > 0 && (
@@ -737,9 +739,9 @@ export default function RelatoriosTiPage() {
             {/* Coluna da esquerda — quem entregou o quê */}
             <div className="nice-scrollbar w-[330px] shrink-0 space-y-1.5 overflow-y-auto border-r border-border bg-muted/20 p-2.5">
               {enviosDoDia.length > 0 && (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-2.5 py-1.5 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+                <div className={cn('rounded-lg border px-2.5 py-1.5', SURFACE.emerald)}>
                   {enviosDoDia.map(e => (
-                    <p key={e.id} className="text-[11px] text-emerald-900 dark:text-emerald-300">
+                    <p key={e.id} className={cn('text-[11px]', TEXT.emerald)}>
                       <Send className="mr-1 inline h-3 w-3" />
                       Enviado {new Date(e.enviadoEm).toLocaleString('pt-BR')} · {e.destinatarios.length} destinatário(s)
                       {' · '}
@@ -786,7 +788,7 @@ export default function RelatoriosTiPage() {
                       </span>
                       {r.enviado && (
                         <span title="Já enviado à diretoria"
-                          className="shrink-0 rounded bg-emerald-100 px-1 py-0.5 text-[9px] font-semibold uppercase text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+                          className={cn('shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold uppercase', STRONG.emerald)}>
                           enviado
                         </span>
                       )}
@@ -888,7 +890,7 @@ export default function RelatoriosTiPage() {
             </DialogDescription>
           </DialogHeaderIcon>
 
-          <DialogBody className="nice-scrollbar max-h-[65vh] space-y-4 overflow-y-auto">
+          <DialogBody className="max-h-[65vh] space-y-4 overflow-y-auto">
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-12 space-y-1.5 sm:col-span-4">
                 <Label className="text-[13px] font-semibold">Dia do relatório</Label>
@@ -965,7 +967,7 @@ export default function RelatoriosTiPage() {
             </DialogDescription>
           </DialogHeaderIcon>
 
-          <DialogBody className="nice-scrollbar max-h-[65vh] space-y-2 overflow-y-auto">
+          <DialogBody className="max-h-[65vh] space-y-2 overflow-y-auto">
             {novidades.length === 0 ? (
               <p className="py-10 text-center text-sm italic text-muted-foreground">
                 Nada publicado ainda. Abra um relatório e use &quot;Virar novidade&quot;.
@@ -1035,12 +1037,14 @@ export default function RelatoriosTiPage() {
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-12 space-y-1.5 sm:col-span-4">
                 <Label className="text-[13px] font-semibold">Natureza</Label>
-                <select value={novTipo} onChange={e => setNovTipo(e.target.value)}
-                  className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm">
-                  <option value="NOVO">Novo</option>
-                  <option value="MELHORIA">Melhoria</option>
-                  <option value="CORRECAO">Correção</option>
-                </select>
+                <Select value={novTipo} onValueChange={setNovTipo}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NOVO">Novo</SelectItem>
+                    <SelectItem value="MELHORIA">Melhoria</SelectItem>
+                    <SelectItem value="CORRECAO">Correção</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="col-span-12 space-y-1.5 sm:col-span-8">
                 <Label className="text-[13px] font-semibold">Módulo (opcional)</Label>
@@ -1063,7 +1067,7 @@ export default function RelatoriosTiPage() {
               <Label className="text-[13px] font-semibold">Descrição</Label>
               <textarea value={novDescricao} onChange={e => setNovDescricao(e.target.value)}
                 rows={4} placeholder="Uma ou duas frases, em linguagem de quem usa."
-                className="nice-scrollbar w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
+                className="nice-scrollbar w-full rounded-md px-3 py-2 text-sm" />
               {/* Texto puro, e não editor rico: o widget é uma lista compacta, e
                   formatação ali viraria ruído. */}
             </div>
@@ -1099,14 +1103,16 @@ export default function RelatoriosTiPage() {
             </DialogDescription>
           </DialogHeaderIcon>
 
-          <DialogBody className="nice-scrollbar max-h-[65vh] space-y-4 overflow-y-auto">
+          <DialogBody className="max-h-[65vh] space-y-4 overflow-y-auto">
             <div className="space-y-1.5">
               <Label className="text-[13px] font-semibold">Área da equipe</Label>
-              <select value={cfgAreaId} onChange={e => setCfgAreaId(e.target.value)}
-                className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm">
-                <option value="">— nenhuma —</option>
-                {areas.map(ar => <option key={ar.id} value={ar.id}>{ar.name}</option>)}
-              </select>
+              <Select value={cfgAreaId || '__none__'} onValueChange={v => setCfgAreaId(v === '__none__' ? '' : v)}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— nenhuma —</SelectItem>
+                  {areas.map(ar => <SelectItem key={ar.id} value={ar.id}>{ar.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
               <p className="text-[11px] text-muted-foreground">
                 Quem está nesta área é cobrado pelo relatório diário, e quem a lidera comanda o
                 painel — sem precisar de permissão marcada.
@@ -1120,8 +1126,8 @@ export default function RelatoriosTiPage() {
                   const marcado = cfgDestIds.includes(u.id)
                   return (
                     <label key={u.id} className="flex cursor-pointer items-center gap-2.5 px-3 py-1.5 hover:bg-muted/30">
-                      <input type="checkbox" checked={marcado} className="h-4 w-4"
-                        onChange={() => setCfgDestIds(l => marcado ? l.filter(x => x !== u.id) : [...l, u.id])} />
+                      <Checkbox checked={marcado}
+                        onCheckedChange={() => setCfgDestIds(l => marcado ? l.filter(x => x !== u.id) : [...l, u.id])} />
                       <span className="flex-1 truncate text-[13px]">{u.name}</span>
                       <span className="shrink-0 text-[11px] text-muted-foreground">{u.email}</span>
                     </label>

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ArrowLeft, Users, ChevronLeft, ChevronRight, Loader2, X, ChevronDown, Calendar, Search,
+  Users, ChevronLeft, ChevronRight, Loader2, X, ChevronDown, Calendar, Search,
   Clock, MapPin, FileText, ExternalLink,
 } from 'lucide-react'
 import {
@@ -13,7 +13,10 @@ import {
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   RichContent,
 } from '@saas/ui'
+import { TEXT, PILL } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { BackButton } from '@/components/ui/back-button'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -310,14 +313,7 @@ export default function AgendaDisponibilidadePage() {
       {/* Header */}
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-        <Button
-          variant="outline" size="icon"
-          onClick={() => router.push('/agenda')}
-          title="Voltar pra Agenda"
-          className="h-9 w-9"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        <BackButton href="/agenda" />
       </>}>
         <h1 className="truncate">Disponibilidade combinada</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -342,7 +338,7 @@ export default function AgendaDisponibilidadePage() {
                 const u = usuarios.find(x => x.id === id)
                 if (!u) return null
                 return (
-                  <span key={id} className="flex items-center gap-1 text-xs bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 px-2.5 py-1 rounded-full">
+                  <span key={id} className={cn('flex items-center gap-1 text-xs px-2.5 py-1 rounded-full', PILL.sky)}>
                     {u.name}
                     <button
                       type="button"
@@ -359,9 +355,10 @@ export default function AgendaDisponibilidadePage() {
           <div ref={searchRef} className="relative max-w-md">
             <button
               type="button"
+              role="combobox"
               onClick={() => setSearchOpen(o => !o)}
               className={cn(
-                'flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-sm',
+                'flex h-9 w-full items-center justify-between rounded-md border border-input px-3 py-1 text-sm',
                 'focus:outline-none focus:ring-1 focus:ring-ring',
               )}
             >
@@ -382,7 +379,7 @@ export default function AgendaDisponibilidadePage() {
                     className="h-7 text-xs"
                   />
                 </div>
-                <div className="max-h-56 overflow-y-auto py-1">
+                <div className="max-h-56 overflow-y-auto nice-scrollbar py-1">
                   {usuariosFiltrados.length === 0 ? (
                     <p className="px-3 py-3 text-xs text-muted-foreground text-center">
                       {usuarios.length === selecionadosIds.length
@@ -400,11 +397,7 @@ export default function AgendaDisponibilidadePage() {
                       }}
                       className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2"
                     >
-                      <span className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0">
-                        <span className="text-[9px] font-bold text-muted-foreground">
-                          {(u.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                        </span>
-                      </span>
+                      <UserAvatar user={{ name: u.name, image: null }} className="h-6 w-6 text-[9px] text-muted-foreground shrink-0" bg="bg-muted" />
                       <span className="truncate">{u.name}</span>
                     </button>
                   ))}
@@ -444,7 +437,7 @@ export default function AgendaDisponibilidadePage() {
             )}
             {/* Grid posicionado: colunas por dia + blocos absolutos por horário.
                 Eventos sobrepostos dividem a largura em lanes (lado a lado). */}
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto nice-scrollbar">
               <div className="min-w-[680px]">
                 {/* Cabeçalho dos dias */}
                 <div className="flex sticky top-0 z-20 bg-muted/30">
@@ -453,8 +446,8 @@ export default function AgendaDisponibilidadePage() {
                     const isHoje = formatDateKey(d) === hojeKey
                     return (
                       <div key={i} className={cn('flex-1 border-b border-r border-border last:border-r-0 px-2 py-2 text-center', isHoje && 'bg-sky-50 dark:bg-sky-950/30')}>
-                        <div className={cn('text-[10px] font-semibold uppercase tracking-wider', isHoje ? 'text-sky-700 dark:text-sky-400' : 'text-muted-foreground')}>{DIAS_LABEL[i]}</div>
-                        <div className={cn('text-sm font-semibold mt-0.5', isHoje && 'text-sky-700 dark:text-sky-400')}>
+                        <div className={cn('text-[10px] font-semibold uppercase tracking-wider', isHoje ? TEXT.sky : 'text-muted-foreground')}>{DIAS_LABEL[i]}</div>
+                        <div className={cn('text-sm font-semibold mt-0.5', isHoje && TEXT.sky)}>
                           {String(d.getDate()).padStart(2, '0')}/{String(d.getMonth() + 1).padStart(2, '0')}
                         </div>
                       </div>
@@ -628,7 +621,7 @@ export default function AgendaDisponibilidadePage() {
                 {viewEvento.link && (
                   <div className="flex items-center gap-2 text-sm">
                     <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <a href={viewEvento.link} target="_blank" rel="noopener noreferrer" className="text-sky-600 hover:underline truncate">
+                    <a href={viewEvento.link} target="_blank" rel="noopener noreferrer" className={cn('hover:underline truncate', TEXT.sky)}>
                       {viewEvento.link}
                     </a>
                   </div>

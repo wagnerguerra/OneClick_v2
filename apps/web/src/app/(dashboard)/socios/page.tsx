@@ -22,7 +22,6 @@ import { exportToExcel } from '@/lib/export-data'
 import { TIPO_SOCIO_LABELS } from '@saas/types'
 import { ImportModal } from './_components/import-modal'
 import { QsaImportModal } from './_components/qsa-import-modal'
-import { BackButton } from '@/components/ui/back-button'
 import type { inferRouterOutputs } from '@trpc/server'
 import type { AppRouter } from '@saas/api/src/trpc/trpc.service'
 
@@ -113,7 +112,6 @@ export default function SociosPage() {
           <Button variant="default" size="sm" onClick={() => setQsaOpen(true)} className="gap-1"><Users className="h-4 w-4" />Importar QSA</Button>
           <Button variant="soft" size="sm" onClick={() => setImportOpen(true)}><FileUp className="h-4 w-4" />Importar</Button>
           <Button variant="outline" size="sm" onClick={handleExport}><Download className="h-4 w-4" />Excel</Button>
-          <BackButton href="/dashboard" label="Voltar" />
       </>}>
         <h1 className="truncate">Sócios</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -129,10 +127,10 @@ export default function SociosPage() {
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="hidden sm:inline">Exibir</span>
-            <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}><SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger><SelectContent>{PAGE_SIZES.map(s => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent></Select>
+            <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}><SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger><SelectContent>{PAGE_SIZES.map(s => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent></Select>
             <span className="hidden sm:inline">registros</span>
           </div>
-          <div className="max-w-xs w-full sm:w-auto"><Input placeholder="Buscar por nome, CPF ou e-mail..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-xs bg-card" /></div>
+          <div className="max-w-xs w-full sm:w-auto"><Input placeholder="Buscar por nome, CPF ou e-mail..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-xs" /></div>
         </div>
 
         <Table className="table-fixed">

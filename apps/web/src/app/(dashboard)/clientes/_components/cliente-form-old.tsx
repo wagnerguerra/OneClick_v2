@@ -52,6 +52,7 @@ import { ProtocolosCard } from './protocolos-card'
 import { DriveSyncCard } from './drive-sync-card'
 import { ContratoChartModal } from './contrato-charts'
 import { masks, limparCnpj } from '@/lib/masks'
+import { TEXT } from '@/lib/color-styles'
 import {
   createClienteSchema,
   SITUACAO_LABELS, SITUACAO_COLORS,
@@ -791,7 +792,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                 <Card className="p-5">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-sm font-semibold">Progresso do cadastro</h4>
-                    <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{progress.percent}%</span>
+                    <span className={cn('text-sm font-semibold', TEXT.emerald)}>{progress.percent}%</span>
                   </div>
                   <div className="w-full h-2 bg-muted rounded-full overflow-hidden mb-2">
                     <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${progress.percent}%` }} />
@@ -3188,8 +3189,8 @@ type CertSidebarItem = {
 /** Cor do prazo, igual à do certificado: vencido grita, perto de vencer avisa. */
 function corDoVencimento(dias: number | null) {
   if (dias === null) return 'text-muted-foreground'
-  if (dias < 0) return 'text-rose-600 dark:text-rose-400 font-semibold'
-  if (dias < 30) return 'text-amber-600 dark:text-amber-400 font-semibold'
+  if (dias < 0) return cn(TEXT.rose, 'font-semibold')
+  if (dias < 30) return cn(TEXT.amber, 'font-semibold')
   return 'text-muted-foreground'
 }
 function diasAte(data: string | null) {
@@ -3374,7 +3375,7 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
                   className="flex items-start gap-2 text-xs group rounded-md border border-border p-2 bg-muted/30 cursor-pointer hover:bg-muted/50 hover:border-fuchsia-300 dark:hover:border-fuchsia-800 transition-colors"
                   title="Ver detalhes do certificado"
                 >
-                  <ShieldCheck className="h-4 w-4 shrink-0 text-fuchsia-600 dark:text-fuchsia-400 mt-0.5" />
+                  <ShieldCheck className={cn('h-4 w-4 shrink-0 mt-0.5', TEXT.fuchsia)} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <span className="truncate font-medium">

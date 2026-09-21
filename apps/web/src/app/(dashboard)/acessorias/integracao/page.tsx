@@ -18,7 +18,7 @@ import {
   History, Search, RefreshCw, AlertCircle, Trash2, Plus, MailWarning, GitCompareArrows, Square, Lock,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Badge, Card, cn,
+  Button, Input, Label, Badge, Card, Checkbox, cn,
   Tabs, TabsTrigger, TabsContent, SlidingTabsList,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
@@ -33,6 +33,7 @@ import { masks } from '@/lib/masks'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { AbasAcessorias } from '../_components/abas-acessorias'
+import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
 
 
 type Tab = 'companies' | 'mapping' | 'deliveries' | 'explorer'
@@ -286,7 +287,7 @@ function CompaniesPanel() {
         </Button>
       </div>
       <div className="p-5 space-y-3">
-        <div className="rounded-lg border border-sky-200 bg-sky-50/60 dark:bg-sky-950/20 dark:border-sky-900/50 px-4 py-3 text-[12px] text-sky-900 dark:text-sky-200">
+        <div className={cn('rounded-lg border px-4 py-3 text-[12px]', BADGE.sky)}>
           <strong>O que faz:</strong> percorre todas as empresas do Acessórias (paginado, 20 por página)
           e tenta casar com clientes do OneClick. Quando casa, grava o <code>idAcessorias</code> e o CNPJ
           do Acessórias se for diferente. <strong>Não cria clientes novos</strong> — clientes ausentes ficam como "ignoradas".
@@ -303,14 +304,14 @@ function CompaniesPanel() {
             <button type="button" className="text-left" onClick={() => setVerGrupo('atualizada')}>
               <Card className="p-3 transition-colors hover:bg-muted/40">
                 <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Atualizadas</div>
-                <div className="text-xl font-semibold tabular-nums text-emerald-600">{lastResult.atualizadas}</div>
+                <div className={cn('text-xl font-semibold tabular-nums', TEXT.emerald)}>{lastResult.atualizadas}</div>
                 <div className="text-[10px] text-muted-foreground">clique para ver a lista</div>
               </Card>
             </button>
             <button type="button" className="text-left" onClick={() => setVerGrupo('ignorada')}>
               <Card className="p-3 transition-colors hover:bg-muted/40">
                 <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Ignoradas</div>
-                <div className="text-xl font-semibold tabular-nums text-amber-600">{lastResult.ignoradas}</div>
+                <div className={cn('text-xl font-semibold tabular-nums', TEXT.amber)}>{lastResult.ignoradas}</div>
                 <div className="text-[10px] text-muted-foreground">clique para vincular à mão</div>
               </Card>
             </button>
@@ -436,7 +437,7 @@ function EmpresasDaSyncModal({ situacao, onClose, onVinculou }: {
             {quando ? ` Sincronizado em ${new Date(quando).toLocaleString('pt-BR')}.` : ''}
           </DialogDescription>
         </DialogHeaderIcon>
-        <DialogBody className="space-y-3 overflow-y-auto">
+        <DialogBody className="space-y-3">
           {situacao === 'ignorada' && (totais.inativa ?? 0) > 0 && (
             <p className="rounded border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
               <strong className="text-foreground">{totais.inativa}</strong> empresa(s) encerrada(s) no Acessórias
@@ -473,7 +474,7 @@ function EmpresasDaSyncModal({ situacao, onClose, onVinculou }: {
 
                     {situacao === 'ignorada' ? (
                       feito ? (
-                        <Badge className="shrink-0 gap-1 bg-emerald-100 text-[10px] text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                        <Badge variant="outline" className={cn('shrink-0 gap-1 text-[10px]', BADGE.emerald)}>
                           <CheckCircle2 className="h-3 w-3" />vinculada
                         </Badge>
                       ) : (
@@ -814,7 +815,7 @@ function MappingPanel() {
             value={filter}
             onChange={e => setFilter(e.target.value)}
             placeholder="Filtrar por nome da obrigação"
-            className="h-9 text-sm pl-9 bg-card"
+            className="h-9 text-sm pl-9"
           />
         </div>
         <span className="text-xs text-muted-foreground tabular-nums shrink-0">
@@ -865,7 +866,7 @@ function MappingPanel() {
                         className={cn(
                           'group inline-flex items-center gap-1.5 px-2 h-6 rounded-full border text-[11px] font-medium transition-colors',
                           v.ativo
-                            ? 'bg-sky-50 border-sky-300 text-sky-800 dark:bg-sky-950/30 dark:border-sky-800 dark:text-sky-200'
+                            ? BADGE.sky
                             : 'bg-muted/30 border-muted-foreground/30 text-muted-foreground line-through',
                         )}
                       >
@@ -893,7 +894,7 @@ function MappingPanel() {
                           <SelectValue placeholder={vinculados.length > 0 ? '+ Adicionar' : 'Selecionar serviço'} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__create__" className="text-emerald-700 font-medium">+ Criar novo Serviço Mensal…</SelectItem>
+                          <SelectItem value="__create__" className={cn('font-medium', TEXT.emerald)}>+ Criar novo Serviço Mensal…</SelectItem>
                           {servicosDisponiveis.length > 0 && (
                             <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold border-t mt-1 pt-2">
                               Serviços existentes
@@ -917,7 +918,7 @@ function MappingPanel() {
                     <button
                       type="button"
                       onClick={() => toggleIgnored(nome, false)}
-                      className="text-[10px] px-2 py-1 rounded-full border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                      className={cn('text-[10px] px-2 py-1 rounded-full border hover:bg-amber-100 dark:hover:bg-amber-900/30', BADGE.amber)}
                       title="Desmarcar 'ignorada' (volta a permitir mapeamento)"
                     >
                       ⊘ Ignorada
@@ -926,13 +927,13 @@ function MappingPanel() {
                     <button
                       type="button"
                       onClick={() => toggleIgnored(nome, true)}
-                      className="text-[10px] px-2 py-1 rounded-full border border-muted-foreground/30 text-muted-foreground hover:border-amber-300 hover:text-amber-700"
+                      className="text-[10px] px-2 py-1 rounded-full border border-muted-foreground/30 text-muted-foreground hover:border-amber-300 dark:hover:border-amber-800 hover:text-amber-700 dark:hover:text-amber-300"
                       title="Marcar como 'explicitamente ignorada'"
                     >
                       sem vínculo
                     </button>
                   ) : (
-                    <Badge variant="outline" className="text-[10px] bg-emerald-50 border-emerald-300 text-emerald-700 gap-1">
+                    <Badge variant="outline" className={cn('text-[10px] gap-1', BADGE.emerald)}>
                       <CheckCircle2 className="h-3 w-3" /> {vinculados.length} vínculo{vinculados.length === 1 ? '' : 's'}
                     </Badge>
                   )}
@@ -961,7 +962,7 @@ function MappingPanel() {
               vínculos extras manualmente depois.
             </DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="flex-1 overflow-y-auto">
+          <DialogBody className="flex-1">
             {sugLoading ? (
               <div className="flex items-center justify-center py-10">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -976,12 +977,10 @@ function MappingPanel() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[40px] text-center">
-                      <input
-                        type="checkbox"
-                        className="h-3.5 w-3.5 cursor-pointer"
+                      <Checkbox
                         checked={suggestions.filter(s => s.suggestedServicoId && !s.alreadyMapped).every(s => sugSelected.has(s.nome))}
-                        onChange={e => {
-                          const ck = e.target.checked
+                        onCheckedChange={v => {
+                          const ck = v === true
                           setSugSelected(prev => {
                             const next = new Set(prev)
                             for (const s of suggestions) {
@@ -1007,27 +1006,25 @@ function MappingPanel() {
                     return (
                       <TableRow key={s.nome} className={cn(s.alreadyMapped && 'opacity-50')}>
                         <TableCell className="text-center">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             disabled={!canCheck}
                             checked={checked}
-                            onChange={e => {
+                            onCheckedChange={v => {
                               setSugSelected(prev => {
                                 const next = new Set(prev)
-                                if (e.target.checked) next.add(s.nome); else next.delete(s.nome)
+                                if (v === true) next.add(s.nome); else next.delete(s.nome)
                                 return next
                               })
                             }}
-                            className="h-3.5 w-3.5 cursor-pointer disabled:cursor-not-allowed"
                           />
                         </TableCell>
                         <TableCell className="text-xs font-mono">{s.nome}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={cn(
                             'text-[10px]',
-                            s.area === 'fiscal' && 'bg-indigo-50 border-indigo-200 text-indigo-700',
-                            s.area === 'contabil' && 'bg-violet-50 border-violet-200 text-violet-700',
-                            s.area === 'trabalhista' && 'bg-lime-50 border-lime-200 text-lime-700',
+                            s.area === 'fiscal' && BADGE.indigo,
+                            s.area === 'contabil' && BADGE.violet,
+                            s.area === 'trabalhista' && BADGE.lime,
                             s.area === 'desconhecida' && 'bg-muted text-muted-foreground',
                           )}>
                             {s.area}{s.regime ? ` · ${s.regime}` : ''}
@@ -1035,7 +1032,7 @@ function MappingPanel() {
                         </TableCell>
                         <TableCell className="text-xs">
                           {s.alreadyMapped ? (
-                            <span className="text-emerald-700 italic">já vinculado</span>
+                            <span className={cn('italic', TEXT.emerald)}>já vinculado</span>
                           ) : s.suggestedServicoNome ? (
                             <div>
                               <div className="font-medium">{s.suggestedServicoNome}</div>
@@ -1048,9 +1045,9 @@ function MappingPanel() {
                         <TableCell className="text-center">
                           <Badge variant="outline" className={cn(
                             'text-[10px]',
-                            s.confidence === 'alta' && 'bg-emerald-50 border-emerald-300 text-emerald-700',
-                            s.confidence === 'media' && 'bg-amber-50 border-amber-300 text-amber-700',
-                            s.confidence === 'baixa' && 'bg-rose-50 border-rose-300 text-rose-700',
+                            s.confidence === 'alta' && BADGE.emerald,
+                            s.confidence === 'media' && BADGE.amber,
+                            s.confidence === 'baixa' && BADGE.rose,
                           )}>
                             {s.confidence}
                           </Badge>
@@ -1068,7 +1065,7 @@ function MappingPanel() {
               {sugSelected.size} selecionada(s) · {suggestions.filter(s => s.suggestedServicoId && !s.alreadyMapped).length} sugestões aplicáveis
             </div>
             <Button variant="outline" onClick={() => setSugOpen(false)} disabled={sugApplying}>Cancelar</Button>
-            <Button onClick={aplicarSugestoes} disabled={sugApplying || sugSelected.size === 0} className="gap-1.5" style={{ backgroundColor: '#0ea5e9' }}>
+            <Button onClick={aplicarSugestoes} disabled={sugApplying || sugSelected.size === 0} className="gap-1.5" style={{ backgroundColor: 'var(--mod-administrativo, #0ea5e9)' }}>
               {sugApplying ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
               Aplicar selecionados
             </Button>
@@ -1123,7 +1120,7 @@ function MappingPanel() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={createSaving}>Cancelar</Button>
-            <Button onClick={salvarCriacao} disabled={createSaving} className="gap-1.5" style={{ backgroundColor: '#0ea5e9' }}>
+            <Button onClick={salvarCriacao} disabled={createSaving} className="gap-1.5" style={{ backgroundColor: 'var(--mod-administrativo, #0ea5e9)' }}>
               {createSaving && <Loader2 className="h-4 w-4 animate-spin" />}
               Criar e vincular
             </Button>
@@ -1201,10 +1198,10 @@ function LimparVinculosModal({ onClose, onDone }: { onClose: () => void; onDone:
             Marque os serviços cujos vínculos devem ser desfeitos. Nada é removido até você confirmar.
           </DialogDescription>
         </DialogHeaderIcon>
-        <DialogBody className="space-y-3 overflow-y-auto">
+        <DialogBody className="space-y-3">
           {totalAuto > 0 && (
-            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-amber-300 bg-amber-50/60 px-3 py-2 text-xs dark:border-amber-900 dark:bg-amber-950/20">
-              <input type="checkbox" checked={apenasAuto} onChange={e => setApenasAuto(e.target.checked)} className="mt-0.5 h-4 w-4" />
+            <label className={cn('flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-xs', SURFACE.amber)}>
+              <Checkbox checked={apenasAuto} onCheckedChange={v => setApenasAuto(v === true)} className="mt-0.5" />
               <span>
                 <strong>Remover só os vínculos automáticos</strong> ({totalAuto} no total).
                 Preserva o que foi vinculado à mão. Vínculos criados antes desta atualização não têm
@@ -1224,20 +1221,19 @@ function LimparVinculosModal({ onClose, onDone }: { onClose: () => void; onDone:
               {resumo.map(r => (
                 <div key={r.servicoId}>
                   <label className="flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-muted/30">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={sel.has(r.servicoId)}
-                      onChange={() => setSel(prev => {
+                      onCheckedChange={() => setSel(prev => {
                         const n = new Set(prev)
                         if (n.has(r.servicoId)) n.delete(r.servicoId); else n.add(r.servicoId)
                         return n
                       })}
-                      className="h-4 w-4 shrink-0"
+                      className="shrink-0"
                     />
                     <span className="min-w-0 flex-1 truncate text-sm font-medium">{r.servicoNome}</span>
                     <Badge variant="outline" className="text-[10px]">{r.total} obrigações</Badge>
                     {r.auto > 0 && (
-                      <Badge className="bg-amber-100 text-[10px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-400">
+                      <Badge variant="outline" className={cn('text-[10px]', BADGE.amber)}>
                         {r.auto} automáticos
                       </Badge>
                     )}
@@ -1332,7 +1328,7 @@ function DeliveriesPanel({ firstDay, lastDay, onSyncIniciada }: {
         </p>
       </div>
       <div className="p-5 space-y-4">
-        <div className="rounded-lg border border-sky-200 bg-sky-50/60 dark:bg-sky-950/20 dark:border-sky-900/50 px-4 py-3 text-[12px] text-sky-900 dark:text-sky-200">
+        <div className={cn('rounded-lg border px-4 py-3 text-[12px]', BADGE.sky)}>
           <strong>Janela do sync</strong>: <code>{dataBR(firstDay)}</code> a <code>{dataBR(lastDay)}</code> (mês corrente). Filtra por <strong>data do prazo da entrega</strong>, não competência. Ajuste se quiser puxar entregas com prazo de outro período.
         </div>
         <div className="grid grid-cols-12 gap-3">
@@ -1355,15 +1351,15 @@ function DeliveriesPanel({ firstDay, lastDay, onSyncIniciada }: {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <Card className="p-3">
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Criadas</div>
-              <div className="text-xl font-semibold tabular-nums text-emerald-600">{lastResult.novas}</div>
+              <div className={cn('text-xl font-semibold tabular-nums', TEXT.emerald)}>{lastResult.novas}</div>
             </Card>
             <Card className="p-3">
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Atualizadas</div>
-              <div className="text-xl font-semibold tabular-nums text-sky-600">{lastResult.atualizadas}</div>
+              <div className={cn('text-xl font-semibold tabular-nums', TEXT.sky)}>{lastResult.atualizadas}</div>
             </Card>
             <Card className="p-3">
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Ignoradas</div>
-              <div className="text-xl font-semibold tabular-nums text-amber-600">{lastResult.ignoradas}</div>
+              <div className={cn('text-xl font-semibold tabular-nums', TEXT.amber)}>{lastResult.ignoradas}</div>
               <div className="text-[10px] text-muted-foreground">sem mapping ou mudança</div>
             </Card>
           </div>
@@ -1491,11 +1487,11 @@ function LogsPanel({ atualizarEm }: { atualizarEm?: number }) {
             const counters = log.tipo === 'companies'
               ? `${log.empresasNovas + log.empresasAtualizadas} resolvidas · ${log.empresasIgnoradas} ignoradas`
               : `${log.deliveriesNovas} novas · ${log.deliveriesAtualizadas} atualizadas · ${log.deliveriesIgnoradas} ignoradas`
-            const statusCls = log.status === 'success' ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-              : log.status === 'partial' ? 'bg-amber-50 border-amber-300 text-amber-700'
-              : log.status === 'error' ? 'bg-rose-50 border-rose-300 text-rose-700'
-              : log.status === 'canceled' ? 'bg-slate-100 border-slate-300 text-slate-600'
-              : 'bg-sky-50 border-sky-300 text-sky-700'
+            const statusCls = log.status === 'success' ? BADGE.emerald
+              : log.status === 'partial' ? BADGE.amber
+              : log.status === 'error' ? BADGE.rose
+              : log.status === 'canceled' ? BADGE.slate
+              : BADGE.sky
             const total = log.progressoTotal ?? 0
             const atual = log.progressoAtual ?? 0
             const pct = total > 0 ? Math.min(100, Math.round((atual / total) * 100)) : 0
@@ -1616,8 +1612,8 @@ function LinhaClienteSync({ linha, de, ate }: {
         )}
         <span className="min-w-0 flex-1 truncate">{linha.cliente}</span>
         <span className="tabular-nums text-muted-foreground">{linha.entregas} entrega(s)</span>
-        {linha.novas > 0 && <Badge variant="outline" className="text-[10px] text-emerald-700">+{linha.novas}</Badge>}
-        {linha.atualizadas > 0 && <Badge variant="outline" className="text-[10px] text-sky-700">~{linha.atualizadas}</Badge>}
+        {linha.novas > 0 && <Badge variant="outline" className={cn('text-[10px]', TEXT.emerald)}>+{linha.novas}</Badge>}
+        {linha.atualizadas > 0 && <Badge variant="outline" className={cn('text-[10px]', TEXT.sky)}>~{linha.atualizadas}</Badge>}
       </button>
 
       {aberto && (
@@ -1641,12 +1637,12 @@ function LinhaClienteSync({ linha, de, ate }: {
                   <span className="tabular-nums text-muted-foreground">prazo {fmt(e.prazo)}</span>
                   {e.status && <Badge variant="outline" className="text-[9px]">{e.status}</Badge>}
                   {e.lida === true && (
-                    <Badge className="bg-emerald-100 text-[9px] text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">abriu</Badge>
+                    <Badge variant="outline" className={cn('text-[9px]', BADGE.emerald)}>abriu</Badge>
                   )}
                   {e.lida === false && (
-                    <Badge className="bg-amber-100 text-[9px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-400">não abriu</Badge>
+                    <Badge variant="outline" className={cn('text-[9px]', BADGE.amber)}>não abriu</Badge>
                   )}
-                  {e.multa && <Badge variant="outline" className="text-[9px] text-rose-700">multa</Badge>}
+                  {e.multa && <Badge variant="outline" className={cn('text-[9px]', TEXT.rose)}>multa</Badge>}
                   {e.dpto && <span className="text-muted-foreground">{e.dpto}</span>}
                 </div>
               ))}
@@ -1711,7 +1707,7 @@ function DetalheSyncModal({ log, onClose }: { log: SyncLog; onClose: () => void 
                   : 'Nenhum cliente teve entregas no período. Clientes sem movimento não são listados.'}
               </p>
             ) : (
-              <div className="max-h-72 divide-y divide-border/60 overflow-y-auto rounded-lg border border-border">
+              <div className="max-h-72 divide-y divide-border/60 overflow-y-auto nice-scrollbar rounded-lg border border-border">
                 {linhas.map((l, i) => (
                   <LinhaClienteSync
                     key={l.cliente + '-' + i}
@@ -1810,7 +1806,7 @@ function ExplorerPanel() {
                 key={p.label}
                 type="button"
                 onClick={() => { setPath(p.path); setQueryRaw(p.query ? new URLSearchParams(p.query).toString() : '') }}
-                className="h-7 px-2.5 rounded-md border border-sky-200 bg-sky-50 hover:bg-sky-100 text-[11px] font-medium text-sky-800 transition-colors"
+                className={cn('h-7 px-2.5 rounded-md border hover:bg-sky-100 text-[11px] font-medium transition-colors', BADGE.sky)}
               >
                 {p.label}
               </button>
@@ -1823,11 +1819,11 @@ function ExplorerPanel() {
           <div className="px-5 py-2 border-t border-border/60 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               {result.ok ? (
-                <Badge variant="outline" className="text-[10px] bg-emerald-50 border-emerald-300 text-emerald-700 gap-1">
+                <Badge variant="outline" className={cn('text-[10px] gap-1', BADGE.emerald)}>
                   <CheckCircle2 className="h-3 w-3" /> {result.status}
                 </Badge>
               ) : (
-                <Badge variant="outline" className="text-[10px] bg-rose-50 border-rose-300 text-rose-700 gap-1">
+                <Badge variant="outline" className={cn('text-[10px] gap-1', BADGE.rose)}>
                   <XCircle className="h-3 w-3" /> {result.status || '—'}
                 </Badge>
               )}
@@ -1838,11 +1834,11 @@ function ExplorerPanel() {
             </Button>
           </div>
           {!result.ok && (
-            <div className="px-5 py-3 bg-rose-50/60 border-t border-rose-200/70 text-[12px] text-rose-900">
+            <div className={cn('px-5 py-3 border-t text-[12px]', BADGE.rose)}>
               <strong>Erro:</strong> {result.error}
             </div>
           )}
-          <pre className="p-4 bg-muted/20 overflow-x-auto text-[11px] leading-relaxed font-mono max-h-[500px] overflow-y-auto border-t">
+          <pre className="p-4 bg-muted/20 overflow-x-auto text-[11px] leading-relaxed font-mono max-h-[500px] overflow-y-auto nice-scrollbar border-t">
 {result.data ? JSON.stringify(result.data, null, 2) : '(sem dados)'}
           </pre>
         </>

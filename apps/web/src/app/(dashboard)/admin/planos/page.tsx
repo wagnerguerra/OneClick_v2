@@ -18,6 +18,7 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { MODULE_GROUPS, MODULE_LABELS } from '@saas/types'
+import { TEXT } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -240,7 +241,7 @@ export default function AdminPlanosPage() {
 
       {/* Lista de planos */}
       <Card>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto nice-scrollbar">
           <table className="w-full table-fixed text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40 text-xs font-semibold uppercase tracking-wider text-muted-foreground [&>th]:whitespace-nowrap">
@@ -263,7 +264,7 @@ export default function AdminPlanosPage() {
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-foreground truncate">{p.name}</span>
-                        {p.highlight && <Badge variant="outline" className="border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400"><Star className="mr-1 h-3 w-3" />Destaque</Badge>}
+                        {p.highlight && <Badge variant="outline" className={cn('border-amber-500/20 bg-amber-500/10', TEXT.amber)}><Star className="mr-1 h-3 w-3" />Destaque</Badge>}
                       </div>
                       {p.description && <div className="text-xs text-muted-foreground truncate">{p.description}</div>}
                     </td>
@@ -349,7 +350,7 @@ export default function AdminPlanosPage() {
                   </div>
                 </div>
 
-                <div className="max-h-[320px] space-y-4 overflow-y-auto rounded-md border border-border bg-muted/20 p-3">
+                <div className="max-h-[320px] space-y-4 overflow-y-auto nice-scrollbar rounded-md border border-border bg-muted/20 p-3">
                   {sellableGroups.map(([group, slugs]) => {
                     const groupSlugs = slugs as readonly string[]
                     const allOn = groupSlugs.every((s) => form.modules.includes(s))

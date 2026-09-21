@@ -22,6 +22,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
+import { TEXT, SURFACE } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { resolveAssetUrl } from '@/lib/api-url'
@@ -628,7 +629,7 @@ export default function HelpdeskPage() {
           <span>HelpDesk</span>
           {verArquivados && (<>
             <span className="text-muted-foreground/50">›</span>
-            <span className="text-amber-600 dark:text-amber-400">Arquivados</span>
+            <span className={TEXT.amber}>Arquivados</span>
           </>)}
         </p>
       </PageHeaderBar>
@@ -748,7 +749,7 @@ export default function HelpdeskPage() {
 
       {/* Banner do modo arquivado — sinaliza que a visão é distinta */}
       {verArquivados && (
-        <div className="flex items-center justify-between gap-3 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 shrink-0">
+        <div className={cn('flex items-center justify-between gap-3 rounded-md border px-3 py-2 shrink-0', SURFACE.amber)}>
           <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 text-xs">
             <Archive className="h-3.5 w-3.5" />
             <span>Você está vendo <strong>tickets arquivados</strong>. Eles não aparecem no kanban normal — use o botão de desarquivar pra trazer um ticket de volta.</span>
@@ -1114,7 +1115,7 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
             {HELPDESK_PRIORIDADE_LABELS[ticket.prioridade]}
           </span>
           {prazoAtrasado && (
-            <span className="ml-auto inline-flex items-center gap-0.5 text-[9px] text-rose-600 font-semibold">
+            <span className={cn('ml-auto inline-flex items-center gap-0.5 text-[9px] font-semibold', TEXT.rose)}>
               <AlertTriangle className="h-2.5 w-2.5" /> SLA
             </span>
           )}
@@ -1365,7 +1366,7 @@ function TicketRow({ ticket, onUnarchive, onArchive, currentUserId, onCancelar, 
           {podeCancelar && (
             <DropdownMenuItem
               onClick={() => onCancelar!(ticket)}
-              className="gap-2 text-rose-600 focus:text-rose-600"
+              className={cn('gap-2 focus:text-rose-600 dark:focus:text-rose-400', TEXT.rose)}
             >
               <XCircle className="h-3.5 w-3.5" />
               Cancelar
@@ -1411,7 +1412,7 @@ function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false, cu
         'flex items-center gap-2 px-4 py-2.5 border-b border-border',
         arquivado ? 'bg-amber-50 dark:bg-amber-950/30' : 'bg-muted/30',
       )}>
-        <Icon className={cn('h-4 w-4', arquivado ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground')} />
+        <Icon className={cn('h-4 w-4', arquivado ? TEXT.amber : 'text-muted-foreground')} />
         <span className={cn('text-sm font-semibold', arquivado && 'text-amber-800 dark:text-amber-300')}>{titulo}</span>
         <span className={cn(
           'inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full text-[10px] font-semibold',
