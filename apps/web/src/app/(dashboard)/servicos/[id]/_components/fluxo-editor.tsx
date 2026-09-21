@@ -343,10 +343,10 @@ function ExecucoesSection({ execucoes }: { execucoes: NonNullable<FluxoNode['exe
       : ((first[0] ?? '') + (last[0] ?? '')).toUpperCase()
   }
   return (
-    <div className="px-3 py-2.5 border-t bg-emerald-50/30 dark:bg-emerald-950/15">
+    <div className="px-3 py-2.5 border-t bg-primary/5">
       <div className="flex items-center gap-1.5 mb-1.5">
-        <PlayCircle className="h-3 w-3 text-emerald-700 dark:text-emerald-400" />
-        <span className="text-[10px] font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wider">
+        <PlayCircle className="h-3 w-3 text-primary" />
+        <span className="text-[10px] font-bold text-primary uppercase tracking-wider">
           Em execução — {execucoes.total}
         </span>
       </div>
@@ -478,7 +478,7 @@ function NodeEdgeButtons({ data, hidden }: { data: ServicoNodeData; hidden?: boo
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); data.onAddPred!(n.id) }}
-            className="h-5 w-5 inline-flex items-center justify-center rounded-full bg-emerald-600 text-white shadow-md hover:bg-emerald-700 hover:scale-110 transition-all"
+            className="h-5 w-5 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary-hover hover:scale-110 transition-all"
             title="Adicionar predecessor (origem)"
             aria-label="Adicionar bloco antes"
           >
@@ -506,7 +506,7 @@ function NodeEdgeButtons({ data, hidden }: { data: ServicoNodeData; hidden?: boo
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); data.onAddSucc!(n.id) }}
-            className="h-5 w-5 inline-flex items-center justify-center rounded-full bg-emerald-600 text-white shadow-md hover:bg-emerald-700 hover:scale-110 transition-all"
+            className="h-5 w-5 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary-hover hover:scale-110 transition-all"
             title="Adicionar sucessor (destino)"
             aria-label="Adicionar bloco depois"
           >
@@ -2028,15 +2028,15 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                 <div className="bg-white dark:bg-gray-900 border rounded-lg shadow-lg w-[300px] flex flex-col overflow-hidden" style={{ maxHeight: 'min(640px, calc(100vh - 12rem))' }}>
                   {/* Faixa de contexto — visível quando o usuário clicou no +/− de um bloco */}
                   {addingFromNode && (
-                    <div className="px-3 py-2 border-b bg-emerald-50 dark:bg-emerald-950/30 text-[11px] flex items-start gap-2">
-                      <div className="shrink-0 inline-flex items-center justify-center h-5 w-5 rounded-full bg-emerald-600 text-white mt-0.5">
+                    <div className="px-3 py-2 border-b bg-primary/5 text-[11px] flex items-start gap-2">
+                      <div className="shrink-0 inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary text-primary-foreground mt-0.5">
                         <Plus className="h-3 w-3" strokeWidth={3} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-emerald-800 dark:text-emerald-200">
+                        <div className="font-semibold text-primary">
                           Adicionar {addingFromNode.direction === 'succ' ? 'sucessor de' : 'predecessor de'}
                         </div>
-                        <div className="truncate text-emerald-700 dark:text-emerald-300" title={addingFromNode.nome}>{addingFromNode.nome}</div>
+                        <div className="truncate text-primary/80" title={addingFromNode.nome}>{addingFromNode.nome}</div>
                         <div className="text-[10px] text-muted-foreground mt-0.5">Clique num serviço abaixo pra conectar direto.</div>
                       </div>
                       <button
@@ -2076,7 +2076,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                               setPerguntaMulti(true)
                             }
                           }}
-                          className="flex flex-col items-center gap-0.5 p-1.5 rounded border bg-white dark:bg-gray-800 hover:border-emerald-400 transition-colors"
+                          className="flex flex-col items-center gap-0.5 p-1.5 rounded border bg-white dark:bg-gray-800 hover:border-primary transition-colors"
                           title={b.tipo}
                         >
                           {/* Mini-shape preview */}
@@ -2167,7 +2167,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                           // Pre-seleciona o serviço-raiz como origem padrão
                           setOrigemSelect(rootId)
                         }}
-                        className="w-full text-left px-2 py-1.5 rounded hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors group"
+                        className="w-full text-left px-2 py-1.5 rounded hover:bg-primary/5 transition-colors group"
                       >
                         <div className="flex items-center gap-1.5">
                           <div
@@ -2175,7 +2175,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                             style={{ background: s.tipo === 'DECISAO' ? '#a855f7' : '#10b981' }}
                           />
                           <span className="text-[12px] font-medium truncate flex-1">{s.nome}</span>
-                          <Plus className={cn('h-3 w-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 shrink-0', TEXT.emerald)} />
+                          <Plus className="h-3 w-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 shrink-0 text-primary" />
                         </div>
                         {s.area?.name && (
                           <div className="text-[10px] text-muted-foreground ml-3 truncate">{s.area.name}</div>
@@ -2487,7 +2487,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3 className="text-sm font-semibold flex items-center gap-1.5">
-                  <Plus className={cn('h-4 w-4', TEXT.emerald)} />
+                  <Plus className="h-4 w-4 text-primary" />
                   Novo bloco — {novoBlocoTipo === 'ATIVIDADE' ? 'Atividade'
                     : novoBlocoTipo === 'DECISAO' ? 'Decisão'
                     : novoBlocoTipo === 'DOCUMENTACAO' ? 'Documentação'
@@ -2651,7 +2651,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3 className="text-sm font-semibold flex items-center gap-1.5">
-                  <Plus className={cn('h-4 w-4', TEXT.emerald)} />
+                  <Plus className="h-4 w-4 text-primary" />
                   Adicionar serviço ao fluxo
                 </h3>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -3036,10 +3036,10 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
-            {isRoot && <Badge className="text-[9px] h-4 bg-emerald-600 hover:bg-emerald-700 text-white">RAIZ</Badge>}
-            <span className="text-sm font-semibold truncate text-emerald-900">{node.nome}</span>
+            {isRoot && <Badge className="text-[9px] h-4 bg-primary hover:bg-primary-hover text-primary-foreground">RAIZ</Badge>}
+            <span className="text-sm font-semibold truncate text-primary">{node.nome}</span>
           </div>
-          <div className="flex items-center gap-2 text-[10px] text-emerald-700 mt-0.5">
+          <div className="flex items-center gap-2 text-[10px] text-primary mt-0.5">
             {node.area?.name && <span>{node.area.name}</span>}
             {(() => {
               const sla = formatNodeSla(node.slaMinutos, node.slaHoras)
@@ -3052,7 +3052,7 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
         <button
           type="button"
           onClick={onClose}
-          className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-emerald-100 text-emerald-700 shrink-0"
+          className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-primary/10 text-primary shrink-0"
           title="Fechar"
         >
           <X className="h-3 w-3" />
@@ -3242,7 +3242,7 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
             {node.etapas.map((et, ei) => (
               <div key={et.id} className="px-3 py-2">
                 <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-200 bg-emerald-100 dark:bg-emerald-900/40 rounded px-1.5 py-0.5">
+                  <span className="text-[9px] font-bold text-primary bg-primary/10 rounded px-1.5 py-0.5">
                     {ei + 1}
                   </span>
                   <span className="text-[11px] font-semibold text-foreground truncate">{et.nome}</span>

@@ -456,7 +456,7 @@ export function EmpresaForm({ mode, empresaId, title, defaultValues, resumo }: E
                           onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
                         />
                       ) : (
-                        <Building2 className="h-10 w-10 text-emerald-500" />
+                        <Building2 className="h-10 w-10 text-primary" />
                       )}
                     </div>
                     <div className="min-w-0">
@@ -864,7 +864,7 @@ export function EmpresaForm({ mode, empresaId, title, defaultValues, resumo }: E
                 title="Usuários da empresa"
                 description="A equipe do escritório e as pessoas dos clientes que acessam o portal. A equipe se cadastra no módulo Usuários; as pessoas dos clientes, no cadastro de cada cliente."
                 actions={
-                  <Link href="/usuarios" className={cn('text-[13px] font-medium hover:underline', TEXT.emerald)}>
+                  <Link href="/usuarios" className="text-[13px] font-medium hover:underline text-primary">
                     Abrir Usuários
                   </Link>
                 }

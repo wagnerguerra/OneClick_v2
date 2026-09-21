@@ -1163,7 +1163,7 @@ export default function ServicoDetailPage() {
                         </span>
                       )}
                       {disponivelOrcamento && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-emerald-200 ring-1 ring-white/25 backdrop-blur">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur">
                           Em orçamentos
                         </span>
                       )}

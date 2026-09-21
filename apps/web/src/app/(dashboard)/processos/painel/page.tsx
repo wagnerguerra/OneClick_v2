@@ -834,7 +834,7 @@ function ChecklistDialog({ execucaoId, onClose, onChanged }: {
   return (
     <Dialog open={true} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-[720px] max-h-[85vh]">
-        <DialogHeaderIcon icon={Workflow} color="sky">
+        <DialogHeaderIcon icon={Workflow}>
           <DialogTitle>{loading ? 'Carregando...' : data?.servico.nome ?? 'Execução'}</DialogTitle>
           <DialogDescription>
             {data ? `${data.cliente.razaoSocial} · ${fechados}/${total} passos · ${pct}%` : ''}

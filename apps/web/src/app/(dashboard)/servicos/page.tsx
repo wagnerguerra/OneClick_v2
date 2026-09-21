@@ -1647,18 +1647,18 @@ export default function ServicosPage() {
                 <SlidingTabsList
                   activeValue={modalTab}
                   indicatorInsetY={4}
-                  className="!shadow-sm !border !border-emerald-200 dark:!border-emerald-900/50 gap-1 !p-1 !bg-emerald-50/70 dark:!bg-emerald-950/20 !rounded-full w-fit items-center"
-                  indicatorClassName="!bg-white dark:!bg-emerald-900/60 !shadow-md"
+                  className="!shadow-sm !border !border-primary/20 gap-1 !p-1 !bg-primary/5 !rounded-full w-fit items-center"
+                  indicatorClassName="!bg-white dark:!bg-primary/20 !shadow-md"
                 >
                   <TabsTrigger
                     value="geral"
-                    className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/60 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-800 dark:data-[state=active]:!text-emerald-200 gap-1.5 leading-none"
+                    className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/60 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary gap-1.5 leading-none"
                   >
                     <FileText className="h-3.5 w-3.5" /> Geral
                   </TabsTrigger>
                   <TabsTrigger
                     value="etapas"
-                    className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/60 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-800 dark:data-[state=active]:!text-emerald-200 gap-1.5 leading-none"
+                    className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/60 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary gap-1.5 leading-none"
                   >
                     <ListChecks className="h-3.5 w-3.5" /> Etapas
                     {formEtapas.length > 0 && (
@@ -1667,7 +1667,7 @@ export default function ServicosPage() {
                   </TabsTrigger>
                   <TabsTrigger
                     value="texto"
-                    className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/60 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-800 dark:data-[state=active]:!text-emerald-200 gap-1.5 leading-none"
+                    className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/60 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary gap-1.5 leading-none"
                   >
                     <Type className="h-3.5 w-3.5" /> Texto padrão
                   </TabsTrigger>

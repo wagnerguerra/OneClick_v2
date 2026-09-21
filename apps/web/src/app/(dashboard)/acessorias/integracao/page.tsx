@@ -954,7 +954,7 @@ function MappingPanel() {
 
       <Dialog open={sugOpen} onOpenChange={(o) => !o && setSugOpen(false)}>
         <DialogContent className="sm:max-w-[900px] max-h-[85vh] flex flex-col">
-          <DialogHeaderIcon icon={Zap} color="sky">
+          <DialogHeaderIcon icon={Zap}>
             <DialogTitle>Sugestões automáticas de mapeamento</DialogTitle>
             <DialogDescription>
               Classificamos cada obrigação por área (fiscal/contábil/trabalhista) e regime (quando o
