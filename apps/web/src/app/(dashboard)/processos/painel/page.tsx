@@ -523,7 +523,7 @@ function TimelineView({ execucoes, apenasAtrasados, onCardClick }: { execucoes: 
                     key={i}
                     className={cn(
                       'shrink-0 text-center text-[9px] py-1 border-r leading-tight',
-                      eHoje && 'bg-sky-100 dark:bg-sky-950/30 font-bold',
+                      eHoje && 'bg-primary/10 font-bold',
                       dom && !eHoje && 'bg-slate-50 dark:bg-slate-900/30 text-muted-foreground',
                     )}
                     style={{ width: COL_WIDTH }}
@@ -610,7 +610,7 @@ function TimelineView({ execucoes, apenasAtrasados, onCardClick }: { execucoes: 
           <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ backgroundColor: STATUS_COR.pausado }} /> Pausado</span>
           <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ backgroundColor: STATUS_COR.concluido }} /> Concluído</span>
           <span className="inline-flex items-center gap-1 ml-auto">
-            <span className="w-0.5 h-3 bg-sky-500/70" /> Hoje
+            <span className="w-0.5 h-3 bg-primary/70" /> Hoje
           </span>
         </div>
       </CardContent>

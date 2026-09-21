@@ -1729,7 +1729,7 @@ export default function AgendaPage() {
                       'border-b border-r last:border-r-0 p-1 transition-all cursor-pointer overflow-hidden flex flex-col min-h-0',
                       isCurrentMonth && !isPast && 'hover:bg-muted/20',
                       isCurrentMonth && isPast && 'bg-muted/30 dark:bg-muted/10',
-                      today && 'bg-sky-50/50 dark:bg-sky-950/20',
+                      today && 'bg-primary/5',
                       dropTargetDay === dateStr && 'bg-sky-100 dark:bg-sky-900/30 ring-2 ring-inset ring-sky-400',
                     )}
                     // Listras diagonais discretas pra dias dos meses adjacentes — sinal
@@ -1767,7 +1767,7 @@ export default function AgendaPage() {
                       <div className="flex h-full flex-col items-center gap-1 pt-0.5">
                         <span className={cn(
                           'flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-medium',
-                          today && 'bg-sky-500 text-white',
+                          today && 'bg-primary text-primary-foreground',
                           isPast && !today && isCurrentMonth && 'text-muted-foreground/60',
                           !isCurrentMonth && 'text-muted-foreground/50',
                         )}>{dayNum}</span>
@@ -1791,7 +1791,7 @@ export default function AgendaPage() {
                       <>
                         <div className={cn(
                           'text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full shrink-0',
-                          today && 'bg-sky-500 text-white',
+                          today && 'bg-primary text-primary-foreground',
                           isPast && !today && isCurrentMonth && 'text-muted-foreground/60',
                           !isCurrentMonth && 'text-muted-foreground/50',
                         )}>
