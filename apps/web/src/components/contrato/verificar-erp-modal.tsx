@@ -101,7 +101,7 @@ export function VerificarErpModal({ clienteId, open, onOpenChange, subtitulo, on
               </div>
               <div className="col-span-4">
                 <Button type="button" size="sm" onClick={consultar} disabled={loading || selecionados.length === 0}
-                  className="w-full" style={{ backgroundColor: 'var(--mod-cadastros, #10b981)', color: '#fff' }}>
+                  className="w-full">
                   {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SearchIcon className="h-3.5 w-3.5" />}
                   {loading ? 'Consultando...' : 'Consultar'}
                 </Button>

@@ -256,8 +256,7 @@ export function ParametrosContratoModal({ clienteId, open, onOpenChange, subtitu
             </Button>
             <div className="flex gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>Fechar</Button>
-              <Button type="button" size="sm" onClick={salvar} disabled={saving || loading}
-                style={{ backgroundColor: 'var(--mod-cadastros, #10b981)', color: '#fff' }}>
+              <Button type="button" size="sm" onClick={salvar} disabled={saving || loading}>
                 {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                 {saving ? 'Salvando...' : 'Salvar'}
               </Button>

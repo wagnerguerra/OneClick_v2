@@ -40,11 +40,11 @@ function fileToBase64(file: File): Promise<string> {
 const MODELO_LABEL = 'Claude Sonnet 4.6'
 const MODELO_ID = 'claude-sonnet-4-6'
 
-// Cor do módulo Comercial (design system). Sólidos usam a var direta; tints
-// suaves via color-mix. Nunca hardcodear cor de accent fora do token.
-const MOD = 'var(--mod-comercial, #fb7185)'
-const MOD_SOFT = 'color-mix(in srgb, var(--mod-comercial, #fb7185) 14%, transparent)'
-const MOD_BORDER = 'color-mix(in srgb, var(--mod-comercial, #fb7185) 35%, transparent)'
+// Accent da seção = cor primária do sistema (design system). Sólidos usam a var
+// direta; tints suaves via color-mix. Nunca hardcodear cor de accent fora do token.
+const MOD = 'var(--color-primary)'
+const MOD_SOFT = 'color-mix(in srgb, var(--color-primary) 14%, transparent)'
+const MOD_BORDER = 'color-mix(in srgb, var(--color-primary) 35%, transparent)'
 
 const STATUS_LABEL: Record<string, string> = {
   preparando: 'Lendo o orçamento…',

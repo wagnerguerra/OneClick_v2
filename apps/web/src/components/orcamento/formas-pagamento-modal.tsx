@@ -8,8 +8,6 @@ import { DollarSign, Plus, Trash2, Pencil, Check, X } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
-
 /**
  * Gerência das formas de pagamento (opções do campo "Forma de Pagamento" dos
  * orçamentos). Auto-contido: carrega a lista ao abrir, adiciona, EDITA e remove
@@ -82,7 +80,7 @@ export function FormasPagamentoModal({ open, onOpenChange }: { open: boolean; on
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void add() } }}
               className="h-9 text-sm flex-1"
             />
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={() => void add()} disabled={!nova.trim()}>
+            <Button size="sm" onClick={() => void add()} disabled={!nova.trim()}>
               <Plus className="h-4 w-4" />
             </Button>
           </div>
