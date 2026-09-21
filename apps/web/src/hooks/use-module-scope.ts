@@ -103,7 +103,12 @@ export function useModuleScope() {
     Array.from(body.classList)
       .filter(c => c.startsWith('mod-'))
       .forEach(c => body.classList.remove(c))
-    // Aplica a nova
-    if (slug) body.classList.add(`mod-${slug}`)
+    // RETINT DESATIVADO (frente cor-de-módulo→primária): NÃO reaplicamos o
+    // `.mod-<slug>` no body, então as regras `.mod-<slug> …` do globals.css
+    // ficam inertes. A cor de módulo agora só existe na sidebar/widgets (que
+    // leem `var(--mod-<slug>)` direto). Remoção definitiva do retint + deste
+    // scope fica pro fim (ver _INFRA-GLOBAL-FIM.md). Reativar = descomentar:
+    // if (slug) body.classList.add(`mod-${slug}`)
+    void slug
   }, [pathname])
 }
