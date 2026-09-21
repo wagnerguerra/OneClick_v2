@@ -245,22 +245,21 @@ interface Orcamento {
  */
 function partesResponsavelExecucao(r: {
   areaNome: string | null
-  setores: string[]
   responsavelNome: string | null
   claimFirst: boolean
   totalCandidatos: number
 }): Array<{ texto: string; tom: ColorName }> {
   const partes: Array<{ texto: string; tom: ColorName }> = []
 
-  // Unidade organizacional em sky; a pessoa/pendência em outro tom. Três
-  // crachás no mesmo pastel viram um bloco indistinguível — a cor aqui separa
-  // "onde" de "quem", que é a distinção que o campo existe para mostrar.
+  // A unidade organizacional em sky; a pessoa/pendência em outro tom. A cor
+  // aqui separa "onde" de "quem", que é a distinção que o campo mostra.
+  //
+  // O SETOR não vira crachá: na prática ele repete a área (o cadastro costuma
+  // ter os dois iguais), e dois crachás dizendo o mesmo só ocupam espaço. Ele
+  // continua aparecendo onde ainda explica algo — no texto do responsável, ao
+  // dizer que a execução espera o primeiro do setor que assumir.
   if (r.areaNome) partes.push({ texto: `Área: ${r.areaNome}`, tom: 'sky' })
-  for (const setor of r.setores) partes.push({ texto: `Setor: ${setor}`, tom: 'indigo' })
 
-  // Um crachá por setor, e não um com a lista: separado, cada setor é
-  // legível e quebra linha sozinho; junto, vira uma tira longa que o
-  // flex-wrap não consegue dividir.
   if (r.responsavelNome) {
     partes.push({ texto: `Responsável: ${r.responsavelNome}`, tom: 'emerald' })
   } else if (r.claimFirst) {
