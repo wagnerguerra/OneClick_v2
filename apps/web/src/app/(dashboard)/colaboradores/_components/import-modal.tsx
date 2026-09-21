@@ -117,7 +117,7 @@ export function ImportModal({ open, onClose, onSuccess }: ImportModalProps) {
   return (
     <Dialog open={open} onOpenChange={o => !o && handleClose()}>
       <DialogContent className="max-w-3xl">
-        <DialogHeaderIcon icon={FileUp} color="emerald">
+        <DialogHeaderIcon icon={FileUp}>
           <DialogTitle>Importar Colaboradores</DialogTitle>
           <DialogDescription>
             {step === 'upload' && 'Faça upload de um arquivo Excel ou CSV.'}
@@ -140,7 +140,7 @@ export function ImportModal({ open, onClose, onSuccess }: ImportModalProps) {
               <div
                 className={cn(
                   'flex flex-col items-center justify-center gap-3 rounded-[2px] border-2 border-dashed px-6 py-10 transition-colors cursor-pointer',
-                  dragOver ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20' : 'border-border bg-muted/10 hover:border-emerald-400/50',
+                  dragOver ? 'border-primary bg-primary/10' : 'border-border bg-muted/10 hover:border-primary/50',
                 )}
                 onDragOver={e => { e.preventDefault(); setDragOver(true) }}
                 onDragLeave={() => setDragOver(false)}

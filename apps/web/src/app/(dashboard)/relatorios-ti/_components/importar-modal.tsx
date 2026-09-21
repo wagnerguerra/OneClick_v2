@@ -214,7 +214,7 @@ export function ImportarModal({ pessoas, onClose, onPronto }: {
   return (
     <Dialog open onOpenChange={o => { if (!o && !importando) onClose() }}>
       <DialogContent className="max-w-4xl">
-        <DialogHeaderIcon icon={FolderUp} color="emerald">
+        <DialogHeaderIcon icon={FolderUp}>
           <DialogTitle>Importar relatórios</DialogTitle>
           <DialogDescription>
             Escolha a pasta com o histórico — data, autor e título saem do próprio caminho.

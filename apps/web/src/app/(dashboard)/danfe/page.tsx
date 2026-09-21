@@ -294,7 +294,7 @@ function UploadModal({ open, onClose, onSuccess }: { open: boolean; onClose: () 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { reset(); onClose() } }}>
       <DialogContent className="max-w-lg">
-        <DialogHeaderIcon icon={Upload} color="sky">
+        <DialogHeaderIcon icon={Upload}>
           <DialogTitle>Upload de XML de NFe</DialogTitle>
           <DialogDescription>Envie 1 XML, vários, ou um .zip com XMLs.</DialogDescription>
         </DialogHeaderIcon>
@@ -305,7 +305,7 @@ function UploadModal({ open, onClose, onSuccess }: { open: boolean; onClose: () 
             onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files) }}
             className={cn(
               'border-2 border-dashed rounded-md p-6 text-center transition-colors',
-              dragOver ? 'border-sky-400 bg-sky-50/50 dark:bg-sky-950/30' : 'border-border',
+              dragOver ? 'border-primary bg-primary/10' : 'border-border',
             )}
           >
             <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />

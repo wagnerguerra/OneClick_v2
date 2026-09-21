@@ -145,7 +145,7 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o && fase === 'processando') return; onOpenChange(o) }}>
       <DialogContent className="sm:max-w-[540px]">
-        <DialogHeaderIcon icon={Download} color="sky">
+        <DialogHeaderIcon icon={Download}>
           <DialogTitle>Buscar notas sob demanda</DialogTitle>
           <DialogDescription>Consulta {fonte === 'nfe' ? 'a SEFAZ (NFe Distribuição)' : 'o Portal Nacional (NFS-e)'} de um cliente.</DialogDescription>
         </DialogHeaderIcon>

@@ -85,7 +85,7 @@ export function ImportModal({ open, onClose, onSuccess }: ImportModalProps) {
   return (
     <Dialog open={open} onOpenChange={o => !o && handleClose()}>
       <DialogContent className="max-w-3xl">
-        <DialogHeaderIcon icon={FileUp} color="emerald">
+        <DialogHeaderIcon icon={FileUp}>
           <DialogTitle>Importar Sócios</DialogTitle>
           <DialogDescription>
             {step === 'upload' && 'Faça upload de um arquivo Excel ou CSV.'}
@@ -100,7 +100,7 @@ export function ImportModal({ open, onClose, onSuccess }: ImportModalProps) {
                 <Button type="button" variant="soft" size="sm" onClick={() => generateTemplate(SOCIO_COLUMNS, 'template-socios')}><Download className="h-4 w-4" />Template Excel</Button>
                 <Button type="button" variant="soft" size="sm" onClick={() => generateTemplateCsv(SOCIO_COLUMNS, 'template-socios')}><Download className="h-4 w-4" />Template CSV</Button>
               </div>
-              <div className={cn('flex flex-col items-center justify-center gap-3 rounded-[2px] border-2 border-dashed px-6 py-10 transition-colors cursor-pointer', dragOver ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20' : 'border-border bg-muted/10 hover:border-emerald-400/50')} onDragOver={e => { e.preventDefault(); setDragOver(true) }} onDragLeave={() => setDragOver(false)} onDrop={handleDrop} onClick={() => { const i = document.createElement('input'); i.type = 'file'; i.accept = '.xlsx,.xls,.csv'; i.onchange = e => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleFile(f) }; i.click() }}>
+              <div className={cn('flex flex-col items-center justify-center gap-3 rounded-[2px] border-2 border-dashed px-6 py-10 transition-colors cursor-pointer', dragOver ? 'border-primary bg-primary/10' : 'border-border bg-muted/10 hover:border-primary/50')} onDragOver={e => { e.preventDefault(); setDragOver(true) }} onDragLeave={() => setDragOver(false)} onDrop={handleDrop} onClick={() => { const i = document.createElement('input'); i.type = 'file'; i.accept = '.xlsx,.xls,.csv'; i.onchange = e => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleFile(f) }; i.click() }}>
                 <FileUp className="h-10 w-10 text-muted-foreground/40" /><div className="text-center"><p className="text-sm font-medium">Clique ou arraste o arquivo aqui</p><p className="text-xs text-muted-foreground mt-1">.xlsx, .xls, .csv</p></div>
               </div>
             </div>

@@ -134,7 +134,7 @@ export function QsaImportModal({ open, onClose, onSuccess, prefilledCnpj, prefil
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent className="max-w-2xl">
-        <DialogHeaderIcon icon={Users} color="emerald">
+        <DialogHeaderIcon icon={Users}>
           <DialogTitle>Importar QSA do CNPJ</DialogTitle>
           <DialogDescription>
             {step === 'input' && 'Informe o CNPJ para consultar o quadro de sócios na Receita Federal.'}
@@ -234,7 +234,7 @@ export function QsaImportModal({ open, onClose, onSuccess, prefilledCnpj, prefil
                     {resultado.qsa.map((s, i) => {
                       const tipo = QUALIFICACAO_MAP[s.codigoQualificacao] || 'SOCIO_QUOTISTA'
                       return (
-                        <TableRow key={i} className="bg-emerald-50/30 dark:bg-emerald-950/10">
+                        <TableRow key={i} className="bg-primary/5">
                           <TableCell className="text-sm font-medium">{s.nome}</TableCell>
                           <TableCell className="text-xs font-mono text-muted-foreground">{s.cpfCnpj}</TableCell>
                           <TableCell className="hidden sm:table-cell">
