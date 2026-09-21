@@ -473,9 +473,21 @@ export class OrcamentoService {
       select: { id: true, enviadaEm: true, respondidaEm: true, nota: true, respondenteNome: true },
     }).catch(() => null)
 
+    // Quem responde pela EXECUÇÃO de cada serviço do orçamento. Vem do mesmo
+    // `resolverCandidatos` que o createExecucao usa, para a tela não anunciar
+    // um responsável diferente do que o sistema vai atribuir. Falha aqui não
+    // pode derrubar o detalhe — o campo simplesmente não aparece.
+    const responsaveis = await this.servicoService
+      .resolverResponsaveisOrcamento(id)
+      .catch((e: Error) => {
+        console.warn('[Orcamento] Responsáveis da execução não resolvidos:', e.message)
+        return [] as Awaited<ReturnType<typeof this.servicoService.resolverResponsaveisOrcamento>>
+      })
+
     return {
       ...orc, arquivos, mensagens, eventos, cliente, empresa, solicitante, responsavel,
       areas,
+      responsaveis,
       oportunidade: oportunidade ? { id: oportunidade.id, numero: oportunidade.numero, titulo: oportunidade.titulo, etapa: oportunidade.etapa?.nome ?? null } : null,
       podeVincularCrm,
       pesquisa,

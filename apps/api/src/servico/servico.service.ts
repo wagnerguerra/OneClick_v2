@@ -2715,6 +2715,96 @@ export class ServicoService {
     return users.map(u => u.email).filter((e): e is string => !!e)
   }
 
+  /**
+   * Quem responde pela execução de cada serviço de um orçamento — para EXIBIR.
+   *
+   * Reusa `resolverCandidatos`, a MESMA função que o `createExecucao` usa para
+   * decidir de verdade. A tela não pode anunciar um nome e o sistema atribuir
+   * outro; uma segunda regra aqui seria exatamente esse risco.
+   *
+   * Por isso devolve `claimFirst` junto: quando há fonte de SETOR, a execução
+   * nasce sem dono — cai no painel do setor e o primeiro a marcar um passo
+   * reivindica. Dizer "Responsável: Fulano" nesse caso seria inventar uma
+   * certeza que o motor não tem. O nome da pessoa só vem preenchido na
+   * condição exata em que o createExecucao grava `responsavelId` direto: um
+   * único candidato e nenhuma fonte coletiva.
+   */
+  async resolverResponsaveisOrcamento(orcamentoId: string): Promise<Array<{
+    servicoId: string
+    servicoNome: string
+    areaNome: string | null
+    setores: string[]
+    responsavelNome: string | null
+    claimFirst: boolean
+    totalCandidatos: number
+  }>> {
+    const orc = await prisma.orcamento.findUnique({
+      where: { id: orcamentoId },
+      select: { clienteId: true, servicoId: true },
+    }).catch(() => null)
+    if (!orc) return []
+
+    const itens = await prisma.orcamentoItem.findMany({
+      where: { orcamentoId, tipo: 'SERVICO', catalogoId: { not: null } },
+      select: { catalogoId: true },
+    }).catch(() => [] as Array<{ catalogoId: string | null }>)
+
+    // O serviço-template do próprio orçamento também vira execução na aprovação
+    // — a mesma união que derivarAreasDosOrcamentosEmLote faz.
+    const templateIds = [...new Set(
+      [...itens.map(i => i.catalogoId), orc.servicoId].filter((x): x is string => !!x),
+    )]
+    if (templateIds.length === 0) return []
+
+    const servicos = await prisma.servico.findMany({
+      where: { id: { in: templateIds } },
+      include: { area: { select: { name: true } } },
+    }).catch(() => [])
+    if (servicos.length === 0) return []
+
+    // `atribuicaoAreas` guarda IDS de área; a tela precisa dos nomes.
+    const setorIds = [...new Set(servicos.flatMap(s => s.atribuicaoAreas))]
+    const setores = setorIds.length > 0
+      ? await prisma.area.findMany({ where: { id: { in: setorIds } }, select: { id: true, name: true } }).catch(() => [])
+      : []
+    const nomePorSetor = new Map(setores.map(a => [a.id, a.name]))
+
+    const saida = []
+    for (const svc of servicos) {
+      let candidatos: string[] = []
+      let claimFirst = false
+      try {
+        const r = await this.resolverCandidatos(svc, { clienteId: orc.clienteId ?? '', orcamentoId })
+        candidatos = r.candidatos
+        claimFirst = r.claimFirst
+      } catch {
+        // Template problemático não pode derrubar o detalhe do orçamento.
+      }
+
+      let responsavelNome: string | null = null
+      if (!claimFirst && candidatos.length === 1) {
+        const u = await prisma.user.findUnique({
+          where: { id: candidatos[0]! },
+          select: { name: true },
+        }).catch(() => null)
+        responsavelNome = u?.name ?? null
+      }
+
+      saida.push({
+        servicoId: svc.id,
+        servicoNome: svc.nome,
+        areaNome: svc.area?.name ?? null,
+        setores: svc.atribuicaoAreas
+          .map(id => nomePorSetor.get(id))
+          .filter((n): n is string => !!n),
+        responsavelNome,
+        claimFirst,
+        totalCandidatos: candidatos.length,
+      })
+    }
+    return saida
+  }
+
   private passoMinutos(p: { slaMinutos: number | null; slaHoras: number | null }): number {
     return p.slaMinutos ?? (p.slaHoras != null ? p.slaHoras * 60 : 0)
   }

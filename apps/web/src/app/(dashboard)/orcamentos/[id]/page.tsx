@@ -160,6 +160,24 @@ interface Orcamento {
   /** Áreas derivadas dos serviços dos itens (#HLP0266) — somente leitura, o
    *  backend calcula. Não confundir com o campo texto `area`, legado. */
   areas?: Array<{ id: string; nome: string }>
+  /**
+   * Quem responde pela EXECUÇÃO de cada serviço — somente leitura. Resolvido
+   * no backend pelo mesmo `resolverCandidatos` que o createExecucao usa, para
+   * a tela não anunciar um responsável diferente do que será atribuído.
+   *
+   * Não confundir com `responsavel` acima, que é o responsável COMERCIAL pelo
+   * orçamento (um usuário escolhido à mão).
+   */
+  responsaveis?: Array<{
+    servicoId: string
+    servicoNome: string
+    areaNome: string | null
+    setores: string[]
+    responsavelNome: string | null
+    /** Fonte coletiva (setor): a execução nasce sem dono, o primeiro assume. */
+    claimFirst: boolean
+    totalCandidatos: number
+  }>
   solicitanteId: string | null
   responsavelId: string | null
   solicitante: { id: string; name: string; image?: string | null } | string | null
@@ -213,6 +231,37 @@ interface Orcamento {
 
 /** Formata o documento de faturamento (CPF 11 / CNPJ 14 dígitos). */
 /** "31/08/2026 às 11:10" — o mesmo formato que a pagina ja usa nas datas. */
+/**
+ * Texto do campo "Responsável pela execução" — uma linha por serviço.
+ *
+ * Formato pedido: "Área: Fiscal, Responsável: Fulano".
+ *
+ * O nome da pessoa só vem preenchido quando o motor de atribuição resolve para
+ * UMA pessoa e nenhuma fonte é coletiva — a mesma condição em que o
+ * `createExecucao` grava `responsavelId` direto. Havendo SETOR, a execução
+ * nasce sem dono (cai no painel do setor e o primeiro a marcar um passo
+ * reivindica), e escrever um nome ali afirmaria uma certeza que o sistema não
+ * tem. Por isso o campo diz o que de fato acontece, em vez de escolher alguém.
+ */
+function textoResponsavelExecucao(r: {
+  areaNome: string | null
+  setores: string[]
+  responsavelNome: string | null
+  claimFirst: boolean
+  totalCandidatos: number
+}): string {
+  const partes: string[] = []
+  if (r.areaNome) partes.push(`Área: ${r.areaNome}`)
+  if (r.setores.length > 0) {
+    partes.push(`${r.setores.length > 1 ? 'Setores' : 'Setor'}: ${r.setores.join(', ')}`)
+  }
+  if (r.responsavelNome) partes.push(`Responsável: ${r.responsavelNome}`)
+  else if (r.claimFirst) partes.push('Responsável: a definir — o primeiro do setor que assumir')
+  else if (r.totalCandidatos > 1) partes.push(`Responsável: a definir — ${r.totalCandidatos} candidatos`)
+  else partes.push('Responsável: não definido no serviço')
+  return partes.join(', ')
+}
+
 function fmtDataHora(iso: string): string {
   return new Date(iso).toLocaleString('pt-BR', {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -2156,6 +2205,46 @@ export default function OrcamentoDetailPage() {
                             placeholder="Digite e pressione Enter, vírgula ou espaço para adicionar"
                             chipClassName={BADGE.rose}
                           />
+                        </div>
+
+                        {/* Linha 4: Responsável pela execução (somente leitura).
+                            Vem do backend já resolvido — a configuração mora no
+                            serviço-template, não aqui, e editar por este campo
+                            daria a impressão de que dá para sobrescrever a regra.
+                            `data-editable` não entra de propósito: o campo é
+                            informativo mesmo com o orçamento congelado. */}
+                        <div className="col-span-12 space-y-1.5">
+                          <Label className="text-[13px] font-semibold text-foreground">Responsável pela execução</Label>
+                          {(orc.responsaveis?.length ?? 0) === 0 ? (
+                            <Input
+                              readOnly
+                              value="Sem serviços no orçamento — nada a executar ainda."
+                              className="h-9 text-sm bg-muted/40 text-muted-foreground"
+                            />
+                          ) : (
+                            <div className="space-y-1.5">
+                              {orc.responsaveis!.map(r => (
+                                <div key={r.servicoId} className="space-y-1">
+                                  {/* O nome do serviço só aparece quando há mais de
+                                      um: com um serviço só (a esmagadora maioria
+                                      dos orçamentos) ele seria repetição do que a
+                                      aba Itens já mostra. */}
+                                  {orc.responsaveis!.length > 1 && (
+                                    <span className="text-[11px] text-muted-foreground">{r.servicoNome}</span>
+                                  )}
+                                  <Input
+                                    readOnly
+                                    value={textoResponsavelExecucao(r)}
+                                    title={textoResponsavelExecucao(r)}
+                                    className="h-9 text-sm bg-muted/40"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <p className="text-[11px] text-muted-foreground">
+                            Definido na configuração do serviço. Para alterar, edite o serviço no catálogo.
+                          </p>
                         </div>
 
                       </div>
