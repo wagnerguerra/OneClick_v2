@@ -362,6 +362,17 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ id: z.string(), responsavelId: z.string().nullable() }))
       .mutation(({ input, ctx }) => orcamentoService.trocarResponsavel(input.id, input.responsavelId, ctx.userId)),
 
+    /**
+     * Define quem executa UM serviço do orçamento (por item).
+     *
+     * Dois portões: esta sub-permissão, e — quando a execução já existe — o
+     * critério do módulo Serviços, aplicado por dentro do
+     * `setResponsavelExecucao` ANTES de gravar no item.
+     */
+    setResponsavelItem: writeSubProcedure(MODULE, 'change_responsavel', 'Alterar responsavel pelos servicos')
+      .input(z.object({ itemId: z.string(), responsavelId: z.string().nullable() }))
+      .mutation(({ input, ctx }) => orcamentoService.setResponsavelItem(input.itemId, input.responsavelId, ctx.userId)),
+
     trocarSolicitante: writeSubProcedure(MODULE, 'change_solicitante', 'Alterar solicitante do orcamento')
       .input(z.object({ id: z.string(), solicitanteId: z.string().nullable() }))
       .mutation(({ input, ctx }) => orcamentoService.trocarSolicitante(input.id, input.solicitanteId, ctx.userId)),

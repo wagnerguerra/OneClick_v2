@@ -229,7 +229,7 @@ export class ServicoService {
    */
   async listResponsaveisAtribuiveis(
     callerId: string,
-    opts?: { execId?: string },
+    opts?: { execId?: string; servicoId?: string },
   ): Promise<{
     canAssign: boolean
     candidates: Array<{ id: string; name: string; image: string | null; areaName: string | null }>
@@ -241,16 +241,28 @@ export class ServicoService {
     const isLeader = ledAreaIds.length > 0
     if (!isPriv && !isLeader) return { canAssign: false, candidates: [], areaFiltro: null }
 
-    // Resolve área da execução, se solicitado
+    // Resolve a área que filtra os candidatos. Duas entradas para a MESMA
+    // pergunta ("qual a área do serviço?"):
+    //  - `execId`: a execução já existe (painel de Meus Serviços).
+    //  - `servicoId`: ainda não existe — é o caso do orçamento antes da
+    //    aprovação, onde se escolhe o responsável de um serviço que só virará
+    //    execução depois. Sem esta entrada, a tela do orçamento não teria como
+    //    pedir a lista certa.
     let areaFiltro: { id: string; name: string } | null = null
-    if (opts?.execId) {
+    let servicoIdAlvo: string | null = opts?.servicoId ?? null
+    if (!servicoIdAlvo && opts?.execId) {
       const exec = await prisma.servicoExecucao.findUnique({
         where: { id: opts.execId },
-        select: {
-          servico: { select: { area: { select: { id: true, name: true, isActive: true } } } },
-        },
+        select: { servicoId: true },
       })
-      const area = exec?.servico?.area
+      servicoIdAlvo = exec?.servicoId ?? null
+    }
+    if (servicoIdAlvo) {
+      const svc = await prisma.servico.findUnique({
+        where: { id: servicoIdAlvo },
+        select: { area: { select: { id: true, name: true, isActive: true } } },
+      })
+      const area = svc?.area
       if (area?.isActive) areaFiltro = { id: area.id, name: area.name }
     }
 
@@ -2730,11 +2742,15 @@ export class ServicoService {
    * único candidato e nenhuma fonte coletiva.
    */
   async resolverResponsaveisOrcamento(orcamentoId: string): Promise<Array<{
+    /** Item do orçamento. Nulo = o serviço-template do próprio orçamento, que
+     *  não tem item e por isso não aceita escolha manual. */
+    itemId: string | null
     servicoId: string
     servicoNome: string
     areaNome: string | null
-    setores: string[]
     responsavelNome: string | null
+    /** true = o nome veio de escolha MANUAL neste orçamento, não do template. */
+    responsavelManual: boolean
     claimFirst: boolean
     totalCandidatos: number
   }>> {
@@ -2744,33 +2760,66 @@ export class ServicoService {
     }).catch(() => null)
     if (!orc) return []
 
+    // Itera os ITENS, e não os templates deduplicados: a escolha manual é por
+    // item, e o mesmo serviço pode aparecer duas vezes no orçamento (2 dos 278
+    // pares em produção). Deduplicar colapsaria as duas linhas numa só e o
+    // clique não saberia qual item alterar.
     const itens = await prisma.orcamentoItem.findMany({
       where: { orcamentoId, tipo: 'SERVICO', catalogoId: { not: null } },
-      select: { catalogoId: true },
-    }).catch(() => [] as Array<{ catalogoId: string | null }>)
+      select: { id: true, catalogoId: true, responsavelId: true },
+      orderBy: { createdAt: 'asc' },
+    }).catch(() => [] as Array<{ id: string; catalogoId: string | null; responsavelId: string | null }>)
 
-    // O serviço-template do próprio orçamento também vira execução na aprovação
-    // — a mesma união que derivarAreasDosOrcamentosEmLote faz.
-    const templateIds = [...new Set(
-      [...itens.map(i => i.catalogoId), orc.servicoId].filter((x): x is string => !!x),
-    )]
-    if (templateIds.length === 0) return []
+    // O serviço-template do próprio orçamento também vira execução na
+    // aprovação, mas não tem item — entra sem `itemId`, e a tela não oferece
+    // edição nele por não haver onde gravar.
+    const refs: Array<{ itemId: string | null; servicoId: string; responsavelId: string | null }> = [
+      ...itens
+        .filter((i): i is typeof i & { catalogoId: string } => !!i.catalogoId)
+        .map(i => ({ itemId: i.id, servicoId: i.catalogoId, responsavelId: i.responsavelId })),
+      ...(orc.servicoId && !itens.some(i => i.catalogoId === orc.servicoId)
+        ? [{ itemId: null, servicoId: orc.servicoId, responsavelId: null }]
+        : []),
+    ]
+    if (refs.length === 0) return []
 
     const servicos = await prisma.servico.findMany({
-      where: { id: { in: templateIds } },
+      where: { id: { in: [...new Set(refs.map(r => r.servicoId))] } },
       include: { area: { select: { name: true } } },
     }).catch(() => [])
-    if (servicos.length === 0) return []
+    const servicoPorId = new Map(servicos.map(s => [s.id, s]))
 
-    // `atribuicaoAreas` guarda IDS de área; a tela precisa dos nomes.
-    const setorIds = [...new Set(servicos.flatMap(s => s.atribuicaoAreas))]
-    const setores = setorIds.length > 0
-      ? await prisma.area.findMany({ where: { id: { in: setorIds } }, select: { id: true, name: true } }).catch(() => [])
+    // Nomes dos escolhidos à mão, numa consulta só.
+    const manuaisIds = [...new Set(refs.map(r => r.responsavelId).filter((x): x is string => !!x))]
+    const manuais = manuaisIds.length > 0
+      ? await prisma.user.findMany({ where: { id: { in: manuaisIds } }, select: { id: true, name: true } }).catch(() => [])
       : []
-    const nomePorSetor = new Map(setores.map(a => [a.id, a.name]))
+    const nomePorUser = new Map(manuais.map(u => [u.id, u.name]))
 
     const saida = []
-    for (const svc of servicos) {
+    for (const ref of refs) {
+      const svc = servicoPorId.get(ref.servicoId)
+      // Id que não casa com Servico é ServicoCatalogo (taxa/despesa): não executa.
+      if (!svc) continue
+
+      // A escolha manual VENCE o template — ela foi feita por alguém com
+      // permissão justamente porque o template não resolvia uma pessoa. É a
+      // mesma precedência que o createExecucao aplica ao receber o
+      // `responsavelId` do item.
+      if (ref.responsavelId) {
+        saida.push({
+          itemId: ref.itemId,
+          servicoId: svc.id,
+          servicoNome: svc.nome,
+          areaNome: svc.area?.name ?? null,
+          responsavelNome: nomePorUser.get(ref.responsavelId) ?? null,
+          responsavelManual: true,
+          claimFirst: false,
+          totalCandidatos: 1,
+        })
+        continue
+      }
+
       let candidatos: string[] = []
       let claimFirst = false
       try {
@@ -2791,13 +2840,12 @@ export class ServicoService {
       }
 
       saida.push({
+        itemId: ref.itemId,
         servicoId: svc.id,
         servicoNome: svc.nome,
         areaNome: svc.area?.name ?? null,
-        setores: svc.atribuicaoAreas
-          .map(id => nomePorSetor.get(id))
-          .filter((n): n is string => !!n),
         responsavelNome,
+        responsavelManual: false,
         claimFirst,
         totalCandidatos: candidatos.length,
       })

@@ -9,6 +9,7 @@ import {
   Package, History, Type, ThumbsUp, ThumbsDown, CheckCircle2,
   Paperclip, Image as ImageIcon, Archive, MessageSquare, Files, Shield, Lock, Globe,
   Sparkles, Star, Link2, Hash, Building2, Calendar, Layers, Bell, Undo2,
+  ChevronDown,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, CardHeader, CardContent, Label, Checkbox,
@@ -169,11 +170,15 @@ interface Orcamento {
    * orçamento (um usuário escolhido à mão).
    */
   responsaveis?: Array<{
+    /** Item do orçamento. Nulo = serviço-template do próprio orçamento, que
+     *  não tem item — e por isso não aceita escolha manual. */
+    itemId: string | null
     servicoId: string
     servicoNome: string
     areaNome: string | null
-    setores: string[]
     responsavelNome: string | null
+    /** true = escolhido à mão NESTE orçamento; false = veio do template. */
+    responsavelManual: boolean
     /** Fonte coletiva (setor): a execução nasce sem dono, o primeiro assume. */
     claimFirst: boolean
     totalCandidatos: number
@@ -246,10 +251,14 @@ interface Orcamento {
 function partesResponsavelExecucao(r: {
   areaNome: string | null
   responsavelNome: string | null
+  responsavelManual: boolean
   claimFirst: boolean
   totalCandidatos: number
-}): Array<{ texto: string; tom: ColorName }> {
-  const partes: Array<{ texto: string; tom: ColorName }> = []
+}): Array<{ papel: 'area' | 'responsavel'; texto: string; tom: ColorName }> {
+  // O `papel` existe para o JSX saber QUAL crachá é o alvo do clique. Descobrir
+  // isso pela posição no array quebraria no dia em que alguém acrescentar uma
+  // parte nova.
+  const partes: Array<{ papel: 'area' | 'responsavel'; texto: string; tom: ColorName }> = []
 
   // A unidade organizacional em sky; a pessoa/pendência em outro tom. A cor
   // aqui separa "onde" de "quem", que é a distinção que o campo mostra.
@@ -258,16 +267,26 @@ function partesResponsavelExecucao(r: {
   // ter os dois iguais), e dois crachás dizendo o mesmo só ocupam espaço. Ele
   // continua aparecendo onde ainda explica algo — no texto do responsável, ao
   // dizer que a execução espera o primeiro do setor que assumir.
-  if (r.areaNome) partes.push({ texto: `Área: ${r.areaNome}`, tom: 'sky' })
+  if (r.areaNome) partes.push({ papel: 'area', texto: `Área: ${r.areaNome}`, tom: 'sky' })
 
   if (r.responsavelNome) {
-    partes.push({ texto: `Responsável: ${r.responsavelNome}`, tom: 'emerald' })
+    // Distingue a origem porque a AÇÃO de corrigir é diferente: o herdado do
+    // template se muda no catálogo do serviço e vale para todos os orçamentos;
+    // o definido aqui se muda nesta tela e vale só para este. Exibir os dois
+    // iguais levaria alguém a editar o catálogo inteiro por um caso pontual.
+    partes.push({
+      papel: 'responsavel',
+      texto: r.responsavelManual
+        ? `Responsável (definido aqui): ${r.responsavelNome}`
+        : `Responsável: ${r.responsavelNome}`,
+      tom: 'emerald',
+    })
   } else if (r.claimFirst) {
-    partes.push({ texto: 'Responsável: a definir — o primeiro do setor que assumir', tom: 'amber' })
+    partes.push({ papel: 'responsavel', texto: 'Responsável: a definir — o primeiro do setor que assumir', tom: 'amber' })
   } else if (r.totalCandidatos > 1) {
-    partes.push({ texto: `Responsável: a definir — ${r.totalCandidatos} candidatos`, tom: 'amber' })
+    partes.push({ papel: 'responsavel', texto: `Responsável: a definir — ${r.totalCandidatos} candidatos`, tom: 'amber' })
   } else {
-    partes.push({ texto: 'Responsável: não definido no serviço', tom: 'slate' })
+    partes.push({ papel: 'responsavel', texto: 'Responsável: não definido no serviço', tom: 'slate' })
   }
   return partes
 }
@@ -501,6 +520,11 @@ export default function OrcamentoDetailPage() {
   const canRetroagir = isMaster || subPerms.acao_retroagir_aprovacao === true
   const canDuplicar = isMaster || subPerms.acao_duplicar === true
   const canChangeSolicitante = isMaster || subPerms.change_solicitante === true
+  // Definir quem executa um serviço do orçamento. Este é só o PRIMEIRO portão:
+  // o backend aplica também o critério do módulo Serviços (gestor ou líder da
+  // área), e o `canAssign` que o servidor devolve é o que decide se o menu
+  // chega a listar alguém — assim a tela não oferece o que o servidor recusa.
+  const canChangeResponsavel = isMaster || subPerms.change_responsavel === true
   // Quem tem isto pode vender o serviço como um todo, sem dizer qual subserviço.
   const canItemSemSubservico = isMaster || subPerms.item_sem_subservico === true
   const canEnviarPesquisa = isMaster || subPerms.enviar_pesquisa === true
@@ -562,6 +586,54 @@ export default function OrcamentoDetailPage() {
 
   // Trocar responsavel/solicitante
   const [usuarios, setUsuarios] = useState<Array<{ id: string; name: string; email: string | null; image: string | null }>>([])
+
+  // ── Responsável pela EXECUÇÃO, por item ──
+  // Candidatos em cache POR SERVIÇO: a lista é a mesma para itens do mesmo
+  // serviço e só é buscada quando o menu abre. Carregar no load da página
+  // seriam N consultas para um menu que talvez ninguém abra.
+  const [respCandidatos, setRespCandidatos] = useState<Record<string, {
+    canAssign: boolean
+    candidates: Array<{ id: string; name: string; areaName: string | null }>
+    areaFiltro: { id: string; name: string } | null
+  }>>({})
+  const [respCarregando, setRespCarregando] = useState<string | null>(null)
+  const [respSalvando, setRespSalvando] = useState<string | null>(null)
+
+  async function carregarCandidatosResp(servicoId: string) {
+    if (respCandidatos[servicoId] || respCarregando === servicoId) return
+    setRespCarregando(servicoId)
+    try {
+      const r = await trpc.servico.listResponsaveisAtribuiveis.query({ servicoId })
+      setRespCandidatos(prev => ({
+        ...prev,
+        [servicoId]: {
+          canAssign: r.canAssign,
+          candidates: r.candidates.map(c => ({ id: c.id, name: c.name, areaName: c.areaName })),
+          areaFiltro: r.areaFiltro,
+        },
+      }))
+    } catch (e) {
+      alerts.error('Erro ao carregar responsáveis', (e as Error).message)
+    } finally {
+      setRespCarregando(null)
+    }
+  }
+
+  async function definirResponsavelItem(itemId: string, responsavelId: string | null) {
+    setRespSalvando(itemId)
+    try {
+      await trpc.orcamento.setResponsavelItem.mutate({ itemId, responsavelId })
+      alerts.success(responsavelId ? 'Responsável definido' : 'Responsável removido')
+      await fetchOrc(true)
+    } catch (e) {
+      // O backend aplica DOIS portões (a sub-permissão daqui e o critério do
+      // módulo Serviços). A mensagem dele diz qual recusou — repassar inteira
+      // é mais útil que um "sem permissão" genérico.
+      alerts.error('Não foi possível definir', (e as Error).message)
+    } finally {
+      setRespSalvando(null)
+    }
+  }
 
   // Historico de orcamentos do cliente
   const [historicoCliente, setHistoricoCliente] = useState<Array<{
@@ -2217,50 +2289,127 @@ export default function OrcamentoDetailPage() {
                           />
                         </div>
 
-                        {/* Linha 4: Responsável pela execução (somente leitura).
-                            Vem do backend já resolvido — a configuração mora no
-                            serviço-template, não aqui, e editar por este campo
-                            daria a impressão de que dá para sobrescrever a regra.
-                            `data-editable` não entra de propósito: o campo é
-                            informativo mesmo com o orçamento congelado. */}
-                        <div className="col-span-12 space-y-1.5">
+                        {/* Linha 4: Responsável pela execução.
+                            Vem do backend já resolvido pelo MESMO motor que
+                            atribui de verdade. O crachá do responsável vira
+                            clicável só quando NÃO há ninguém definido pelo
+                            template (ou quando a escolha foi feita aqui): o
+                            caso em que o template resolveu uma pessoa continua
+                            somente-leitura, porque sobrescrevê-lo aqui
+                            contrariaria em silêncio a configuração do catálogo.
+                            `data-editable` entra para o campo seguir utilizável
+                            com o orçamento congelado — definir quem executa é
+                            justamente o que se faz depois de aprovar. */}
+                        <div className="col-span-12 space-y-1.5" data-editable>
                           <Label className="text-[13px] font-semibold text-foreground">Responsável pela execução</Label>
                           {/* Crachás no mesmo desenho do EmailChipsInput (contêiner
-                              e chip), com duas diferenças de propósito: sem o `×`,
-                              que prometeria remover algo que só se edita no
-                              catálogo; e fundo `bg-muted/40` no lugar do branco de
-                              campo editável, porque aqui não se digita. */}
+                              e chip), sem o `×` — remover não é a ação daqui. */}
                           {(orc.responsaveis?.length ?? 0) === 0 ? (
                             <div className="flex min-h-[36px] flex-wrap items-center gap-1.5 rounded-md border border-input bg-muted/40 px-2 py-1 text-sm text-muted-foreground">
                               Sem serviços no orçamento — nada a executar ainda.
                             </div>
                           ) : (
                             <div className="space-y-1.5">
-                              {orc.responsaveis!.map(r => (
-                                <div key={r.servicoId} className="space-y-1">
-                                  {/* O nome do serviço só aparece quando há mais de
-                                      um: com um serviço só (a esmagadora maioria
-                                      dos orçamentos) ele seria repetição do que a
-                                      aba Itens já mostra. */}
-                                  {orc.responsaveis!.length > 1 && (
-                                    <span className="text-[11px] text-muted-foreground">{r.servicoNome}</span>
-                                  )}
-                                  <div className="flex min-h-[36px] flex-wrap items-center gap-1.5 rounded-md border border-input bg-muted/40 px-2 py-1 text-sm">
-                                    {partesResponsavelExecucao(r).map(p => (
-                                      <span
-                                        key={p.texto}
-                                        className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border', BADGE[p.tom])}
-                                      >
-                                        {p.texto}
-                                      </span>
-                                    ))}
+                              {orc.responsaveis!.map(r => {
+                                // Editável: há item onde gravar, o usuário tem a
+                                // sub-permissão, e ninguém foi resolvido pelo
+                                // template (ou a escolha atual foi manual, que
+                                // precisa ser corrigível).
+                                const podeEditar = !!r.itemId && canChangeResponsavel
+                                  && (!r.responsavelNome || r.responsavelManual)
+                                const listaResp = respCandidatos[r.servicoId]
+                                return (
+                                  <div key={r.itemId ?? r.servicoId} className="space-y-1">
+                                    {/* O nome do serviço só aparece quando há mais
+                                        de um: com um serviço só (a maioria dos
+                                        orçamentos) seria repetição da aba Itens. */}
+                                    {orc.responsaveis!.length > 1 && (
+                                      <span className="text-[11px] text-muted-foreground">{r.servicoNome}</span>
+                                    )}
+                                    <div className="flex min-h-[36px] flex-wrap items-center gap-1.5 rounded-md border border-input bg-muted/40 px-2 py-1 text-sm">
+                                      {partesResponsavelExecucao(r).map(p => {
+                                        const chipClass = cn(
+                                          'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border',
+                                          BADGE[p.tom],
+                                        )
+                                        if (p.papel !== 'responsavel' || !podeEditar) {
+                                          return <span key={p.texto} className={chipClass}>{p.texto}</span>
+                                        }
+                                        return (
+                                          <DropdownMenu
+                                            key={p.texto}
+                                            onOpenChange={(aberto) => { if (aberto) void carregarCandidatosResp(r.servicoId) }}
+                                          >
+                                            <DropdownMenuTrigger asChild>
+                                              <button
+                                                type="button"
+                                                className={cn(chipClass, 'gap-1 hover:brightness-95 transition')}
+                                                title="Definir quem executa este serviço"
+                                                disabled={respSalvando === r.itemId}
+                                              >
+                                                {respSalvando === r.itemId
+                                                  ? <Loader2 className="h-3 w-3 animate-spin" />
+                                                  : null}
+                                                {p.texto}
+                                                <ChevronDown className="h-3 w-3" />
+                                              </button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
+                                              {respCarregando === r.servicoId ? (
+                                                <div className="px-3 py-2 text-xs text-muted-foreground">Carregando…</div>
+                                              ) : !listaResp ? (
+                                                <div className="px-3 py-2 text-xs text-muted-foreground">Carregando…</div>
+                                              ) : !listaResp.canAssign ? (
+                                                // Motivo explícito: lista vazia sem
+                                                // explicação pareceria defeito.
+                                                <div className="max-w-[240px] px-3 py-2 text-xs text-muted-foreground">
+                                                  Você não pode atribuir responsáveis. É preciso ser gestor
+                                                  ou líder da área do serviço.
+                                                </div>
+                                              ) : listaResp.candidates.length === 0 ? (
+                                                <div className="max-w-[240px] px-3 py-2 text-xs text-muted-foreground">
+                                                  {listaResp.areaFiltro
+                                                    ? `Nenhum usuário ativo na área ${listaResp.areaFiltro.name}.`
+                                                    : 'Nenhum usuário disponível para atribuição.'}
+                                                </div>
+                                              ) : (
+                                                <>
+                                                  {listaResp.areaFiltro && (
+                                                    <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                                                      {listaResp.areaFiltro.name}
+                                                    </div>
+                                                  )}
+                                                  {listaResp.candidates.map(c => (
+                                                    <DropdownMenuItem
+                                                      key={c.id}
+                                                      onClick={() => void definirResponsavelItem(r.itemId!, c.id)}
+                                                    >
+                                                      {c.name}
+                                                    </DropdownMenuItem>
+                                                  ))}
+                                                  {r.responsavelManual && (
+                                                    <DropdownMenuItem
+                                                      className="text-muted-foreground"
+                                                      onClick={() => void definirResponsavelItem(r.itemId!, null)}
+                                                    >
+                                                      Remover — voltar ao padrão do serviço
+                                                    </DropdownMenuItem>
+                                                  )}
+                                                </>
+                                              )}
+                                            </DropdownMenuContent>
+                                          </DropdownMenu>
+                                        )
+                                      })}
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
+                                )
+                              })}
                             </div>
                           )}
                           <p className="text-[11px] text-muted-foreground">
-                            Definido na configuração do serviço. Para alterar, edite o serviço no catálogo.
+                            O padrão vem da configuração do serviço. Quando ele não define uma pessoa,
+                            quem tem permissão pode escolher aqui — vale só para este orçamento.
                           </p>
                         </div>
 

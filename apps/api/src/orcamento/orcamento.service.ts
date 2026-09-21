@@ -2101,7 +2101,11 @@ export class OrcamentoService {
       // Itens de tipo SERVICO com catalogoId preenchido
       const itensServico = await prisma.orcamentoItem.findMany({
         where: { orcamentoId, tipo: 'SERVICO', catalogoId: { not: null } },
-        select: { id: true, catalogoId: true, descricao: true },
+        // `responsavelId` PRECISA estar aqui: o createExecucao abaixo o
+        // consome. Campo fora do select chega `undefined`, e a escolha manual
+        // de responsável seria ignorada em silêncio — a execução nasceria sem
+        // dono como se ninguém tivesse escolhido.
+        select: { id: true, catalogoId: true, descricao: true, responsavelId: true },
       })
       if (itensServico.length === 0) return vazio
 
@@ -2155,17 +2159,25 @@ export class OrcamentoService {
           // Cria a execução-raiz vinculada ao processo. Sem predecessor —
           // por isso é ela quem finaliza o orçamento ao concluir (decisão 1a).
           //
-          // IMPORTANTE: NÃO passar `responsavelId` aqui. A regra de atribuição
-          // é configurada na pill "Identificação" do serviço-template
-          // (Colaboradores / Setores / Resp. do orçamento / Resp. cliente na
-          // área). `createExecucao` chama `resolverCandidatos` que consulta
-          // essas 4 fontes. Forçar o responsável do orçamento aqui ignora a
-          // configuração — mesmo bug que vimos no fluxo Constituição de Empresa.
+          // IMPORTANTE: continua PROIBIDO passar `orc.responsavelId` aqui. A
+          // regra de atribuição é configurada na pill "Identificação" do
+          // serviço-template (Colaboradores / Setores / Resp. do orçamento /
+          // Resp. cliente na área); `createExecucao` chama `resolverCandidatos`
+          // e consulta essas fontes. Forçar o responsável COMERCIAL do
+          // orçamento sobre todo serviço ignora a configuração — foi o bug do
+          // fluxo Constituição de Empresa.
+          //
+          // O que passa aqui é OUTRA coisa: `item.responsavelId`, a escolha
+          // MANUAL feita naquele item por quem tem permissão, justamente
+          // quando o template não resolve uma pessoa (setor = claim-first). Só
+          // existe se alguém decidiu explicitamente; nulo mantém o
+          // comportamento anterior, com o template decidindo.
           await this.servicoService.createExecucao(
             {
               servicoId: item.catalogoId,
               clienteId: orc.clienteId,
               orcamentoId: orc.id,
+              ...(item.responsavelId ? { responsavelId: item.responsavelId } : {}),
             },
             orc.empresaId || undefined,
             { processoId: proc.id, statusInicial: 'EM_ANDAMENTO' },
@@ -2767,6 +2779,71 @@ export class OrcamentoService {
     await this.addEvento(id, userId, 'edicao', null, null, `Solicitante alterado para "${nomeNovo}"`)
     this.emitEvent('dados-gerais', { orcamentoId: id, empresaId: updated.empresaId, actorUserId: userId })
     return updated
+  }
+
+  /**
+   * Define quem executa UM serviço deste orçamento (item), à mão.
+   *
+   * Complementa o padrão do template em vez de substituí-lo: quando a
+   * atribuição do serviço é por SETOR — claim-first, o caso de 150 dos 242
+   * orçamentos com serviço — a execução nasceria sem dono e ninguém sabe de
+   * quem é o trabalho até alguém assumir. Aqui a pessoa é escolhida, e a
+   * escolha vale para a execução FUTURA (o `createExecucao` da aprovação
+   * recebe `item.responsavelId`) e para a que JÁ existe.
+   *
+   * Dois portões, nesta ordem de propósito:
+   *  1. `change_responsavel`, aplicado no router (writeSubProcedure).
+   *  2. o critério do módulo Serviços, aplicado por dentro do
+   *     `setResponsavelExecucao` — que roda ANTES de gravar no item. Se ele
+   *     recusar, nada é gravado: item com um responsável que a execução
+   *     rejeitou faria a tela afirmar o que o sistema não cumpre.
+   */
+  async setResponsavelItem(itemId: string, responsavelId: string | null, userId?: string) {
+    const item = await prisma.orcamentoItem.findUnique({
+      where: { id: itemId },
+      select: { id: true, orcamentoId: true, catalogoId: true, descricao: true, responsavelId: true },
+    })
+    if (!item) throw new Error('Item do orcamento nao encontrado')
+    if (item.responsavelId === responsavelId) return { ok: true, unchanged: true }
+
+    const orc = await prisma.orcamento.findUnique({
+      where: { id: item.orcamentoId },
+      select: { id: true, empresaId: true },
+    })
+    if (!orc) throw new Error('Orcamento nao encontrado')
+
+    // Execução já criada para este serviço. O par (orcamento, serviço) é
+    // suficiente porque a aprovação é idempotente POR SERVIÇO — ela pula o
+    // item cujo serviço já tem execução —, então nunca há duas.
+    const execucao = item.catalogoId
+      ? await prisma.servicoExecucao.findFirst({
+          where: { orcamentoId: item.orcamentoId, servicoId: item.catalogoId },
+          select: { id: true },
+          orderBy: { createdAt: 'desc' },
+        }).catch(() => null)
+      : null
+
+    // Antes de gravar: o setResponsavelExecucao valida o caller e o candidato,
+    // grava o evento na timeline DA EXECUÇÃO e notifica quem assumiu. São duas
+    // timelines distintas — quem lê a execução precisa da informação lá, e não
+    // só no log do orçamento abaixo.
+    if (execucao && userId) {
+      await this.servicoService.setResponsavelExecucao(execucao.id, responsavelId, userId)
+    }
+
+    await prisma.orcamentoItem.update({ where: { id: itemId }, data: { responsavelId } })
+
+    let nome = 'Sem responsavel'
+    if (responsavelId) {
+      const u = await prisma.user.findUnique({ where: { id: responsavelId }, select: { name: true } }).catch(() => null)
+      nome = u?.name || responsavelId
+    }
+    await this.addEvento(
+      item.orcamentoId, userId, 'edicao', null, null,
+      `Responsavel da execucao de "${item.descricao}" definido como "${nome}"`,
+    )
+    this.emitEvent('dados-gerais', { orcamentoId: item.orcamentoId, empresaId: orc.empresaId, actorUserId: userId })
+    return { ok: true, execucaoAtualizada: !!execucao }
   }
 
   async editarData(id: string, campo: string, valor: string | null, userId?: string) {

@@ -4722,6 +4722,16 @@ model OrcamentoItem {
   descontoPct     Decimal? @map("desconto_pct") @db.Decimal(5, 2)
   descontoValor   Decimal? @map("desconto_valor") @db.Decimal(12, 2)
   catalogoId      String?  @map("catalogo_id")
+  /// Responsável pela EXECUÇÃO deste serviço, escolhido à mão neste orçamento.
+  ///
+  /// Complementa a configuração do template: o serviço define o padrão (via
+  /// `atribuicao*`), e este campo cobre o caso em que o padrão não resolve uma
+  /// pessoa — atribuição por SETOR, que é claim-first, ou serviço sem regra
+  /// nenhuma. Nulo = vale o que o template resolver.
+  ///
+  /// Id solto, sem FK, como o `Orcamento.clienteId` e o `orcamentoId` da
+  /// execução: o padrão da tabela.
+  responsavelId   String?  @map("responsavel_id")
   // Subserviço escolhido dentro do serviço acima. Quando preenchido, é ELE que
   // manda no texto e no valor — o serviço mãe vira só o agrupador.
   subservicoId    String?  @map("subservico_id")

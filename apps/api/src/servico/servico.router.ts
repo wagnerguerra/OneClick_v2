@@ -408,10 +408,13 @@ export function createServicoRouter(servicoService: ServicoService) {
     // profile SUPERVISOR/GERENTE/ADMIN, ou líder da área (Area.leaderId).
     // Quando `execId` é passado, filtra candidatos pela área correspondente
     // à categoria do serviço (ex: serviço "Fiscal" → users da área Fiscal).
+    // `servicoId` atende o orçamento ANTES da aprovação, quando ainda não há
+    // execução da qual derivar a área — o `execId` continua servindo ao painel
+    // de Meus Serviços.
     listResponsaveisAtribuiveis: protectedProcedure
-      .input(z.object({ execId: z.string().optional() }).optional())
+      .input(z.object({ execId: z.string().optional(), servicoId: z.string().optional() }).optional())
       .query(({ input, ctx }) =>
-        servicoService.listResponsaveisAtribuiveis(ctx.userId!, { execId: input?.execId }),
+        servicoService.listResponsaveisAtribuiveis(ctx.userId!, { execId: input?.execId, servicoId: input?.servicoId }),
       ),
 
     setResponsavelExecucao: protectedProcedure
