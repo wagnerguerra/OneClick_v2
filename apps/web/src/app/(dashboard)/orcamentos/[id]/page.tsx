@@ -187,6 +187,11 @@ interface Orcamento {
     /** Fonte coletiva (setor): a execução nasce sem dono, o primeiro assume. */
     claimFirst: boolean
     totalCandidatos: number
+    /** Alçada POR SERVIÇO, decidida no backend: quem não é master/diretoria/
+     *  coordenação só define responsável de serviço de área que lidera. A tela
+     *  compõe com a sub-permissão, sem reimplementar a regra. */
+    podeDefinir: boolean
+    motivoBloqueio: string | null
   }>
   solicitanteId: string | null
   responsavelId: string | null
@@ -2707,9 +2712,11 @@ export default function OrcamentoDetailPage() {
                     {orc.responsaveis!.map(r => {
                       const estado = estadoResponsavelExecucao(r)
                       // Editável: há item onde gravar, o usuário tem a
-                      // sub-permissão, e ninguém foi resolvido pelo template (ou
-                      // a escolha atual foi manual, que precisa ser corrigível).
-                      const podeEditar = !!r.itemId && canChangeResponsavel
+                      // sub-permissão, o serviço está numa área da alçada dele
+                      // (`podeDefinir`, calculado no backend), e ninguém foi
+                      // resolvido pelo template (ou a escolha atual foi manual,
+                      // que precisa ser corrigível).
+                      const podeEditar = !!r.itemId && canChangeResponsavel && r.podeDefinir
                         && (!r.responsavelNome || r.responsavelManual)
                       const listaResp = respCandidatos[r.servicoId]
                       const salvando = respSalvando === r.itemId
@@ -2755,8 +2762,8 @@ export default function OrcamentoDetailPage() {
                                   // Motivo explícito: lista vazia sem explicação
                                   // pareceria defeito.
                                   <div className="max-w-[240px] px-3 py-2 text-xs text-muted-foreground">
-                                    Você não pode atribuir responsáveis. É preciso ser gestor
-                                    ou líder da área do serviço.
+                                    Você não pode atribuir responsáveis. É preciso liderar
+                                    a área do serviço.
                                   </div>
                                 ) : listaResp.candidates.length === 0 ? (
                                   <div className="max-w-[240px] px-3 py-2 text-xs text-muted-foreground">
@@ -2792,7 +2799,14 @@ export default function OrcamentoDetailPage() {
                               </DropdownMenuContent>
                             </DropdownMenu>
                           ) : (
-                            <span className="max-w-full truncate px-1.5 py-0.5 text-[13px] font-semibold text-foreground" title={estado.rotulo}>
+                            // O motivo entra no hover só para quem TEM a
+                            // sub-permissão: para quem não tem, explicar a
+                            // alçada de área responderia uma pergunta que ele
+                            // não fez e esconderia a razão verdadeira.
+                            <span
+                              className="max-w-full truncate px-1.5 py-0.5 text-[13px] font-semibold text-foreground"
+                              title={canChangeResponsavel && r.motivoBloqueio ? r.motivoBloqueio : estado.rotulo}
+                            >
                               {estado.rotulo}
                             </span>
                           )}
@@ -2822,7 +2836,7 @@ export default function OrcamentoDetailPage() {
                 )}
                 <p className="text-[11px] text-muted-foreground">
                   O padrão vem da configuração do serviço. Quando ele não define uma pessoa,
-                  quem tem permissão pode escolher aqui — vale só para este orçamento.
+                  quem lidera a área daquele serviço pode escolher aqui — vale só para este orçamento.
                 </p>
               </div>
             </SectionCard>

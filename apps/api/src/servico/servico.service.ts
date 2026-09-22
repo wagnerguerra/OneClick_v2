@@ -9,6 +9,7 @@ import { NotificationService } from '../notification/notification.service'
 import { NotificacaoService } from '../notificacao/notificacao.service'
 import { ServicoExecucaoEventsService } from './servico-execucao-events.service'
 import { ServicoFluxoAiService } from './servico-fluxo-ai.service'
+import { decidirAlcadaResponsavel, type Alcada } from './responsavel-alcada'
 import { EmailService } from '../common/email.service'
 import type { GerarFluxoIaInput } from '@saas/types'
 
@@ -209,10 +210,57 @@ export class ServicoService {
     if (!caller) {
       return { caller: null, isPriv: false, ledAreaIds: [] as string[] }
     }
+    // Quem enxerga TODAS as áreas. GESTOR, GERENTE e SUPERVISOR saíram daqui:
+    // são chefias DE ÁREA, e tratá-las como globais anulava justamente o
+    // recorte por área — um gestor do Fiscal definia responsável de serviço
+    // Contábil. Agora eles caem no ramo do líder e ficam limitados às áreas que
+    // lideram (`Area.leaderId`). Master, diretoria e coordenação continuam
+    // globais, o mesmo critério já usado no `isPriv` da linha ~4321 deste
+    // arquivo e a mesma divisão de alçada da visibilidade de orçamentos.
     const isPriv = caller.isMaster || caller.isEmpresaMaster
-      || caller.role === 'DIRETOR' || caller.role === 'COORDENADOR' || caller.role === 'GESTOR'
-      || caller.profile === 'SUPERVISOR' || caller.profile === 'GERENTE' || caller.profile === 'ADMIN'
+      || caller.role === 'DIRETOR' || caller.role === 'COORDENADOR'
+      || caller.profile === 'ADMIN'
     return { caller, isPriv, ledAreaIds: caller.ledAreas.map(a => a.id) }
+  }
+
+  /**
+   * Pode este usuário definir quem executa ESTE serviço?
+   *
+   * A pergunta é sempre sobre a ÁREA DO SERVIÇO (`Servico.areaId` — a "Área" do
+   * cadastro, a mesma que o orçamento mostra no rodapé do quadro), e não sobre
+   * quem é o responsável atual: o que delimita a alçada de uma chefia é a área
+   * pela qual ela responde, não quem por acaso está com o trabalho.
+   *
+   * Devolve o MOTIVO junto porque as duas bocas desta regra precisam dele: o
+   * erro da gravação e a flag que a tela usa para não oferecer o menu. Uma
+   * segunda implementação para a tela deixaria as duas discordarem no primeiro
+   * ajuste.
+   */
+  async podeDefinirResponsavelDoServico(
+    callerId: string,
+    servicoId: string | null,
+  ): Promise<Alcada> {
+    const ctx = await this.resolveAssignContext(callerId)
+    if (!ctx.caller) return decidirAlcadaResponsavel(null, servicoId, null)
+    // A área só é consultada quem precisa dela: global decide sem ela, e sem
+    // servicoId não há o que buscar.
+    const area = !ctx.isPriv && servicoId
+      ? (await prisma.servico.findUnique({
+          where: { id: servicoId },
+          select: { area: { select: { id: true, name: true, isActive: true } } },
+        }).catch(() => null))?.area
+      : null
+    return decidirAlcadaResponsavel(
+      { isGlobal: ctx.isPriv, ledAreaIds: ctx.ledAreaIds },
+      servicoId,
+      area,
+    )
+  }
+
+  /** Versão que lança — para os caminhos de gravação. */
+  async assertPodeDefinirResponsavelDoServico(callerId: string, servicoId: string | null) {
+    const { podeDefinir, motivo } = await this.podeDefinirResponsavelDoServico(callerId, servicoId)
+    if (!podeDefinir) throw new Error(motivo ?? 'Sem permissão para definir o responsável deste serviço.')
   }
 
   /**
@@ -264,6 +312,14 @@ export class ServicoService {
       })
       const area = svc?.area
       if (area?.isActive) areaFiltro = { id: area.id, name: area.name }
+
+      // Alçada sobre ESTE serviço, pela mesma função que a gravação usa. Sem
+      // esta recusa explícita, um líder de outra área receberia `canAssign:
+      // true` com a lista vazia (a interseção entre as áreas que ele lidera e a
+      // área do serviço é nula) e a tela diria "nenhum usuário ativo na área
+      // X" — que descreve cadastro vazio, não permissão negada.
+      const alcada = decidirAlcadaResponsavel({ isGlobal: isPriv, ledAreaIds }, servicoIdAlvo, area)
+      if (!alcada.podeDefinir) return { canAssign: false, candidates: [], areaFiltro }
     }
 
     const where: any = { isActive: true }
@@ -296,38 +352,33 @@ export class ServicoService {
     }
   }
 
-  /** Lança erro se o caller não pode atribuir/alterar responsável da execução. */
+  /**
+   * Lança erro se o caller não pode atribuir/alterar responsável da execução.
+   *
+   * O critério é a ÁREA DO SERVIÇO executado. Antes olhava a área do
+   * RESPONSÁVEL ATUAL, com dois efeitos indesejados: execução sem dono ficava
+   * liberada para qualquer líder (o caso mais comum, já que a atribuição por
+   * setor nasce sem dono), e a alçada passava a depender de quem por acaso
+   * estava com o trabalho, em vez da área que responde por ele.
+   */
   async assertCanAssignResponsavel(callerId: string, execId: string) {
-    const ctx = await this.resolveAssignContext(callerId)
-    if (!ctx.caller) throw new Error('Usuário não encontrado.')
-    if (ctx.isPriv) return
-    if (ctx.ledAreaIds.length === 0) {
-      throw new Error('Você não tem permissão para atribuir responsáveis.')
-    }
-    // Líder: só pode mexer se a execução está sob sua área
-    // (sem responsável ainda, ou responsável atual é da sua área)
     const exec = await prisma.servicoExecucao.findUnique({
       where: { id: execId },
-      select: { responsavelId: true },
+      select: { servicoId: true },
     })
     if (!exec) throw new Error('Execução não encontrada.')
-    if (!exec.responsavelId) return // sem responsável → líder pode atribuir
-    const resp = await prisma.user.findUnique({
-      where: { id: exec.responsavelId },
-      select: { areaId: true },
-    })
-    if (!resp?.areaId || !ctx.ledAreaIds.includes(resp.areaId)) {
-      throw new Error('Esta execução está fora das áreas que você lidera.')
-    }
+    await this.assertPodeDefinirResponsavelDoServico(callerId, exec.servicoId)
   }
 
   /** Atribui ou troca o responsável de uma execução. Registra evento e notifica. */
   async setResponsavelExecucao(execId: string, novoResponsavelId: string | null, callerId: string) {
     await this.assertCanAssignResponsavel(callerId, execId)
 
-    // Valida que o novo responsável está dentro do escopo do caller
+    // Valida que o novo responsável está dentro do escopo do caller. Passa o
+    // `execId`: sem ele a lista vinha sem o filtro por área do serviço, e a
+    // gravação aceitava alguém que o menu da tela nunca chegou a oferecer.
     if (novoResponsavelId) {
-      const { canAssign, candidates } = await this.listResponsaveisAtribuiveis(callerId)
+      const { canAssign, candidates } = await this.listResponsaveisAtribuiveis(callerId, { execId })
       if (!canAssign || !candidates.some(c => c.id === novoResponsavelId)) {
         throw new Error('Usuário fora do seu escopo de atribuição.')
       }
@@ -2741,7 +2792,7 @@ export class ServicoService {
    * condição exata em que o createExecucao grava `responsavelId` direto: um
    * único candidato e nenhuma fonte coletiva.
    */
-  async resolverResponsaveisOrcamento(orcamentoId: string): Promise<Array<{
+  async resolverResponsaveisOrcamento(orcamentoId: string, callerId?: string): Promise<Array<{
     /** Item do orçamento. Nulo = o serviço-template do próprio orçamento, que
      *  não tem item e por isso não aceita escolha manual. */
     itemId: string | null
@@ -2758,6 +2809,13 @@ export class ServicoService {
     responsavelManual: boolean
     claimFirst: boolean
     totalCandidatos: number
+    /** Este caller pode definir quem executa ESTE serviço? Vem decidido daqui
+     *  pela mesma função que o gravar usa — a tela só compõe, não reimplementa
+     *  a alçada. Sem `callerId` (chamada interna) vem `false`: quem não se
+     *  identificou não recebe permissão de brinde. */
+    podeDefinir: boolean
+    /** Por que não pode — o texto que a tela mostra no lugar do menu. */
+    motivoBloqueio: string | null
   }>> {
     const orc = await prisma.orcamento.findUnique({
       where: { id: orcamentoId },
@@ -2794,6 +2852,18 @@ export class ServicoService {
     }).catch(() => [])
     const servicoPorId = new Map(servicos.map(s => [s.id, s]))
 
+    // Alçada por SERVIÇO, resolvida uma vez por serviço distinto — dois itens
+    // do mesmo serviço têm a mesma resposta, e repetir a consulta por item
+    // seria N+1 num laço que já roda a cada abertura do orçamento.
+    const alcadaPorServico = new Map<string, { podeDefinir: boolean; motivo: string | null }>()
+    if (callerId) {
+      for (const sid of new Set(refs.map(r => r.servicoId))) {
+        alcadaPorServico.set(sid, await this.podeDefinirResponsavelDoServico(callerId, sid))
+      }
+    }
+    const alcadaDe = (sid: string) => alcadaPorServico.get(sid)
+      ?? { podeDefinir: false, motivo: 'Sem permissão para definir o responsável deste serviço.' }
+
     // Nomes dos escolhidos à mão, numa consulta só.
     const manuaisIds = [...new Set(refs.map(r => r.responsavelId).filter((x): x is string => !!x))]
     const manuais = manuaisIds.length > 0
@@ -2823,6 +2893,8 @@ export class ServicoService {
           responsavelManual: true,
           claimFirst: false,
           totalCandidatos: 1,
+          podeDefinir: alcadaDe(svc.id).podeDefinir,
+          motivoBloqueio: alcadaDe(svc.id).motivo,
         })
         continue
       }
@@ -2863,6 +2935,8 @@ export class ServicoService {
         responsavelManual: false,
         claimFirst,
         totalCandidatos: candidatos.length,
+        podeDefinir: alcadaDe(svc.id).podeDefinir,
+        motivoBloqueio: alcadaDe(svc.id).motivo,
       })
     }
     return saida

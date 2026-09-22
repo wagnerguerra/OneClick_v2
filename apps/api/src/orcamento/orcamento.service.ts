@@ -478,7 +478,7 @@ export class OrcamentoService {
     // um responsável diferente do que o sistema vai atribuir. Falha aqui não
     // pode derrubar o detalhe — o campo simplesmente não aparece.
     const responsaveis = await this.servicoService
-      .resolverResponsaveisOrcamento(id)
+      .resolverResponsaveisOrcamento(id, ctx?.userId)
       .catch((e: Error) => {
         console.warn('[Orcamento] Responsáveis da execução não resolvidos:', e.message)
         return [] as Awaited<ReturnType<typeof this.servicoService.resolverResponsaveisOrcamento>>
@@ -2791,12 +2791,18 @@ export class OrcamentoService {
    * escolha vale para a execução FUTURA (o `createExecucao` da aprovação
    * recebe `item.responsavelId`) e para a que JÁ existe.
    *
-   * Dois portões, nesta ordem de propósito:
-   *  1. `change_responsavel`, aplicado no router (writeSubProcedure).
-   *  2. o critério do módulo Serviços, aplicado por dentro do
-   *     `setResponsavelExecucao` — que roda ANTES de gravar no item. Se ele
-   *     recusar, nada é gravado: item com um responsável que a execução
-   *     rejeitou faria a tela afirmar o que o sistema não cumpre.
+   * Três portões, nesta ordem:
+   *  1. `change_responsavel`, aplicado no router (writeSubProcedure). Diz se a
+   *     pessoa pode mexer em responsável; não diz em QUAL serviço.
+   *  2. a ÁREA do serviço deste item: quem não é master/diretoria/coordenação
+   *     só define responsável de serviço de área que lidera. Roda SEMPRE —
+   *     antes, o critério de área só era aplicado quando já existia execução,
+   *     e antes da aprovação (o estado em que a maioria dos orçamentos está ao
+   *     definir isto) não havia checagem de área nenhuma.
+   *  3. quando a execução já existe, o `setResponsavelExecucao` — que valida de
+   *     novo e grava o evento na timeline DELA. Roda ANTES do update do item:
+   *     se recusar, nada é gravado, porque item com um responsável que a
+   *     execução rejeitou faria a tela afirmar o que o sistema não cumpre.
    */
   async setResponsavelItem(itemId: string, responsavelId: string | null, userId?: string) {
     const item = await prisma.orcamentoItem.findUnique({
@@ -2811,6 +2817,14 @@ export class OrcamentoService {
       select: { id: true, empresaId: true },
     })
     if (!orc) throw new Error('Orcamento nao encontrado')
+
+    // Portão de ÁREA — antes de qualquer escrita. O `userId` vem do contexto
+    // tRPC e o router é o único caminho até aqui, então na prática ele sempre
+    // existe; o `if` só evita inventar uma falha nova para uma chamada interna
+    // que hoje não existe.
+    if (userId) {
+      await this.servicoService.assertPodeDefinirResponsavelDoServico(userId, item.catalogoId)
+    }
 
     // Execução já criada para este serviço. O par (orcamento, serviço) é
     // suficiente porque a aprovação é idempotente POR SERVIÇO — ela pula o
