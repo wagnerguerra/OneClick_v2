@@ -36,13 +36,16 @@ export const LAYOUT_DEFAULTS: LayoutPrefs = {
   sidebarHover: true,
 }
 
-export const SKINS: Array<{ key: SkinKey; nome: string; descricao: string; cor: string }> = [
-  { key: 'padrao',    nome: 'Padrão',    descricao: 'Azul · limpo',        cor: '#0067ff' },
-  { key: 'esmeralda', nome: 'Esmeralda', descricao: 'Esmeralda · verde',   cor: '#059669' },
-  { key: 'ambar',     nome: 'Âmbar',     descricao: 'Âmbar · dourado',     cor: '#d97706' },
-  { key: 'coral',     nome: 'Coral',     descricao: 'Coral · quente',      cor: '#e11d48' },
-  { key: 'lilas',     nome: 'Lilás',     descricao: 'Lavanda',             cor: '#7c3aed' },
-  { key: 'grafite',   nome: 'Grafite',   descricao: 'Mono · minimalista',  cor: '#334155' },
+// A cor de cada skin NÃO fica aqui: a bolinha de prévia lê a fonte canônica
+// var(--skin-<key>) do globals.css (adapta a tema e a qualquer ajuste de tom).
+// `key` é interno (data-skin/localStorage); `nome` é só rótulo de exibição.
+export const SKINS: Array<{ key: SkinKey; nome: string; descricao: string }> = [
+  { key: 'padrao',    nome: 'Padrão',    descricao: 'Azul · limpo' },
+  { key: 'esmeralda', nome: 'Turquesa',  descricao: 'Turquesa · verde-azulado' },
+  { key: 'ambar',     nome: 'Tangerina', descricao: 'Tangerina · laranja' },
+  { key: 'coral',     nome: 'Coral',     descricao: 'Coral · quente' },
+  { key: 'lilas',     nome: 'Lilás',     descricao: 'Lavanda' },
+  { key: 'grafite',   nome: 'Grafite',   descricao: 'Mono · minimalista' },
 ]
 
 /** Combinações prontas (a "Predefinição" do modelo). */

@@ -67,22 +67,71 @@
 
 /* Sino — efeito de "desenrolar" (roll down) e "reenrolar" (roll up) */
 /* ─── Skins de acento (painel "Configurações de layout") ───────────────────
-   Só o primário muda — módulos, status e semânticas continuam com suas cores. */
-[data-skin="esmeralda"] { --color-primary: #059669; --color-primary-hover: #047857; --color-ring: #059669; }
-[data-skin="ambar"]     { --color-primary: #d97706; --color-primary-hover: #b45309; --color-ring: #d97706; }
-[data-skin="coral"]     { --color-primary: #e11d48; --color-primary-hover: #be123c; --color-ring: #e11d48; }
-[data-skin="lilas"]     { --color-primary: #7c3aed; --color-primary-hover: #6d28d9; --color-ring: #7c3aed; }
-[data-skin="grafite"]   { --color-primary: #334155; --color-primary-hover: #1e293b; --color-ring: #334155; }
-.dark[data-skin="esmeralda"] { --color-primary: #34d399; --color-primary-hover: #6ee7b7; --color-ring: #34d399; }
-.dark[data-skin="ambar"]     { --color-primary: #fbbf24; --color-primary-hover: #fcd34d; --color-ring: #fbbf24; }
-.dark[data-skin="coral"]     { --color-primary: #fb7185; --color-primary-hover: #fda4af; --color-ring: #fb7185; }
-.dark[data-skin="lilas"]     { --color-primary: #a78bfa; --color-primary-hover: #c4b5fd; --color-ring: #a78bfa; }
-.dark[data-skin="grafite"]   { --color-primary: #94a3b8; --color-primary-hover: #cbd5e1; --color-ring: #94a3b8; }
+   Fonte canônica ÚNICA: todo o palette de cada skin aqui no :root. No DARK há
+   TRÊS tons por skin, porque o primário tem dois papéis conflitantes:
+     · --skin-<key>-dark      → --color-primary: tom mais ESCURO, pro texto BRANCO
+       ficar legível em botão SÓLIDO (bg-primary).
+     · --skin-<key>-dark-soft → o SOFT button (tint + texto colorido) usa esse tom
+       CLARO (o de antes da branch), melhor como acento suave.
+   No LIGHT um tom só resolve os dois (não há texto branco sobre primária clara).
+   As regras [data-skin]/.dark[data-skin] só fiam essas vars (sem hex literal). As
+   bolinhas de prévia leem var(--skin-<key>) → mostram SEMPRE o tom light. As
+   RENOMEADAS trocaram só o matiz (Esmeralda→Turquesa/teal; Âmbar→Tangerina/laranja). */
+:root {
+  /* Padrão (azul) — hover do --color-primary-hover base; o dark serve sólido e soft. */
+  --skin-padrao: #0067ff;  --skin-padrao-dark: #2b7fff;
+  /* Turquesa (era Esmeralda) — teal */
+  --skin-esmeralda: #0d9498;       --skin-esmeralda-hover: #0f7678;
+  --skin-esmeralda-dark: #0d9498;  --skin-esmeralda-dark-hover: #0f7678;  --skin-esmeralda-dark-soft: #2dccd6;
+  /* Tangerina (era Âmbar) — laranja */
+  --skin-ambar: #f26510;       --skin-ambar-hover: #c2410c;
+  --skin-ambar-dark: #ea580c;  --skin-ambar-dark-hover: #c2410c;  --skin-ambar-dark-soft: #fdba74;
+  /* Coral */
+  --skin-coral: #e11d48;       --skin-coral-hover: #be123c;
+  --skin-coral-dark: #f43f5e;  --skin-coral-dark-hover: #e11d48;  --skin-coral-dark-soft: #fb7185;
+  /* Lilás */
+  --skin-lilas: #7c3aed;       --skin-lilas-hover: #6d28d9;
+  --skin-lilas-dark: #8b5cf6;  --skin-lilas-dark-hover: #7c3aed;  --skin-lilas-dark-soft: #a78bfa;
+  /* Grafite */
+  --skin-grafite: #334155;       --skin-grafite-hover: #1e293b;
+  --skin-grafite-dark: #64748b;  --skin-grafite-dark-hover: #475569;  --skin-grafite-dark-soft: #94a3b8;
+}
+[data-skin="esmeralda"] { --color-primary: var(--skin-esmeralda); --color-primary-hover: var(--skin-esmeralda-hover); --color-ring: var(--skin-esmeralda); }
+[data-skin="ambar"]     { --color-primary: var(--skin-ambar);     --color-primary-hover: var(--skin-ambar-hover);     --color-ring: var(--skin-ambar); }
+[data-skin="coral"]     { --color-primary: var(--skin-coral);     --color-primary-hover: var(--skin-coral-hover);     --color-ring: var(--skin-coral); }
+[data-skin="lilas"]     { --color-primary: var(--skin-lilas);     --color-primary-hover: var(--skin-lilas-hover);     --color-ring: var(--skin-lilas); }
+[data-skin="grafite"]   { --color-primary: var(--skin-grafite);   --color-primary-hover: var(--skin-grafite-hover);   --color-ring: var(--skin-grafite); }
+.dark[data-skin="esmeralda"] { --color-primary: var(--skin-esmeralda-dark); --color-primary-hover: var(--skin-esmeralda-dark-hover); --color-ring: var(--skin-esmeralda-dark); }
+.dark[data-skin="ambar"]     { --color-primary: var(--skin-ambar-dark);     --color-primary-hover: var(--skin-ambar-dark-hover);     --color-ring: var(--skin-ambar-dark); }
+.dark[data-skin="coral"]     { --color-primary: var(--skin-coral-dark);     --color-primary-hover: var(--skin-coral-dark-hover);     --color-ring: var(--skin-coral-dark); }
+.dark[data-skin="lilas"]     { --color-primary: var(--skin-lilas-dark);     --color-primary-hover: var(--skin-lilas-dark-hover);     --color-ring: var(--skin-lilas-dark); }
+.dark[data-skin="grafite"]   { --color-primary: var(--skin-grafite-dark);   --color-primary-hover: var(--skin-grafite-dark-hover);   --color-ring: var(--skin-grafite-dark); }
 /* ⚠️ DEBUG — skin de depuração (NÃO listada no menu de skins). Magenta vívido pra
    evidenciar o que respeita a cor primária. REMOVER antes do PR (junto com o
    PrimaryDebugTool e sua montagem no layout). branch feat/module-color-to-primary. */
 [data-skin="debug"]      { --color-primary: #ff00d4; --color-primary-hover: #d600b0; --color-primary-foreground: #ffffff; --color-ring: #ff00d4; }
 .dark[data-skin="debug"] { --color-primary: #ff4de3; --color-primary-hover: #ff7aea; --color-primary-foreground: #ffffff; --color-ring: #ff4de3; }
+
+/* ── Botão variante `soft`: cor/fundo por skin ────────────────────────────
+   O soft NÃO usa --color-primary direto: usa --btn-soft-accent, que no light (e no
+   Padrão) = a própria primária, mas no DARK de cada skin aponta pro tom CLARO
+   (--skin-<key>-dark-soft) — o --color-primary dark fica escuro só pro texto branco
+   dos botões sólidos. O <Button variant="soft"> consome text-[color:var(--btn-soft-fg)],
+   bg-[color:var(--btn-soft-bg)] e o hover mistura var(--btn-soft-accent). */
+:root {
+  --btn-soft-accent: var(--color-primary);
+  --btn-soft-fg: var(--btn-soft-accent);
+  --btn-soft-bg: color-mix(in oklab, var(--btn-soft-accent) 15%, transparent);
+}
+/* DARK: o accent do soft de cada skin = tom mais claro. */
+.dark[data-skin="esmeralda"] { --btn-soft-accent: var(--skin-esmeralda-dark-soft); }
+.dark[data-skin="ambar"]     { --btn-soft-accent: var(--skin-ambar-dark-soft); }
+.dark[data-skin="coral"]     { --btn-soft-accent: var(--skin-coral-dark-soft); }
+/* Lilás/Grafite: accent claro + texto misturado com branco (grafite é neutro/escuro). */
+.dark[data-skin="lilas"]     { --btn-soft-accent: var(--skin-lilas-dark-soft);   --btn-soft-fg: color-mix(in oklab, var(--btn-soft-accent), white 15%); }
+.dark[data-skin="grafite"]   { --btn-soft-accent: var(--skin-grafite-dark-soft); --btn-soft-fg: color-mix(in oklab, var(--btn-soft-accent), white 70%); }
+/* Padrão (sem data-skin) no DARK: texto do soft um tiquinho mais claro. */
+.dark:not([data-skin]) { --btn-soft-fg: color-mix(in oklab, var(--btn-soft-accent), white 25%); }
 
 /* Pulso do badge do sino (modelo LuminAux: scale 1→1.15→1, 1.6s, infinito) e
    entrada do drawer de notificações pela direita. */

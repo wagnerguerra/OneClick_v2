@@ -100,7 +100,7 @@ export function LayoutCustomizer() {
                   {SKINS.map((s) => (
                     <OpcaoCard key={s.key} ativo={prefs.skin === s.key} onClick={() => set('skin', s.key)} alinhado="start">
                       <span className="flex items-center gap-2">
-                        <span className="h-3.5 w-3.5 rounded-full ring-2 ring-white/70 dark:ring-black/40" style={{ backgroundColor: s.cor }} />
+                        <span className="h-3.5 w-3.5 rounded-full ring-2 ring-white/70 dark:ring-black/40" style={{ backgroundColor: `var(--skin-${s.key})` }} />
                         <span className="text-sm font-medium">{s.nome}</span>
                       </span>
                       <span className="text-xs text-muted-foreground">{s.descricao}</span>
