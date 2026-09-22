@@ -146,7 +146,8 @@ export function applyModel(table: ExtractedTableInput, def: TreatmentDefinition,
     if (!jd.contaJuros.trim()) pendencias.push({ linha: 0, tipo: 'CAMPO_VAZIO', campo: 'jurosDescontos.contaJuros', mensagem: 'Conta contábil de Juros não informada no modelo.' })
     if (!jd.contaDescontos.trim()) pendencias.push({ linha: 0, tipo: 'CAMPO_VAZIO', campo: 'jurosDescontos.contaDescontos', mensagem: 'Conta contábil de Descontos não informada no modelo.' })
     if (jd.modo === 'SEPARADAS') {
-      if (!jd.colunaJuros.trim() && !jd.colunaDescontos.trim()) pendencias.push({ linha: 0, tipo: 'CAMPO_VAZIO', campo: 'jurosDescontos', mensagem: 'Nenhuma coluna de Juros/Descontos definida no modelo.' })
+      if (!jd.colunaJuros.trim()) pendencias.push({ linha: 0, tipo: 'CAMPO_VAZIO', campo: 'jurosDescontos', mensagem: 'Coluna de Juros não definida no modelo.' })
+      if (!jd.colunaDescontos.trim()) pendencias.push({ linha: 0, tipo: 'CAMPO_VAZIO', campo: 'jurosDescontos', mensagem: 'Coluna de Descontos não definida no modelo.' })
     } else if (!jd.colunaUnificada.trim()) {
       pendencias.push({ linha: 0, tipo: 'CAMPO_VAZIO', campo: 'jurosDescontos', mensagem: 'Coluna unificada de Juros/Descontos não definida no modelo.' })
     }

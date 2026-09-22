@@ -476,7 +476,8 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     if (!jd.ativo) return [] // etapa pulável quando desmarcada
     const p: string[] = []
     if (jd.modo === 'SEPARADAS') {
-      if (!jd.colunaJuros.trim() && !jd.colunaDescontos.trim()) p.push('Em <b>Juros e Descontos</b>, selecione a <b>coluna de Juros</b> e/ou a <b>coluna de Descontos</b>.')
+      if (!jd.colunaJuros.trim()) p.push('Em <b>Juros e Descontos</b>, selecione a <b>coluna de Juros</b>.')
+      if (!jd.colunaDescontos.trim()) p.push('Em <b>Juros e Descontos</b>, selecione a <b>coluna de Descontos</b>.')
     } else if (!jd.colunaUnificada.trim()) {
       p.push('Em <b>Juros e Descontos</b>, selecione a <b>coluna unificada</b> de Juros/Descontos.')
     }

@@ -33,7 +33,9 @@ export function JurosDescontosSection({ def, setDef, headers, fora, samplesFor }
         <span>
           <span className="block text-[13px] font-semibold text-foreground">O documento traz valores de Juros/Descontos</span>
           <span className="block text-[11px] text-muted-foreground">
-            Cada valor de juros/desconto encontrado vira um lançamento separado no arquivo SCI. Deixe desmarcado para pular esta etapa.
+            {jd.ativo
+              ? 'Cada valor de juros/desconto encontrado será um lançamento separado no arquivo SCI.'
+              : 'Caso não seja o caso, deixe desmarcado para pular esta etapa.'}
           </span>
         </span>
       </label>
@@ -56,13 +58,13 @@ export function JurosDescontosSection({ def, setDef, headers, fora, samplesFor }
           {headers.length === 0 ? (
             <EmptyHint>Envie um arquivo de exemplo para listar as colunas.</EmptyHint>
           ) : jd.modo === 'SEPARADAS' ? (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <CampoColuna label="Coluna de Juros" col={jd.colunaJuros} foraCol={fora.juros} headers={headers} samplesFor={samplesFor} onChange={(v) => upd({ colunaJuros: v })} />
               <CampoColuna label="Coluna de Descontos" col={jd.colunaDescontos} foraCol={fora.descontos} headers={headers} samplesFor={samplesFor} onChange={(v) => upd({ colunaDescontos: v })} />
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <CampoColuna label="Coluna de Juros/Descontos" col={jd.colunaUnificada} foraCol={fora.unificada} headers={headers} samplesFor={samplesFor} onChange={(v) => upd({ colunaUnificada: v })} />
               </div>
               <div className="space-y-2">
@@ -83,7 +85,7 @@ export function JurosDescontosSection({ def, setDef, headers, fora, samplesFor }
             </div>
           )}
 
-          <div className="grid gap-4 sm:grid-cols-2 max-w-xl">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1.5">
               <Label className="text-[13px] font-semibold">Conta contábil de Juros <span className="text-destructive">*</span></Label>
               <Input className="h-9 text-sm" inputMode="numeric" value={jd.contaJuros} onChange={(e) => upd({ contaJuros: soDigitos(e.target.value) })} placeholder="Número da conta" />
@@ -110,8 +112,8 @@ function CampoColuna({ label, col, foraCol, headers, samplesFor, onChange }: {
   const samples = col ? samplesFor(col) : []
   return (
     <div className="space-y-1.5">
-      <Label className="text-[13px] font-semibold">{label}</Label>
-      <ColumnSelect headers={headers} value={col} optional onChange={onChange} className={foraCol ? 'border-amber-400 ring-1 ring-amber-400/40' : undefined} />
+      <Label className="text-[13px] font-semibold">{label} <span className="text-destructive">*</span></Label>
+      <ColumnSelect headers={headers} value={col} onChange={onChange} className={foraCol ? 'border-amber-400 ring-1 ring-amber-400/40' : undefined} />
       {foraCol && (
         <p className={cn('flex items-center gap-1 text-[11px]', TEXT.amber)}>
           <AlertTriangle className="h-3 w-3 shrink-0" /> A coluna &quot;{foraCol}&quot; não está no arquivo enviado.
