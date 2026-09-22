@@ -2814,7 +2814,7 @@ export class OrcamentoService {
 
     const orc = await prisma.orcamento.findUnique({
       where: { id: item.orcamentoId },
-      select: { id: true, empresaId: true },
+      select: { id: true, numero: true, empresaId: true },
     })
     if (!orc) throw new Error('Orcamento nao encontrado')
 
@@ -2856,6 +2856,40 @@ export class OrcamentoService {
       item.orcamentoId, userId, 'edicao', null, null,
       `Responsavel da execucao de "${item.descricao}" definido como "${nome}"`,
     )
+
+    // Avisa quem foi escolhido — independente do status do orçamento.
+    //
+    // A condição é exatamente "o `setResponsavelExecucao` não rodou": quando
+    // ele roda, já notifica — com link direto para o checklist —, e duas
+    // notificações pela mesma escolha seriam ruído.
+    //
+    // Sem `link` de propósito: antes da aprovação não existe execução para
+    // apontar, e mandar a pessoa ao orçamento é apostar que ela tem leitura no
+    // módulo Comercial — a mesma razão pela qual a notificação da execução usa
+    // /meus-servicos em vez do módulo Serviços. O texto diz onde o trabalho vai
+    // aparecer, que é o que ela precisa saber agora.
+    //
+    // Não notifica quem escolheu a si mesmo, nem a REMOÇÃO do responsável: o
+    // pedido é avisar quem foi definido.
+    if (!(execucao && userId) && responsavelId && responsavelId !== userId) {
+      try {
+        const quem = userId
+          ? (await prisma.user.findUnique({ where: { id: userId }, select: { name: true } }).catch(() => null))?.name
+          : null
+        await this.notificationService.criar({
+          userId: responsavelId,
+          titulo: `Você vai executar: ${item.descricao}`,
+          mensagem: `${quem ?? 'Um gestor'} definiu você como responsável no orçamento #${orc.numero}. `
+            + 'A execução aparece no seu Meus Serviços quando o orçamento for aprovado.',
+          tipo: 'info',
+          origem: 'orcamentos',
+          empresaId: orc.empresaId,
+        })
+      } catch (e) {
+        // Falha de notificação não desfaz a atribuição, que já está gravada.
+        console.warn('[Orcamento] Falha ao notificar responsavel do item:', (e as Error).message)
+      }
+    }
     this.emitEvent('dados-gerais', { orcamentoId: item.orcamentoId, empresaId: orc.empresaId, actorUserId: userId })
     return { ok: true, execucaoAtualizada: !!execucao }
   }
