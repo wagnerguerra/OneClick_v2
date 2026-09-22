@@ -16,6 +16,7 @@ export function normalizeDefinition(raw: unknown): TreatmentDefinition {
     contasCorrentes?: unknown
     columnMapping?: Partial<TreatmentDefinition['columnMapping']>
     debitoCredito?: unknown
+    jurosDescontos?: Partial<TreatmentDefinition['jurosDescontos']>
     contrapartida?: { modo?: string; itens?: unknown[]; palavraChave?: unknown[]; descricao?: unknown[] }
   }
   const cp = r.contrapartida
@@ -41,10 +42,13 @@ export function normalizeDefinition(raw: unknown): TreatmentDefinition {
       }
     // Migração de modelos antigos: contaCorrente (string) → conta única.
     : { modo: 'UNICA', unica: typeof r.contaCorrente === 'string' ? r.contaCorrente : '', coluna: '', mapa: [] }
+  // Juros/descontos: bloco opcional (modelos antigos não têm → default inativo).
+  const jurosDescontos: TreatmentDefinition['jurosDescontos'] = { ...base.jurosDescontos, ...(r.jurosDescontos ?? {}) }
   return {
     contasCorrentes,
     columnMapping: { ...base.columnMapping, ...(r.columnMapping ?? {}) },
     debitoCredito,
+    jurosDescontos,
     contrapartida,
   }
 }

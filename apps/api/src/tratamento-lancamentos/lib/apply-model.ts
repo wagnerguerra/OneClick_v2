@@ -13,7 +13,7 @@
 //   COLUNA_NAO_ENCONTRADA      coluna selecionada no De/Para ausente no arquivo
 // ============================================================
 
-import { matchPalavraChaveIndex, resolveHistorico, type TreatmentDefinition, type ExtractedTableInput, type CellValue } from '@saas/types'
+import { matchPalavraChaveIndex, resolveHistorico, JUROS_DESCONTOS_HISTORICO, type TreatmentDefinition, type JurosDescontosRule, type JurosDescontoTipo, type ExtractedTableInput, type CellValue } from '@saas/types'
 import { parseData, parseValor } from './parsers'
 import { buildSciLine, buildSciFile, type Direcao } from './sci-format'
 
@@ -89,11 +89,45 @@ function matchContrapartida(def: TreatmentDefinition, descricao: string): CpMatc
   return item ? { conta: item.conta, historicoFixo: item.historicoFixo, direcao: item.direcao, pular: item.pular } : null
 }
 
+interface JdItem { tipo: JurosDescontoTipo; valor: number }
+
+/**
+ * Lê os valores de juros/descontos de UMA linha. Cada valor não-vazio e ≠ 0 vira
+ * um item (tipo + magnitude). No modo SEPARADAS, cada coluna já define o tipo; no
+ * UNIFICADA, o SINAL do valor classifica juro×desconto conforme `sinalJuros`.
+ * Valor não-numérico → pendência VALOR_INVALIDO na própria linha. `faltantes`
+ * (coluna ausente no arquivo) já é acusada à parte → aqui a célula vem vazia e é ignorada.
+ */
+function lerJurosDescontos(row: Record<string, CellValue>, jd: JurosDescontosRule, linha: number, rowPend: Pendencia[]): JdItem[] {
+  const out: JdItem[] = []
+  const add = (col: string, forceTipo: JurosDescontoTipo | null, rotulo: string) => {
+    const raw = cell(row, col)
+    if (!raw) return
+    const pv = parseValor(row[col])
+    if (!pv.valid || pv.value === null) {
+      rowPend.push({ linha, tipo: 'VALOR_INVALIDO', campo: col, mensagem: `Valor de ${rotulo} não numérico: "${raw}".`, valor: raw })
+      return
+    }
+    if (pv.value === 0) return // valor zero = sem lançamento (igual à regra do valor principal)
+    // UNIFICADA: o sinal classifica. `sinalJuros` diz qual sinal é Juro (o outro é Desconto).
+    const tipo: JurosDescontoTipo = forceTipo ?? ((pv.value > 0) === (jd.sinalJuros === 'POSITIVO') ? 'JURO' : 'DESC')
+    out.push({ tipo, valor: Math.abs(pv.value) })
+  }
+  if (jd.modo === 'SEPARADAS') {
+    if (jd.colunaJuros) add(jd.colunaJuros, 'JURO', 'juros')
+    if (jd.colunaDescontos) add(jd.colunaDescontos, 'DESC', 'desconto')
+  } else if (jd.colunaUnificada) {
+    add(jd.colunaUnificada, null, 'juros/desconto')
+  }
+  return out
+}
+
 export function applyModel(table: ExtractedTableInput, def: TreatmentDefinition, anoCompetencia?: number, trace?: TraceRow[]): ConversionResult {
   const cm = def.columnMapping
   const dcMapa = new Map(def.debitoCredito.mapa.map((m) => [m.valor, m.direcao]))
   const cc = def.contasCorrentes
   const ccMapa = new Map(cc.mapa.map((m) => [m.valor, m.conta]))
+  const jd = def.jurosDescontos
 
   const lines: string[] = []
   const pendencias: Pendencia[] = []
@@ -105,6 +139,17 @@ export function applyModel(table: ExtractedTableInput, def: TreatmentDefinition,
     }
   } else if (!cc.coluna.trim()) {
     pendencias.push({ linha: 0, tipo: 'CAMPO_VAZIO', campo: 'contasCorrentes', mensagem: 'Coluna que identifica a conta corrente não definida no modelo.' })
+  }
+
+  // Pendência de modelo: juros/descontos ativo exige as contas e ao menos uma coluna.
+  if (jd.ativo) {
+    if (!jd.contaJuros.trim()) pendencias.push({ linha: 0, tipo: 'CAMPO_VAZIO', campo: 'jurosDescontos.contaJuros', mensagem: 'Conta contábil de Juros não informada no modelo.' })
+    if (!jd.contaDescontos.trim()) pendencias.push({ linha: 0, tipo: 'CAMPO_VAZIO', campo: 'jurosDescontos.contaDescontos', mensagem: 'Conta contábil de Descontos não informada no modelo.' })
+    if (jd.modo === 'SEPARADAS') {
+      if (!jd.colunaJuros.trim() && !jd.colunaDescontos.trim()) pendencias.push({ linha: 0, tipo: 'CAMPO_VAZIO', campo: 'jurosDescontos', mensagem: 'Nenhuma coluna de Juros/Descontos definida no modelo.' })
+    } else if (!jd.colunaUnificada.trim()) {
+      pendencias.push({ linha: 0, tipo: 'CAMPO_VAZIO', campo: 'jurosDescontos', mensagem: 'Coluna unificada de Juros/Descontos não definida no modelo.' })
+    }
   }
 
   // Colunas selecionadas no De/Para (+ coluna ativa de D/C e de conta corrente)
@@ -119,6 +164,8 @@ export function applyModel(table: ExtractedTableInput, def: TreatmentDefinition,
     def.debitoCredito.tipo === 'COLUNA' ? def.debitoCredito.coluna : '',
     cc.modo === 'MULTIPLAS' ? cc.coluna : '',
     cm.participante ?? '', cm.numeroNf ?? '', cm.documento ?? '',
+    // Colunas de juros/descontos (quando ativo) também precisam existir no arquivo.
+    ...(jd.ativo ? (jd.modo === 'SEPARADAS' ? [jd.colunaJuros, jd.colunaDescontos] : [jd.colunaUnificada]) : []),
   ].filter((c) => !!c && !!c.trim())
   const faltantes = new Set<string>()
   for (const col of [...new Set(selecionadas)]) {
@@ -189,23 +236,30 @@ export function applyModel(table: ExtractedTableInput, def: TreatmentDefinition,
       })
     }
 
-    // Lançamento com valor exatamente ZERO → ignorado (validado com a gestora do
-    // contábil). Só vale para valor zero; vazio/nulo continua gerando CAMPO_VAZIO
-    // acima. Sai antes de qualquer pendência de contrapartida/direção.
-    if (pv.valid && pv.value === 0) { pushTrace('ignorada-zero'); return }
-
-    // Contrapartida (conta + possivelmente direção)
+    // Contrapartida (conta + possivelmente direção). Vem ANTES da checagem de zero:
+    // um item "Pular linha" não é lançamento nem gera juros/descontos.
     const match = matchContrapartida(def, descricao)
     // Item marcado "Pular linha": a correspondência não é lançamento → ignora a
     // linha inteira (sem SCI e sem pendência), independente dos outros campos.
     if (match?.pular) { pushTrace('pulada-regra', { contaContrapartida: match.conta?.trim() || null }); return }
-    // Descrição vazia já gerou CAMPO_VAZIO; não acusar "sem contrapartida para
-    // ''" em cima disso (a causa real é a descrição faltando).
-    if (descricao && (!match || !match.conta.trim())) {
+
+    // Valor principal exatamente ZERO → a linha PRINCIPAL é ignorada (validado com a
+    // gestora). Mas juros/descontos da linha ainda são lançamentos independentes.
+    const mainIsZero = pv.valid && pv.value === 0
+    // Juros/descontos desta linha (cada valor não-vazio e ≠ 0 vira um lançamento).
+    const jdItens = jd.ativo ? lerJurosDescontos(row, jd, linha, rowPend) : []
+
+    // Nada a emitir (principal zero e sem juros/desconto) → ignora a linha, como
+    // antes (valor zero sai sem cobrar contrapartida/direção).
+    if (mainIsZero && jdItens.length === 0) { pushTrace('ignorada-zero'); return }
+
+    // Contrapartida da PRINCIPAL — só exigida quando a principal vai ser emitida.
+    // (Descrição vazia já gerou CAMPO_VAZIO; não acusar "sem contrapartida" sobre isso.)
+    if (!mainIsZero && descricao && (!match || !match.conta.trim())) {
       rowPend.push({ linha, tipo: 'CONTA_NAO_MAPEADA', campo: cm.descricao, mensagem: `Sem conta de contrapartida para "${descricao}".`, valor: descricao })
     }
 
-    // Direção (débito/crédito)
+    // Direção (débito/crédito) — a MESMA regra vale para a principal e para os JD.
     let direcao: Direcao | null = null
     if (def.debitoCredito.tipo === 'COLUNA') {
       const dcVal = cell(row, def.debitoCredito.coluna)
@@ -226,6 +280,13 @@ export function applyModel(table: ExtractedTableInput, def: TreatmentDefinition,
     } else if (match) {
       if (match.direcao) direcao = match.direcao
       else rowPend.push({ linha, tipo: 'DC_NAO_MAPEADO', campo: cm.descricao, mensagem: `"${descricao}" sem débito/crédito definido na contrapartida.`, valor: descricao })
+    }
+
+    // Caso de borda: modo DESCRIÇÃO + descrição sem contrapartida + principal
+    // ignorada (zero) deixa a direção nula SEM pendência (a principal não a cobrou).
+    // Se há JD a emitir, sem direção não dá para montá-los → vira pendência aqui.
+    if (jdItens.length && !direcao && def.debitoCredito.tipo === 'DESCRICAO' && !match) {
+      rowPend.push({ linha, tipo: 'CONTA_NAO_MAPEADA', campo: cm.descricao, mensagem: `Sem contrapartida para "${descricao}" — necessária para o débito/crédito do juros/desconto.`, valor: descricao })
     }
 
     // Conta corrente do lançamento: fixa (UNICA) ou pela coluna do banco (MULTIPLAS).
@@ -255,29 +316,45 @@ export function applyModel(table: ExtractedTableInput, def: TreatmentDefinition,
       return
     }
 
-    // Resolve variáveis {{...}} do histórico fixo nesta linha: valores de colunas
-    // (row) e partes da data já parseada (yyyymmdd), sem re-parse.
     const ymd = pd.yyyymmdd as string
-    const historicoFixoRaw = (match as CpMatch).historicoFixo
-    const historicoFixo = historicoFixoRaw
-      ? resolveHistorico(historicoFixoRaw, (h) => cell(row, h), { ano: ymd.slice(0, 4), mes: ymd.slice(4, 6), dia: ymd.slice(6, 8) })
-      : historicoFixoRaw
+    const partesData = { ano: ymd.slice(0, 4), mes: ymd.slice(4, 6), dia: ymd.slice(6, 8) }
+    // Campos comuns às linhas desta origem (principal e juros/descontos).
+    const comum = { yyyymmdd: ymd, direcao: direcao as Direcao, contaCorrente, participante, numeroNf, documento }
 
-    lines.push(buildSciLine({
-      numero: lines.length + 1,
-      yyyymmdd: ymd,
-      direcao: direcao as Direcao,
-      contaCorrente,
-      contaContrapartida: (match as CpMatch).conta.trim(),
-      // Magnitude sempre positiva: a direção (débito/crédito) já carrega o sinal.
-      valor: Math.abs(pv.value as number),
-      participante,
-      numeroNf,
-      documento,
-      historicoFixo,
-    }))
+    // Linha PRINCIPAL — omitida quando o valor é zero (mas os JD abaixo saem).
+    if (!mainIsZero) {
+      // Resolve variáveis {{...}} do histórico fixo desta linha: valores de colunas
+      // (row) e partes da data já parseada (yyyymmdd), sem re-parse.
+      const historicoFixoRaw = (match as CpMatch).historicoFixo
+      const historicoFixo = historicoFixoRaw
+        ? resolveHistorico(historicoFixoRaw, (h) => cell(row, h), partesData)
+        : historicoFixoRaw
+      lines.push(buildSciLine({
+        ...comum,
+        numero: lines.length + 1,
+        contaContrapartida: (match as CpMatch).conta.trim(),
+        // Magnitude sempre positiva: a direção (débito/crédito) já carrega o sinal.
+        valor: Math.abs(pv.value as number),
+        historicoFixo,
+      }))
+    }
+
+    // Linhas de JUROS/DESCONTOS — mesmos campos, EXCETO: valor (o de juros/desconto),
+    // contrapartida (a conta contábil de juros/descontos) e histórico (sempre o
+    // automático + termo "JUROS"/"DESC", ignorando o histórico fixo).
+    for (const it of jdItens) {
+      const conta = (it.tipo === 'JURO' ? jd.contaJuros : jd.contaDescontos).trim()
+      lines.push(buildSciLine({
+        ...comum,
+        numero: lines.length + 1,
+        contaContrapartida: conta,
+        valor: it.valor,
+        jdTermo: JUROS_DESCONTOS_HISTORICO[it.tipo],
+      }))
+    }
+
     pushTrace('ok', {
-      direcao, contaContrapartida: (match as CpMatch).conta.trim(), contaCorrente,
+      direcao, contaContrapartida: match?.conta?.trim() || null, contaCorrente,
     })
   })
 
