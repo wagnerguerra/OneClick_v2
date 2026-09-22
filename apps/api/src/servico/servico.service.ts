@@ -2749,6 +2749,11 @@ export class ServicoService {
     servicoNome: string
     areaNome: string | null
     responsavelNome: string | null
+    /** Foto do responsável, para a tela mostrar o rosto de quem executa. Vem
+     *  junto do nome (mesma consulta) porque um sem o outro não serve: nome sem
+     *  foto cai nas iniciais, e foto sem nome não identifica ninguém. */
+    responsavelId: string | null
+    responsavelImage: string | null
     /** true = o nome veio de escolha MANUAL neste orçamento, não do template. */
     responsavelManual: boolean
     claimFirst: boolean
@@ -2792,9 +2797,9 @@ export class ServicoService {
     // Nomes dos escolhidos à mão, numa consulta só.
     const manuaisIds = [...new Set(refs.map(r => r.responsavelId).filter((x): x is string => !!x))]
     const manuais = manuaisIds.length > 0
-      ? await prisma.user.findMany({ where: { id: { in: manuaisIds } }, select: { id: true, name: true } }).catch(() => [])
+      ? await prisma.user.findMany({ where: { id: { in: manuaisIds } }, select: { id: true, name: true, image: true } }).catch(() => [])
       : []
-    const nomePorUser = new Map(manuais.map(u => [u.id, u.name]))
+    const userPorId = new Map(manuais.map(u => [u.id, u]))
 
     const saida = []
     for (const ref of refs) {
@@ -2812,7 +2817,9 @@ export class ServicoService {
           servicoId: svc.id,
           servicoNome: svc.nome,
           areaNome: svc.area?.name ?? null,
-          responsavelNome: nomePorUser.get(ref.responsavelId) ?? null,
+          responsavelNome: userPorId.get(ref.responsavelId)?.name ?? null,
+          responsavelId: ref.responsavelId,
+          responsavelImage: userPorId.get(ref.responsavelId)?.image ?? null,
           responsavelManual: true,
           claimFirst: false,
           totalCandidatos: 1,
@@ -2831,12 +2838,18 @@ export class ServicoService {
       }
 
       let responsavelNome: string | null = null
+      let responsavelId: string | null = null
+      let responsavelImage: string | null = null
       if (!claimFirst && candidatos.length === 1) {
         const u = await prisma.user.findUnique({
           where: { id: candidatos[0]! },
-          select: { name: true },
+          select: { id: true, name: true, image: true },
         }).catch(() => null)
         responsavelNome = u?.name ?? null
+        // Só identifica quem o `u` confirmou existir: devolver o id do candidato
+        // com o nome nulo faria a tela desenhar um quadro de um usuário apagado.
+        responsavelId = u?.id ?? null
+        responsavelImage = u?.image ?? null
       }
 
       saida.push({
@@ -2845,6 +2858,8 @@ export class ServicoService {
         servicoNome: svc.nome,
         areaNome: svc.area?.name ?? null,
         responsavelNome,
+        responsavelId,
+        responsavelImage,
         responsavelManual: false,
         claimFirst,
         totalCandidatos: candidatos.length,
