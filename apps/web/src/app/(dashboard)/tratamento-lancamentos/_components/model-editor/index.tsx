@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } fro
 import { useRouter } from 'next/navigation'
 import {
   Save, Upload, Loader2, Info, Image as ImageIcon,
-  Tag, Columns3, ArrowLeftRight, Network, ArrowLeft, ArrowRight, History, Landmark, AlertTriangle, X,
+  Tag, Columns3, ArrowLeftRight, Network, ArrowLeft, ArrowRight, History, Landmark, AlertTriangle, X, Percent,
 } from 'lucide-react'
 import {
   Button, Input, Label, Checkbox, Card, TooltipProvider, cn,
@@ -31,6 +31,7 @@ import { StepHeader, EmptyHint, Stepper, ModeCards, ColumnSelect, FloatingAction
 import { DebitoCreditoColunaMap } from './sections/debito-credito'
 import { ContasCorrentesMap } from './sections/contas-correntes'
 import { ContrapartidaPalavraChave, ContrapartidaDescricao } from './sections/contrapartida'
+import { JurosDescontosSection } from './sections/juros-descontos'
 
 // <style> injetado no html dos alertas para corrigir o word-break do título — é
 // um <h2> e herda o `word-break: break-all` global, que o quebra no meio da
@@ -260,6 +261,11 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     Object.entries(def.columnMapping).forEach(([k, v]) => { if (v && k !== 'documentoFixo') fromDef.add(v) })
     if (def.debitoCredito.tipo === 'COLUNA' && def.debitoCredito.coluna) fromDef.add(def.debitoCredito.coluna)
     if (def.contasCorrentes.modo === 'MULTIPLAS' && def.contasCorrentes.coluna) fromDef.add(def.contasCorrentes.coluna)
+    const jd = def.jurosDescontos
+    if (jd.ativo) {
+      if (jd.modo === 'SEPARADAS') { if (jd.colunaJuros) fromDef.add(jd.colunaJuros); if (jd.colunaDescontos) fromDef.add(jd.colunaDescontos) }
+      else if (jd.colunaUnificada) fromDef.add(jd.colunaUnificada)
+    }
     return [...fromDef]
   }, [preview, def])
 
@@ -465,6 +471,20 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     }
     return p
   }
+  function probJurosDescontos(): string[] {
+    const jd = def.jurosDescontos
+    if (!jd.ativo) return [] // etapa pulável quando desmarcada
+    const p: string[] = []
+    if (jd.modo === 'SEPARADAS') {
+      if (!jd.colunaJuros.trim()) p.push('Em <b>Juros e Descontos</b>, selecione a <b>coluna de Juros</b>.')
+      if (!jd.colunaDescontos.trim()) p.push('Em <b>Juros e Descontos</b>, selecione a <b>coluna de Descontos</b>.')
+    } else if (!jd.colunaUnificada.trim()) {
+      p.push('Em <b>Juros e Descontos</b>, selecione a <b>coluna unificada</b> de Juros/Descontos.')
+    }
+    if (!jd.contaJuros.trim()) p.push('Em <b>Juros e Descontos</b>, informe a <b>conta contábil de Juros</b>.')
+    if (!jd.contaDescontos.trim()) p.push('Em <b>Juros e Descontos</b>, informe a <b>conta contábil de Descontos</b>.')
+    return p
+  }
   function probContrapartida(): string[] {
     const p: string[] = []
     if (def.contrapartida.modo === 'PALAVRA_CHAVE') {
@@ -511,6 +531,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     const secoes: Array<[string, boolean]> = [
       ['rev-depara', Object.keys(fora.dePara).length > 0],
       ['rev-cc', !!fora.cc || probContasCorrentes().length > 0],
+      ['rev-jd', Object.keys(fora.jd).length > 0 || probJurosDescontos().length > 0],
       ['rev-dc', !!fora.dc || probDC().length > 0],
       ['rev-cp', probContrapartida().length > 0],
     ]
@@ -538,6 +559,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     () => [...probArquivo(), ...probDados()],
     probDePara,
     probContasCorrentes,
+    probJurosDescontos,
     () => [...probDC(), ...probContrapartida()],
   ]
 
@@ -555,7 +577,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   }
 
   async function handleSave() {
-    const problemas = [...probDados(), ...probDePara(), ...probContasCorrentes(), ...probDC(), ...probContrapartida()]
+    const problemas = [...probDados(), ...probDePara(), ...probContasCorrentes(), ...probJurosDescontos(), ...probDC(), ...probContrapartida()]
     if (problemas.length) {
       await showProblemas('Revise o preenchimento do modelo', problemas)
       return
@@ -652,7 +674,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   // campo. Vale SEMPRE (editar e revisar): não prunamos mais as ausentes, então a
   // própria `def` ainda carrega a coluna selecionada para comparar.
   const fora = colunasForaDoArquivo(def, preview?.headers)
-  const temAmber = Object.keys(fora.dePara).length > 0 || !!fora.dc || !!fora.cc
+  const temAmber = Object.keys(fora.dePara).length > 0 || !!fora.dc || !!fora.cc || Object.keys(fora.jd).length > 0
 
   // ---- Blocos de seção: construídos uma vez. Empilhados na "visão geral"
   //      (edição + revisão final do wizard) ou exibidos um a um no wizard. --
@@ -829,6 +851,16 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     </Card>
   )
 
+  const secJurosDescontos = (
+    <Card className="p-5 space-y-4">
+      <StepHeader
+        icon={Percent} color="bg-indigo-500" title="Juros e Descontos"
+        hint="Se o documento traz colunas de juros e/ou descontos, marque a opção: cada valor encontrado vira um lançamento separado no SCI (com a conta contábil de juros/descontos e o termo JUROS/DESC no histórico). Se não traz, deixe desmarcado e siga."
+      />
+      <JurosDescontosSection def={def} setDef={setDef} headers={headers} fora={fora.jd} samplesFor={samplesFor} />
+    </Card>
+  )
+
   const secDC = (
     <Card className="p-5 space-y-4">
       <StepHeader
@@ -931,10 +963,11 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   // memoizada no topo, em `temSemCorrespPC` — aqui só se lê o booleano.)
   const revProbs = {
     cc: modoRevisao && !fora.cc ? probContasCorrentes() : [],
+    jd: modoRevisao ? probJurosDescontos() : [],
     dc: modoRevisao && !fora.dc ? probDC() : [],
     cp: modoRevisao ? probContrapartida() : [],
   }
-  const revProbsTotal = revProbs.cc.length + revProbs.dc.length + revProbs.cp.length
+  const revProbsTotal = revProbs.cc.length + revProbs.jd.length + revProbs.dc.length + revProbs.cp.length
   const temRevisao = revProbsTotal > 0 || temAmber
 
   // Visão geral = todas as seções empilhadas (edição + revisão final do wizard).
@@ -947,6 +980,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       {secArquivo}
       <div id="rev-depara" className="scroll-mt-[var(--app-header-offset)]">{secDePara}</div>
       <SecaoRevisao ativo={modoRevisao} problems={revProbs.cc} id="rev-cc">{secContasCorrentes}</SecaoRevisao>
+      <SecaoRevisao ativo={modoRevisao} problems={revProbs.jd} id="rev-jd">{secJurosDescontos}</SecaoRevisao>
       <SecaoRevisao ativo={modoRevisao} problems={revProbs.dc} id="rev-dc">{secDC}</SecaoRevisao>
       <SecaoRevisao ativo={modoRevisao} problems={revProbs.cp} id="rev-cp">{secContrapartida}</SecaoRevisao>
       {mode === 'edit' && secNota}
@@ -959,6 +993,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       { label: 'Início', node: (<>{secArquivo}{secDados}</>) },
       { label: 'Colunas', node: secDePara },
       { label: 'Contas correntes', node: secContasCorrentes },
+      { label: 'Juros e Descontos', node: secJurosDescontos },
       { label: 'Débito/Crédito e Contrapartida', node: (<>{secDC}{secContrapartida}</>) },
     ]
     const isReview = step >= wizardSteps.length
@@ -1078,6 +1113,7 @@ function colunasForaDoArquivo(defOrig: TreatmentDefinition | null, headers?: str
     dePara: {} as Partial<Record<keyof TreatmentDefinition['columnMapping'], string>>,
     dc: '',
     cc: '',
+    jd: {} as { juros?: string; descontos?: string; unificada?: string },
   }
   if (!defOrig || !headers) return out
   const hset = new Set(headers)
@@ -1091,6 +1127,15 @@ function colunasForaDoArquivo(defOrig: TreatmentDefinition | null, headers?: str
   if (dc.tipo === 'COLUNA' && dc.coluna && !hset.has(dc.coluna)) out.dc = dc.coluna
   const cc = defOrig.contasCorrentes
   if (cc.modo === 'MULTIPLAS' && cc.coluna && !hset.has(cc.coluna)) out.cc = cc.coluna
+  const jd = defOrig.jurosDescontos
+  if (jd.ativo) {
+    if (jd.modo === 'SEPARADAS') {
+      if (jd.colunaJuros && !hset.has(jd.colunaJuros)) out.jd.juros = jd.colunaJuros
+      if (jd.colunaDescontos && !hset.has(jd.colunaDescontos)) out.jd.descontos = jd.colunaDescontos
+    } else if (jd.colunaUnificada && !hset.has(jd.colunaUnificada)) {
+      out.jd.unificada = jd.colunaUnificada
+    }
+  }
   return out
 }
 

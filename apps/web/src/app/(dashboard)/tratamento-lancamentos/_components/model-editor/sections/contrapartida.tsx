@@ -77,7 +77,7 @@ function Paginador({ page, pageCount, onGo }: { page: number; pageCount: number;
  */
 const BATCH_PANEL_W = 240
 
-function BatchFill({ scopeLabel, children }: { scopeLabel: string; children: (close: () => void) => ReactNode }) {
+function BatchFill({ scopeLabel, width = BATCH_PANEL_W, children }: { scopeLabel: string; width?: number; children: (close: () => void) => ReactNode }) {
   const [open, setOpen] = useState(false)
   const [coords, setCoords] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -89,7 +89,7 @@ function BatchFill({ scopeLabel, children }: { scopeLabel: string; children: (cl
     if (r) {
       // Ancora abaixo do gatilho; empurra pra dentro da viewport se estourar a direita.
       let left = r.left
-      if (left + BATCH_PANEL_W > window.innerWidth - 8) left = window.innerWidth - BATCH_PANEL_W - 8
+      if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8
       if (left < 8) left = 8
       setCoords({ top: r.bottom + 4, left })
     }
@@ -104,16 +104,22 @@ function BatchFill({ scopeLabel, children }: { scopeLabel: string; children: (cl
       setOpen(false)
     }
     const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
-    // Fecha em scroll/resize — o painel é fixed e descolaria do gatilho.
+    // Fecha em scroll/resize — o painel é fixed e descolaria do gatilho. Mas IGNORA
+    // scroll que nasce DENTRO do painel (ex.: o input rolando na horizontal ao digitar
+    // um valor maior que a largura) — senão o painel fechava sozinho ao digitar.
+    const onScroll = (e: Event) => {
+      if (e.target instanceof Node && panelRef.current?.contains(e.target)) return
+      setOpen(false)
+    }
     const onMove = () => setOpen(false)
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onEsc)
-    window.addEventListener('scroll', onMove, true)
+    window.addEventListener('scroll', onScroll, true)
     window.addEventListener('resize', onMove)
     return () => {
       document.removeEventListener('mousedown', onDown)
       document.removeEventListener('keydown', onEsc)
-      window.removeEventListener('scroll', onMove, true)
+      window.removeEventListener('scroll', onScroll, true)
       window.removeEventListener('resize', onMove)
     }
   }, [open])
@@ -133,7 +139,7 @@ function BatchFill({ scopeLabel, children }: { scopeLabel: string; children: (cl
       {open && createPortal(
         <div
           ref={panelRef}
-          style={{ position: 'fixed', top: coords.top, left: coords.left, width: BATCH_PANEL_W }}
+          style={{ position: 'fixed', top: coords.top, left: coords.left, width }}
           className="z-50 rounded-[4px] border border-border bg-card p-2 text-left font-normal normal-case shadow-2xl shadow-black/40 ring-1 ring-black/5"
         >
           <p className="mb-1.5 text-[11px] font-normal text-muted-foreground">Aplicar a {scopeLabel}:</p>
@@ -389,7 +395,7 @@ function ContrapartidaTabela<T extends CpItemComum>({
                   Histórico fixo (opcional)
                   <HelpTip text={HISTORICO_FIXO_HINT} />
                   {batchable && (
-                    <BatchFill scopeLabel={scopeLabel}>
+                    <BatchFill scopeLabel={scopeLabel} width={340}>
                       {(close) => <BatchInput placeholder="Histórico fixo" variaveis={headers} onApply={(v) => { batchApply({ historicoFixo: v } as Partial<T>); close() }} />}
                     </BatchFill>
                   )}

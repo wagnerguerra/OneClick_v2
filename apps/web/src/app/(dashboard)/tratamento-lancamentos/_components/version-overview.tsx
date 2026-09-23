@@ -1,6 +1,6 @@
 'use client'
 
-import { Landmark, Columns3, ArrowLeftRight, Network, type LucideIcon } from 'lucide-react'
+import { Landmark, Columns3, ArrowLeftRight, Network, Percent, type LucideIcon } from 'lucide-react'
 import { Badge } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
@@ -30,6 +30,12 @@ const CP_MODO_LABEL: Record<TreatmentDefinition['contrapartida']['modo'], string
 }
 const CC_MODO_LABEL: Record<TreatmentDefinition['contasCorrentes']['modo'], string> = {
   UNICA: 'Uma conta corrente', MULTIPLAS: 'Várias contas correntes',
+}
+const JD_MODO_LABEL: Record<TreatmentDefinition['jurosDescontos']['modo'], string> = {
+  SEPARADAS: 'Colunas separadas', UNIFICADA: 'Coluna unificada',
+}
+const JD_SINAL_LABEL: Record<TreatmentDefinition['jurosDescontos']['sinalJuros'], string> = {
+  POSITIVO: 'Positivo = Juros', NEGATIVO: 'Negativo = Juros',
 }
 const COLUMN_LABELS: Record<keyof TreatmentDefinition['columnMapping'], string> = {
   descricao: 'Descrição do lançamento', valor: 'Valor', data: 'Data',
@@ -123,6 +129,31 @@ export function VersionOverview({ def, compareTo, compareLabel = 'versão atual'
         ) : (
           <p className="text-xs text-muted-foreground italic">A direção é definida em cada item de contrapartida.</p>
         )}
+      </Section>
+
+      <Section icon={Percent} title="Juros e Descontos">
+        <FieldGrid>
+          <ReadField label="Juros/Descontos" value={def.jurosDescontos.ativo ? 'Ativo' : 'Inativo'} current={compareTo && (compareTo.jurosDescontos.ativo ? 'Ativo' : 'Inativo')} hasCompare={cmp} compareLabel={compareLabel} />
+          {def.jurosDescontos.ativo && (
+            <>
+              <ReadField label="Modo" value={JD_MODO_LABEL[def.jurosDescontos.modo]} current={compareTo && JD_MODO_LABEL[compareTo.jurosDescontos.modo]} hasCompare={cmp} compareLabel={compareLabel} />
+              {def.jurosDescontos.modo === 'SEPARADAS' ? (
+                <>
+                  <ReadField label="Coluna de Juros" value={def.jurosDescontos.colunaJuros} current={compareTo?.jurosDescontos.colunaJuros} hasCompare={cmp} compareLabel={compareLabel} />
+                  <ReadField label="Coluna de Descontos" value={def.jurosDescontos.colunaDescontos} current={compareTo?.jurosDescontos.colunaDescontos} hasCompare={cmp} compareLabel={compareLabel} />
+                </>
+              ) : (
+                <>
+                  <ReadField label="Coluna unificada" value={def.jurosDescontos.colunaUnificada} current={compareTo?.jurosDescontos.colunaUnificada} hasCompare={cmp} compareLabel={compareLabel} />
+                  <ReadField label="Sinal de Juros" value={JD_SINAL_LABEL[def.jurosDescontos.sinalJuros]} current={compareTo && JD_SINAL_LABEL[compareTo.jurosDescontos.sinalJuros]} hasCompare={cmp} compareLabel={compareLabel} />
+                </>
+              )}
+              <ReadField label="Conta de Juros" value={def.jurosDescontos.contaJuros} current={compareTo?.jurosDescontos.contaJuros} hasCompare={cmp} compareLabel={compareLabel} />
+              <ReadField label="Conta de Descontos" value={def.jurosDescontos.contaDescontos} current={compareTo?.jurosDescontos.contaDescontos} hasCompare={cmp} compareLabel={compareLabel} />
+            </>
+          )}
+        </FieldGrid>
+        {!def.jurosDescontos.ativo && <p className="text-xs text-muted-foreground italic">O documento não traz valores de juros/descontos.</p>}
       </Section>
 
       <Section icon={Network} title="Contrapartida">

@@ -179,11 +179,41 @@ export const contasCorrentesSchema = z.object({
 })
 export type ContasCorrentesRule = z.infer<typeof contasCorrentesSchema>
 
+// ---- Juros e Descontos -----------------------------------------------------
+// Bloco opcional: alguns documentos trazem, além do valor principal, colunas de
+// JUROS e/ou DESCONTOS. Cada valor não-vazio dessas colunas vira um lançamento
+// SEPARADO no SCI (contrapartida = a conta contábil de juros/descontos; histórico
+// com o termo "JUROS"/"DESC" após RECEB/PGTO; demais campos herdados da linha).
+//   - ativo:   o documento traz juros/descontos? (etapa pulável quando false)
+//   - modo SEPARADAS:  duas colunas (uma de juros, uma de descontos)
+//   - modo UNIFICADA:  uma coluna única, sempre com sinal; `sinalJuros` diz qual
+//     sinal é Juro (o outro é Desconto)
+//   - contaJuros / contaDescontos: contrapartida de cada tipo (sempre exigidas)
+// Guarda os campos dos DOIS modos para não perder o preenchimento ao alternar.
+export const jurosDescontosSchema = z.object({
+  ativo: z.boolean().default(false),
+  modo: z.enum(['SEPARADAS', 'UNIFICADA']).default('SEPARADAS'),
+  colunaJuros: z.string().default(''),
+  colunaDescontos: z.string().default(''),
+  colunaUnificada: z.string().default(''),
+  /** Qual sinal, na coluna unificada, corresponde a Juros (o outro é Desconto). */
+  sinalJuros: z.enum(['POSITIVO', 'NEGATIVO']).default('POSITIVO'),
+  contaJuros: z.string().default(''),
+  contaDescontos: z.string().default(''),
+})
+export type JurosDescontosRule = z.infer<typeof jurosDescontosSchema>
+
+/** Tipo de um lançamento derivado de juros/descontos. */
+export type JurosDescontoTipo = 'JURO' | 'DESC'
+/** Termo gravado no histórico do SCI para cada tipo (após RECEB/PGTO). */
+export const JUROS_DESCONTOS_HISTORICO: Record<JurosDescontoTipo, string> = { JURO: 'JUROS', DESC: 'DESC' }
+
 // ---- Definição completa (corpo do Modelo — snapshot em JSON) ---------------
 export const treatmentDefinitionSchema = z.object({
   contasCorrentes: contasCorrentesSchema,
   columnMapping: columnMappingSchema,
   debitoCredito: debitoCreditoSchema,
+  jurosDescontos: jurosDescontosSchema,
   contrapartida: contrapartidaSchema,
 })
 export type TreatmentDefinition = z.infer<typeof treatmentDefinitionSchema>
@@ -193,6 +223,7 @@ export const EMPTY_TREATMENT_DEFINITION: TreatmentDefinition = {
   contasCorrentes: { modo: 'UNICA', unica: '', coluna: '', mapa: [] },
   columnMapping: { descricao: '', participante: '', valor: '', data: '', numeroNf: '', documento: '', documentoFixo: '' },
   debitoCredito: { tipo: 'COLUNA', coluna: '', mapa: [] },
+  jurosDescontos: { ativo: false, modo: 'SEPARADAS', colunaJuros: '', colunaDescontos: '', colunaUnificada: '', sinalJuros: 'POSITIVO', contaJuros: '', contaDescontos: '' },
   contrapartida: { modo: 'PALAVRA_CHAVE', palavraChave: [], descricao: [] },
 }
 
