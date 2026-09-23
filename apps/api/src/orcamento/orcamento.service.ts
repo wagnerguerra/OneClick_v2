@@ -1664,6 +1664,22 @@ export class OrcamentoService {
         })),
       })
       await this.recalcularTotais(novo.id)
+
+      // Evento "Serviço incluído ao orçamento" também na duplicação: para a
+      // área, um serviço entrou num orçamento novo, independente de ter vindo
+      // de uma cópia. Um aviso por serviço — orçamento com muitos serviços
+      // gera muitos e-mails, e é por isso que a regra é cadastrada serviço a
+      // serviço, e não uma vez para todos.
+      //
+      // O `createMany` não devolve ids; relemos os itens novos para ter o id de
+      // cada um, que é a chave de idempotência do log.
+      const itensNovos = await prisma.orcamentoItem.findMany({
+        where: { orcamentoId: novo.id, tipo: 'SERVICO', catalogoId: { not: null } },
+        select: { id: true },
+      }).catch(() => [] as Array<{ id: string }>)
+      for (const it of itensNovos) {
+        void this.servicoService.notificarServicoIncluidoOrcamento(it.id)
+      }
     }
 
     await this.addEvento(novo.id, userId, 'created', null, null, `Duplicado do orcamento #${original.numero}`)
@@ -3751,6 +3767,14 @@ export class OrcamentoService {
     })
     await this.recalcularTotais(input.orcamentoId)
     await this.emitItemEvent(input.orcamentoId)
+
+    // Evento "Serviço incluído ao orçamento". `void` de propósito: avisar é
+    // consequência da inclusão, não condição dela — e-mail lento ou SMTP fora
+    // não podem segurar a resposta de quem está montando a proposta.
+    // Só serviço do catálogo dispara; taxa e despesa não são executadas.
+    if (ehServico && item.catalogoId) {
+      void this.servicoService.notificarServicoIncluidoOrcamento(item.id)
+    }
     return item
   }
 

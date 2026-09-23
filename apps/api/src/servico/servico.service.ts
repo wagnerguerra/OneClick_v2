@@ -2942,6 +2942,110 @@ export class ServicoService {
     return saida
   }
 
+  /**
+   * Evento "Serviço incluído ao orçamento".
+   *
+   * Mora aqui, e não no OrcamentoService, porque depende do resolvedor de
+   * candidatos — a mesma função que decide quem executa de verdade. Montar o
+   * destinatário "Responsável" com uma segunda regra faria o e-mail anunciar um
+   * nome e o sistema atribuir outro, que é o desfecho que a tela do orçamento
+   * já evita.
+   *
+   * Não lança: avisar é consequência da inclusão, não condição dela. Uma falha
+   * aqui não pode impedir o serviço de entrar no orçamento.
+   */
+  async notificarServicoIncluidoOrcamento(orcamentoItemId: string): Promise<void> {
+    try {
+      const item = await prisma.orcamentoItem.findUnique({
+        where: { id: orcamentoItemId },
+        select: {
+          id: true, orcamentoId: true, catalogoId: true, responsavelId: true,
+          quantidade: true, valorUnitario: true, descontoPct: true, descontoValor: true,
+        },
+      })
+      // Sem catalogoId não é serviço do catálogo (taxa/despesa) — não executa,
+      // não notifica.
+      if (!item?.catalogoId) return
+
+      // Regra existente e ativa ANTES de qualquer outra consulta: sem regra
+      // cadastrada, este caminho inteiro é desperdício — e ele roda a cada item
+      // adicionado a qualquer orçamento.
+      const temRegra = await prisma.servicoNotificacaoRegra.count({
+        where: { servicoId: item.catalogoId, ativa: true, evento: 'SERVICO_INCLUIDO_ORCAMENTO' as any },
+      })
+      if (temRegra === 0) return
+
+      const [orc, svc] = await Promise.all([
+        prisma.orcamento.findUnique({
+          where: { id: item.orcamentoId },
+          select: { id: true, numero: true, clienteId: true },
+        }),
+        prisma.servico.findUnique({
+          where: { id: item.catalogoId },
+          include: { area: { select: { leaderId: true } } },
+        }),
+      ])
+      if (!orc || !svc) return
+
+      const cliente = orc.clienteId
+        ? await prisma.cliente.findUnique({
+            where: { id: orc.clienteId },
+            select: { razaoSocial: true, documento: true, nomeFantasia: true },
+          }).catch(() => null)
+        : null
+
+      const lider = svc.area?.leaderId
+        ? await prisma.user.findUnique({
+            where: { id: svc.area.leaderId },
+            select: { email: true },
+          }).catch(() => null)
+        : null
+
+      // Quem executa, pela MESMA precedência do createExecucao: escolha manual
+      // do item vence o template; e o template só nomeia alguém quando resolve
+      // para uma pessoa e nenhuma fonte é coletiva.
+      let responsavel: { name: string; email: string } | null = null
+      let responsavelId: string | null = item.responsavelId
+      if (!responsavelId) {
+        try {
+          const r = await this.resolverCandidatos(svc, { clienteId: orc.clienteId ?? '', orcamentoId: orc.id })
+          if (!r.claimFirst && r.candidatos.length === 1) responsavelId = r.candidatos[0]!
+        } catch {
+          // Template problemático não pode derrubar a inclusão do item.
+        }
+      }
+      if (responsavelId) {
+        const u = await prisma.user.findUnique({
+          where: { id: responsavelId },
+          select: { name: true, email: true },
+        }).catch(() => null)
+        if (u?.email) responsavel = { name: u.name ?? '', email: u.email }
+      }
+
+      const bruto = Number(item.quantidade) * Number(item.valorUnitario)
+      const desconto = (bruto * (Number(item.descontoPct ?? 0) / 100)) + Number(item.descontoValor ?? 0)
+      const valorItem = (bruto - desconto).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+      await this.notificacaoService.dispararServicoIncluido({
+        orcamentoItemId: item.id,
+        servicoId: item.catalogoId,
+        liderAreaEmail: lider?.email ?? null,
+        responsavel,
+        ctx: {
+          servicoNome: svc.nome,
+          clienteRazaoSocial: cliente?.razaoSocial ?? '',
+          clienteDocumento: cliente?.documento ?? '',
+          clienteNomeFantasia: cliente?.nomeFantasia ?? '',
+          orcamentoId: orc.id,
+          orcamentoNumero: orc.numero,
+          valorItem,
+        },
+      })
+    } catch (e) {
+      console.warn('[Servico] Falha ao notificar servico incluido no orcamento:', (e as Error).message)
+    }
+  }
+
   private passoMinutos(p: { slaMinutos: number | null; slaHoras: number | null }): number {
     return p.slaMinutos ?? (p.slaHoras != null ? p.slaHoras * 60 : 0)
   }

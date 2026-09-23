@@ -94,6 +94,24 @@ export function NotificacoesSection({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editEvento, setEditEvento] = useState<string>('ATRASADA')
   const [editDestinatario, setEditDestinatario] = useState<string>('RESPONSAVEL')
+
+  /**
+   * "Serviço incluído ao orçamento" acontece antes de existir execução, então
+   * GESTOR (vem do processo), WATCHERS (da execução) e CLIENTE (que ainda não
+   * recebeu a proposta) não têm de onde sair. Oferecê-los criaria uma regra
+   * que o servidor descarta em silêncio, sem o autor entender por quê.
+   */
+  const destinatariosDoEvento = editEvento === 'SERVICO_INCLUIDO_ORCAMENTO'
+    ? (['LIDER_AREA', 'RESPONSAVEL', 'CUSTOM'] as const).filter(d => NOTIFICACAO_DESTINATARIO.includes(d))
+    : NOTIFICACAO_DESTINATARIO
+
+  // Trocar para o evento do orçamento com um destinatário indisponível deixaria
+  // o Select mostrando um valor que sumiu da lista.
+  useEffect(() => {
+    if (!destinatariosDoEvento.includes(editDestinatario as never)) {
+      setEditDestinatario(destinatariosDoEvento[0] ?? 'CUSTOM')
+    }
+  }, [editEvento]) // eslint-disable-line react-hooks/exhaustive-deps
   const [editCustom, setEditCustom] = useState<string>('')
   const [editAssunto, setEditAssunto] = useState<string>('Execução atrasada — {{servico.nome}}')
   const [editCorpo, setEditCorpo] = useState<string>(
@@ -794,7 +812,7 @@ export function NotificacoesSection({
                 <Select value={editDestinatario} onValueChange={setEditDestinatario}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {NOTIFICACAO_DESTINATARIO.map(d => (
+                    {destinatariosDoEvento.map(d => (
                       <SelectItem key={d} value={d}>{NOTIFICACAO_DESTINATARIO_LABELS[d]}</SelectItem>
                     ))}
                   </SelectContent>

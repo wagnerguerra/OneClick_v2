@@ -6328,6 +6328,9 @@ enum NotificacaoEvento {
   PAUSADA
   CANCELADA
   AGUARDANDO_RESPOSTA
+  /// Servico entrou num orcamento. Unico evento anterior a execucao: nao tem
+  /// prazo, processo nem watchers, e o log referencia o item do orcamento.
+  SERVICO_INCLUIDO_ORCAMENTO
 }
 
 enum NotificacaoCanal {
@@ -6355,6 +6358,11 @@ enum NotificacaoDestinatario {
    * Lista de e-mails livres (destinatariosCustom)
    */
   CUSTOM
+  /**
+   * Lider cadastrado na Area do servico (Area.leaderId). Distinto de GESTOR,
+   * que vem do Processo e so existe depois da execucao criada.
+   */
+  LIDER_AREA
 }
 
 model ServicoNotificacaoRegra {
@@ -6401,9 +6409,16 @@ model ServicoNotificacaoLog {
   id            String            @id @default(cuid())
   regraId       String            @map("regra_id")
   /**
-   * ID da execução que disparou a notificação.
+   * ID da execução que disparou a notificação. NULO quando o evento acontece
+   * antes de existir execução — hoje só SERVICO_INCLUIDO_ORCAMENTO, que
+   * referencia `orcamentoItemId` no lugar.
    */
-  execucaoId    String            @map("execucao_id")
+  execucaoId    String?           @map("execucao_id")
+  /**
+   * Item do orçamento que disparou a notificação. Exclusivo com `execucaoId`:
+   * um log sempre tem exatamente um dos dois preenchido.
+   */
+  orcamentoItemId String?         @map("orcamento_item_id")
   evento        NotificacaoEvento
   /**
    * Lista de e-mails efetivamente atendidos no envio (snapshot).
@@ -6415,10 +6430,14 @@ model ServicoNotificacaoLog {
 
   regra ServicoNotificacaoRegra @relation(fields: [regraId], references: [id], onDelete: Cascade)
 
-  // Idempotência: uma regra dispara no máximo 1 vez por (execucao, evento).
-  // Retries do engine não duplicam — UPSERT no insert.
+  // Idempotência: uma regra dispara no máximo 1 vez por (origem, evento).
+  // Retries do engine não duplicam — UPSERT no insert. São duas chaves porque
+  // a origem é execução OU item de orçamento; no Postgres, NULL não colide com
+  // NULL em índice único, então cada chave só governa as linhas da sua origem.
   @@unique([regraId, execucaoId, evento])
+  @@unique([regraId, orcamentoItemId, evento])
   @@index([execucaoId])
+  @@index([orcamentoItemId])
   @@map("servico_notificacao_logs")
 }
 
