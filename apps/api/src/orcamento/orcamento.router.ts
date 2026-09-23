@@ -355,8 +355,19 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
 
     /** Histórico paginado de orçamentos do cliente (todos os status). */
     listOrcamentosDoClientePaginado: readProcedure(MODULE)
-      .input(z.object({ clienteId: z.string(), page: z.coerce.number().min(1).default(1), limit: z.coerce.number().min(1).max(100).default(20) }))
-      .query(({ input }) => orcamentoService.listOrcamentosDoClientePaginado(input.clienteId, input.page, input.limit)),
+      .input(z.object({
+        clienteId: z.string(),
+        page: z.coerce.number().min(1).default(1),
+        limit: z.coerce.number().min(1).max(100).default(20),
+        /** Busca por número do orçamento ou descrição do serviço. */
+        search: z.string().optional(),
+        /** Tira o próprio orçamento aberto da lista de "outros". */
+        excluirId: z.string().optional(),
+      }))
+      .query(({ input }) => orcamentoService.listOrcamentosDoClientePaginado(
+        input.clienteId, input.page, input.limit,
+        { search: input.search, excluirId: input.excluirId },
+      )),
 
     trocarResponsavel: writeSubProcedure(MODULE, 'change_responsavel', 'Alterar responsavel pelos servicos')
       .input(z.object({ id: z.string(), responsavelId: z.string().nullable() }))

@@ -2750,11 +2750,43 @@ export class OrcamentoService {
    * Histórico paginado de orçamentos do cliente — TODOS os status. Sem cap: o
    * cliente pode ter mais de 50 orçamentos e todos devem ser navegáveis.
    */
-  async listOrcamentosDoClientePaginado(clienteId: string, page: number, limit: number) {
+  async listOrcamentosDoClientePaginado(
+    clienteId: string,
+    page: number,
+    limit: number,
+    opts?: { search?: string; excluirId?: string },
+  ) {
     const skip = (Math.max(1, page) - 1) * limit
+    const termo = (opts?.search ?? '').trim()
+
+    // Busca pelo que a LINHA mostra: o número e a descrição do serviço.
+    // Status ficou de fora de propósito — é enum no banco, não texto, então
+    // `contains` nem se aplica, e ele já é um selo visível na linha.
+    //
+    // O número só entra quando o termo é só dígitos e cabe num Int: `numero`
+    // é Int no schema, e mandar um valor fora da faixa faz o Postgres recusar
+    // a consulta inteira — a busca quebraria em vez de não achar nada.
+    const buscaPorNumero = /^\d{1,9}$/.test(termo)
+    const filtroBusca = termo
+      ? {
+          OR: [
+            ...(buscaPorNumero ? [{ numero: Number(termo) }] : []),
+            { itens: { some: { descricao: { contains: termo, mode: 'insensitive' as const } } } },
+          ],
+        }
+      : {}
+
+    // `excluirId` tira o próprio orçamento aberto da lista, como já fazia a
+    // versão não paginada. Sem isso ele apareceria entre os "outros".
+    const where = {
+      clienteId,
+      ...(opts?.excluirId ? { id: { not: opts.excluirId } } : {}),
+      ...filtroBusca,
+    }
+
     const [rows, total] = await Promise.all([
       prisma.orcamento.findMany({
-        where: { clienteId },
+        where,
         select: {
           id: true, numero: true, status: true, totalGeral: true, createdAt: true,
           arquivado: true, tipo: true,
@@ -2764,7 +2796,7 @@ export class OrcamentoService {
         skip,
         take: limit,
       }),
-      prisma.orcamento.count({ where: { clienteId } }),
+      prisma.orcamento.count({ where }),
     ])
     return { rows, total, page: Math.max(1, page), limit }
   }

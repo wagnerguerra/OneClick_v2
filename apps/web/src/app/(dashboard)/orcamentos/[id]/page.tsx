@@ -9,7 +9,7 @@ import {
   Package, History, Type, ThumbsUp, ThumbsDown, CheckCircle2,
   Paperclip, Image as ImageIcon, Archive, MessageSquare, Files, Shield, Lock, Globe,
   Sparkles, Star, Link2, Hash, Building2, Calendar, Layers, Bell, Undo2,
-  ChevronDown, UserCheck,
+  ChevronDown, UserCheck, Search as SearchIcon, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, CardHeader, CardContent, Label, Checkbox,
@@ -635,7 +635,21 @@ export default function OrcamentoDetailPage() {
     }
   }
 
-  // Historico de orcamentos do cliente
+  // Historico de orcamentos do cliente — paginado no SERVIDOR (#HLP0400).
+  //
+  // Antes vinha a lista inteira numa tirada só, com `take: 50` no service: um
+  // cliente com mais de 50 propostas simplesmente não via as mais antigas, e
+  // nada na tela dizia que faltava coisa. Paginação e busca no backend seguem
+  // a regra da casa (nunca paginar no cliente dado que vem do servidor).
+  const HISTORICO_LIMIT = 10
+  const [historicoPage, setHistoricoPage] = useState(1)
+  const [historicoBusca, setHistoricoBusca] = useState('')
+  const [historicoTotal, setHistoricoTotal] = useState(0)
+  const [historicoLoading, setHistoricoLoading] = useState(false)
+  /** Se o cliente tem ALGUM outro orçamento, ignorando a busca. A aba se
+   *  decide por isto: com `historicoTotal`, uma busca sem resultado faria a
+   *  aba sumir com o usuário dentro dela. */
+  const [historicoTemAlgum, setHistoricoTemAlgum] = useState(false)
   const [historicoCliente, setHistoricoCliente] = useState<Array<{
     id: string; numero: number; status: string; totalGeral: number | string;
     createdAt: string; arquivado: boolean; tipo: string | null;
@@ -915,21 +929,50 @@ export default function OrcamentoDetailPage() {
     })()
   }, [])
 
-  // Carregar historico de orcamentos do mesmo cliente
+  // Busca reinicia a paginação: ficar na página 3 de um resultado que agora
+  // tem uma página só mostraria uma lista vazia.
+  useEffect(() => { setHistoricoPage(1) }, [historicoBusca, orc?.cliente?.id])
+
+  // Carregar historico de orcamentos do mesmo cliente (página atual)
   useEffect(() => {
-    if (!orc?.cliente?.id) { setHistoricoCliente([]); setTemLegado(false); return }
-    (async () => {
+    const clienteId = orc?.cliente?.id
+    if (!clienteId) {
+      setHistoricoCliente([]); setHistoricoTotal(0); setHistoricoTemAlgum(false)
+      return
+    }
+    let vivo = true
+    setHistoricoLoading(true)
+    // Debounce só quando há termo: trocar de página deve responder na hora.
+    const t = setTimeout(async () => {
       try {
-        const data = await (trpc.orcamento as any).listOrcamentosDoCliente.query({ clienteId: orc.cliente!.id, excluirId: id })
-        setHistoricoCliente(data || [])
+        const data = await (trpc.orcamento as any).listOrcamentosDoClientePaginado.query({
+          clienteId,
+          page: historicoPage,
+          limit: HISTORICO_LIMIT,
+          search: historicoBusca.trim() || undefined,
+          excluirId: id,
+        })
+        if (!vivo) return
+        setHistoricoCliente(data?.rows || [])
+        setHistoricoTotal(data?.total || 0)
+        if (!historicoBusca.trim()) setHistoricoTemAlgum((data?.total || 0) > 0)
       } catch { /* silent */ }
-      // Histórico do legado (define se a aba aparece mesmo sem outros orçamentos atuais)
+      finally { if (vivo) setHistoricoLoading(false) }
+    }, historicoBusca.trim() ? 350 : 0)
+    return () => { vivo = false; clearTimeout(t) }
+  }, [orc?.cliente?.id, id, historicoPage, historicoBusca])
+
+  // Histórico do legado — consulta própria, sem paginação, e define junto com
+  // o histórico atual se a aba aparece.
+  useEffect(() => {
+    if (!orc?.cliente?.id) { setTemLegado(false); return }
+    (async () => {
       try {
         const leg = await (trpc.orcamento as any).legadoPorCliente.query({ clienteId: orc.cliente!.id })
         setTemLegado((leg || []).length > 0)
       } catch { /* silent */ }
     })()
-  }, [orc?.cliente?.id, id])
+  }, [orc?.cliente?.id])
 
   // Sugestoes de e-mail para o campo "Emails dos Contatos" — coleta cliente.email + contatos
   useEffect(() => {
@@ -2196,7 +2239,7 @@ export default function OrcamentoDetailPage() {
             { value: 'itens', icon: Package, label: 'Itens', badge: orc.itens.length },
             { value: 'mensagens', icon: MessageSquare, label: 'Mensagens', badge: orc.mensagens.length },
             { value: 'timeline', icon: History, label: 'Timeline' },
-            ...((historicoCliente.length > 0 || temLegado) ? [{ value: 'historico', icon: Files, label: 'Outros orçamentos' }] : []),
+            ...((historicoTemAlgum || temLegado) ? [{ value: 'historico', icon: Files, label: 'Outros orçamentos' }] : []),
           ] as Array<{ value: string; icon: typeof FileText; label: string; badge?: number }>).map(t => {
             const Icon = t.icon
             const ativa = activeTab === t.value
@@ -3067,16 +3110,39 @@ export default function OrcamentoDetailPage() {
           <TabsContent value="historico" className="mt-0 space-y-5">
             {/* Histórico do sistema legado (só leitura) */}
             <OrcamentosLegadoSection clienteId={orc.cliente?.id} />
-            {historicoCliente.length > 0 && (
+            {historicoTemAlgum && (
               <SectionCard
                 title="Outros orçamentos do cliente"
                 description="Histórico de propostas deste cliente no sistema."
                 icon={<FileText />}
-                actions={<Badge variant="secondary" className="text-[10px] mr-1">{historicoCliente.length}</Badge>}
+                actions={<Badge variant="secondary" className="text-[10px] mr-1">{historicoTotal}</Badge>}
                 bodyClassName="p-0"
               >
                 <CardContent className="p-0">
+                  {/* Busca — por número do orçamento ou descrição do serviço,
+                      que é o que a linha mostra. Roda no servidor: a lista aqui
+                      é uma página, não o conjunto todo. */}
+                  <div className="flex items-center gap-2 border-b border-border/40 px-4 py-2.5">
+                    <div className="relative flex-1">
+                      <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={historicoBusca}
+                        onChange={e => setHistoricoBusca(e.target.value)}
+                        placeholder="Buscar por número ou serviço..."
+                        className="h-8 pl-8 text-xs"
+                      />
+                    </div>
+                    {historicoLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground shrink-0" />}
+                  </div>
+
                   <div className="max-h-[280px] overflow-y-auto nice-scrollbar">
+                    {historicoCliente.length === 0 && !historicoLoading && (
+                      <p className="px-4 py-6 text-center text-xs text-muted-foreground">
+                        {historicoBusca.trim()
+                          ? 'Nenhum orçamento encontrado para esta busca.'
+                          : 'Nenhum outro orçamento deste cliente.'}
+                      </p>
+                    )}
                     {historicoCliente.map(o => {
                       const tipoLabel = o.tipo === 'SERVICO_MENSAL' ? 'Serviço Mensal' : o.tipo === 'SERVICO_EXTRA' ? 'Serviço Extra' : null
                       const servicoDesc = o.itens?.[0]?.descricao ?? null
@@ -3103,6 +3169,37 @@ export default function OrcamentoDetailPage() {
                       )
                     })}
                   </div>
+
+                  {/* Rodapé — PADRAO_PAGINAS §1.4: contagem à esquerda, navegação
+                      à direita. Só aparece quando há mais de uma página. */}
+                  {historicoTotal > HISTORICO_LIMIT && (
+                    <div className="flex items-center justify-between gap-3 border-t border-border/40 bg-muted/20 px-4 py-2">
+                      <p className="text-[11px] text-muted-foreground">
+                        Mostrando <span className="font-medium">{(historicoPage - 1) * HISTORICO_LIMIT + 1}</span>
+                        {' '}a <span className="font-medium">{Math.min(historicoPage * HISTORICO_LIMIT, historicoTotal)}</span>
+                        {' '}de <span className="font-medium">{historicoTotal}</span>
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline" size="icon-xs"
+                          disabled={historicoPage === 1 || historicoLoading}
+                          onClick={() => setHistoricoPage(p => Math.max(1, p - 1))}
+                        >
+                          <ChevronLeft className="h-3.5 w-3.5" />
+                        </Button>
+                        <span className="px-1 text-[11px] tabular-nums text-muted-foreground">
+                          {historicoPage} / {Math.max(1, Math.ceil(historicoTotal / HISTORICO_LIMIT))}
+                        </span>
+                        <Button
+                          variant="outline" size="icon-xs"
+                          disabled={historicoPage >= Math.ceil(historicoTotal / HISTORICO_LIMIT) || historicoLoading}
+                          onClick={() => setHistoricoPage(p => p + 1)}
+                        >
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </SectionCard>
             )}
