@@ -74,8 +74,11 @@
      · --skin-<key>-dark-soft → o SOFT button (tint + texto colorido) usa esse tom
        CLARO (o de antes da branch), melhor como acento suave.
    No LIGHT um tom só resolve os dois (não há texto branco sobre primária clara).
-   As regras [data-skin]/.dark[data-skin] só fiam essas vars (sem hex literal). As
-   bolinhas de prévia leem var(--skin-<key>) → mostram SEMPRE o tom light. As
+   Fiação em 2 camadas: cada skin tem 1 regra de SELEÇÃO (aponta seu palette pras vars
+   ativas --skin-primary/--skin-hover/--skin-dark/--skin-dark-hover/--skin-dark-soft) e 2 regras
+   GENÉRICAS ([data-skin] e .dark[data-skin]) mapeiam essas → tokens (nome do token 1×/tema).
+   Adicionar/editar skin = mexer só no palette + na linha de seleção dela.
+   As bolinhas de prévia leem var(--skin-<key>) → mostram SEMPRE o tom light. As
    RENOMEADAS trocaram só o matiz (Esmeralda→Turquesa/teal; Âmbar→Tangerina/laranja). */
 :root {
   /* Padrão (azul) — hover do --color-primary-hover base; o dark serve sólido e soft. */
@@ -96,21 +99,21 @@
   --skin-grafite: #334155;       --skin-grafite-hover: #1e293b;
   --skin-grafite-dark: #64748b;  --skin-grafite-dark-hover: #475569;  --skin-grafite-dark-soft: #94a3b8;
 }
-[data-skin="esmeralda"] { --color-primary: var(--skin-esmeralda); --color-primary-hover: var(--skin-esmeralda-hover); --color-ring: var(--skin-esmeralda); }
-[data-skin="ambar"]     { --color-primary: var(--skin-ambar);     --color-primary-hover: var(--skin-ambar-hover);     --color-ring: var(--skin-ambar); }
-[data-skin="coral"]     { --color-primary: var(--skin-coral);     --color-primary-hover: var(--skin-coral-hover);     --color-ring: var(--skin-coral); }
-[data-skin="lilas"]     { --color-primary: var(--skin-lilas);     --color-primary-hover: var(--skin-lilas-hover);     --color-ring: var(--skin-lilas); }
-[data-skin="grafite"]   { --color-primary: var(--skin-grafite);   --color-primary-hover: var(--skin-grafite-hover);   --color-ring: var(--skin-grafite); }
-.dark[data-skin="esmeralda"] { --color-primary: var(--skin-esmeralda-dark); --color-primary-hover: var(--skin-esmeralda-dark-hover); --color-ring: var(--skin-esmeralda-dark); }
-.dark[data-skin="ambar"]     { --color-primary: var(--skin-ambar-dark);     --color-primary-hover: var(--skin-ambar-dark-hover);     --color-ring: var(--skin-ambar-dark); }
-.dark[data-skin="coral"]     { --color-primary: var(--skin-coral-dark);     --color-primary-hover: var(--skin-coral-dark-hover);     --color-ring: var(--skin-coral-dark); }
-.dark[data-skin="lilas"]     { --color-primary: var(--skin-lilas-dark);     --color-primary-hover: var(--skin-lilas-dark-hover);     --color-ring: var(--skin-lilas-dark); }
-.dark[data-skin="grafite"]   { --color-primary: var(--skin-grafite-dark);   --color-primary-hover: var(--skin-grafite-dark-hover);   --color-ring: var(--skin-grafite-dark); }
+/* Seleção: cada skin aponta seu palette pras vars "ativas" --skin*. Uma linha/skin
+   (os nomes hover/dark/dark-soft nunca são nome de skin, então não colidem com o palette). */
+[data-skin="esmeralda"] { --skin-primary: var(--skin-esmeralda); --skin-hover: var(--skin-esmeralda-hover); --skin-dark: var(--skin-esmeralda-dark); --skin-dark-hover: var(--skin-esmeralda-dark-hover); --skin-dark-soft: var(--skin-esmeralda-dark-soft); }
+[data-skin="ambar"]     { --skin-primary: var(--skin-ambar);     --skin-hover: var(--skin-ambar-hover);     --skin-dark: var(--skin-ambar-dark);     --skin-dark-hover: var(--skin-ambar-dark-hover);     --skin-dark-soft: var(--skin-ambar-dark-soft); }
+[data-skin="coral"]     { --skin-primary: var(--skin-coral);     --skin-hover: var(--skin-coral-hover);     --skin-dark: var(--skin-coral-dark);     --skin-dark-hover: var(--skin-coral-dark-hover);     --skin-dark-soft: var(--skin-coral-dark-soft); }
+[data-skin="lilas"]     { --skin-primary: var(--skin-lilas);     --skin-hover: var(--skin-lilas-hover);     --skin-dark: var(--skin-lilas-dark);     --skin-dark-hover: var(--skin-lilas-dark-hover);     --skin-dark-soft: var(--skin-lilas-dark-soft); }
+[data-skin="grafite"]   { --skin-primary: var(--skin-grafite);   --skin-hover: var(--skin-grafite-hover);   --skin-dark: var(--skin-grafite-dark);   --skin-dark-hover: var(--skin-grafite-dark-hover);   --skin-dark-soft: var(--skin-grafite-dark-soft); }
+/* Fiação genérica: nome de cada token UMA vez por tema. No dark o soft-accent usa o
+   tom claro (-dark-soft); no light o --btn-soft-accent segue o --color-primary (base). */
+[data-skin]      { --color-primary: var(--skin-primary);      --color-primary-hover: var(--skin-hover);      --color-ring: var(--skin-primary); }
+.dark[data-skin] { --color-primary: var(--skin-dark); --color-primary-hover: var(--skin-dark-hover); --color-ring: var(--skin-dark); --btn-soft-accent: var(--skin-dark-soft); }
 /* ⚠️ DEBUG — skin de depuração (NÃO listada no menu de skins). Magenta vívido pra
    evidenciar o que respeita a cor primária. REMOVER antes do PR (junto com o
    PrimaryDebugTool e sua montagem no layout). branch feat/module-color-to-primary. */
-[data-skin="debug"]      { --color-primary: #ff00d4; --color-primary-hover: #d600b0; --color-primary-foreground: #ffffff; --color-ring: #ff00d4; }
-.dark[data-skin="debug"] { --color-primary: #ff4de3; --color-primary-hover: #ff7aea; --color-primary-foreground: #ffffff; --color-ring: #ff4de3; }
+[data-skin="debug"] { --skin-primary: #ff00d4; --skin-hover: #d600b0; --skin-dark: #ff4de3; --skin-dark-hover: #ff7aea; --skin-dark-soft: #ff4de3; --color-primary-foreground: #ffffff; }
 
 /* ── Botão variante `soft`: cor/fundo por skin ────────────────────────────
    O soft NÃO usa --color-primary direto: usa --btn-soft-accent, que no light (e no
@@ -123,13 +126,9 @@
   --btn-soft-fg: var(--btn-soft-accent);
   --btn-soft-bg: color-mix(in oklab, var(--btn-soft-accent) 15%, transparent);
 }
-/* DARK: o accent do soft de cada skin = tom mais claro. */
-.dark[data-skin="esmeralda"] { --btn-soft-accent: var(--skin-esmeralda-dark-soft); }
-.dark[data-skin="ambar"]     { --btn-soft-accent: var(--skin-ambar-dark-soft); }
-.dark[data-skin="coral"]     { --btn-soft-accent: var(--skin-coral-dark-soft); }
-/* Lilás/Grafite: accent claro + texto misturado com branco (grafite é neutro/escuro). */
-.dark[data-skin="lilas"]     { --btn-soft-accent: var(--skin-lilas-dark-soft);   --btn-soft-fg: color-mix(in oklab, var(--btn-soft-accent), white 15%); }
-.dark[data-skin="grafite"]   { --btn-soft-accent: var(--skin-grafite-dark-soft); --btn-soft-fg: color-mix(in oklab, var(--btn-soft-accent), white 70%); }
+/* Texto do soft no DARK misturado com branco (o accent já vem do -dark-soft na fiação). */
+.dark[data-skin="lilas"]   { --btn-soft-fg: color-mix(in oklab, var(--btn-soft-accent), white 15%); }
+.dark[data-skin="grafite"] { --btn-soft-fg: color-mix(in oklab, var(--btn-soft-accent), white 70%); }
 /* Padrão (sem data-skin) no DARK: texto do soft um tiquinho mais claro. */
 .dark:not([data-skin]) { --btn-soft-fg: color-mix(in oklab, var(--btn-soft-accent), white 25%); }
 
