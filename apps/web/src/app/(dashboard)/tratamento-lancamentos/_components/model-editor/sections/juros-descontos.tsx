@@ -35,7 +35,7 @@ export function JurosDescontosSection({ def, setDef, headers, fora, samplesFor }
           <span className="block text-[11px] text-muted-foreground">
             {jd.ativo
               ? 'Cada valor de juros/desconto encontrado será um lançamento separado no arquivo SCI.'
-              : 'Caso não seja o caso, deixe desmarcado para pular esta etapa.'}
+              : 'Se não for o caso, deixe desmarcado para pular esta etapa.'}
           </span>
         </span>
       </label>
@@ -48,8 +48,8 @@ export function JurosDescontosSection({ def, setDef, headers, fora, samplesFor }
               accent="indigo"
               value={jd.modo}
               options={[
+                { value: 'UNIFICADA', label: 'Coluna única', hint: 'Uma coluna só; o sinal (+/−) diz se é juro ou desconto.' },
                 { value: 'SEPARADAS', label: 'Colunas separadas', hint: 'Uma coluna de Juros e uma de Descontos.' },
-                { value: 'UNIFICADA', label: 'Coluna unificada', hint: 'Uma coluna só; o sinal (+/−) diz se é juro ou desconto.' },
               ]}
               onChange={(v) => upd({ modo: v as 'SEPARADAS' | 'UNIFICADA' })}
             />
@@ -70,7 +70,7 @@ export function JurosDescontosSection({ def, setDef, headers, fora, samplesFor }
               <div className="space-y-2">
                 <p className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
                   Nessa coluna, qual sinal corresponde a Juros?
-                  <HelpTip text="A coluna unificada sempre traz valores com sinal. O sinal escolhido aqui será classificado como Juros; o sinal oposto, como Desconto." />
+                  <HelpTip text="A coluna única sempre traz valores com sinal. O sinal escolhido aqui será classificado como Juros; o sinal oposto, como Desconto." />
                 </p>
                 <ModeCards
                   accent="indigo"

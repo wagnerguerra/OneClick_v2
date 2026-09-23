@@ -32,7 +32,7 @@ const CC_MODO_LABEL: Record<TreatmentDefinition['contasCorrentes']['modo'], stri
   UNICA: 'Uma conta corrente', MULTIPLAS: 'Várias contas correntes',
 }
 const JD_MODO_LABEL: Record<TreatmentDefinition['jurosDescontos']['modo'], string> = {
-  SEPARADAS: 'Colunas separadas', UNIFICADA: 'Coluna unificada',
+  SEPARADAS: 'Colunas separadas', UNIFICADA: 'Coluna única',
 }
 const JD_SINAL_LABEL: Record<TreatmentDefinition['jurosDescontos']['sinalJuros'], string> = {
   POSITIVO: 'Positivo = Juros', NEGATIVO: 'Negativo = Juros',
@@ -144,7 +144,7 @@ export function VersionOverview({ def, compareTo, compareLabel = 'versão atual'
                 </>
               ) : (
                 <>
-                  <ReadField label="Coluna unificada" value={def.jurosDescontos.colunaUnificada} current={compareTo?.jurosDescontos.colunaUnificada} hasCompare={cmp} compareLabel={compareLabel} />
+                  <ReadField label="Coluna única" value={def.jurosDescontos.colunaUnificada} current={compareTo?.jurosDescontos.colunaUnificada} hasCompare={cmp} compareLabel={compareLabel} />
                   <ReadField label="Sinal de Juros" value={JD_SINAL_LABEL[def.jurosDescontos.sinalJuros]} current={compareTo && JD_SINAL_LABEL[compareTo.jurosDescontos.sinalJuros]} hasCompare={cmp} compareLabel={compareLabel} />
                 </>
               )}

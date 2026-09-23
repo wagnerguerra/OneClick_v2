@@ -5,13 +5,11 @@ import { useRouter } from 'next/navigation'
 import {
   FileSpreadsheet, Upload, Download, Loader2, Image as ImageIcon, Settings2, FileCog, type LucideIcon,
 } from 'lucide-react'
-import {
-  Button, Card,
-  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-} from '@saas/ui'
+import { Button, Card } from '@saas/ui'
 import { cn } from '@saas/ui'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { EntityCombobox } from '@/components/ui/entity-combobox'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { DetectedRowsStatus } from './_components/detected-rows-status'
@@ -305,12 +303,16 @@ export default function TratamentoLancamentosPage() {
 
           {/* 2. Modelo */}
           <StepBlock num={2} icon={FileCog} title="Modelo de Tratamento" color="#8b5cf6" className="py-6">
-            <Select value={modelId} onValueChange={(v) => { setModelId(v); setResult(null) }} disabled={models.length === 0}>
-              <SelectTrigger className="h-9 text-sm max-w-md"><SelectValue placeholder={models.length === 0 ? 'Nenhum modelo cadastrado' : 'Selecione o modelo'} /></SelectTrigger>
-              <SelectContent>
-                {models.map((m) => <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <EntityCombobox
+              className="max-w-md"
+              items={models.map((m) => ({ id: m.id, label: m.nome }))}
+              value={modelId}
+              onSelect={(v) => { setModelId(v); setResult(null) }}
+              disabled={models.length === 0}
+              placeholder={models.length === 0 ? 'Nenhum modelo cadastrado' : 'Selecione o modelo'}
+              searchPlaceholder="Buscar modelo..."
+              emptyText="Nenhum modelo encontrado"
+            />
             <div className="flex flex-col items-start gap-1.5 text-[11px]">
               {canManage && (
                 <button className="text-sm text-primary underline" onClick={goCreateModel}>

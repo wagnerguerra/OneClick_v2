@@ -153,12 +153,12 @@ export function computeDiff(base: TreatmentDefinition, target: TreatmentDefiniti
     cmpScalar('Juros/Descontos', jb.ativo ? 'Ativo' : 'Inativo', jt.ativo ? 'Ativo' : 'Inativo', out)
     // Detalha os campos só quando algum lado usa JD (evita poluir o diff de modelos que nunca ligaram).
     if (jb.ativo || jt.ativo) {
-      const modoLbl: Record<TreatmentDefinition['jurosDescontos']['modo'], string> = { SEPARADAS: 'Colunas separadas', UNIFICADA: 'Coluna unificada' }
+      const modoLbl: Record<TreatmentDefinition['jurosDescontos']['modo'], string> = { SEPARADAS: 'Colunas separadas', UNIFICADA: 'Coluna única' }
       const sinalLbl: Record<TreatmentDefinition['jurosDescontos']['sinalJuros'], string> = { POSITIVO: 'Positivo = Juros', NEGATIVO: 'Negativo = Juros' }
       cmpScalar('Modo', modoLbl[jb.modo], modoLbl[jt.modo], out)
       cmpScalar('Coluna de Juros', jb.colunaJuros, jt.colunaJuros, out)
       cmpScalar('Coluna de Descontos', jb.colunaDescontos, jt.colunaDescontos, out)
-      cmpScalar('Coluna unificada', jb.colunaUnificada, jt.colunaUnificada, out)
+      cmpScalar('Coluna única', jb.colunaUnificada, jt.colunaUnificada, out)
       cmpScalar('Sinal de Juros', sinalLbl[jb.sinalJuros], sinalLbl[jt.sinalJuros], out)
       cmpScalar('Conta de Juros', jb.contaJuros, jt.contaJuros, out)
       cmpScalar('Conta de Descontos', jb.contaDescontos, jt.contaDescontos, out)
