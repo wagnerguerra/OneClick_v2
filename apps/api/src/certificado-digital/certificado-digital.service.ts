@@ -276,16 +276,49 @@ export class CertificadoDigitalService {
     socioId?: string | null
     observacoes?: string | null
   }, audit: AuditContext) {
+    // AUSENTE e NULO são coisas diferentes aqui: ausente é "não mexe", nulo é
+    // "apaga". O `?? undefined` que estava aqui colapsava os dois, e o efeito
+    // era que o vínculo nunca podia ser REMOVIDO — só trocado por outro. Mesmo
+    // defeito que o #HLP0287 corrigiu nos campos de texto do orçamento.
+    const campo = <K extends keyof typeof data>(k: K) =>
+      (k in data ? data[k] : undefined)
+
+    // Estado anterior, para a trilha dizer o que mudou. Num módulo em que o
+    // vínculo define DE QUEM é o certificado, "editado" sem o de/para não
+    // responde a pergunta que se faz quando algo dá errado.
+    const antes = await prisma.certificadoDigital.findUnique({
+      where: { id },
+      select: {
+        cliente: { select: { razaoSocial: true } },
+        empresa: { select: { razaoSocial: true } },
+        socio: { select: { nomeCompleto: true } },
+      },
+    }).catch(() => null)
+
     await prisma.certificadoDigital.update({
       where: { id },
       data: {
-        clienteId: data.clienteId ?? undefined,
-        empresaId: data.empresaId ?? undefined,
-        socioId: data.socioId ?? undefined,
-        observacoes: data.observacoes ?? undefined,
+        clienteId: campo('clienteId'),
+        empresaId: campo('empresaId'),
+        socioId: campo('socioId'),
+        observacoes: campo('observacoes'),
       },
     })
-    await this.registrarAcesso(id, 'editado', audit)
+
+    let detalhes: string | undefined = audit.detalhes
+    if ('clienteId' in data) {
+      const depois = data.clienteId
+        ? (await prisma.cliente.findUnique({
+            where: { id: data.clienteId },
+            select: { razaoSocial: true },
+          }).catch(() => null))?.razaoSocial ?? data.clienteId
+        : null
+      const de = antes?.cliente?.razaoSocial ?? '(sem vínculo)'
+      const para = depois ?? '(sem vínculo)'
+      if (de !== para) detalhes = `vínculo de cliente: ${de} → ${para}`
+    }
+
+    await this.registrarAcesso(id, 'editado', { ...audit, detalhes })
     return { ok: true }
   }
 

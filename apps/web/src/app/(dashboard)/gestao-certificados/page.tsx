@@ -6,7 +6,7 @@ import {
   ShieldCheck, Loader2, Plus, MoreVertical, Eye, Archive, ArchiveRestore,
   Ban, Trash2, CheckCircle2, Clock, XCircle, FileLock,
   Upload, Lock, RefreshCw, History, DatabaseBackup, UploadCloud, X, FileCheck, Bell,
-  Settings2, KeyRound,
+  Settings2, KeyRound, Link2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react'
 import {
@@ -22,6 +22,7 @@ import { CertAcessoModal } from '@/components/certificado/cert-acesso-modal'
 import { SenhaPfxInput } from '@/components/certificado/senha-pfx-input'
 import { CertCadastroModal } from '@/components/certificado/cert-cadastro-modal'
 import { CertDetalhesModal } from '@/components/certificado/cert-detalhes-modal'
+import { CertVinculoModal, type CertVinculoAlvo } from '@/components/certificado/cert-vinculo-modal'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -151,6 +152,7 @@ export default function GestaoCertificadosPage() {
   const [detalhesOpen, setDetalhesOpen] = useState(false)
   const [detalhesId, setDetalhesId] = useState<string | null>(null)
   const [renovarTarget, setRenovarTarget] = useState<Certificado | null>(null)
+  const [vinculoTarget, setVinculoTarget] = useState<CertVinculoAlvo | null>(null)
   const [reauthOpen, setReauthOpen] = useState(false)
   const [reauthState, setReauthState] = useState<{
     titulo: string
@@ -190,12 +192,14 @@ export default function GestaoCertificadosPage() {
 
   // Carrega clientes só ao abrir modal de cadastro — apenas situação MENSAL
   // (clientes ativos com contrato mensal são quem precisa de cert digital).
+  // Tambem ao abrir o modal de vinculo: sem isso o combobox abria vazio pra
+  // quem entrou na tela e foi direto trocar o vinculo, sem passar pelo cadastro.
   useEffect(() => {
-    if (!novoOpen) return
+    if (!novoOpen && !vinculoTarget) return
     ;(trpc.cliente as any).listForSelect.query()
       .then((c: Cliente[]) => setClientes((c || []).filter(x => x.situacao === 'MENSAL')))
       .catch(() => setClientes([]))
-  }, [novoOpen])
+  }, [novoOpen, vinculoTarget])
 
   const filtered = useMemo(() => {
     // Aba "Arquivados" usa a lista dedicada (arquivados); os demais filtros de
@@ -690,6 +694,9 @@ export default function GestaoCertificadosPage() {
                           <DropdownMenuItem onClick={() => { setDetalhesId(c.id); setDetalhesOpen(true) }}>
                             <Eye className="h-3.5 w-3.5 mr-2" /> Ver detalhes
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setVinculoTarget({ id: c.id, titular: c.titular, cliente: c.cliente })}>
+                            <Link2 className="h-3.5 w-3.5 mr-2" /> Alterar vínculo
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setAcessoTarget(c)}>
                             <KeyRound className="h-3.5 w-3.5 mr-2" /> Baixar PFX / Ver senha
                           </DropdownMenuItem>
@@ -750,6 +757,13 @@ export default function GestaoCertificadosPage() {
         clientes={clientes}
         onCreated={() => { setNovoOpen(false); fetchData(true) }}
         subtitle="Envie o arquivo .pfx e informe a senha. O sistema vai extrair os dados (titular, validade, emissor) automaticamente."
+      />
+      <CertVinculoModal
+        open={!!vinculoTarget}
+        onOpenChange={o => { if (!o) setVinculoTarget(null) }}
+        alvo={vinculoTarget}
+        clientes={clientes}
+        onSalvo={() => fetchData(true)}
       />
       <RenovarCertificadoModal
         target={renovarTarget}

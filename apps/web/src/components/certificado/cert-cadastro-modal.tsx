@@ -160,7 +160,8 @@ export function CertCadastroModal({
                 placeholder="Buscar cliente mensal por razão social ou CNPJ..."
               />
               <p className="text-[10px] text-muted-foreground">
-                Apenas clientes com situação <strong>Mensal</strong> são listados. Você poderá vincular sócio/empresa nos detalhes depois.
+                Apenas clientes com situação <strong>Mensal</strong> são listados. Dá para trocar
+                este vínculo depois, pelo menu da linha na listagem (<strong>Alterar vínculo</strong>).
               </p>
             </div>
           )}
