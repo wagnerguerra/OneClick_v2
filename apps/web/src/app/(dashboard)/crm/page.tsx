@@ -8,7 +8,7 @@ import {
   CheckSquare, MessageSquare, Trash2, Send, LayoutGrid, List,
   Download, FileText, Settings2, GripVertical, Save, Paperclip, UploadCloud, File, History, Archive, SlidersHorizontal, Tag, Layers, Sparkles,
   Flame, Thermometer, Snowflake, Megaphone, RotateCcw,
-  Square, Edit2, AlertCircle, Bell, Mail, Search as SearchIcon,
+  Square, Edit2, AlertCircle, Bell, Mail, Search as SearchIcon, Printer,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, RichEditor,
@@ -1242,6 +1242,9 @@ export default function CrmPage() {
                               <ArrowRight className="h-3.5 w-3.5 mr-2" style={{ color: e.cor }} /> Mover para {e.nome}
                             </DropdownMenuItem>
                           ))}
+                          <DropdownMenuItem onClick={() => router.push(`/crm/${op.id}/imprimir`)}>
+                            <Printer className="h-3.5 w-3.5 mr-2" /> Imprimir
+                          </DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(op.id, op.titulo)}>
                             <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
                           </DropdownMenuItem>
@@ -1472,7 +1475,13 @@ export default function CrmPage() {
           ) : (
             <>
               <SheetHeader className="border-b-0 bg-transparent">
-                <div className="absolute right-14 top-4 z-10">
+                <div className="absolute right-14 top-4 z-10 flex items-center gap-1">
+                  {/* Imprimir a ficha da oportunidade — mesma posição que o
+                      orçamento usa no cabeçalho do detalhe. */}
+                  <button className="flex h-7 w-7 items-center justify-center rounded-md opacity-60 transition-all hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10"
+                    onClick={() => router.push(`/crm/${detail.id}/imprimir`)} title="Imprimir">
+                    <Printer className="h-4 w-4" />
+                  </button>
                   <button className="flex h-7 w-7 items-center justify-center rounded-md opacity-60 transition-all hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10" disabled={saving} onClick={() => {
                     const btn = document.getElementById('detail-save-btn') as HTMLButtonElement
                     if (btn) btn.click()
@@ -2374,6 +2383,9 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
   op: Oportunidade; etapas: Etapa[]
   onMover: (id: string, etapaId: string) => void; onDelete: (id: string, titulo: string) => void; diasDesde: (d: string) => number; showMenu: boolean; declinioDias?: number
 }) {
+  // Router local: ver o item "Imprimir" abaixo. Evita passar mais um callback
+  // por Column -> Card -> Content (e pelo Overlay, que so passa no-ops).
+  const routerCard = useRouter()
   // Empresa/Cliente da oportunidade: prioriza o cliente cadastrado (FK),
   // cai pro nome avulso (razaoSocial digitada). Quando existe, vai ACIMA do título.
   const empresaCliente = (op as any).cliente?.razaoSocial || (op as any).razaoSocial || null
@@ -2402,6 +2414,9 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+                <DropdownMenuItem onClick={() => routerCard.push(`/crm/${op.id}/imprimir`)}>
+                  <Printer className="h-3.5 w-3.5 mr-2" /> Imprimir
+                </DropdownMenuItem>
                 <DropdownMenuItem className="text-destructive" onClick={() => onDelete(op.id, op.titulo)}>
                   <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
                 </DropdownMenuItem>
