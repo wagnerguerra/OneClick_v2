@@ -56,6 +56,13 @@ export function RichContent({ html, className, style }: {
         // Citação e linha divisória.
         '[&_blockquote]:border-l-[3px] [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_blockquote]:my-2',
         '[&_hr]:border-0 [&_hr]:border-t [&_hr]:border-border [&_hr]:my-3',
+        // Tabela (#HLP0404) — espelha o bloco do editor. O HTML salvo já podia
+        // conter <table> (colado de fora), mas sem estas regras ele saia sem
+        // borda nenhuma: as células ficavam coladas e a grade sumia.
+        '[&_table]:w-full [&_table]:border-collapse [&_table]:my-3',
+        '[&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1.5 [&_th]:bg-muted [&_th]:font-semibold [&_th]:text-left [&_th]:align-top',
+        '[&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1.5 [&_td]:align-top',
+        '[&_th>p]:m-0 [&_td>p]:m-0',
         // Marcações inline.
         '[&_strong]:font-semibold [&_em]:italic [&_u]:underline [&_s]:line-through',
         // Links e imagens: o editor já grava classe própria no HTML que ele

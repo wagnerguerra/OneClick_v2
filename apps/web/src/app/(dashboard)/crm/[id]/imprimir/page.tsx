@@ -380,6 +380,29 @@ export default function ImprimirOportunidadePage() {
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
         }
+        /* Tabela (#HLP0404) — o texto da proposta passou a poder conter tabela.
+           Sem estas regras ela sai sem grade, com as células coladas. */
+        .quote-doc .descricao-content table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 10px 0;
+          font-size: 12px;
+        }
+        .quote-doc .descricao-content th,
+        .quote-doc .descricao-content td {
+          border: 1px solid #d1d5db;
+          padding: 6px 8px;
+          vertical-align: top;
+          text-align: left;
+        }
+        .quote-doc .descricao-content th {
+          background: #f3f4f6;
+          font-weight: 600;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .quote-doc .descricao-content th > p,
+        .quote-doc .descricao-content td > p { margin: 0; }
         .quote-doc .descricao-vazia { font-style: italic; color: #9ca3af; font-size: 13px; }
 
         /* Carimbo de desfecho (ganha / perdida) — espelha o aceite da proposta. */
@@ -465,6 +488,7 @@ export default function ImprimirOportunidadePage() {
             orphans: 3;
             widows: 3;
           }
+          .quote-doc .descricao-content tr,
           .quote-doc .items tr,
           .quote-doc .nota,
           .quote-doc .linha-hist,

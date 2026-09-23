@@ -10,6 +10,7 @@ import TextAlign from '@tiptap/extension-text-align'
 import { TextStyle } from '@tiptap/extension-text-style'
 import { Color } from '@tiptap/extension-color'
 import Highlight from '@tiptap/extension-highlight'
+import { TableKit } from '@tiptap/extension-table'
 import { useEffect, useRef, useState } from 'react'
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough,
@@ -168,6 +169,16 @@ export function RichEditor({
       ThemeSafeColor,
       Highlight.configure({ multicolor: true }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      // Tabela (#HLP0404). Sem isto, o schema do ProseMirror não tem o nó
+      // `table`: todo <table> que entra — da IA, de um colar do Word/Excel — e
+      // descartado no parse e sobra só o texto das células, emendado numa linha
+      // única. Não era a IA gerando errado; era o editor não sabendo guardar.
+      //
+      // TableKit traz Table + TableRow + TableHeader + TableCell de uma vez.
+      // `resizable` fica DESLIGADO: ele injeta <colgroup> com larguras fixas em
+      // pixels, que viram largura errada no impresso e no e-mail, onde o papel
+      // tem outra medida.
+      TableKit.configure({ table: { resizable: false } }),
       Link.configure({
         openOnClick: false,
         HTMLAttributes: { class: 'text-primary underline' },
@@ -375,6 +386,16 @@ export function RichEditor({
         .rich-editor-root h2 { font-size: 1.25em; font-weight: 600; margin: 0.5em 0 0.3em; }
         .rich-editor-root h3 { font-size: 1.1em; font-weight: 600; margin: 0.4em 0 0.2em; }
         .rich-editor-root hr { border: 0; border-top: 1px solid var(--color-border); margin: 0.75rem 0; }
+        .rich-editor-root table { border-collapse: collapse; width: 100%; margin: 0.75rem 0; table-layout: auto; }
+        .rich-editor-root th, .rich-editor-root td { border: 1px solid var(--color-border); padding: 0.35rem 0.5rem; vertical-align: top; }
+        .rich-editor-root th { background: var(--color-muted); font-weight: 600; text-align: left; }
+        .rich-editor-root th > p, .rich-editor-root td > p { margin: 0; }
+        /* Célula selecionada no editor — classe que o ProseMirror aplica. */
+        .rich-editor-root .selectedCell { position: relative; }
+        .rich-editor-root .selectedCell::after {
+          content: ''; position: absolute; inset: 0;
+          background: var(--color-primary); opacity: 0.12; pointer-events: none;
+        }
       ` }} />
       {/* Toolbar (oculto em modo leitura) */}
       {!readOnly && (
