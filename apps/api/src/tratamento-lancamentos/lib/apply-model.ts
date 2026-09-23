@@ -341,13 +341,18 @@ export function applyModel(table: ExtractedTableInput, def: TreatmentDefinition,
     }
 
     // Linhas de JUROS/DESCONTOS — mesmos campos, EXCETO: valor (o de juros/desconto),
-    // contrapartida (a conta contábil de juros/descontos) e histórico (sempre o
-    // automático + termo "JUROS"/"DESC", ignorando o histórico fixo).
+    // contrapartida (a conta contábil de juros/descontos), histórico (sempre o
+    // automático + termo "JUROS"/"DESC", ignorando o histórico fixo) e direção:
+    // JUROS espelham a direção da linha principal; DESCONTOS usam a INVERSA
+    // (validado com a gestora do contábil).
+    const dcPrincipal = direcao as Direcao
+    const dcInverso: Direcao = dcPrincipal === 'DEBITO' ? 'CREDITO' : 'DEBITO'
     for (const it of jdItens) {
       const conta = (it.tipo === 'JURO' ? jd.contaJuros : jd.contaDescontos).trim()
       lines.push(buildSciLine({
         ...comum,
         numero: lines.length + 1,
+        direcao: it.tipo === 'JURO' ? dcPrincipal : dcInverso,
         contaContrapartida: conta,
         valor: it.valor,
         jdTermo: JUROS_DESCONTOS_HISTORICO[it.tipo],
