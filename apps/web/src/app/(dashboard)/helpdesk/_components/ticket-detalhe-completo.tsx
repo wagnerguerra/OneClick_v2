@@ -11,7 +11,7 @@ import {
   FileVideo, FileAudio, File as FileIcon, FileSpreadsheet,
   MoreVertical, Pencil, Trash2, Bot, ThumbsUp, ThumbsDown,
   Terminal, Copy, Zap, FileCheck, Reply, X, RotateCcw, Info, Archive, ArchiveRestore,
-  ListChecks,
+  ListChecks, Download, ExternalLink,
 } from 'lucide-react'
 import {
   Button, Card, CardContent, Badge, Label, cn, RichEditor, Input,
@@ -2518,6 +2518,42 @@ function AnexoThumbs({ anexos, onOpen }: { anexos: Anexo[]; onOpen: (a: Anexo) =
   )
 }
 
+/**
+ * Baixa o anexo com o NOME ORIGINAL.
+ *
+ * Não serve um `<a href download>` simples, por dois motivos somados:
+ *  - a rota `/api/upload/:filename` entrega o arquivo com `res.sendFile`, sem
+ *    `Content-Disposition`, e o nome em disco é o gerado no upload — o
+ *    navegador salvaria algo como "a1b2c3.docx";
+ *  - o atributo `download` é IGNORADO quando o href é de outra origem, que é
+ *    o caso sempre que a API não está no mesmo domínio do app.
+ *
+ * Buscar o conteúdo e montar um blob local resolve os dois: no blob o nome
+ * vale. Falhando a busca (rede, CORS), abre em nova aba — entregar o arquivo
+ * com o nome errado é melhor do que não entregar.
+ */
+async function baixarAnexo(anexo: Anexo) {
+  const url = resolveAssetUrl(anexo.fileUrl)
+  if (!url) return
+  try {
+    const resp = await fetch(url, { credentials: 'include' })
+    if (!resp.ok) throw new Error(String(resp.status))
+    const blob = await resp.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = objectUrl
+    a.download = anexo.fileName || 'arquivo'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    // Revogar na mesma volta do event loop cancela o download em alguns
+    // navegadores; o atraso dá tempo de o download começar.
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000)
+  } catch {
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+}
+
 /** Visualizador inline (lightbox) — abre o anexo sem trocar de página nem baixar. Esc fecha. */
 function AnexoLightbox({ anexo, onClose }: { anexo: Anexo | null; onClose: () => void }) {
   useEffect(() => {
@@ -2550,7 +2586,26 @@ function AnexoLightbox({ anexo, onClose }: { anexo: Anexo | null; onClose: () =>
           <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
           <span className="text-sm font-medium truncate">{anexo.fileName}</span>
           {anexo.mimeType && <span className="text-[11px] text-muted-foreground shrink-0">{anexo.mimeType}</span>}
-          <button onClick={onClose} className="ml-auto p-1 rounded hover:bg-muted text-muted-foreground" title="Fechar (Esc)"><X className="h-4 w-4" /></button>
+          {/* Abrir e Baixar valem para QUALQUER tipo: mesmo com pré-visualização
+              boa, levar o arquivo embora é ação legítima. E é o que a mensagem
+              de "pré-visualização não disponível" sempre prometeu, sem existir. */}
+          <div className="ml-auto flex items-center gap-1 shrink-0">
+            <button
+              onClick={() => window.open(resolveAssetUrl(anexo.fileUrl), '_blank', 'noopener,noreferrer')}
+              className="p-1 rounded hover:bg-muted text-muted-foreground"
+              title="Abrir em nova aba"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => void baixarAnexo(anexo)}
+              className="p-1 rounded hover:bg-muted text-muted-foreground"
+              title="Baixar"
+            >
+              <Download className="h-4 w-4" />
+            </button>
+            <button onClick={onClose} className="p-1 rounded hover:bg-muted text-muted-foreground" title="Fechar (Esc)"><X className="h-4 w-4" /></button>
+          </div>
         </div>
         <div className="nice-scrollbar flex-1 overflow-auto p-3 min-h-[300px]"><AnexoPreview anexo={anexo} /></div>
       </div>
@@ -2605,8 +2660,24 @@ function AnexoPreview({ anexo }: { anexo: Anexo }) {
       <div>
         <p className="text-sm font-semibold text-foreground">Pré-visualização não disponível</p>
         <p className="text-xs text-muted-foreground mt-1">
-          Este tipo de arquivo não pode ser exibido inline. Use os botões acima pra abrir ou baixar.
+          O navegador não exibe este tipo de arquivo. Baixe para abrir no programa certo.
         </p>
+      </div>
+      {/* O botão vem para cá, e não só para o cabeçalho: quando a pré-visualização
+          falha, baixar é a única coisa que resta a fazer — e era exatamente o que
+          faltava nesta tela. */}
+      <div className="flex items-center gap-2 mt-1">
+        <Button size="sm" className="gap-1.5" onClick={() => void baixarAnexo(anexo)}>
+          <Download className="h-4 w-4" /> Baixar arquivo
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5"
+          onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
+        >
+          <ExternalLink className="h-4 w-4" /> Abrir em nova aba
+        </Button>
       </div>
     </div>
   )
