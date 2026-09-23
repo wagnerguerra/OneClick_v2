@@ -134,7 +134,7 @@ export function QsaImportModal({ open, onClose, onSuccess, prefilledCnpj, prefil
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent className="max-w-2xl">
-        <DialogHeaderIcon icon={Users}>
+        <DialogHeaderIcon icon={Users} color="emerald">
           <DialogTitle>Importar QSA do CNPJ</DialogTitle>
           <DialogDescription>
             {step === 'input' && 'Informe o CNPJ para consultar o quadro de sócios na Receita Federal.'}
