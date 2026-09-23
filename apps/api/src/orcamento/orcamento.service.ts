@@ -3834,6 +3834,13 @@ export class OrcamentoService {
       criadas: novos.length,
       // itens do grupo que não entraram: já presentes + inelegíveis (inativo/indisponível/interno)
       pulados: grupo.itens.length - novos.length,
+      // Textos padrão dos serviços que REALMENTE entraram — a tela acrescenta
+      // cada um ao "Texto para o Cliente". Só aqui se sabe quais foram criados
+      // (os já presentes e os inaptos ficam de fora), e o `textoPadrao` já vinha
+      // no select desta consulta sem ter uso nenhum até agora.
+      textos: novos
+        .filter(s => (s.textoPadrao ?? '').trim())
+        .map(s => ({ nome: s.nome, texto: s.textoPadrao })),
     }
   }
 

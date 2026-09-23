@@ -1385,6 +1385,34 @@ export default function OrcamentoDetailPage() {
 
   // ── Items ──
 
+  /**
+   * Acrescenta o texto padrão de um serviço ao "Texto para o Cliente".
+   *
+   * ACRESCENTA, não substitui: o campo já nasce com o texto padrão GLOBAL
+   * (Configurações → Orçamentos) e um orçamento tem vários serviços —
+   * sobrescrever faria o segundo item apagar o primeiro.
+   *
+   * Mora no FRONT, e não no `addItem` do backend, por causa de como esta tela
+   * salva: o refetch silencioso que segue cada auto-save NÃO repopula os
+   * RichEditors (repopular jogava o cursor pro fim e revertia o que estava
+   * sendo digitado). Um append feito no servidor ficaria invisível para o
+   * formulário, e o auto-save seguinte mandaria o valor antigo por cima — o
+   * texto apareceria e sumiria sozinho.
+   *
+   * O bloco sai no mesmo formato do botão "Copiar" do modal de texto padrão
+   * (`<h4>nome</h4>` + texto), para inserir à mão e automático darem no mesmo.
+   */
+  function anexarTextoPadraoCliente(nome: string, texto: string | null | undefined) {
+    const corpo = (texto ?? '').trim()
+    if (!corpo) return
+    setFormTextoCliente(prev => {
+      // Já presente — reincluir o mesmo serviço não duplica o parágrafo.
+      if (prev.includes(corpo)) return prev
+      const bloco = `<h4>${nome}</h4>${corpo}`
+      return prev.trim() ? `${prev}${bloco}` : bloco
+    })
+  }
+
   async function handleAddItem() {
     if (!itemTipo || !itemDescricao.trim()) return
     setAddingItem(true)
@@ -1401,6 +1429,17 @@ export default function OrcamentoDetailPage() {
         subservicoId: itemSubservicoId || undefined,
         catalogoTextoId: itemTextoId || undefined,
       })
+
+      // Texto padrão do serviço → "Texto para o Cliente". Com variação
+      // escolhida, o texto DELA já foi aplicado no `handleSelecionarTexto` e
+      // vence o padrão — a mesma precedência que o backend usa em
+      // `textosDosItens`. Com subserviço, é ele quem manda, como no valor.
+      if (itemTipo === 'SERVICO' && itemCatalogoId && !itemTextoId) {
+        const pai = catalogo.find(c => c.id === itemCatalogoId)
+        const alvo = itemSubservicoId ? pai?.subservicos?.find(x => x.id === itemSubservicoId) : pai
+        anexarTextoPadraoCliente(itemDescricao.trim() || pai?.nome || 'Serviço', alvo?.textoPadrao)
+      }
+
       setItemTipo('')
       setItemDescricao('')
       setItemQtde('1')
@@ -1434,6 +1473,15 @@ export default function OrcamentoDetailPage() {
     setAplicandoGrupoOrc(true)
     try {
       const res = await (trpc.orcamento as any).aplicarGrupo.mutate({ orcamentoId: id, grupoId: grupoOrcSelecionado })
+
+      // O grupo entra com vários serviços de uma vez; cada texto padrão vira
+      // um bloco, na ordem em que os itens entraram. O backend devolve nome e
+      // texto porque só ele sabe quais do grupo foram de fato criados (pula os
+      // já presentes e os inaptos ao catálogo).
+      for (const t of ((res.textos ?? []) as Array<{ nome: string; texto: string | null }>)) {
+        anexarTextoPadraoCliente(t.nome, t.texto)
+      }
+
       await alerts.success(
         'Grupo aplicado',
         `${res.criadas} item(ns) adicionado(s)${res.pulados ? ` · ${res.pulados} pulado(s) (já presente ou indisponível)` : ''}.`,
