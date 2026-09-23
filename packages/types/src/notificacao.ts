@@ -252,13 +252,24 @@ export const NOTIFICACAO_TEMPLATES_PADRAO: Array<{
     descricao: 'Avisa a área que um serviço dela entrou num orçamento.',
     evento: 'SERVICO_INCLUIDO_ORCAMENTO',
     destinatariosTipo: 'LIDER_AREA',
-    assunto: '📋 Serviço no orçamento #{{orcamento.numero}}: {{servico.nome}}',
+    assunto: 'Serviço {{servico.nome}} incluído ao orçamento #{{orcamento.numero}}',
+    // Corpo escrito para QUEM RECEBE: o líder da área, que ainda não tem
+    // trabalho para fazer — tem uma proposta para acompanhar. Daí dizer o que
+    // é (proposta, não execução), o que falta (quem executa) e onde agir.
+    //
+    // Não usa {{prazo.*}} nem {{link.execucao}}: neste evento as duas saem
+    // vazias, porque nada disso existe antes da venda.
     corpoHtml:
       '<p>Olá,</p>' +
-      '<p>O serviço <strong>{{servico.nome}}</strong> foi incluído no orçamento ' +
-      '<strong>#{{orcamento.numero}}</strong> do cliente <strong>{{cliente.razaoSocial}}</strong> ' +
-      '({{cliente.documento}}), no valor de <strong>{{orcamento.valor}}</strong>.</p>' +
-      '<p>Ainda é uma proposta — a execução só nasce se o orçamento for aprovado.</p>' +
+      '<p>O serviço <strong>{{servico.nome}}</strong>, da sua área, acaba de ser incluído no ' +
+      'orçamento <strong>#{{orcamento.numero}}</strong>.</p>' +
+      '<p><strong>Cliente:</strong> {{cliente.razaoSocial}} ({{cliente.documento}})<br>' +
+      '<strong>Valor do item:</strong> {{orcamento.valor}}<br>' +
+      '<strong>Responsável previsto:</strong> {{responsavel.name}}</p>' +
+      '<p>Ainda é uma <strong>proposta</strong>: a execução só será criada se o orçamento for ' +
+      'aprovado. Se o responsável previsto estiver como “—”, o cadastro do serviço não ' +
+      'resolve uma pessoa: quem lidera a área pode definir quem executa no próprio orçamento, ' +
+      'no card <em>Responsáveis pela Execução</em>.</p>' +
       '<p><a href="{{link.orcamento}}">Abrir orçamento</a></p>',
   },
   {
