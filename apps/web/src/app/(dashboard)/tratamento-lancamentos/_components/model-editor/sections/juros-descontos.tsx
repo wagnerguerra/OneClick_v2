@@ -48,8 +48,8 @@ export function JurosDescontosSection({ def, setDef, headers, fora, samplesFor }
               accent="indigo"
               value={jd.modo}
               options={[
-                { value: 'SEPARADAS', label: 'Colunas separadas', hint: 'Uma coluna de Juros e uma de Descontos.' },
                 { value: 'UNIFICADA', label: 'Coluna unificada', hint: 'Uma coluna só; o sinal (+/−) diz se é juro ou desconto.' },
+                { value: 'SEPARADAS', label: 'Colunas separadas', hint: 'Uma coluna de Juros e uma de Descontos.' },
               ]}
               onChange={(v) => upd({ modo: v as 'SEPARADAS' | 'UNIFICADA' })}
             />

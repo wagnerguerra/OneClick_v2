@@ -192,7 +192,7 @@ export type ContasCorrentesRule = z.infer<typeof contasCorrentesSchema>
 // Guarda os campos dos DOIS modos para não perder o preenchimento ao alternar.
 export const jurosDescontosSchema = z.object({
   ativo: z.boolean().default(false),
-  modo: z.enum(['SEPARADAS', 'UNIFICADA']).default('SEPARADAS'),
+  modo: z.enum(['SEPARADAS', 'UNIFICADA']).default('UNIFICADA'),
   colunaJuros: z.string().default(''),
   colunaDescontos: z.string().default(''),
   colunaUnificada: z.string().default(''),
@@ -223,7 +223,7 @@ export const EMPTY_TREATMENT_DEFINITION: TreatmentDefinition = {
   contasCorrentes: { modo: 'UNICA', unica: '', coluna: '', mapa: [] },
   columnMapping: { descricao: '', participante: '', valor: '', data: '', numeroNf: '', documento: '', documentoFixo: '' },
   debitoCredito: { tipo: 'COLUNA', coluna: '', mapa: [] },
-  jurosDescontos: { ativo: false, modo: 'SEPARADAS', colunaJuros: '', colunaDescontos: '', colunaUnificada: '', sinalJuros: 'POSITIVO', contaJuros: '', contaDescontos: '' },
+  jurosDescontos: { ativo: false, modo: 'UNIFICADA', colunaJuros: '', colunaDescontos: '', colunaUnificada: '', sinalJuros: 'POSITIVO', contaJuros: '', contaDescontos: '' },
   contrapartida: { modo: 'PALAVRA_CHAVE', palavraChave: [], descricao: [] },
 }
 
