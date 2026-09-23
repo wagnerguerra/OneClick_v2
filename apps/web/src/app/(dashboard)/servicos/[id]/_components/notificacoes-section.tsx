@@ -705,49 +705,26 @@ export function NotificacoesSection({
 
           {/* ── PILL: Regras de e-mail ──────────────────────── */}
           {activePill === 'regras' && (
-            <div>
-              <div className="px-5 py-3 border-b border-border flex items-center gap-2">
-                <h4 className="text-[13px] font-semibold text-foreground">Regras de notificação</h4>
-                <Badge variant="outline" className="ml-auto text-[10px]">
-                  {regras.length} regra{regras.length === 1 ? '' : 's'}
-                </Badge>
-              </div>
-              <div className="p-5">
+            <div className="p-5 space-y-4">
+              {/* Card 1 — as regras já cadastradas. Fica sozinho em cima porque
+                  é o que se consulta; criar e escolher template são ações, e
+                  descem para a linha de baixo. */}
+              <div className="rounded-lg border border-border bg-card">
+                <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+                  <h4 className="text-[13px] font-semibold text-foreground">Regras de notificação</h4>
+                  <Badge variant="outline" className="ml-auto text-[10px]">
+                    {regras.length} regra{regras.length === 1 ? '' : 's'}
+                  </Badge>
+                </div>
+                <div className="p-4">
 
           {regras.length === 0 ? (
-            <div className="py-3">
-              <p className="text-[12px] text-muted-foreground mb-3">
-                Nenhuma regra cadastrada. Comece por um dos templates prontos abaixo (você pode editar antes de salvar):
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {NOTIFICACAO_TEMPLATES_PADRAO.map(tpl => (
-                  <button
-                    key={tpl.nome}
-                    type="button"
-                    onClick={() => {
-                      setEditingId(null)
-                      setEditEvento(tpl.evento)
-                      setEditDestinatario(tpl.destinatariosTipo)
-                      setEditCustom('')
-                      setEditAssunto(tpl.assunto)
-                      setEditCorpo(tpl.corpoHtml)
-                      setEditAntecedencia(tpl.antecedenciaHoras ?? 24)
-                      setEditAtiva(true)
-                      // Scroll suave pro form (lá embaixo)
-                      setTimeout(() => {
-                        document.querySelector('[data-form-regra]')?.scrollIntoView({ behavior: 'smooth' })
-                      }, 50)
-                    }}
-                    className="text-left p-3 rounded border bg-card hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:border-emerald-300 transition-colors"
-                  >
-                    <div className="text-[12.5px] font-semibold mb-0.5">{tpl.nome}</div>
-                    <div className="text-[11px] text-muted-foreground">{tpl.descricao}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
+            <p className="text-[12px] text-muted-foreground">
+              Nenhuma regra cadastrada. Comece por um dos <strong>templates</strong> ao lado — eles preenchem
+              o formulário, e você pode editar antes de salvar.
+            </p>
           ) : (
-            <div className="space-y-1.5 mb-4">
+            <div className="space-y-1.5">
               {regras.map(r => (
                 <div
                   key={r.id}
@@ -781,11 +758,19 @@ export function NotificacoesSection({
               ))}
             </div>
           )}
+                </div>
+              </div>
+
+              {/* Linha 9x3: o formulário ocupa a largura de trabalho e os
+                  templates ficam à mão numa coluna estreita. Empilha no
+                  celular e no tablet (lg: é o primeiro ponto em que 3 colunas
+                  ainda cabem sem espremer o editor de texto). */}
+              <div className="grid grid-cols-12 gap-4 items-start">
 
           {/* Form de criação/edição ───────────────────────── */}
-          <div data-form-regra className="border-t pt-4 mt-2 space-y-3">
-            <div className="flex items-center gap-2 mb-1">
-              <h4 className="text-[13px] font-semibold">
+          <div data-form-regra className="col-span-12 lg:col-span-9 rounded-lg border border-border bg-card">
+            <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+              <h4 className="text-[13px] font-semibold text-foreground">
                 {editingId ? 'Editar regra' : 'Nova regra'}
               </h4>
               {editingId && (
@@ -794,6 +779,7 @@ export function NotificacoesSection({
                 </Button>
               )}
             </div>
+            <div className="p-4 space-y-3">
 
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-12 md:col-span-6 space-y-1.5">
@@ -908,6 +894,46 @@ export function NotificacoesSection({
                 {savingRegra ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                 {editingId ? 'Atualizar regra' : 'Criar regra'}
               </Button>
+            </div>
+            </div>
+          </div>
+
+          {/* Templates ────────────────────────────────────── */}
+          {/* Antes só apareciam quando o serviço tinha ZERO regras — quem já
+              tinha uma precisava montar a próxima na mão. Como card fixo, o
+              atalho vale sempre, que é justamente quando se adiciona a segunda
+              e a terceira regra. */}
+          <div className="col-span-12 lg:col-span-3 rounded-lg border border-border bg-card">
+            <div className="px-4 py-3 border-b border-border">
+              <h4 className="text-[13px] font-semibold text-foreground">Templates</h4>
+              <p className="text-[11px] text-muted-foreground">Preenchem o formulário ao lado.</p>
+            </div>
+            <div className="p-3 space-y-2 max-h-[420px] overflow-y-auto nice-scrollbar">
+              {NOTIFICACAO_TEMPLATES_PADRAO.map(tpl => (
+                <button
+                  key={tpl.nome}
+                  type="button"
+                  onClick={() => {
+                    setEditingId(null)
+                    setEditEvento(tpl.evento)
+                    setEditDestinatario(tpl.destinatariosTipo)
+                    setEditCustom('')
+                    setEditAssunto(tpl.assunto)
+                    setEditCorpo(tpl.corpoHtml)
+                    setEditAntecedencia(tpl.antecedenciaHoras ?? 24)
+                    setEditAtiva(true)
+                    // No celular os cards empilham e o formulário fica ACIMA
+                    // deste, fora da tela depois do clique.
+                    setTimeout(() => {
+                      document.querySelector('[data-form-regra]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }, 50)
+                  }}
+                  className="block w-full text-left p-2.5 rounded border bg-card hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:border-emerald-300 transition-colors"
+                >
+                  <div className="text-[12px] font-semibold mb-0.5 leading-snug">{tpl.nome}</div>
+                  <div className="text-[10.5px] text-muted-foreground leading-snug">{tpl.descricao}</div>
+                </button>
+              ))}
             </div>
           </div>
               </div>
