@@ -231,7 +231,7 @@ export default function CusteioPage() {
       {/* Modal de parâmetros */}
       <Dialog open={showParams} onOpenChange={setShowParams}>
         <DialogContent className="sm:max-w-lg">
-          <DialogHeaderIcon icon={Settings2}>
+          <DialogHeaderIcon icon={Settings2} color="slate">
             <DialogTitle>Parâmetros de custeio</DialogTitle>
           </DialogHeaderIcon>
           <DialogBody className="max-h-[65vh] space-y-4">

@@ -155,7 +155,7 @@ export function ServicoDetalheModal({ servicoId, open, onClose }: Props) {
 
         <DialogFooter>
           <Button variant="ghost" size="sm" onClick={onClose} disabled={saving}>Cancelar</Button>
-          <Button variant="success" size="sm" className="gap-1.5" onClick={salvar} disabled={loading || saving || !!erro}>
+          <Button variant="info" size="sm" className="gap-1.5" onClick={salvar} disabled={loading || saving || !!erro}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             {saving ? 'Salvando...' : 'Salvar'}
           </Button>

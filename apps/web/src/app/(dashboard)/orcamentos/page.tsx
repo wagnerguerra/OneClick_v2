@@ -1368,7 +1368,7 @@ export default function OrcamentosPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-            <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={handleCreate} disabled={creating || !form.clienteId}>
+            <Button size="sm" variant="success" className="gap-1.5" onClick={handleCreate} disabled={creating || !form.clienteId}>
               {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               Criar Orcamento
             </Button>

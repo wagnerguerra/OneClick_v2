@@ -3338,7 +3338,7 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setModal(null)}>Cancelar</Button>
-            <Button type="button" variant="success" onClick={handleSave} disabled={saving || !modal?.valor.trim()}>
+            <Button type="button" variant={modal?.id ? 'info' : 'success'} onClick={handleSave} disabled={saving || !modal?.valor.trim()}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
             </Button>
           </DialogFooter>
@@ -3383,7 +3383,7 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setModalBenef(null)}>Cancelar</Button>
-            <Button type="button" variant="success" onClick={handleSaveBenef} disabled={savingBenef || !modalBenef?.catalogoId}>
+            <Button type="button" variant={modalBenef?.id ? 'info' : 'success'} onClick={handleSaveBenef} disabled={savingBenef || !modalBenef?.catalogoId}>
               {savingBenef ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
             </Button>
           </DialogFooter>
@@ -3743,7 +3743,7 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
-            <Button type="button" variant="success" onClick={handleSaveEdit} disabled={savingEdit || !editing?.fileName.trim()}>
+            <Button type="button" variant="info" onClick={handleSaveEdit} disabled={savingEdit || !editing?.fileName.trim()}>
               {savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
             </Button>
           </DialogFooter>
@@ -3778,7 +3778,7 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setEditingCert(null)}>Cancelar</Button>
-            <Button type="button" variant="success" onClick={handleSaveCert} disabled={savingCert}>
+            <Button type="button" variant="info" onClick={handleSaveCert} disabled={savingCert}>
               {savingCert ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
             </Button>
           </DialogFooter>

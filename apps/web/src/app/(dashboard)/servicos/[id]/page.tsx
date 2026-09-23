@@ -2906,8 +2906,7 @@ export default function ServicoDetailPage() {
             <Button variant="outline" size="sm" onClick={() => setVarModalOpen(false)} disabled={varSalvando}>
               Cancelar
             </Button>
-            <Button onClick={salvarVariacao} disabled={varSalvando} size="sm" className="gap-1.5"
-              style={{ backgroundColor: PRIMARY }}>
+            <Button variant={varEditando ? 'info' : 'success'} onClick={salvarVariacao} disabled={varSalvando} size="sm" className="gap-1.5">
               {varSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar
             </Button>

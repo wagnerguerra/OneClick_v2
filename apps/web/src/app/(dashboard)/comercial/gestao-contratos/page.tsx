@@ -702,7 +702,7 @@ export default function GestaoContratosPage() {
       {/* Data de entrada — um campo só, resolvido sem trocar de tela. */}
       <Dialog open={!!editandoEntrada} onOpenChange={(o) => { if (!o) setEditandoEntrada(null) }}>
         <DialogContent className="max-w-sm">
-          <DialogHeaderIcon icon={CalendarClock} color="amber">
+          <DialogHeaderIcon icon={CalendarClock} color="sky">
             <DialogTitle className="text-[15px]">Data de entrada</DialogTitle>
             <DialogDescription className="text-[11px]">
               {editandoEntrada ? editandoEntrada.registro.cliente ?? '' : ''}
@@ -724,7 +724,7 @@ export default function GestaoContratosPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setEditandoEntrada(null)}>Cancelar</Button>
-            <Button variant="success" size="sm" onClick={salvarDataEntrada} disabled={salvandoEntrada || !editandoEntrada?.valor}>
+            <Button variant="info" size="sm" onClick={salvarDataEntrada} disabled={salvandoEntrada || !editandoEntrada?.valor}>
               {salvandoEntrada ? 'Salvando…' : 'Salvar'}
             </Button>
           </DialogFooter>

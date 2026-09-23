@@ -360,7 +360,7 @@ export default function ContratosPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNovoOpen(false)} disabled={salvando}>Cancelar</Button>
-            <Button size="sm" onClick={handleCriar} disabled={salvando} style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5">
+            <Button size="sm" onClick={handleCriar} disabled={salvando} variant="success" className="gap-1.5">
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               Criar contrato
             </Button>

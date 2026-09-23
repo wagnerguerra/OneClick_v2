@@ -1366,7 +1366,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     <Button variant="outline" onClick={() => setCertEdit(null)} disabled={certSalvando} type="button">
                       Cancelar
                     </Button>
-                    <Button onClick={salvarCertificado} disabled={certSalvando} type="button">
+                    <Button variant="info" onClick={salvarCertificado} disabled={certSalvando} type="button">
                       {certSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}
                     </Button>
                   </DialogFooter>
@@ -1475,7 +1475,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="outline" size="sm" onClick={() => setAceModalOpen(false)}>Fechar</Button>
-          <Button type="button" size="sm" onClick={saveAcesso} disabled={!aceForm.portal}>Salvar</Button>
+          <Button type="button" variant={aceEditId ? 'info' : 'success'} size="sm" onClick={saveAcesso} disabled={!aceForm.portal}>Salvar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1493,7 +1493,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="outline" size="sm" onClick={() => setVncModalOpen(false)}>Fechar</Button>
-          <Button type="button" size="sm" onClick={saveVencimento} disabled={!vncForm.descricao}>Salvar</Button>
+          <Button type="button" variant={vncEditId ? 'info' : 'success'} size="sm" onClick={saveVencimento} disabled={!vncForm.descricao}>Salvar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1519,7 +1519,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="outline" size="sm" onClick={() => setAndModalOpen(false)}>Fechar</Button>
-          <Button type="button" size="sm" onClick={saveAndamento} disabled={!andForm.tipo}>Salvar</Button>
+          <Button type="button" variant={andEditId ? 'info' : 'success'} size="sm" onClick={saveAndamento} disabled={!andForm.tipo}>Salvar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1536,7 +1536,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="outline" size="sm" onClick={() => setCnaeModalOpen(false)}>Fechar</Button>
-          <Button type="button" size="sm" onClick={saveCnae} disabled={!cnaeForm.codigo.trim() || cnaeSalvando}>{cnaeSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}</Button>
+          <Button type="button" variant="success" size="sm" onClick={saveCnae} disabled={!cnaeForm.codigo.trim() || cnaeSalvando}>{cnaeSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1553,7 +1553,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="outline" size="sm" onClick={() => setDteModalOpen(false)}>Fechar</Button>
-          <Button type="button" size="sm" onClick={saveDteMensagem} disabled={!dteForm.titulo.trim() || dteSalvando}>{dteSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}</Button>
+          <Button type="button" variant="success" size="sm" onClick={saveDteMensagem} disabled={!dteForm.titulo.trim() || dteSalvando}>{dteSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

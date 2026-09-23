@@ -2062,7 +2062,7 @@ export default function ServicosPage() {
           </DialogBody>
           <DialogFooter className="px-6 py-3 shrink-0 border-t border-border/40">
             <Button variant="outline" onClick={() => setServicoModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSaveServico} disabled={saving} className="gap-1.5" style={{ backgroundColor: PRIMARY }}>
+            <Button variant={editingServico ? 'info' : 'success'} onClick={handleSaveServico} disabled={saving} className="gap-1.5">
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               {editingServico ? 'Salvar' : 'Criar'}
             </Button>
@@ -2427,7 +2427,7 @@ export default function ServicosPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setPausarModal({ open: false, id: '', motivo: '' })}>Cancelar</Button>
-            <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: '#f59e0b' }} onClick={handlePausarExecucao} disabled={!pausarModal.motivo.trim()}>
+            <Button variant="warning" size="sm" className="gap-1.5" onClick={handlePausarExecucao} disabled={!pausarModal.motivo.trim()}>
               <Pause className="h-4 w-4" /> Pausar
             </Button>
           </DialogFooter>

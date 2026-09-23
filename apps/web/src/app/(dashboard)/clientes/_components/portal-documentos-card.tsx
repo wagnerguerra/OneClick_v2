@@ -466,7 +466,7 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
             <Button variant="outline" type="button" onClick={() => setPublicando(null)} disabled={salvando}>
               Cancelar
             </Button>
-            <Button type="button" onClick={publicar} disabled={salvando || !formPub.competencia}>
+            <Button type="button" variant="success" onClick={publicar} disabled={salvando || !formPub.competencia}>
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Publicar'}
             </Button>
           </DialogFooter>

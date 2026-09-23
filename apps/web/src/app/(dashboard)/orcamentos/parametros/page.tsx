@@ -714,7 +714,7 @@ export default function ParametrosOrcamentosPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setEditOpen(false)} disabled={saving}>Cancelar</Button>
-            <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={handleSave} disabled={saving}>
+            <Button size="sm" variant={editing ? 'info' : 'success'} className="gap-1.5" onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {editing ? 'Salvar' : 'Adicionar'}
             </Button>
@@ -767,7 +767,7 @@ export default function ParametrosOrcamentosPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setTextoEdit(null)} disabled={textoSaving}>Cancelar</Button>
-            <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={handleSaveTexto} disabled={textoSaving}>
+            <Button size="sm" variant={textoEdit?.id ? 'info' : 'success'} className="gap-1.5" onClick={handleSaveTexto} disabled={textoSaving}>
               {textoSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {textoEdit?.id ? 'Salvar' : 'Adicionar'}
             </Button>

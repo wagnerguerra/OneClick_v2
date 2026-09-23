@@ -103,7 +103,7 @@ export function ImportModal({ open, onClose, onSuccess }: ImportModalProps) {
   return (
     <Dialog open={open} onOpenChange={o => !o && handleClose()}>
       <DialogContent className="max-w-3xl">
-        <DialogHeaderIcon icon={FileUp}>
+        <DialogHeaderIcon icon={FileUp} color="emerald">
           <DialogTitle>Importar Fornecedores</DialogTitle>
           <DialogDescription>
             {step === 'upload' && 'Faça upload de um arquivo Excel ou CSV.'}

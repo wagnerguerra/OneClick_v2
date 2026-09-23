@@ -3540,7 +3540,7 @@ export default function OrcamentoDetailPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setParalizarModal(false)} disabled={workflowLoading}>Cancelar</Button>
-            <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white gap-1.5" onClick={handleParalizar} disabled={workflowLoading || !paralizarMotivo.trim()}>
+            <Button size="sm" variant="warning" className="gap-1.5" onClick={handleParalizar} disabled={workflowLoading || !paralizarMotivo.trim()}>
               {workflowLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pause className="h-4 w-4" />}
               Paralizar
             </Button>

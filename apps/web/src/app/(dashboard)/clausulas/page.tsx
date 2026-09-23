@@ -470,8 +470,8 @@ export default function ClausulasPage() {
               size="sm"
               onClick={handleSalvar}
               disabled={salvando}
-              style={{ backgroundColor: PRIMARY }}
-              className="text-white gap-1.5"
+              variant={editing ? 'info' : 'success'}
+              className="gap-1.5"
             >
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileCheck2 className="h-4 w-4" />}
               {editing ? 'Criar nova versão' : 'Cadastrar cláusula'}

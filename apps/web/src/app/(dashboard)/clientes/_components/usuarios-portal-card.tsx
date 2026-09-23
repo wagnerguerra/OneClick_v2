@@ -508,7 +508,7 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
             <Button variant="outline" type="button" onClick={() => setNovoAberto(false)} disabled={salvando}>
               Cancelar
             </Button>
-            <Button type="button" onClick={salvarNovo} disabled={salvando}>
+            <Button type="button" variant="success" onClick={salvarNovo} disabled={salvando}>
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Conceder acesso'}
             </Button>
           </DialogFooter>
@@ -599,7 +599,7 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
             <Button variant="outline" type="button" onClick={() => setEditando(null)} disabled={salvando}>
               Cancelar
             </Button>
-            <Button type="button" onClick={salvarEdicao} disabled={salvando}>
+            <Button type="button" variant="info" onClick={salvarEdicao} disabled={salvando}>
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}
             </Button>
           </DialogFooter>
