@@ -479,7 +479,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       if (!jd.colunaJuros.trim()) p.push('Em <b>Juros e Descontos</b>, selecione a <b>coluna de Juros</b>.')
       if (!jd.colunaDescontos.trim()) p.push('Em <b>Juros e Descontos</b>, selecione a <b>coluna de Descontos</b>.')
     } else if (!jd.colunaUnificada.trim()) {
-      p.push('Em <b>Juros e Descontos</b>, selecione a <b>coluna unificada</b> de Juros/Descontos.')
+      p.push('Em <b>Juros e Descontos</b>, selecione a <b>coluna única</b> de Juros/Descontos.')
     }
     if (!jd.contaJuros.trim()) p.push('Em <b>Juros e Descontos</b>, informe a <b>conta contábil de Juros</b>.')
     if (!jd.contaDescontos.trim()) p.push('Em <b>Juros e Descontos</b>, informe a <b>conta contábil de Descontos</b>.')
