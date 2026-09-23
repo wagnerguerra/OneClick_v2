@@ -144,15 +144,37 @@ export default function ImprimirOrcamentoPage() {
   const totalDespesas = Number(orc.totalDespesas) || 0
   const descontoPct = Number(orc.descontoPct) || 0
   const descontoValor = Number(orc.descontoValor) || 0
-  const descontoCalculado = descontoValor || (descontoPct > 0 ? totalServicos * descontoPct / 100 : 0)
-  const totalOrcamento = Number(orc.totalGeral) || (totalServicos - descontoCalculado + totalTaxas + totalDespesas)
-  const temDesconto = descontoCalculado > 0
 
   const todosItens = [
     ...itensServico.map(i => ({ ...i, tipoLabel: 'Serviço' })),
     ...itensTaxa.map(i => ({ ...i, tipoLabel: 'Taxa' })),
     ...itensDespesa.map(i => ({ ...i, tipoLabel: 'Despesa' })),
   ]
+
+  // O desconto impresso é o GRAVADO (`descontoAplicado`), que soma o desconto
+  // por item ao desconto geral.
+  //
+  // Antes só o desconto GERAL contava aqui. No #4747 isso deixava a proposta
+  // sem fechar na frente do cliente: as linhas mostravam um item com -100%,
+  // o Total vinha do `totalGeral` gravado (9.970), e entre eles aparecia
+  // "Subtotal Serviços 10.755" sem nenhuma linha de desconto explicando os
+  // 785 de diferença.
+  //
+  // A conta local é retaguarda para registro sem total gravado, e inclui o
+  // desconto por item — os mesmos valores que as linhas acima já exibem.
+  const descontoItens = todosItens.reduce((acc, item) => {
+    if (item.tipo !== 'SERVICO') return acc
+    const b = Number(item.valorUnitario) * Number(item.quantidade)
+    return acc + Math.min(b, Math.max(0, b * (Number(item.descontoPct) || 0) / 100 + (Number(item.descontoValor) || 0)))
+  }, 0)
+  const descontoGeral = descontoValor || (descontoPct > 0 ? totalServicos * descontoPct / 100 : 0)
+  const descontoLocal = Math.min(totalServicos, descontoItens + descontoGeral)
+
+  const descontoCalculado = orc.descontoAplicado != null ? Number(orc.descontoAplicado) : descontoLocal
+  const totalOrcamento = orc.totalGeral != null
+    ? Number(orc.totalGeral)
+    : Math.max(0, totalServicos - descontoLocal + totalTaxas + totalDespesas)
+  const temDesconto = descontoCalculado > 0
 
   // HTML "Descrição" — strip pra detectar conteudo real (RichEditor as vezes salva <p></p>)
   const descricaoHtml = orc.textoCorpoCliente || ''

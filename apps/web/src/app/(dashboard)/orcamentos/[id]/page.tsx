@@ -153,6 +153,14 @@ interface Orcamento {
   valorTotal: number
   descontoValor: number
   descontoPct: number
+  /** Totais GRAVADOS pelo `recalcularTotais` do backend. São a fonte da
+   *  verdade do resumo financeiro — só lá o desconto por item se soma ao
+   *  desconto geral. */
+  totalServicos?: number | string | null
+  totalTaxas?: number | string | null
+  totalDespesas?: number | string | null
+  descontoAplicado?: number | string | null
+  totalGeral?: number | string | null
   validadeDias: number
   formaPagamento: string | null
   textoInterno: string | null
@@ -1846,9 +1854,30 @@ export default function OrcamentoDetailPage() {
   // no operador OR (precisa-se cair no descontoPct quando valorDeReais e 0).
   const descontoValorNum = Number(orc?.descontoValor ?? 0) || 0
   const descontoPctNum = Number(orc?.descontoPct ?? 0) || 0
-  const descontoAplicado = orc ? (descontoValorNum || (descontoPctNum > 0 ? subtotal * descontoPctNum / 100 : 0)) : 0
-  const totalGeral = subtotal - descontoAplicado
-  const descontoPercentCalc = descontoPctNum || (subtotal > 0 ? (descontoAplicado / subtotal) * 100 : 0)
+
+  // O desconto do resumo é o que o BACKEND gravou (`recalcularTotais`), e não
+  // uma segunda conta feita aqui.
+  //
+  // A conta local somava apenas o desconto GERAL do orçamento e ignorava o
+  // desconto POR ITEM: no #4747, um item com -100% (R$ 785) não aparecia, e o
+  // Total Geral exibia 10.755 enquanto o banco já guardava 9.970. É exatamente
+  // o drift que o PADRAO_ESTADOS_E_PERMISSOES manda evitar — valor derivado
+  // mora no backend, o front compõe.
+  //
+  // A conta local sobrou só como retaguarda para registro sem total gravado
+  // (importação antiga, orçamento que nunca passou pelo recalcularTotais) e
+  // agora inclui o desconto por item, com a mesma regra do backend: geral
+  // incide sobre SERVIÇOS, e o total nunca passa da base.
+  const descontoItensLocal = orc?.itens.reduce((acc, i) => acc + descontoDoItem(i), 0) ?? 0
+  const descontoGeralLocal = descontoValorNum || (descontoPctNum > 0 ? totalServicos * descontoPctNum / 100 : 0)
+  const descontoLocal = Math.min(totalServicos, descontoItensLocal + descontoGeralLocal)
+
+  const descontoAplicado = orc?.descontoAplicado != null ? Number(orc.descontoAplicado) : (orc ? descontoLocal : 0)
+  const totalGeral = orc?.totalGeral != null ? Number(orc.totalGeral) : Math.max(0, subtotal - descontoLocal)
+  // Percentual EFETIVO sobre a base de serviços. Mostrar o `descontoPct`
+  // cadastrado escondia o desconto por item: no #4747 dizia "0,0%" com 785
+  // reais de desconto concedidos.
+  const descontoPercentCalc = totalServicos > 0 ? (descontoAplicado / totalServicos) * 100 : 0
 
   // ── Loading ──
 
