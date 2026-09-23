@@ -37,7 +37,7 @@ export function NovoTicketModal({ open, onOpenChange, onCreated, permitePriorida
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[640px]">
-        <DialogHeaderIcon icon={Headphones}>
+        <DialogHeaderIcon icon={Headphones} color="emerald">
           <DialogTitle>Novo Ticket</DialogTitle>
           <DialogDescription>
             Descreva o problema ou solicitação. A equipe da TI será notificada.
@@ -66,6 +66,7 @@ export function NovoTicketModal({ open, onOpenChange, onCreated, permitePriorida
             Cancelar
           </Button>
           <Button
+            variant="success"
             onClick={form.submit}
             disabled={form.salvando || !form.canSubmit}
             className="gap-1.5"

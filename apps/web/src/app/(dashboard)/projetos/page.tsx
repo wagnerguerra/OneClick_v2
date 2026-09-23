@@ -484,7 +484,7 @@ export default function ProjetosPage() {
             <Button variant="outline" onClick={() => setModalOpen(false)} disabled={saving}>
               Cancelar
             </Button>
-            <Button variant="success" onClick={handleSubmit} disabled={saving} className="gap-1.5">
+            <Button variant={editingId ? 'info' : 'success'} onClick={handleSubmit} disabled={saving} className="gap-1.5">
               {saving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />

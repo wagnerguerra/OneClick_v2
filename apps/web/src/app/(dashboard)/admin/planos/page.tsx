@@ -383,7 +383,7 @@ export default function AdminPlanosPage() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setForm(null)} disabled={saving}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button variant={form?.id ? 'info' : 'success'} onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
               {form?.id ? 'Salvar' : 'Criar'}
             </Button>

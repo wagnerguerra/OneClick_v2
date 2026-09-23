@@ -3598,7 +3598,7 @@ export default function AgendaPage() {
 
           {(modalMode === 'create' || modalMode === 'edit') && (
             <DialogFooter>
-              <Button variant="success" size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
+              <Button variant={modalMode === 'create' ? 'success' : 'info'} size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
                 {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Calendar className="h-3.5 w-3.5" />}
                 {modalMode === 'create' ? 'Criar Evento' : 'Salvar'}
               </Button>

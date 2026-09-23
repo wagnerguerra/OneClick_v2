@@ -411,7 +411,7 @@ export default function DocumentoInternoDetalhePage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setRevAberta(false)} disabled={enviando}>Cancelar</Button>
-            <Button size="sm" onClick={publicarRevisao} disabled={enviando || !arquivo}>
+            <Button variant="success" size="sm" onClick={publicarRevisao} disabled={enviando || !arquivo}>
               {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}Publicar revisão
             </Button>
           </DialogFooter>

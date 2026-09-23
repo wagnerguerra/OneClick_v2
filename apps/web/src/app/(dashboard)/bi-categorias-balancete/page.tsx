@@ -183,7 +183,7 @@ function FormulaModal({ conta, nome, categorias, currentFormula, onSave, onClose
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="max-w-2xl">
-        <DialogHeaderIcon icon={Calculator}>
+        <DialogHeaderIcon icon={Calculator} color="sky">
           <DialogTitle>Editar fórmula</DialogTitle>
           <DialogDescription>{nome}</DialogDescription>
         </DialogHeaderIcon>
@@ -269,7 +269,7 @@ function FormulaModal({ conta, nome, categorias, currentFormula, onSave, onClose
           <DialogClose asChild>
             <Button type="button" variant="outline" size="sm">Fechar</Button>
           </DialogClose>
-          <Button type="button" size="sm" onClick={handleSave}>Salvar</Button>
+          <Button type="button" variant="info" size="sm" onClick={handleSave}>Salvar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1419,7 +1419,7 @@ export default function BiCategoriasBalancetePage() {
       {/* Modal: Importar Balancete do SCI (padrão DialogHeaderIcon) */}
       <Dialog open={importarOpen} onOpenChange={(o) => { if (!importarStatus.running) setImportarOpen(o) }}>
         <DialogContent className="max-w-lg">
-          <DialogHeaderIcon icon={Download}>
+          <DialogHeaderIcon icon={Download} color="emerald">
             <DialogTitle>Importar Balancete do SCI</DialogTitle>
             <DialogDescription>Consulta o Firebird mês a mês e atualiza as linhas do balancete</DialogDescription>
           </DialogHeaderIcon>
@@ -1505,6 +1505,7 @@ export default function BiCategoriasBalancetePage() {
             </DialogClose>
             {!importarStatus.running && importarStatus.log.length === 0 && (
               <Button
+                variant="success"
                 size="sm"
                 onClick={handleImportarConfirmar}
                 className="gap-1.5"
@@ -1711,6 +1712,7 @@ export default function BiCategoriasBalancetePage() {
               <Button variant="outline" size="sm">Cancelar</Button>
             </DialogClose>
             <Button
+              variant="success"
               size="sm"
               onClick={handleNovaConfirmar}
               className="gap-1.5"

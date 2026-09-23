@@ -294,7 +294,7 @@ function UploadModal({ open, onClose, onSuccess }: { open: boolean; onClose: () 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { reset(); onClose() } }}>
       <DialogContent className="max-w-lg">
-        <DialogHeaderIcon icon={Upload}>
+        <DialogHeaderIcon icon={Upload} color="emerald">
           <DialogTitle>Upload de XML de NFe</DialogTitle>
           <DialogDescription>Envie 1 XML, vários, ou um .zip com XMLs.</DialogDescription>
         </DialogHeaderIcon>
@@ -321,7 +321,7 @@ function UploadModal({ open, onClose, onSuccess }: { open: boolean; onClose: () 
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => { reset(); onClose() }}>Cancelar</Button>
-          <Button onClick={handleUpload} disabled={uploading || files.length === 0}>
+          <Button variant="success" onClick={handleUpload} disabled={uploading || files.length === 0}>
             {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             {uploading ? 'Enviando...' : 'Enviar'}
           </Button>

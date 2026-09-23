@@ -98,7 +98,7 @@ export function CertCadastroModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[560px]">
-        <DialogHeaderIcon icon={ShieldCheck}>
+        <DialogHeaderIcon icon={ShieldCheck} color="emerald">
           <DialogTitle>{title}</DialogTitle>
           {subtitle && <DialogDescription>{subtitle}</DialogDescription>}
         </DialogHeaderIcon>
@@ -188,6 +188,7 @@ export function CertCadastroModal({
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={salvando}>Cancelar</Button>
           <Button
+            variant="success"
             onClick={handleSalvar}
             disabled={salvando || !arquivo || !senha || senha !== confirmaSenha}
             className="gap-1.5"

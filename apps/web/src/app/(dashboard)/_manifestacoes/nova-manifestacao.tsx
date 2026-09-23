@@ -116,7 +116,7 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
   return (
     <Dialog open onOpenChange={o => { if (!o && !salvando) onClose() }}>
       <DialogContent className="max-w-3xl">
-        <DialogHeaderIcon icon={config.icone}>
+        <DialogHeaderIcon icon={config.icone} color="emerald">
           <DialogTitle>{config.rotuloNovo}</DialogTitle>
           <DialogDescription>{config.subtitulo}</DialogDescription>
         </DialogHeaderIcon>

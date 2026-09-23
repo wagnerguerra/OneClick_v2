@@ -949,7 +949,7 @@ export default function RelatoriosTiPage() {
             <Button variant="outline" size="sm" onClick={() => setModalOpen(false)} disabled={salvando}>
               Cancelar
             </Button>
-            <Button variant="success" size="sm" className="gap-1.5" onClick={salvar} disabled={salvando}>
+            <Button variant={editando ? 'info' : 'success'} size="sm" className="gap-1.5" onClick={salvar} disabled={salvando}>
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {editando ? 'Salvar' : 'Publicar'}
             </Button>
@@ -1077,7 +1077,7 @@ export default function RelatoriosTiPage() {
             <Button variant="outline" size="sm" onClick={() => setNovModal(null)} disabled={salvandoNov}>
               Cancelar
             </Button>
-            <Button variant="success" size="sm" className="gap-1.5" onClick={salvarNovidade} disabled={salvandoNov}>
+            <Button variant={novModal?.id ? 'info' : 'success'} size="sm" className="gap-1.5" onClick={salvarNovidade} disabled={salvandoNov}>
               {salvandoNov ? <Loader2 className="h-4 w-4 animate-spin" /> : <Megaphone className="h-4 w-4" />}
               {novModal?.id ? 'Salvar' : 'Publicar'}
             </Button>

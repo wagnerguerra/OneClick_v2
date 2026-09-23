@@ -1555,7 +1555,7 @@ export default function MeuPerfilPage() {
       {/* Modal Alterar Senha */}
       <Dialog open={pwdModal} onOpenChange={open => { if (!open) { setPwdModal(false); setPwdCurrent(''); setPwdNew(''); setPwdConfirm('') } }}>
         <DialogContent className="sm:max-w-[480px]">
-          <DialogHeaderIcon icon={Key}>
+          <DialogHeaderIcon icon={Key} color="sky">
             <DialogTitle>Alterar senha</DialogTitle>
             <DialogDescription>
               Informe sua senha atual e a nova senha desejada (mínimo 8 caracteres).
@@ -1588,6 +1588,7 @@ export default function MeuPerfilPage() {
             <Button variant="outline" size="sm" onClick={() => setPwdModal(false)} disabled={savingPwd}>Cancelar</Button>
             <Button
               size="sm"
+              variant="info"
               className="gap-1.5"
               onClick={handleChangePassword}
               disabled={savingPwd || !pwdCurrent || !pwdNew || pwdNew !== pwdConfirm}

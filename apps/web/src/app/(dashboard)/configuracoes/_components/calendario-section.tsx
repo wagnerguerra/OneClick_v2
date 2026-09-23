@@ -848,7 +848,7 @@ export function CalendarioSection() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               <X className="h-4 w-4" />Cancelar
             </Button>
-            <Button onClick={salvar} disabled={saving}>
+            <Button variant={editing ? 'info' : 'success'} onClick={salvar} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {editing ? 'Salvar' : 'Cadastrar'}
             </Button>

@@ -642,7 +642,7 @@ export default function ProcessoDetalhePage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSkipOpen(false)}>Voltar</Button>
-            <Button onClick={handleSkipSucessor} disabled={skipping} variant="destructive" className="gap-1.5">
+            <Button onClick={handleSkipSucessor} disabled={skipping} variant="warning" className="gap-1.5">
               {skipping && <Loader2 className="h-4 w-4 animate-spin" />}
               <Pause className="h-3.5 w-3.5" />Pular execução
             </Button>

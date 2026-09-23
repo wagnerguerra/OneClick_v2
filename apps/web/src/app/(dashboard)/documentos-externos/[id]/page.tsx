@@ -308,7 +308,7 @@ export default function DocumentoExternoDetalhePage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setRevAberta(false)} disabled={publicando}>Cancelar</Button>
-            <Button size="sm" onClick={publicarRevisao} disabled={publicando}>
+            <Button variant="success" size="sm" onClick={publicarRevisao} disabled={publicando}>
               {publicando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}Publicar revisão
             </Button>
           </DialogFooter>

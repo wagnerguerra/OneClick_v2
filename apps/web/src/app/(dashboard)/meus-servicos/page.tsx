@@ -1490,7 +1490,7 @@ export default function MeusServicosPage() {
       {/* Modal: Novo Serviço */}
       <Dialog open={novoOpen} onOpenChange={setNovoOpen}>
         <DialogContent className="sm:max-w-[560px]">
-          <DialogHeaderIcon icon={ListChecks} color="sky">
+          <DialogHeaderIcon icon={ListChecks} color="emerald">
             <DialogTitle>Iniciar novo serviço</DialogTitle>
             <DialogDescription>
               Selecione o template, o cliente e a prioridade. O serviço será atribuído a você.
@@ -1549,6 +1549,7 @@ export default function MeusServicosPage() {
               Cancelar
             </Button>
             <Button
+              variant="success"
               size="sm"
               onClick={handleCriarExecucao}
               disabled={novoSalvando || !novoServicoId || !novoClienteId}

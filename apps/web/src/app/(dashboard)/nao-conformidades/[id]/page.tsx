@@ -660,7 +660,7 @@ export default function NaoConformidadeDetalhePage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setAcaoAberta(false)}><X className="h-4 w-4" />Cancelar</Button>
-            <Button variant="success" size="sm" onClick={salvarAcao} disabled={acting}><Check className="h-4 w-4" />Salvar</Button>
+            <Button variant={acaoEditando ? 'info' : 'success'} size="sm" onClick={salvarAcao} disabled={acting}><Check className="h-4 w-4" />Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

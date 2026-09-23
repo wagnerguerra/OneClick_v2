@@ -521,7 +521,7 @@ export default function AnaliseContextoDetalhePage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setAcaoAberta(false)} disabled={salvandoAcao}><X className="h-4 w-4" />Cancelar</Button>
-            <Button variant="success" size="sm" onClick={salvarAcao} disabled={salvandoAcao}>
+            <Button variant={acaoEditando ? 'info' : 'success'} size="sm" onClick={salvarAcao} disabled={salvandoAcao}>
               {salvandoAcao ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar
             </Button>
           </DialogFooter>

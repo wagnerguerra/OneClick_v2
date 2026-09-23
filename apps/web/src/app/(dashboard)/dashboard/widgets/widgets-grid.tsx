@@ -861,7 +861,7 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
             <Button variant="outline" onClick={() => setEditingWidgetId(null)}>
               Cancelar
             </Button>
-            <Button onClick={salvarEditar}>
+            <Button variant="info" onClick={salvarEditar}>
               Aplicar
             </Button>
           </DialogFooter>

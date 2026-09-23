@@ -266,7 +266,7 @@ export default function TabelaRegistroDetalhePage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setVerAberta(false)} disabled={publicando}>Cancelar</Button>
-            <Button size="sm" onClick={publicarVersao} disabled={publicando}>
+            <Button variant="success" size="sm" onClick={publicarVersao} disabled={publicando}>
               {publicando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}Publicar versão
             </Button>
           </DialogFooter>

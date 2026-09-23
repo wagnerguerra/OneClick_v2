@@ -545,7 +545,7 @@ export default function BeneficiosFiscaisPage() {
       {/* Modal vínculo */}
       <Dialog open={!!vincModal} onOpenChange={o => !o && setVincModal(null)}>
         <DialogContent className="max-w-2xl">
-          <DialogHeaderIcon icon={Percent}>
+          <DialogHeaderIcon icon={Percent} color={vincModal?._new ? 'emerald' : 'sky'}>
             <DialogTitle>{vincModal?._new ? 'Novo benefício do cliente' : 'Editar benefício'}</DialogTitle>
             <DialogDescription>Vincule um benefício fiscal do catálogo a um cliente.</DialogDescription>
           </DialogHeaderIcon>
@@ -599,7 +599,7 @@ export default function BeneficiosFiscaisPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setVincModal(null)}>Cancelar</Button>
-            <Button onClick={salvarVinculo} disabled={vincSaving}>
+            <Button variant={vincModal?._new ? 'success' : 'info'} onClick={salvarVinculo} disabled={vincSaving}>
               {vincSaving && <Loader2 className="h-4 w-4 animate-spin" />} Salvar
             </Button>
           </DialogFooter>

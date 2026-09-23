@@ -411,7 +411,7 @@ export default function CaixaPostalRegrasPage() {
 
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button variant="success" size="sm" onClick={handleSalvar} disabled={saving} className="gap-1.5">
+            <Button variant={editId ? 'info' : 'success'} size="sm" onClick={handleSalvar} disabled={saving} className="gap-1.5">
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
               {editId ? 'Salvar' : 'Criar Regra'}
             </Button>

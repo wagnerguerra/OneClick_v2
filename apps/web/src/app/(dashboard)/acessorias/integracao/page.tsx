@@ -1120,7 +1120,7 @@ function MappingPanel() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={createSaving}>Cancelar</Button>
-            <Button onClick={salvarCriacao} disabled={createSaving} className="gap-1.5">
+            <Button variant="success" onClick={salvarCriacao} disabled={createSaving} className="gap-1.5">
               {createSaving && <Loader2 className="h-4 w-4 animate-spin" />}
               Criar e vincular
             </Button>

@@ -347,7 +347,7 @@ export default function ColetaDetalhePage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setEditAberta(false)} disabled={salvando}>Cancelar</Button>
-            <Button variant="success" size="sm" onClick={salvarEdicao} disabled={salvando}>
+            <Button variant="info" size="sm" onClick={salvarEdicao} disabled={salvando}>
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Salvar
             </Button>
           </DialogFooter>

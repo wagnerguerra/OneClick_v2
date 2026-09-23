@@ -646,7 +646,7 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setRenomeando(null)} disabled={salvando}>Cancelar</Button>
             <Button
-              variant="success" size="sm" className="gap-1.5" disabled={salvando}
+              variant="info" size="sm" className="gap-1.5" disabled={salvando}
               onClick={() => {
                 if (!renomeando) return
                 const alvo = renomeando.id

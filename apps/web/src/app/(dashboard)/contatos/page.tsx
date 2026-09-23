@@ -302,7 +302,7 @@ export default function ContatosPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAberta(false)}>Cancelar</Button>
-            <Button onClick={salvar} disabled={salvando} className="gap-1.5">
+            <Button variant={editando ? 'info' : 'success'} onClick={salvar} disabled={salvando} className="gap-1.5">
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {editando ? 'Salvar' : 'Adicionar'}
             </Button>

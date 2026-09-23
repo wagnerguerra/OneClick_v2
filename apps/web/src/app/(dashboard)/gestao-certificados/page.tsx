@@ -793,7 +793,7 @@ export default function GestaoCertificadosPage() {
       {/* Config do tenant: reautenticação obrigatória (engrenagem) */}
       <Dialog open={configOpen} onOpenChange={setConfigOpen}>
         <DialogContent className="sm:max-w-[460px]">
-          <DialogHeaderIcon icon={Settings2}>
+          <DialogHeaderIcon icon={Settings2} color="slate">
             <DialogTitle>Segurança dos certificados</DialogTitle>
             <DialogDescription>Vale para o módulo e para os certificados no cadastro do cliente.</DialogDescription>
           </DialogHeaderIcon>
@@ -1276,7 +1276,7 @@ function LegacyImportModal({ open, onOpenChange, empresaId, onImported }: {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[860px] max-h-[88vh] overflow-y-auto">
-        <DialogHeaderIcon icon={DatabaseBackup}>
+        <DialogHeaderIcon icon={DatabaseBackup} color="emerald">
           <DialogTitle>Importar do OneClick V1</DialogTitle>
           <DialogDescription>
             {!job
@@ -1421,6 +1421,7 @@ function LegacyImportModal({ open, onOpenChange, empresaId, onImported }: {
           </Button>
           {previewPronto && job?.result && job.result.ok > 0 && (
             <Button
+              variant="success"
               onClick={handleExecutar}
               disabled={importando}
               className="gap-1.5"
@@ -1647,7 +1648,7 @@ function BulkImportModal({ open, onOpenChange, empresaId, onImported }: {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[920px] max-h-[92vh] overflow-y-auto">
-        <DialogHeaderIcon icon={UploadCloud}>
+        <DialogHeaderIcon icon={UploadCloud} color="emerald">
           <DialogTitle>Importar PFX em Lote</DialogTitle>
           <DialogDescription>
             Arraste múltiplos certificados .pfx/.p12 — o sistema valida cada um e cadastra os válidos automaticamente.
@@ -1875,6 +1876,7 @@ function BulkImportModal({ open, onOpenChange, empresaId, onImported }: {
           )}
           {previewPronto && okCount > 0 && (
             <Button
+              variant="success"
               onClick={handleImportar}
               disabled={importando}
               className="gap-1.5"

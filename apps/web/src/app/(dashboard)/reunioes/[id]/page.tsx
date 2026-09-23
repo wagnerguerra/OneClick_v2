@@ -477,7 +477,7 @@ export default function ReuniaoDetalhePage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setAcaoAberta(false)}>Cancelar</Button>
-            <Button variant="success" size="sm" onClick={salvarAcao} disabled={acting || acaoDescricao.trim().length < 3}>
+            <Button variant={acaoEditando ? 'info' : 'success'} size="sm" onClick={salvarAcao} disabled={acting || acaoDescricao.trim().length < 3}>
               {acting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar
             </Button>
           </DialogFooter>

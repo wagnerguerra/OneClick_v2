@@ -1412,7 +1412,7 @@ export default function AgendaConfiguracoesPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setSalaModalOpen(false)}>Cancelar</Button>
-            <Button size="sm" onClick={saveSala} disabled={savingSala} className="gap-1.5">
+            <Button variant={salaForm.id ? 'info' : 'success'} size="sm" onClick={saveSala} disabled={savingSala} className="gap-1.5">
               {savingSala && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               Salvar
             </Button>

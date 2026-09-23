@@ -493,7 +493,7 @@ function NovoAtivoDialog({ tipos, onClose, onCreated }: {
   return (
     <Dialog open onOpenChange={(o) => !o && !saving && onClose()}>
       <DialogContent className="sm:max-w-[520px]">
-        <DialogHeaderIcon icon={Database} color="sky">
+        <DialogHeaderIcon icon={Database} color="emerald">
           <DialogTitle>Novo ativo</DialogTitle>
           <DialogDescription>
             Cadastro rápido — depois você pode editar todos os campos (garantia, fornecedor, anexos, etc) na página do ativo.
@@ -553,7 +553,7 @@ function NovoAtivoDialog({ tipos, onClose, onCreated }: {
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={saving} className="gap-1.5 bg-sky-600 hover:bg-sky-700">
+          <Button onClick={handleSave} disabled={saving} variant="success" className="gap-1.5">
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
             Cadastrar
           </Button>

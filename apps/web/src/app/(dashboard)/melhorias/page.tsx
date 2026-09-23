@@ -289,7 +289,7 @@ export default function MelhoriasPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setAberta(false)} disabled={salvando}><X className="h-4 w-4" />Cancelar</Button>
-            <Button variant="success" size="sm" onClick={salvar} disabled={salvando || titulo.trim().length < 3}>
+            <Button variant={editando ? 'info' : 'success'} size="sm" onClick={salvar} disabled={salvando || titulo.trim().length < 3}>
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar
             </Button>
           </DialogFooter>
