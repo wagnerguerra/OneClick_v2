@@ -2066,7 +2066,9 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setPaletteOpen(v => !v)}
+                // O botão sempre abre/fecha o catálogo "puro": limpa a âncora do "+"
+                // (senão, reabrindo, voltava a faixa "Adicionar sucessor de").
+                onClick={() => { setAddingFromNode(null); setPaletteOpen(v => !v) }}
                 data-fluxo-catalogo-toggle
                 className="gap-1.5 bg-card/80 dark:bg-black/40 backdrop-blur-sm"
                 title={paletteOpen ? 'Fechar catálogo de serviços' : 'Abrir catálogo de serviços'}
