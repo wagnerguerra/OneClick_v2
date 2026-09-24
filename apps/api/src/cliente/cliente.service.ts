@@ -4,6 +4,9 @@ import type { Prisma } from '@saas/db'
 import type { CreateClienteInput, UpdateClienteInput, ListClienteInput, CreateInscricaoInput, UpdateInscricaoInput } from '@saas/types'
 import { limparCnpj, ehMatrizCnpj } from '@saas/types'
 import { BiSyncEventsService } from '../bi/bi-sync-events.service'
+import { carregarDepara } from '../bi/categoria-sql'
+import { nivel3De } from '../bi/depara-nivel3'
+import { SINAL_POR_CATEGORIA } from '../bi/mascara-dre'
 import { isValidDocumento } from './documento.util'
 import { assertDocumentoUnico } from './documento-unico'
 
@@ -2746,14 +2749,41 @@ export class ClienteService {
   }
 
   /**
-   * Retorna o template global de Plano de Contas (categoria DRE + sinal padrão).
-   * UI usa pra mostrar valor herdado quando o cliente não tem override.
+   * A categoria que cada conta do cliente HERDA, para a tela mostrar de onde
+   * vem o valor quando não há override.
+   *
+   * Sai do de-para da máscara pelo nome do nível 3 — o mesmo que o cálculo
+   * usa. Antes vinha do template global de 142 classificações da Serrafer, e
+   * por isso a tela mostrava "— sem categoria —" em quase todas as linhas de
+   * um cliente com plano de contas diferente, enquanto os cartões calculavam
+   * em cima de um punhado de contas sem dizer quais.
    */
-  async biListPlanoContasPadrao() {
-    return prisma.planoContasCategoriaPadrao.findMany({
-      orderBy: { classificacao: 'asc' },
-      select: { classificacao: true, categoriaDre: true, sinal: true, nivel5: true },
-    })
+  async biListPlanoContasPadrao(clienteId?: string) {
+    if (!clienteId) return []
+
+    const [contas, depara] = await Promise.all([
+      prisma.clienteBiCategoria.findMany({
+        where: { clienteId },
+        select: { conta: true, nomeSci: true },
+        orderBy: { conta: 'asc' },
+      }),
+      carregarDepara(clienteId),
+    ])
+
+    const porNivel3 = new Map(depara.map(d => [d.conta3, d.categoria]))
+    const out: Array<{ classificacao: string; categoriaDre: string; sinal: number; nivel5: string | null }> = []
+    for (const c of contas) {
+      const n3 = nivel3De(c.conta)
+      const categoria = n3 ? porNivel3.get(n3) : undefined
+      if (!categoria) continue
+      out.push({
+        classificacao: c.conta,
+        categoriaDre: categoria,
+        sinal: SINAL_POR_CATEGORIA[categoria],
+        nivel5: c.nomeSci,
+      })
+    }
+    return out
   }
 
   async biListLinhas(clienteId: string, periodo?: string) {

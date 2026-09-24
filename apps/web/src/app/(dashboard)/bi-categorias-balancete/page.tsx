@@ -486,9 +486,10 @@ export default function BiCategoriasBalancetePage() {
 
   useEffect(() => { loadCategorias() }, [loadCategorias])
 
-  /* --- load PlanoContasCategoriaPadrao (global, 1x) --- */
+  /* --- categoria herdada do nível 3, por cliente --- */
   useEffect(() => {
-    trpc.cliente.biListPlanoContasPadrao.query()
+    if (!clienteId) { setPlanoPadrao(new Map()); return }
+    trpc.cliente.biListPlanoContasPadrao.query({ clienteId })
       .then((rows: unknown) => {
         const map = new Map<string, PlanoPadraoEntry>()
         for (const r of rows as Array<{ classificacao: string; categoriaDre: string; sinal: number }>) {
@@ -496,8 +497,8 @@ export default function BiCategoriasBalancetePage() {
         }
         setPlanoPadrao(map)
       })
-      .catch(() => { /* sem template padrão é OK — UI cai pra "sem categoria" */ })
-  }, [])
+      .catch(() => { /* sem herança é OK — a UI cai pra "sem categoria" */ })
+  }, [clienteId])
 
   /* --- warn on leave with unsaved changes --- */
   useEffect(() => {

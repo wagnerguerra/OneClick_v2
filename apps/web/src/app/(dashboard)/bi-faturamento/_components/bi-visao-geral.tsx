@@ -46,8 +46,7 @@ interface VisaoGeralProps {
 const INDICADORES = [
   { value: 'faturamento', label: 'Faturamento' },
   { value: 'despesas_operacionais', label: 'Despesas Operacionais' },
-  { value: 'ebitda', label: 'EBITDA Técnico' },
-  { value: 'ebitda_simplificado', label: 'EBITDA Simplificado' },
+  { value: 'ebitda', label: 'EBITDA' },
   { value: 'lucro_liquido', label: 'Lucro Líquido' },
   { value: 'margem_contribuicao', label: 'Margem de Contribuição' },
 ]

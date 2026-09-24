@@ -87,7 +87,7 @@ export default function BiPublicContent() {
   // Load matriz
   useEffect(() => {
     if (tab !== 'matriz' || !token || !ctx) return
-    trpc.biPublic.balanceteMatriz.query({ token, ano, useParent: false }).then((m: any) => setMatriz(m)).catch(() => {})
+    trpc.biPublic.balanceteMatriz.query({ token, ano }).then((m: any) => setMatriz(m)).catch(() => {})
   }, [tab, token, ctx, ano])
 
   const kpis = kpisByAno[ano] ?? null
@@ -166,8 +166,7 @@ function PubVisaoGeral({ kpis, analiseByAno, kpisByAno, anos }: { kpis: any; ana
   const INDICADORES = [
     { value: 'faturamento', label: 'Faturamento' },
     { value: 'despesas_operacionais', label: 'Despesas Operacionais' },
-    { value: 'ebitda', label: 'EBITDA Técnico' },
-    { value: 'ebitda_simplificado', label: 'EBITDA Simplificado' },
+    { value: 'ebitda', label: 'EBITDA' },
     { value: 'lucro_liquido', label: 'Lucro Líquido' },
     { value: 'margem_contribuicao', label: 'Margem de Contribuição' },
   ]

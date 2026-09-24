@@ -86,6 +86,26 @@ export const INDICE = {
 export type SomasPorCategoria = Partial<Record<CategoriaDre, number>>
 
 /**
+ * A coluna `Sinal` da planilha da máscara.
+ *
+ * Não entra em conta nenhuma — o sinal do dado (`créditos − débitos`) já faz o
+ * trabalho, e no Power BI essa coluna só aparece numa medida que nenhum visual
+ * usa. Serve à TELA: é o valor que a tela de categorias oferece como padrão
+ * quando alguém marca a categoria de uma conta na mão.
+ */
+export const SINAL_POR_CATEGORIA: Readonly<Record<CategoriaDre, 1 | -1>> = {
+  RECEITA_BRUTA: 1,
+  DEDUCOES_IMPOSTOS: -1,
+  CUSTO_DAS_VENDAS: -1,
+  DESPESAS_VARIAVEIS: -1,
+  DESPESAS_OPERACIONAIS: -1,
+  RECEITAS_FINANCEIRAS: 1,
+  DESPESAS_FINANCEIRAS: -1,
+  IR_CS: -1,
+  DISTRIBUICAO_LUCROS: -1,
+}
+
+/**
  * Resolve o demonstrativo inteiro a partir das somas ALGÉBRICAS por categoria.
  *
  * "Algébricas" é a palavra que importa: os valores têm que chegar com o sinal

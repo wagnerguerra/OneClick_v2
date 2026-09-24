@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import { calcularDre, INDICE, MASCARA_DRE, type CategoriaDre, type SomasPorCategoria } from './mascara-dre'
+import { carregarDepara, sqlJoinsCategoria, sqlSomenteFolhas, SQL_CATEGORIA } from './categoria-sql'
+import type { DeparaCliente } from './depara-nivel3'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -42,9 +44,9 @@ export interface KpisCompleto {
 }
 
 // Categorias DRE — fonte única em `mascara-dre.ts`, que também guarda a ORDEM
-// e quais linhas são subtotal. Valores armazenados em
-// `plano_contas_categoria_padrao.categoria_dre` e
-// `cliente_bi_categorias.categoria_dre` (override).
+// e quais linhas são subtotal. A categoria de cada conta sai do de-para por
+// nível 3 (`depara-nivel3.ts`), com `cliente_bi_categorias.categoria_dre` como
+// override manual.
 
 type KpiTipo =
   | 'receita_bruta'
@@ -133,13 +135,17 @@ function buildPeriodoClause(
 //   CALCULATE(SUM(fResultados[Crédito]) - SUM(fResultados[Débito]),
 //             'dPlano de Contas'[Categoria] <> BLANK())
 //
-// Resolução da categoria por conta: override do cliente prevalece;
-// senão usa o template global (plano_contas_categoria_padrao).
+// Resolução da categoria por conta: override do cliente prevalece; senão o
+// de-para da máscara pelo NOME DO NÍVEL 3 (`depara-nivel3.ts`), que é como o
+// Power BI faz. Antes era o template global de 142 classificações de folha —
+// plano de contas de outra empresa, que deixava conta com movimento fora da
+// DRE sem avisar.
 // ---------------------------------------------------------------------------
 
 async function somarPorCategoriaDre(
   clienteId: string,
   categoria: CategoriaDre,
+  depara: DeparaCliente,
   periodoInicio: string,
   periodoFim: string,
   periodosSelecionados?: string[],
@@ -157,41 +163,14 @@ async function somarPorCategoriaDre(
     nextOffset += contasIgnoradas.length
   }
 
-  // COALESCE(override do cliente, template global)
-  //
-  // SOMENTE FOLHAS. Sem este NOT EXISTS, categorizar uma conta sintética que já
-  // tem filhas categorizadas soma o mesmo valor duas vezes — e a tela de
-  // categorias deixa categorizar qualquer nível, sem validar nem avisar. Até
-  // agora o que protegia era acidente: o template global só tem contas de
-  // nível 5. O Power BI resolve o mesmo problema por construção — a consulta
-  // da `dPlano de Contas` filtra `Comprimento = 13 ou 19`, isto é, só folhas.
-  //
-  // Folha = conta sem nenhuma outra conta descendente no MESMO período.
   const sql = `
     SELECT COALESCE(SUM(l.creditos - l.debitos), 0)::float AS valor
     FROM cliente_bi_linhas l
-    LEFT JOIN cliente_bi_categorias cbc
-      ON cbc.cliente_id = l.cliente_id AND cbc.conta = l.conta AND cbc.categoria_dre IS NOT NULL
-    LEFT JOIN plano_contas_categoria_padrao pccp
-      ON pccp.classificacao = l.conta
+    ${sqlJoinsCategoria(depara)}
     WHERE l.cliente_id = $1
       AND ${p.sql}
-      AND COALESCE(cbc.categoria_dre, pccp.categoria_dre) = $2
-      AND (
-        -- A coluna analitica e o BDTIPCTA do SCI: a FONTE dizendo se e folha.
-        -- (sem crase nos comentarios: isto vive dentro de um template literal)
-        l.analitica = true
-        -- Linha importada antes dessa coluna existir cai na heuristica antiga:
-        -- e folha quem nao tem descendente no mesmo periodo. Erra quando um
-        -- nivel nao foi importado — dai preferir o dado da fonte.
-        OR (l.analitica IS NULL AND NOT EXISTS (
-          SELECT 1 FROM cliente_bi_linhas f
-          WHERE f.cliente_id = l.cliente_id
-            AND f.periodo = l.periodo
-            AND f.conta LIKE l.conta || '.%'
-            AND LENGTH(f.conta) > LENGTH(l.conta)
-        ))
-      )
+      AND ${SQL_CATEGORIA} = $2
+      AND ${sqlSomenteFolhas()}
       ${ignoradasClause}
   `
 
@@ -249,9 +228,13 @@ export class BiCalculosService {
       .filter(l => l.categoria !== null)
       .map(l => l.categoria as CategoriaDre)
 
+    // O de-para do plano do cliente sai do banco UMA vez e vai para as nove
+    // somas — resolver nome de conta dentro de cada consulta seria o mesmo
+    // trabalho nove vezes.
+    const depara = await carregarDepara(clienteId)
     const valores = await Promise.all(
       categorias.map(cat =>
-        somarPorCategoriaDre(clienteId, cat, periodoInicio, periodoFim, periodosSelecionados),
+        somarPorCategoriaDre(clienteId, cat, depara, periodoInicio, periodoFim, periodosSelecionados),
       ),
     )
     const somas: SomasPorCategoria = {}
@@ -324,16 +307,19 @@ export class BiCalculosService {
       ? 'SUM(l.creditos - l.debitos)'
       : 'ABS(SUM(l.creditos - l.debitos))'
 
+    // O filtro de folha NAO existia aqui. Era seguro por acidente enquanto a
+    // categoria vinha do template de 142 folhas; com o de-para por nivel 3, a
+    // conta sintetica passaria a casar junto com as filhas e a serie viria
+    // dobrada.
+    const depara = await carregarDepara(clienteId)
     const sql = `
       SELECT l.periodo, COALESCE(${valorExpr}, 0)::float AS valor
       FROM cliente_bi_linhas l
-      LEFT JOIN cliente_bi_categorias cbc
-        ON cbc.cliente_id = l.cliente_id AND cbc.conta = l.conta AND cbc.categoria_dre IS NOT NULL
-      LEFT JOIN plano_contas_categoria_padrao pccp
-        ON pccp.classificacao = l.conta
+      ${sqlJoinsCategoria(depara)}
       WHERE l.cliente_id = $1
         AND l.periodo BETWEEN $2 AND $3
-        AND COALESCE(cbc.categoria_dre, pccp.categoria_dre) = $4
+        AND ${SQL_CATEGORIA} = $4
+        AND ${sqlSomenteFolhas()}
       GROUP BY l.periodo
       ORDER BY l.periodo ASC
     `
@@ -356,16 +342,18 @@ export class BiCalculosService {
     clienteId: string,
     periodoFim: string,
   ): Promise<ContaNatureza[]> {
+    // Mesma correcao do `obterDadosMensais`: sem o filtro de folha, a
+    // sintetica de despesa apareceria no topo da lista somando as filhas que
+    // vem logo abaixo dela.
+    const depara = await carregarDepara(clienteId)
     const sql = `
       SELECT l.conta, l.nome_conta, l.saldo_atual
       FROM cliente_bi_linhas l
-      LEFT JOIN cliente_bi_categorias cbc
-        ON cbc.cliente_id = l.cliente_id AND cbc.conta = l.conta AND cbc.categoria_dre IS NOT NULL
-      LEFT JOIN plano_contas_categoria_padrao pccp
-        ON pccp.classificacao = l.conta
+      ${sqlJoinsCategoria(depara)}
       WHERE l.cliente_id = $1
         AND l.periodo = $2
-        AND COALESCE(cbc.categoria_dre, pccp.categoria_dre) = 'DESPESAS_OPERACIONAIS'
+        AND ${SQL_CATEGORIA} = 'DESPESAS_OPERACIONAIS'
+        AND ${sqlSomenteFolhas()}
       ORDER BY ABS(l.saldo_atual) DESC
       LIMIT 100
     `

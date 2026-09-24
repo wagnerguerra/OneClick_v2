@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Loader2, Plus, Minus } from 'lucide-react'
-import { Input, Checkbox, cn } from '@saas/ui'
+import { Input, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { TEXT } from '@/lib/color-styles'
 
@@ -36,7 +36,6 @@ export function BiMatriz({ clienteId, ano }: { clienteId: string; ano: number })
   const [data, setData] = useState<MatrizResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [useParent, setUseParent] = useState(false)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [selRow, setSelRow] = useState<string | null>(null)
   const [selCol, setSelCol] = useState<string | null>(null)
@@ -44,11 +43,11 @@ export function BiMatriz({ clienteId, ano }: { clienteId: string; ano: number })
   useEffect(() => {
     if (!clienteId || !ano) return
     setLoading(true)
-    trpc.bi.balanceteMatriz.query({ clienteId, ano, useParent })
+    trpc.bi.balanceteMatriz.query({ clienteId, ano })
       .then((res: unknown) => { setData(res as MatrizResponse); setExpanded(new Set()) })
       .catch(() => setData(null))
       .finally(() => setLoading(false))
-  }, [clienteId, ano, useParent])
+  }, [clienteId, ano])
 
   const rows = data?.rows ?? []
   const refs = data?.refs ?? []
@@ -136,13 +135,9 @@ export function BiMatriz({ clienteId, ano }: { clienteId: string; ano: number })
         <div className="relative flex-1 max-w-xs">
           <Input placeholder="Buscar conta..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-xs" />
         </div>
-        <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
-          <Checkbox checked={useParent} onCheckedChange={v => setUseParent(!!v)} className="h-3.5 w-3.5" />
-          Agrupar por conta pai
-        </label>
         <button type="button" onClick={expandAll} className="text-[11px] text-muted-foreground hover:text-foreground hover:underline">Expandir tudo</button>
         <button type="button" onClick={collapseAll} className="text-[11px] text-muted-foreground hover:text-foreground hover:underline">Recolher tudo</button>
-        <span className="text-[11px] text-muted-foreground">{visibleRows.length} de {rows.length} contas</span>
+        <span className="text-[11px] text-muted-foreground">{visibleRows.length} de {rows.length} linhas</span>
       </div>
 
       {/* Table */}

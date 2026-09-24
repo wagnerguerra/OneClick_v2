@@ -769,7 +769,8 @@ export function createClienteRouter(
       .mutation(({ input }) => clienteService.biDeleteCategoria(input.clienteId, input.conta)),
 
     biListPlanoContasPadrao: readProcedure(MODULE)
-      .query(() => clienteService.biListPlanoContasPadrao()),
+      .input(z.object({ clienteId: z.string().optional() }).optional())
+      .query(({ input }) => clienteService.biListPlanoContasPadrao(input?.clienteId)),
 
     biListLinhas: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string(), periodo: z.string().optional() }))

@@ -30,7 +30,6 @@ export const biFaturamentoRefreshSchema = z.object({
 export const biBalanceteMatrizSchema = z.object({
   clienteId: z.string(),
   ano: z.coerce.number(),
-  useParent: z.coerce.boolean().default(false),
 })
 
 export const biBalanceteKpisSchema = z.object({
