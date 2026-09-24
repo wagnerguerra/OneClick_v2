@@ -9,7 +9,7 @@ import {
   Package, History, Type, ThumbsUp, ThumbsDown, CheckCircle2,
   Paperclip, Image as ImageIcon, Archive, MessageSquare, Files, Shield, Lock, Globe,
   Sparkles, Star, Link2, Hash, Building2, Calendar, Layers, Bell, Undo2,
-  ChevronDown, UserCheck, Search as SearchIcon, ChevronLeft, ChevronRight,
+  ChevronDown, UserCheck, Search as SearchIcon, ChevronLeft, ChevronRight, Percent,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, CardHeader, CardContent, Label, Checkbox,
@@ -2601,126 +2601,165 @@ export default function OrcamentoDetailPage() {
                             </TableCell></TableRow>
                           ) : orc.itens.map((item, idx) => (
                             editingItemId === item.id ? (
-                              <TableRow key={item.id} className="bg-sky-50/50 dark:bg-sky-900/10">
-                                <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
-                                <TableCell>
-                                  <Select value={editTipo} onValueChange={v => { setEditTipo(v); setEditCatalogoId(''); setEditTextoId(''); setEditSubservicoId('') }}>
-                                    <SelectTrigger className="h-9 text-xs w-[100px]"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="SERVICO">Serviço</SelectItem>
-                                      <SelectItem value="TAXA">Taxa</SelectItem>
-                                      <SelectItem value="DESPESA">Despesa</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </TableCell>
-                                <TableCell>
-                                  {/* Tudo na mesma linha (pedido de 19/08): combobox ocupa o
-                                      espaço livre; subserviço/variação, quando existem, entram
-                                      ao lado com largura fixa. */}
-                                  <div className="flex items-center gap-1.5">
-                                    <div className="flex-1 min-w-[180px]">
-                                      {/* Busca no catálogo — mesma da inclusão (#HLP0088). currentLabel
-                                          preserva a descrição atual quando não há item de catálogo casado. */}
-                                      <CatalogoCombobox
-                                        catalogo={catalogo}
-                                        tipo={editTipo}
-                                        selectedId={editCatalogoId}
-                                        currentLabel={editDescricao}
-                                        onSelect={handleSelecionarDescricaoEdit}
-                                        disabled={!editTipo}
-                                      />
-                                    </div>
-                                    {(() => {
-                                      const cat = catalogo.find(c => c.id === editCatalogoId)
-                                      if (!cat?.subservicos?.length) return null
-                                      return (
-                                        <Select
-                                          value={editSubservicoId || (canItemSemSubservico ? '__todo__' : undefined)}
-                                          onValueChange={v => handleSelecionarSubservicoEdit(v === '__todo__' ? '' : v)}
-                                        >
-                                          {/* Sem asterisco: na edição o subserviço só é exigido se o
-                                              serviço estiver sendo trocado. */}
-                                          <SelectTrigger className="h-9 text-xs w-[150px] shrink-0"><SelectValue placeholder="Subserviço" /></SelectTrigger>
+                              <TableRow key={item.id} className="bg-muted/40 hover:bg-muted/40">
+                                {/*
+                                  A edição sai das colunas da tabela e vira um bloco
+                                  próprio, em duas faixas.
+
+                                  Antes, os sete campos da edição eram espremidos nas
+                                  colunas da EXIBIÇÃO — e a coluna "R$ Unit", de 165px,
+                                  tinha que acomodar valor unitário, desconto % e desconto
+                                  R$ lado a lado. O campo de desconto em reais ficava com
+                                  ~64px e cortava o número: "0,0(" no lugar de "0,00".
+
+                                  Faixa 1 = o que o item É (tipo, descrição, subserviço,
+                                  variação). Faixa 2 = quanto ele VALE (quantidade, valor,
+                                  descontos, total). É a mesma leitura do formulário de
+                                  inclusão, logo acima.
+                                */}
+                                <TableCell colSpan={7} className="p-0">
+                                  <div
+                                    className="space-y-3 border-l-[3px] px-4 py-3"
+                                    style={{ borderLeftColor: MODULE_COLOR }}
+                                  >
+                                    {/* ── Faixa 1: identificação ── */}
+                                    <div className="flex flex-wrap items-end gap-2">
+                                      <span className="pb-2 text-xs text-muted-foreground">{idx + 1}</span>
+                                      <div className="space-y-1">
+                                        <Label className="text-[11px] font-semibold text-muted-foreground">Tipo</Label>
+                                        <Select value={editTipo} onValueChange={v => { setEditTipo(v); setEditCatalogoId(''); setEditTextoId(''); setEditSubservicoId('') }}>
+                                          <SelectTrigger className="h-9 w-[110px] text-xs"><SelectValue /></SelectTrigger>
                                           <SelectContent>
-                                            {canItemSemSubservico && (
-                                              <SelectItem value="__todo__">Sem subserviço</SelectItem>
-                                            )}
-                                            {cat.subservicos.map(sub => (
-                                              <SelectItem key={sub.id} value={sub.id}>{sub.nome}</SelectItem>
-                                            ))}
+                                            <SelectItem value="SERVICO">Serviço</SelectItem>
+                                            <SelectItem value="TAXA">Taxa</SelectItem>
+                                            <SelectItem value="DESPESA">Despesa</SelectItem>
                                           </SelectContent>
                                         </Select>
-                                      )
-                                    })()}
-                                    {(() => {
-                                      const cat = catalogo.find(c => c.id === editCatalogoId)
-                                      const dono = editSubservicoId
-                                        ? cat?.subservicos?.find(x => x.id === editSubservicoId)
-                                        : cat
-                                      if (!dono?.textos?.length) return null
-                                      return (
-                                        <Select value={editTextoId || '__none__'} onValueChange={v => handleSelecionarTextoEdit(v === '__none__' ? '' : v)}>
-                                          <SelectTrigger className="h-9 text-xs w-[150px] shrink-0"><SelectValue placeholder="Variação" /></SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="__none__">Nenhuma variação</SelectItem>
-                                            {dono.textos.map(t => (
-                                              <SelectItem key={t.id} value={t.id}>{t.titulo}</SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      )
-                                    })()}
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <Input type="number" value={editQtde} onChange={e => setEditQtde(e.target.value)} className="h-9 w-[60px] text-xs text-center" min="1" />
-                                </TableCell>
-                                <TableCell>
-                                  {/* Uma linha só (pedido de 19/08): o prefixo identifica cada
-                                      campo — R$ = valor unitário; % e desc. R$ = descontos do
-                                      item (#HLP0302, só serviço). Rótulo dentro do campo não cabia. */}
-                                  <div className="flex items-center justify-end gap-1.5">
-                                    <div className="flex" title="Valor unitário">
-                                      <span className="inline-flex items-center px-1.5 h-9 border border-r-0 border-input bg-muted text-[10px] text-muted-foreground rounded-l-md">R$</span>
-                                      <Input type="number" value={editValor} onChange={e => setEditValor(e.target.value)}
-                                        className="h-9 w-[80px] text-xs text-right rounded-l-none" step="0.01" />
+                                      </div>
+                                      <div className="min-w-[240px] flex-1 space-y-1">
+                                        <Label className="text-[11px] font-semibold text-muted-foreground">Descrição</Label>
+                                        {/* Busca no catálogo — mesma da inclusão (#HLP0088). currentLabel
+                                            preserva a descrição atual quando não há item de catálogo casado. */}
+                                        <CatalogoCombobox
+                                          catalogo={catalogo}
+                                          tipo={editTipo}
+                                          selectedId={editCatalogoId}
+                                          currentLabel={editDescricao}
+                                          onSelect={handleSelecionarDescricaoEdit}
+                                          disabled={!editTipo}
+                                        />
+                                      </div>
+                                      {(() => {
+                                        const cat = catalogo.find(c => c.id === editCatalogoId)
+                                        if (!cat?.subservicos?.length) return null
+                                        return (
+                                          <div className="space-y-1">
+                                            {/* Sem asterisco: na edição o subserviço só é exigido se o
+                                                serviço estiver sendo trocado. */}
+                                            <Label className="text-[11px] font-semibold text-muted-foreground">Subserviço</Label>
+                                            <Select
+                                              value={editSubservicoId || (canItemSemSubservico ? '__todo__' : undefined)}
+                                              onValueChange={v => handleSelecionarSubservicoEdit(v === '__todo__' ? '' : v)}
+                                            >
+                                              <SelectTrigger className="h-9 w-[170px] shrink-0 text-xs"><SelectValue placeholder="Subserviço" /></SelectTrigger>
+                                              <SelectContent>
+                                                {canItemSemSubservico && (
+                                                  <SelectItem value="__todo__">Sem subserviço</SelectItem>
+                                                )}
+                                                {cat.subservicos.map(sub => (
+                                                  <SelectItem key={sub.id} value={sub.id}>{sub.nome}</SelectItem>
+                                                ))}
+                                              </SelectContent>
+                                            </Select>
+                                          </div>
+                                        )
+                                      })()}
+                                      {(() => {
+                                        const cat = catalogo.find(c => c.id === editCatalogoId)
+                                        const dono = editSubservicoId
+                                          ? cat?.subservicos?.find(x => x.id === editSubservicoId)
+                                          : cat
+                                        if (!dono?.textos?.length) return null
+                                        return (
+                                          <div className="space-y-1">
+                                            <Label className="text-[11px] font-semibold text-muted-foreground">Variação</Label>
+                                            <Select value={editTextoId || '__none__'} onValueChange={v => handleSelecionarTextoEdit(v === '__none__' ? '' : v)}>
+                                              <SelectTrigger className="h-9 w-[170px] shrink-0 text-xs"><SelectValue placeholder="Variação" /></SelectTrigger>
+                                              <SelectContent>
+                                                <SelectItem value="__none__">Nenhuma variação</SelectItem>
+                                                {dono.textos.map(t => (
+                                                  <SelectItem key={t.id} value={t.id}>{t.titulo}</SelectItem>
+                                                ))}
+                                              </SelectContent>
+                                            </Select>
+                                          </div>
+                                        )
+                                      })()}
                                     </div>
-                                    {editTipo === 'SERVICO' && (() => {
-                                      // Trava quando há desconto geral — exceto se ESTE item já
-                                      // tem desconto: é por aqui que se zera para desfazer a
+
+                                    {/* ── Faixa 2: valores ── */}
+                                    {(() => {
+                                      const bruto = (parseFloat(editQtde) || 0) * (parseFloat(editValor) || 0)
+                                      const desc = editTipo === 'SERVICO'
+                                        ? Math.min(bruto, bruto * (parseFloat(editDescPct) || 0) / 100 + (parseFloat(editDescValor) || 0))
+                                        : 0
+                                      // Trava o desconto quando há desconto geral — exceto se ESTE
+                                      // item já tem desconto: é por aqui que se zera para desfazer a
                                       // combinação de um orçamento anterior ao bloqueio.
                                       const jaTem = (parseFloat(editDescPct) || 0) > 0 || (parseFloat(editDescValor) || 0) > 0
                                       const travado = itemBloqueadoPorGeral && !jaTem
                                       return (
-                                      <>
-                                        <div className="flex" title={travado ? TRAVA_DESCONTO_ITEM : 'Desconto em percentual'}>
-                                          <span className="inline-flex items-center px-1.5 h-9 border border-r-0 border-input bg-muted text-[10px] text-muted-foreground rounded-l-md">-%</span>
-                                          <Input type="number" value={editDescPct} onChange={e => setEditDescPct(e.target.value)} disabled={travado}
-                                            className="h-9 w-[52px] text-xs text-right rounded-l-none" step="0.01" min="0" max="100" placeholder="0" />
+                                        <div className="flex flex-wrap items-end gap-2">
+                                          <div className="space-y-1">
+                                            <Label className="text-[11px] font-semibold text-muted-foreground">Qtde</Label>
+                                            <Input type="number" value={editQtde} onChange={e => setEditQtde(e.target.value)}
+                                              className="h-9 w-[80px] text-center text-xs" min="1" />
+                                          </div>
+                                          <div className="space-y-1">
+                                            <Label className="text-[11px] font-semibold text-muted-foreground">Valor unitário</Label>
+                                            <div className="flex">
+                                              <span className="inline-flex h-9 items-center rounded-l-md border border-r-0 border-input bg-muted px-2 text-[11px] text-muted-foreground">R$</span>
+                                              <Input type="number" value={editValor} onChange={e => setEditValor(e.target.value)}
+                                                className="h-9 w-[130px] rounded-l-none text-right text-xs" step="0.01" />
+                                            </div>
+                                          </div>
+                                          {editTipo === 'SERVICO' && (
+                                            <>
+                                              <div className="space-y-1">
+                                                <Label className="text-[11px] font-semibold text-muted-foreground">Desconto %</Label>
+                                                <div className="flex" title={travado ? TRAVA_DESCONTO_ITEM : undefined}>
+                                                  <span className="inline-flex h-9 items-center rounded-l-md border border-r-0 border-input bg-muted px-2 text-[11px] text-muted-foreground">%</span>
+                                                  <Input type="number" value={editDescPct} onChange={e => setEditDescPct(e.target.value)} disabled={travado}
+                                                    className="h-9 w-[90px] rounded-l-none text-right text-xs" step="0.01" min="0" max="100" placeholder="0" />
+                                                </div>
+                                              </div>
+                                              <div className="space-y-1">
+                                                <Label className="text-[11px] font-semibold text-muted-foreground">Desconto R$</Label>
+                                                <div className="flex" title={travado ? TRAVA_DESCONTO_ITEM : undefined}>
+                                                  <span className="inline-flex h-9 items-center rounded-l-md border border-r-0 border-input bg-muted px-2 text-[11px] text-muted-foreground">R$</span>
+                                                  <Input type="number" value={editDescValor} onChange={e => setEditDescValor(e.target.value)} disabled={travado}
+                                                    className="h-9 w-[120px] rounded-l-none text-right text-xs" step="0.01" min="0" placeholder="0,00" />
+                                                </div>
+                                              </div>
+                                            </>
+                                          )}
+                                          <div className="ml-auto flex items-end gap-3">
+                                            <div className="space-y-1 text-right">
+                                              <Label className="text-[11px] font-semibold text-muted-foreground">Total</Label>
+                                              <div className="flex h-9 items-center justify-end text-sm font-semibold tabular-nums">
+                                                {desc > 0 ? (
+                                                  <span className={TEXT.emerald} title={`Sem desconto: ${formatCurrency(bruto)}`}>{formatCurrency(bruto - desc)}</span>
+                                                ) : formatCurrency(bruto)}
+                                              </div>
+                                            </div>
+                                            <div className="flex h-9 items-center gap-1">
+                                              <Button variant="ghost" size="icon-sm" onClick={handleSaveItem} title="Salvar"><Check className={cn('h-4 w-4', TEXT.emerald)} /></Button>
+                                              <Button variant="ghost" size="icon-sm" onClick={() => setEditingItemId(null)} title="Cancelar"><X className="h-4 w-4 text-muted-foreground" /></Button>
+                                            </div>
+                                          </div>
                                         </div>
-                                        <div className="flex" title={travado ? TRAVA_DESCONTO_ITEM : 'Desconto em reais'}>
-                                          <span className="inline-flex items-center px-1.5 h-9 border border-r-0 border-input bg-muted text-[10px] text-muted-foreground rounded-l-md">-R$</span>
-                                          <Input type="number" value={editDescValor} onChange={e => setEditDescValor(e.target.value)} disabled={travado}
-                                            className="h-9 w-[64px] text-xs text-right rounded-l-none" step="0.01" min="0" placeholder="0,00" />
-                                        </div>
-                                      </>
                                       )
                                     })()}
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-right text-xs font-medium whitespace-nowrap">
-                                  {(() => {
-                                    const bruto = (parseFloat(editQtde) || 0) * (parseFloat(editValor) || 0)
-                                    const desc = editTipo === 'SERVICO' ? Math.min(bruto, bruto * (parseFloat(editDescPct) || 0) / 100 + (parseFloat(editDescValor) || 0)) : 0
-                                    return desc > 0 ? (
-                                      <span className={TEXT.emerald} title={`Sem desconto: ${formatCurrency(bruto)}`}>{formatCurrency(bruto - desc)}</span>
-                                    ) : formatCurrency(bruto)
-                                  })()}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <div className="flex justify-end gap-1">
-                                    <Button variant="ghost" size="icon-sm" onClick={handleSaveItem} title="Salvar"><Check className={cn('h-3.5 w-3.5', TEXT.emerald)} /></Button>
-                                    <Button variant="ghost" size="icon-sm" onClick={() => setEditingItemId(null)} title="Cancelar"><X className="h-3.5 w-3.5 text-muted-foreground" /></Button>
                                   </div>
                                 </TableCell>
                               </TableRow>
@@ -2782,79 +2821,93 @@ export default function OrcamentoDetailPage() {
                           ))}
                         </TableBody>
                       </Table>
-
-                      {/* Desconto e Pagamento — era uma pill própria; agora fecha a
-                          aba Itens, porque desconto e forma de pagamento são a
-                          continuação natural da lista de itens. */}
-                      <div className="px-5 py-3 border-y border-border mt-4">
-                        <h4 className="text-[13px] font-semibold text-foreground">Desconto e Pagamento</h4>
-                      </div>
-                      {apenasDescontoItem && (
-                        <div className={cn('mx-5 mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]', BADGE.amber)}>
-                          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                          <span>O desconto geral está desativado nas configurações (&ldquo;Usar apenas desconto por item&rdquo;). Aplique o desconto item a item na aba <strong>Itens</strong>.</span>
-                        </div>
-                      )}
-                      {/* O campo está travado porque já há desconto item a item —
-                          os dois somariam, e foi assim que o #4630 chegou a 40%
-                          com 20% na tela. */}
-                      {!apenasDescontoItem && geralBloqueadoPorItem && (
-                        <div className={cn('mx-5 mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]', BADGE.amber)}>
-                          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                          <span>
-                            Já há desconto nos itens ({formatCurrency(descontoItensParte)}). Zere o desconto dos itens para usar o desconto geral — os dois juntos somariam.
-                          </span>
-                        </div>
-                      )}
-                      {/* Orçamento anterior ao bloqueio, que ficou com os dois. */}
-                      {!apenasDescontoItem && temDuasParcelas && (
-                        <div className={cn('mx-5 mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]', BADGE.amber)}>
-                          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                          <span>
-                            Este orçamento tem desconto <strong>nos itens</strong> ({formatCurrency(descontoItensParte)}) <strong>e</strong> desconto geral ({formatCurrency(descontoGeralParte)}), e os dois somam: {descontoPercentCalc.toFixed(1)}% sobre os serviços. Zere um dos dois para valer só um.
-                          </span>
-                        </div>
-                      )}
-                      <div className="p-5 grid grid-cols-12 gap-3">
-                        <div className="col-span-12 sm:col-span-4 space-y-1.5">
-                          <Label className="text-[13px] font-semibold text-foreground">Desconto %</Label>
-                          <Input type="number" value={formDescontoPercent} onChange={e => setFormDescontoPercent(e.target.value)} disabled={apenasDescontoItem || geralBloqueadoPorItem || (isLocked && !isMasterReal)} className="h-9 text-sm" step="0.01" min="0" max="100" placeholder="0" />
-                        </div>
-                        <div className="col-span-12 sm:col-span-4 space-y-1.5">
-                          <Label className="text-[13px] font-semibold text-foreground">Desconto R$</Label>
-                          <Input type="number" value={formDesconto} onChange={e => setFormDesconto(e.target.value)} disabled={apenasDescontoItem || geralBloqueadoPorItem || (isLocked && !isMasterReal)} className="h-9 text-sm" step="0.01" min="0" placeholder="0,00" />
-                        </div>
-                        <div className="col-span-12 space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-[13px] font-semibold text-foreground">Forma de Pagamento</Label>
-                            {canManageCatalogo && (
-                              <button
-                                type="button"
-                                onClick={() => { setFormasModal(true); loadFormasPagamento() }}
-                                className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-                              >
-                                <Pencil className="h-3 w-3" /> Gerenciar
-                              </button>
-                            )}
-                          </div>
-                          <Select value={formPagamento || '__none__'} onValueChange={v => setFormPagamento(v === '__none__' ? '' : v)} disabled={isLocked && !isMasterReal}>
-                            <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione a forma de pagamento" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none__">— Não informada —</SelectItem>
-                              {/* Valor histórico fora da lista atual — preservado pra não perder dados legados */}
-                              {formPagamento && !formasPagamento.some(f => f.valor === formPagamento) && (
-                                <SelectItem value={formPagamento}>{formPagamento}</SelectItem>
-                              )}
-                              {formasPagamento.map(f => (
-                                <SelectItem key={f.id} value={f.valor}>{f.valor}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
                     </div>
                   )}
 
+                </div>
+              </div>
+            </SectionCard>
+          )}
+
+          {/* Desconto e Pagamento — card próprio, logo abaixo dos Itens.
+              Estava no rodapé da tabela, dentro do card de Itens: desconto geral
+              e forma de pagamento não são um item, são o fechamento comercial do
+              orçamento, e disputavam a atenção com a linha em edição logo acima.
+
+              `data-locked` repetido aqui porque o bloco saiu de dentro do
+              container que o aplicava — sem ele, orçamento congelado voltaria a
+              aceitar edição nestes campos. */}
+          {activeTab === 'itens' && (
+            <SectionCard
+              title="Desconto e Pagamento"
+              description="Desconto geral do orçamento e condição de pagamento."
+              icon={<Percent />}
+              className="mt-6"
+              bodyClassName="p-0"
+            >
+              <div data-locked={isLocked || undefined}>
+                {apenasDescontoItem && (
+                  <div className={cn('mx-5 mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]', BADGE.amber)}>
+                    <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>O desconto geral está desativado nas configurações (&ldquo;Usar apenas desconto por item&rdquo;). Aplique o desconto item a item na aba <strong>Itens</strong>.</span>
+                  </div>
+                )}
+                {/* O campo está travado porque já há desconto item a item —
+                    os dois somariam, e foi assim que o #4630 chegou a 40%
+                    com 20% na tela. */}
+                {!apenasDescontoItem && geralBloqueadoPorItem && (
+                  <div className={cn('mx-5 mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]', BADGE.amber)}>
+                    <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>
+                      Já há desconto nos itens ({formatCurrency(descontoItensParte)}). Zere o desconto dos itens para usar o desconto geral — os dois juntos somariam.
+                    </span>
+                  </div>
+                )}
+                {/* Orçamento anterior ao bloqueio, que ficou com os dois. */}
+                {!apenasDescontoItem && temDuasParcelas && (
+                  <div className={cn('mx-5 mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]', BADGE.amber)}>
+                    <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>
+                      Este orçamento tem desconto <strong>nos itens</strong> ({formatCurrency(descontoItensParte)}) <strong>e</strong> desconto geral ({formatCurrency(descontoGeralParte)}), e os dois somam: {descontoPercentCalc.toFixed(1)}% sobre os serviços. Zere um dos dois para valer só um.
+                    </span>
+                  </div>
+                )}
+                <div className="p-5 grid grid-cols-12 gap-3">
+                  <div className="col-span-12 sm:col-span-4 space-y-1.5">
+                    <Label className="text-[13px] font-semibold text-foreground">Desconto %</Label>
+                    <Input type="number" value={formDescontoPercent} onChange={e => setFormDescontoPercent(e.target.value)} disabled={apenasDescontoItem || geralBloqueadoPorItem || (isLocked && !isMasterReal)} className="h-9 text-sm" step="0.01" min="0" max="100" placeholder="0" />
+                  </div>
+                  <div className="col-span-12 sm:col-span-4 space-y-1.5">
+                    <Label className="text-[13px] font-semibold text-foreground">Desconto R$</Label>
+                    <Input type="number" value={formDesconto} onChange={e => setFormDesconto(e.target.value)} disabled={apenasDescontoItem || geralBloqueadoPorItem || (isLocked && !isMasterReal)} className="h-9 text-sm" step="0.01" min="0" placeholder="0,00" />
+                  </div>
+                  <div className="col-span-12 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[13px] font-semibold text-foreground">Forma de Pagamento</Label>
+                      {canManageCatalogo && (
+                        <button
+                          type="button"
+                          onClick={() => { setFormasModal(true); loadFormasPagamento() }}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                        >
+                          <Pencil className="h-3 w-3" /> Gerenciar
+                        </button>
+                      )}
+                    </div>
+                    <Select value={formPagamento || '__none__'} onValueChange={v => setFormPagamento(v === '__none__' ? '' : v)} disabled={isLocked && !isMasterReal}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione a forma de pagamento" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— Não informada —</SelectItem>
+                        {/* Valor histórico fora da lista atual — preservado pra não perder dados legados */}
+                        {formPagamento && !formasPagamento.some(f => f.valor === formPagamento) && (
+                          <SelectItem value={formPagamento}>{formPagamento}</SelectItem>
+                        )}
+                        {formasPagamento.map(f => (
+                          <SelectItem key={f.id} value={f.valor}>{f.valor}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             </SectionCard>
