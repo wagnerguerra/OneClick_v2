@@ -1726,22 +1726,42 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
         payload.perguntaMulti = perguntaMulti
       }
       const created = await (trpc.servico as any).createServico.mutate(payload)
-      // INICIO não precisa de origem (é o ponto de partida). Demais sim.
+      const conectar = (origem: string, destino: string) => (trpc.servico as any).addEncadeamento.mutate({
+        servicoOrigemId: origem,
+        servicoDestinoId: destino,
+        ordem: 0,
+        iniciaAuto: true,
+        obrigatorio: true,
+        herdaResponsavel: true,
+      })
+      // INICIO não precisa de origem (é o ponto de partida): aponta pro bloco
+      // do "+" que abriu a palette, ou pra raiz.
       if (novoBlocoTipo === 'INICIO') {
-        // Cria conexão de INICIO → raiz (raiz vira sucessor do início)
-        await (trpc.servico as any).addEncadeamento.mutate({
-          servicoOrigemId: created.id,
-          servicoDestinoId: rootId,
-          ordem: 0,
-          iniciaAuto: true,
-          obrigatorio: true,
-          herdaResponsavel: true,
-        })
+        await conectar(created.id, addingFromNode?.nodeId ?? rootId)
+        setAddingFromNode(null)
+        setPaletteOpen(false)
         await alerts.success('Início criado', 'Bloco adicionado. Recarregando…')
         onChanged?.()
         return
       }
-      // Para demais tipos, abre o modal pra escolher origem
+      // Veio do "+" de um bloco: a âncora e a direção já estão definidas, então
+      // conecta direto (igual ao clique num serviço existente do catálogo), sem
+      // perguntar a origem. FIM só tem entrada, então é sempre sucessor.
+      if (addingFromNode) {
+        const comoSucessor = addingFromNode.direction === 'succ' || novoBlocoTipo === 'FIM'
+        await conectar(
+          comoSucessor ? addingFromNode.nodeId : created.id,
+          comoSucessor ? created.id : addingFromNode.nodeId,
+        )
+        setNovoBlocoTipo(null)
+        setNovoBlocoNome('')
+        setAddingFromNode(null)
+        setPaletteOpen(false)
+        await alerts.success('Bloco criado', 'Conectado ao fluxo. Recarregando…')
+        onChanged?.()
+        return
+      }
+      // Sem âncora (palette aberta pelo botão "Catálogo"): pergunta a origem
       setNovoBlocoTipo(null)
       setNovoBlocoNome('')
       setAddingDest({ servicoId: created.id, nome })
@@ -1751,7 +1771,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
     } finally {
       setAddingBusy(false)
     }
-  }, [novoBlocoTipo, novoBlocoNome, rootId])
+  }, [novoBlocoTipo, novoBlocoNome, perguntaTexto, perguntaOpcoes, perguntaMulti, addingFromNode, rootId, onChanged])
 
   // Adiciona um serviço ao fluxo criando encadeamento com a origem escolhida
   const adicionarServicoAoFluxo = useCallback(async () => {
@@ -2445,7 +2465,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                 <DialogDescription>
                   {novoBlocoTipo === 'DECISAO' && 'Losango que roteia conforme condições nas saídas.'}
                   {novoBlocoTipo === 'DOCUMENTACAO' && 'Marco informativo no fluxo (sem etapas).'}
-                  {novoBlocoTipo === 'INICIO' && 'Marcador de entrada — vai apontar para o serviço-raiz.'}
+                  {novoBlocoTipo === 'INICIO' && `Marcador de entrada — vai apontar para ${addingFromNode ? addingFromNode.nome : 'o serviço-raiz'}.`}
                   {novoBlocoTipo === 'FIM' && 'Marcador de saída — encerra um ramo do fluxo.'}
                   {novoBlocoTipo === 'ATIVIDADE' && 'Bloco executável com etapas/passos (configure depois).'}
                   {novoBlocoTipo === 'PERGUNTA' && 'Decisão interativa — execução pausa esperando o gestor escolher uma das opções.'}
@@ -2572,7 +2592,9 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                   className="gap-1.5"
                 >
                   {addingBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                  {novoBlocoTipo === 'INICIO' ? 'Criar e conectar à raiz' : 'Próximo: escolher origem'}
+                  {addingFromNode
+                    ? `Criar e conectar a ${addingFromNode.nome}`
+                    : novoBlocoTipo === 'INICIO' ? 'Criar e conectar à raiz' : 'Próximo: escolher origem'}
                 </Button>
               </DialogFooter>
             </>
