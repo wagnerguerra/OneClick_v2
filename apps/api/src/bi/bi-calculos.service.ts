@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import { calcularDre, INDICE, MASCARA_DRE, type CategoriaDre, type SomasPorCategoria } from './mascara-dre'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -40,19 +41,10 @@ export interface KpisCompleto {
   margemLiquida: number
 }
 
-// Categorias DRE — espelham o `dPlano de Contas` + `dMáscara` do PowerBI ref.
-// Valores armazenados em `plano_contas_categoria_padrao.categoria_dre` e
+// Categorias DRE — fonte única em `mascara-dre.ts`, que também guarda a ORDEM
+// e quais linhas são subtotal. Valores armazenados em
+// `plano_contas_categoria_padrao.categoria_dre` e
 // `cliente_bi_categorias.categoria_dre` (override).
-type CategoriaDre =
-  | 'RECEITA_BRUTA'
-  | 'DEDUCOES_IMPOSTOS'
-  | 'CUSTO_DAS_VENDAS'
-  | 'DESPESAS_VARIAVEIS'
-  | 'DESPESAS_OPERACIONAIS'
-  | 'RECEITAS_FINANCEIRAS'
-  | 'DESPESAS_FINANCEIRAS'
-  | 'IR_CS'
-  | 'DISTRIBUICAO_LUCROS'
 
 type KpiTipo =
   | 'receita_bruta'
@@ -367,33 +359,50 @@ export class BiCalculosService {
     periodoFim: string,
     periodosSelecionados?: string[],
   ): Promise<KpisCompleto> {
-    const [
-      receitaBruta,
-      deducoes,
-      custoDasVendas,
-      despesasOperacionais,
-      receitasFinanceiras,
-      despesasFinanceiras,
-      irCs,
-      lucroLiquido,
-    ] = await Promise.all([
-      this.calcularReceitaBruta(clienteId, periodoInicio, periodoFim, periodosSelecionados),
-      this.calcularDeducoes(clienteId, periodoInicio, periodoFim, periodosSelecionados),
-      this.calcularCustoDasVendas(clienteId, periodoInicio, periodoFim, undefined, periodosSelecionados),
-      this.calcularDespesasOperacionais(clienteId, periodoInicio, periodoFim, undefined, periodosSelecionados),
-      this.calcularReceitasFinanceiras(clienteId, periodoInicio, periodoFim),
-      this.calcularDespesasFinanceiras(clienteId, periodoInicio, periodoFim),
-      this.calcularIRCS(clienteId, periodoInicio, periodoFim),
-      this.calcularLucroLiquidoSerpro(clienteId, periodoInicio, periodoFim, periodosSelecionados),
-    ])
+    // Uma soma ALGÉBRICA por categoria da máscara — sinal natural, sem
+    // `Math.abs`. É o `Realizado Base` do Power BI, por categoria.
+    //
+    // As nove vão juntas e TODAS recebem `periodosSelecionados`. Antes,
+    // Receitas Financeiras, Despesas Financeiras e IR/CS não recebiam: com
+    // filtro de meses ativo, esses três vinham do ano inteiro e se misturavam
+    // com KPIs de um trimestre.
+    const categorias = MASCARA_DRE
+      .filter(l => l.categoria !== null)
+      .map(l => l.categoria as CategoriaDre)
 
-    // Todos os valores acima já vêm POSITIVOS (ABS aplicado pra despesas)
-    const receitaLiquida = receitaBruta - deducoes
-    const lucroBruto = receitaLiquida - custoDasVendas
+    const valores = await Promise.all(
+      categorias.map(cat =>
+        somarPorCategoriaDre(clienteId, cat, periodoInicio, periodoFim, periodosSelecionados),
+      ),
+    )
+    const somas: SomasPorCategoria = {}
+    categorias.forEach((cat, i) => { somas[cat] = valores[i] ?? 0 })
+
+    // A DRE inteira sai daqui: cada subtotal é o acumulado até o índice dele.
+    // Aposenta as fórmulas escritas à mão que existiam logo abaixo
+    // (`ebitda = lucroBruto - despesasOperacionais` etc.), que além de repetir
+    // a regra OMITIAM as Despesas Variáveis — categoria que existe no enum e
+    // nunca entrava em conta nenhuma.
+    const dre = calcularDre(somas)
+    const emIndice = (i: number) => dre.get(i) ?? 0
+
+    const receitaBruta = somas.RECEITA_BRUTA ?? 0
+    const receitaLiquida = emIndice(INDICE.RECEITA_LIQUIDA)
+    const lucroBruto = emIndice(INDICE.MARGEM_BRUTA)
+    const ebitda = emIndice(INDICE.EBITDA)
+    const lucroLiquido = emIndice(INDICE.RESULTADO_LIQUIDO)
+    const resultadoFinanceiro = (somas.RECEITAS_FINANCEIRAS ?? 0) + (somas.DESPESAS_FINANCEIRAS ?? 0)
+
+    // A tela espera despesa POSITIVA nos cartões (é rótulo, não conta): o
+    // módulo entra só na apresentação, nunca na aritmética acima.
+    const deducoes = Math.abs(somas.DEDUCOES_IMPOSTOS ?? 0)
+    const custoDasVendas = Math.abs(somas.CUSTO_DAS_VENDAS ?? 0)
+    const despesasOperacionais = Math.abs(somas.DESPESAS_OPERACIONAIS ?? 0)
+    const receitasFinanceiras = somas.RECEITAS_FINANCEIRAS ?? 0
+    const despesasFinanceiras = Math.abs(somas.DESPESAS_FINANCEIRAS ?? 0)
+    const irCs = Math.abs(somas.IR_CS ?? 0)
+
     const margemBruta = receitaLiquida !== 0 ? (lucroBruto / receitaLiquida) * 100 : 0
-    const resultadoFinanceiro = receitasFinanceiras - despesasFinanceiras
-    // EBITDA = Receita Líquida - Custo das Vendas - Despesas Operacionais (SEM resultado financeiro)
-    const ebitda = lucroBruto - despesasOperacionais
     const margemEbitda = receitaLiquida !== 0 ? (ebitda / receitaLiquida) * 100 : 0
     const margemLiquida = receitaLiquida !== 0 ? (lucroLiquido / receitaLiquida) * 100 : 0
 
