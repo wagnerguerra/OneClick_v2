@@ -412,101 +412,114 @@ export class BiService {
     return { ...finalKpis, fontesReceita, fontesDespesas, mesesCustosDespesas }
   }
 
-  /** Soma contas selecionadas pelo usuário */
-  /** Soma contas selecionadas com inversão de sinal para 04 (custos/despesas = negativo) */
+  /**
+   * Fragmento SQL: junta a linha do balancete a sua CATEGORIA DRE e restringe
+   * as folhas. E o mesmo criterio do motor de KPI (bi-calculos), escrito uma
+   * vez para as consultas de apoio deste arquivo pararem de classificar conta
+   * por PREFIXO.
+   *
+   * O prefixo era o vicio comum das quatro: "03.%" para receita, "04.2.1.%"
+   * para despesa, e cinco contas 04.1.1.01.* cravadas para custo fixo. Plano de
+   * contas de outro cliente zera o grafico enquanto o cartao mostra valor.
+   */
+  private sqlCategoriaFolha(categoria: string | null): string {
+    return `
+      LEFT JOIN cliente_bi_categorias cbc
+        ON cbc.cliente_id = l.cliente_id AND cbc.conta = l.conta
+       AND cbc.categoria_dre IS NOT NULL
+      LEFT JOIN plano_contas_categoria_padrao pccp
+        ON pccp.classificacao = l.conta
+      WHERE l.cliente_id = $1 AND l.periodo BETWEEN $2 AND $3
+        AND COALESCE(cbc.categoria_dre, pccp.categoria_dre) ${categoria ? `= '${categoria}'` : 'IS NOT NULL'}
+        AND (
+          l.analitica = true
+          OR (l.analitica IS NULL AND NOT EXISTS (
+            SELECT 1 FROM cliente_bi_linhas f
+            WHERE f.cliente_id = l.cliente_id AND f.periodo = l.periodo
+              AND f.conta LIKE l.conta || '.%'
+              AND LENGTH(f.conta) > LENGTH(l.conta)
+          ))
+        )`
+  }
+
+  /**
+   * Soma as contas que o usuario escolheu para compor um KPI.
+   *
+   * Sem o `CASE WHEN conta LIKE '04%' THEN -ABS(movimento)` que existia aqui:
+   * ele decidia o sinal pelo PREFIXO da conta, ignorando a categoria, e o
+   * `-ABS` invertia estorno igual ao regex da matriz. `creditos - debitos` ja
+   * traz o sinal contabil.
+   */
   private async somarContasSelecionadas(clienteId: string, periodoInicio: string, periodoFim: string, contas: string[]) {
     if (contas.length === 0) return 0
     const placeholders = contas.map((_, i) => `$${i + 4}`).join(', ')
-    // Soma cada conta com sinal: 04* = -ABS(movimento), demais = movimento
     const rows = await prisma.$queryRawUnsafe<Array<{ total: number }>>(
-      `SELECT SUM(
-        CASE WHEN conta LIKE '04%' OR conta LIKE '4%'
-             THEN -ABS(movimento)
-             ELSE movimento
-        END
-      )::float AS total
-      FROM cliente_bi_linhas
-      WHERE cliente_id = $1 AND periodo BETWEEN $2 AND $3 AND conta IN (${placeholders})`,
+      `SELECT COALESCE(SUM(creditos - debitos), 0)::float AS total
+       FROM cliente_bi_linhas
+       WHERE cliente_id = $1 AND periodo BETWEEN $2 AND $3 AND conta IN (${placeholders})`,
       clienteId, periodoInicio, periodoFim, ...contas,
     )
     return Number(rows[0]?.total ?? 0)
   }
 
-  /** Top fontes de receita (contas 03 leaf, agrupadas, top 5) */
+  /** Top 5 fontes de receita — contas da categoria RECEITA_BRUTA, folhas. */
   private async buscarFontesReceita(clienteId: string, periodoInicio: string, periodoFim: string) {
     const rows = await prisma.$queryRawUnsafe<Array<{ conta: string; nome_conta: string; total: number }>>(
-      `SELECT conta, nome_conta, ABS(SUM(movimento))::float AS total
-       FROM cliente_bi_linhas
-       WHERE cliente_id = $1 AND periodo BETWEEN $2 AND $3
-         AND (conta LIKE '03.%' OR conta LIKE '3.%')
-         AND NOT EXISTS (
-           SELECT 1 FROM cliente_bi_linhas b2
-           WHERE b2.cliente_id = cliente_bi_linhas.cliente_id
-             AND b2.periodo = cliente_bi_linhas.periodo
-             AND b2.conta LIKE cliente_bi_linhas.conta || '.%'
-             AND LENGTH(b2.conta) > LENGTH(cliente_bi_linhas.conta)
-         )
-       GROUP BY conta, nome_conta
-       HAVING ABS(SUM(movimento)) > 0.01
-       ORDER BY ABS(SUM(movimento)) DESC
+      `SELECT l.conta, l.nome_conta, SUM(l.creditos - l.debitos)::float AS total
+       FROM cliente_bi_linhas l
+       ${this.sqlCategoriaFolha('RECEITA_BRUTA')}
+       GROUP BY l.conta, l.nome_conta
+       HAVING ABS(SUM(l.creditos - l.debitos)) > 0.01
+       ORDER BY SUM(l.creditos - l.debitos) DESC
        LIMIT 5`,
       clienteId, periodoInicio, periodoFim,
     )
     return rows.map(r => ({ contaLonga: r.conta, nomeConta: r.nome_conta, valor: r.total }))
   }
 
-  /** Top fontes de despesas (contas 04.2 leaf, top 5) */
-  /** Top fontes de despesas (contas 04.2.1 + 04.2.2 leaf, SEM 04.2.3 financeiras, top 5) */
+  /** Top 5 fontes de despesa — categoria DESPESAS_OPERACIONAIS, folhas. */
   private async buscarFontesDespesas(clienteId: string, periodoInicio: string, periodoFim: string) {
     const rows = await prisma.$queryRawUnsafe<Array<{ conta: string; nome_conta: string; total: number }>>(
-      `SELECT conta, nome_conta, ABS(SUM(movimento))::float AS total
-       FROM cliente_bi_linhas
-       WHERE cliente_id = $1 AND periodo BETWEEN $2 AND $3
-         AND (conta LIKE '04.2.1.%' OR conta LIKE '04.2.2.%')
-         AND NOT EXISTS (
-           SELECT 1 FROM cliente_bi_linhas b2
-           WHERE b2.cliente_id = cliente_bi_linhas.cliente_id
-             AND b2.periodo = cliente_bi_linhas.periodo
-             AND b2.conta LIKE cliente_bi_linhas.conta || '.%'
-             AND LENGTH(b2.conta) > LENGTH(cliente_bi_linhas.conta)
-         )
-       GROUP BY conta, nome_conta
-       HAVING ABS(SUM(movimento)) > 0.01
-       ORDER BY ABS(SUM(movimento)) DESC
+      `SELECT l.conta, l.nome_conta, ABS(SUM(l.creditos - l.debitos))::float AS total
+       FROM cliente_bi_linhas l
+       ${this.sqlCategoriaFolha('DESPESAS_OPERACIONAIS')}
+       GROUP BY l.conta, l.nome_conta
+       HAVING ABS(SUM(l.creditos - l.debitos)) > 0.01
+       ORDER BY ABS(SUM(l.creditos - l.debitos)) DESC
        LIMIT 5`,
       clienteId, periodoInicio, periodoFim,
     )
     return rows.map(r => ({ contaLonga: r.conta, nomeConta: r.nome_conta, valor: r.total }))
   }
 
-  /** Dados mensais de custos x despesas para gráfico */
+  /**
+   * Serie mensal de Custos Fixos x Despesas Operacionais para o grafico.
+   *
+   * Aqui estava o pior dos prefixos cravados: cinco contas
+   * ('04.1.1.01.001','...032','...033','...035','...036') escolhidas a dedo do
+   * plano de contas da SERRAFER, com o proprio comentario admitindo "padrao
+   * SERPRO2". Para qualquer outro cliente o grafico de Custos Fixos ficava
+   * ZERADO enquanto o cartao ao lado mostrava valor — e o texto do modal
+   * explicava as cinco contas, descrevendo o grafico e nao o cartao.
+   *
+   * Agora as duas series saem das MESMAS categorias que os cartoes usam:
+   * CUSTO_DAS_VENDAS e DESPESAS_OPERACIONAIS. Grafico e cartao passam a falar
+   * da mesma coisa, em qualquer plano de contas.
+   */
   private async buscarMesesCustosDespesas(clienteId: string, periodoInicio: string, periodoFim: string) {
-    // Custos Fixos (5 contas específicas, SUM com sinal) por mês — padrão SERPRO2
-    const custos = await prisma.$queryRawUnsafe<Array<{ periodo: string; total: number }>>(
-      `SELECT periodo, SUM(movimento)::float AS total
-       FROM cliente_bi_linhas
-       WHERE cliente_id = $1 AND periodo BETWEEN $2 AND $3
-         AND conta IN ('04.1.1.01.001','04.1.1.01.032','04.1.1.01.033','04.1.1.01.035','04.1.1.01.036')
-       GROUP BY periodo ORDER BY periodo`,
-      clienteId, periodoInicio, periodoFim,
-    )
+    const serie = (categoria: string) =>
+      prisma.$queryRawUnsafe<Array<{ periodo: string; total: number }>>(
+        `SELECT l.periodo, ABS(SUM(l.creditos - l.debitos))::float AS total
+         FROM cliente_bi_linhas l
+         ${this.sqlCategoriaFolha(categoria)}
+         GROUP BY l.periodo ORDER BY l.periodo`,
+        clienteId, periodoInicio, periodoFim,
+      )
 
-    // Despesas Operacionais sem financeiras (04.2.1 + 04.2.2, leaf nodes) por mês
-    const despesas = await prisma.$queryRawUnsafe<Array<{ periodo: string; total: number }>>(
-      `SELECT periodo, SUM(ABS(movimento))::float AS total
-       FROM cliente_bi_linhas
-       WHERE cliente_id = $1 AND periodo BETWEEN $2 AND $3
-         AND (conta LIKE '04.2.1.%' OR conta LIKE '04.2.2.%')
-         AND NOT EXISTS (
-           SELECT 1 FROM cliente_bi_linhas b2
-           WHERE b2.cliente_id = cliente_bi_linhas.cliente_id
-             AND b2.periodo = cliente_bi_linhas.periodo
-             AND b2.conta LIKE cliente_bi_linhas.conta || '.%'
-             AND LENGTH(b2.conta) > LENGTH(cliente_bi_linhas.conta)
-         )
-       GROUP BY periodo ORDER BY periodo`,
-      clienteId, periodoInicio, periodoFim,
-    )
+    const [custos, despesas] = await Promise.all([
+      serie('CUSTO_DAS_VENDAS'),
+      serie('DESPESAS_OPERACIONAIS'),
+    ])
 
     const custosMap = new Map(custos.map(r => [r.periodo, r.total]))
     const despesasMap = new Map(despesas.map(r => [r.periodo, r.total]))
@@ -905,35 +918,38 @@ export class BiService {
   // KPI — Contas incluídas (seleção do usuário para cada card)
   // ══════════════════════════════════════════════════════════════
 
-  /** Padrões SQL por tipo de KPI para listar contas disponíveis */
-  private kpiContaPatterns: Record<string, { sql: string; maxDots: number }> = {
-    receita: { sql: "(conta LIKE '03.%' OR conta LIKE '3.%')", maxDots: 2 },
-    custos_fixos: { sql: "(conta LIKE '04.%')", maxDots: 1 },
-    despesas: { sql: "(conta LIKE '04.%')", maxDots: 3 },
-    lucro_liquido: { sql: "(conta LIKE '03.%' OR conta LIKE '04.%')", maxDots: 1 },
+  /**
+   * Categoria DRE por tipo de KPI. Substitui o mapa de PREFIXOS que existia
+   * aqui (`conta LIKE '04.%'` + `maxDots`), que tinha dois problemas:
+   *
+   *  - classificava por codigo de conta, quebrando em plano de contas diferente;
+   *  - `maxDots: 1` OFERECIA SINTETICAS (ate nivel 2). Marcar `04.1` junto das
+   *    filhas somava o mesmo valor duas vezes no KPI, sem aviso.
+   *
+   * Agora o seletor mostra exatamente as folhas da MESMA categoria que o cartao
+   * soma. `null` = qualquer conta categorizada (o caso do lucro liquido).
+   */
+  private kpiCategoriaPorTipo: Record<string, string | null> = {
+    receita: 'RECEITA_BRUTA',
+    custos_fixos: 'CUSTO_DAS_VENDAS',
+    despesas: 'DESPESAS_OPERACIONAIS',
+    lucro_liquido: null,
   }
 
   async kpiListarContasDisponiveis(clienteId: string, tipoKpi: string, ano: number) {
-    const config = this.kpiContaPatterns[tipoKpi]
-    if (!config) return []
+    if (!(tipoKpi in this.kpiCategoriaPorTipo)) return []
+    const categoria = this.kpiCategoriaPorTipo[tipoKpi] ?? null
 
     const periodoInicio = `${ano}01`
     const periodoFim = `${ano}12`
 
-    // Contas 04 (custos/despesas): inverter sinal para exibir como negativo
     const rows = await prisma.$queryRawUnsafe<Array<{ conta: string; nome_conta: string; total: number }>>(
-      `SELECT conta, nome_conta,
-              CASE WHEN conta LIKE '04%' OR conta LIKE '4%'
-                   THEN -ABS(SUM(movimento))
-                   ELSE SUM(movimento)
-              END::float AS total
-       FROM cliente_bi_linhas
-       WHERE cliente_id = $1 AND periodo BETWEEN $2 AND $3
-         AND ${config.sql}
-         AND LENGTH(conta) - LENGTH(REPLACE(conta, '.', '')) <= ${config.maxDots}
-       GROUP BY conta, nome_conta
-       HAVING ABS(SUM(movimento)) > 0.01
-       ORDER BY conta`,
+      `SELECT l.conta, l.nome_conta, SUM(l.creditos - l.debitos)::float AS total
+       FROM cliente_bi_linhas l
+       ${this.sqlCategoriaFolha(categoria)}
+       GROUP BY l.conta, l.nome_conta
+       HAVING ABS(SUM(l.creditos - l.debitos)) > 0.01
+       ORDER BY l.conta`,
       clienteId, periodoInicio, periodoFim,
     )
     return rows.map(r => ({ conta: r.conta, nomeConta: r.nome_conta, valor: r.total }))
