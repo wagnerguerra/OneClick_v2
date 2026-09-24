@@ -366,6 +366,12 @@ export function groupColorVar(label: string): string {
   return slug ? `var(--mod-${slug}, ${fallback})` : fallback
 }
 
+/** Cor de módulo de um bloco da sidebar (pelo label) como CSS var, ou null
+ *  quando o label não é um bloco com cor de módulo. */
+export function groupModuleColorVar(label: string | null | undefined): string | null {
+  return label && GROUP_SLUG[label] ? groupColorVar(label) : null
+}
+
 /**
  * Bloco da sidebar de uma rota que EXISTE de verdade no menu (item publicado,
  * não `wip`) e cujo bloco tem cor de módulo. Match exato, depois pelo primeiro

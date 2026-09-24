@@ -33,13 +33,19 @@ import {
   Calculator, Users, Shield, ClipboardList, Settings,
   Store, Building2, Scale, Monitor, Award,
   GitBranch, FileText, PlayCircle, CheckCircle2, HelpCircle, Box,
-  Network, Layers,
+  Network, Layers, Tag,
 } from 'lucide-react'
-import { Badge, Button, Input, cn, Checkbox, Textarea } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import {
+  Badge, Button, Input, cn, Checkbox, Textarea,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription, Label,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
+} from '@saas/ui'
+import { BADGE, STRONG, SURFACE, TEXT } from '@/lib/color-styles'
+import { groupModuleColorVar } from '@/lib/navigation'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { resolveAssetUrl } from '@/lib/api-url'
+import { UserAvatar } from '@/components/ui/user-avatar'
 
 // Tipos exportados (também usados pelo page.tsx pra montar o payload)
 
@@ -186,39 +192,48 @@ function applyDagreLayout(
 }
 
 // ─────────────────────────────────────────────────────────────
-// Paleta por Área — espelha a sidebar pra dar consistência visual
-// entre módulo e fluxo. Cada área tem 5 tons:
-//   fillLight = fundo do bloco normal (50)
-//   fillRoot  = fundo do bloco raiz (200) — mais saturado
-//   border    = cor da borda (500)
-//   borderRoot = borda do raiz (700)
-//   text      = texto (700) e textRoot (900)
+// Tons dos blocos — derivados de UMA cor base e adaptados ao tema.
+// Em vez de hex fixos de tom claro (que viravam caixas pastel claras no
+// dark), cada tom mistura a base com os tokens do tema: o fundo é um tint
+// da base sobre o card, e texto/borda do raiz puxam a base pro foreground
+// (escurece no claro, clareia no dark). Mesmo modelo do banner adaptativo.
+//   fillLight = fundo do bloco normal · fillRoot = fundo do raiz (mais saturado)
+//   border / borderRoot = bordas · text / textRoot = textos
 // ─────────────────────────────────────────────────────────────
 type AreaPaletteEntry = {
   fillLight: string; fillRoot: string;
   border: string; borderRoot: string;
   text: string; textRoot: string;
 }
-const AREA_CADASTROS: AreaPaletteEntry = { fillLight: '#ecfdf5', fillRoot: '#a7f3d0', border: '#10b981', borderRoot: '#047857', text: '#047857', textRoot: '#064e3b' }
-const AREA_PALETTE: Record<string, AreaPaletteEntry> = {
-  'Cadastros':      AREA_CADASTROS,
-  'Comercial':      { fillLight: '#fff1f2', fillRoot: '#fecdd3', border: '#f43f5e', borderRoot: '#be123c', text: '#be123c', textRoot: '#881337' },
-  'Administrativo': { fillLight: '#f0f9ff', fillRoot: '#bae6fd', border: '#0ea5e9', borderRoot: '#0369a1', text: '#0369a1', textRoot: '#0c4a6e' },
-  'Legalização':    { fillLight: '#fdf4ff', fillRoot: '#f5d0fe', border: '#d946ef', borderRoot: '#a21caf', text: '#a21caf', textRoot: '#701a75' },
-  'Trabalhista':    { fillLight: '#f7fee7', fillRoot: '#d9f99d', border: '#84cc16', borderRoot: '#4d7c0f', text: '#4d7c0f', textRoot: '#365314' },
-  'Fiscal':         { fillLight: '#eef2ff', fillRoot: '#c7d2fe', border: '#6366f1', borderRoot: '#4338ca', text: '#4338ca', textRoot: '#312e81' },
-  'Contábil':       { fillLight: '#f5f3ff', fillRoot: '#ddd6fe', border: '#8b5cf6', borderRoot: '#6d28d9', text: '#6d28d9', textRoot: '#4c1d95' },
-  'TI':             { fillLight: '#ecfeff', fillRoot: '#a5f3fc', border: '#06b6d4', borderRoot: '#0e7490', text: '#0e7490', textRoot: '#164e63' },
-  'Qualidade':      { fillLight: '#fffbeb', fillRoot: '#fde68a', border: '#f59e0b', borderRoot: '#b45309', text: '#b45309', textRoot: '#78350f' },
-  'Configurações':  { fillLight: '#fff7ed', fillRoot: '#fed7aa', border: '#f97316', borderRoot: '#c2410c', text: '#c2410c', textRoot: '#7c2d12' },
+function tonsDoBloco(base: string): AreaPaletteEntry {
+  return {
+    fillLight: `color-mix(in oklab, ${base} 10%, var(--color-card))`,
+    fillRoot: `color-mix(in oklab, ${base} 26%, var(--color-card))`,
+    border: base,
+    borderRoot: `color-mix(in oklab, ${base}, var(--color-foreground) 30%)`,
+    text: `color-mix(in oklab, ${base}, var(--color-foreground) 50%)`,
+    textRoot: `color-mix(in oklab, ${base}, var(--color-foreground) 70%)`,
+  }
 }
-/** Fallback (área não-mapeada ou nula) — usa o tom emerald padrão do módulo. */
-const AREA_DEFAULT: AreaPaletteEntry = AREA_CADASTROS
+/** Bloco inativo/ancestral — neutro, em tokens do tema. */
+const NEUTRO = {
+  fill: 'var(--color-muted)',
+  fillAncestral: 'color-mix(in oklab, var(--color-muted) 50%, var(--color-card))',
+  border: 'color-mix(in oklab, var(--color-muted-foreground) 55%, transparent)',
+  text: 'var(--color-muted-foreground)',
+}
 
+/**
+ * Cor do bloco pela área dele. A área é um bloco da sidebar, então a cor é a
+ * do módulo (`var(--mod-<slug>)`, editável no design-system) — indicador de
+ * qual módulo executa o bloco. Área sem cor de módulo cai na primária.
+ */
 function areaPalette(categoria: string | null | undefined): AreaPaletteEntry {
-  if (!categoria) return AREA_DEFAULT
-  return AREA_PALETTE[categoria] ?? AREA_DEFAULT
+  return tonsDoBloco(groupModuleColorVar(categoria) ?? 'var(--color-primary)')
 }
+
+/** Cor com transparência — funciona com hex E com var() (concatenar `${cor}30` não). */
+const alfa = (cor: string, pct: number) => `color-mix(in oklab, ${cor} ${pct}%, transparent)`
 
 // ─────────────────────────────────────────────────────────────
 // Marca d'água: ícone grande no canto inferior direito do bloco.
@@ -282,14 +297,17 @@ function NodeWatermark({ tipo, categoria, color, size = 56, ancestral }: {
  */
 function ExecucoesPill({ execucoes }: { execucoes: NonNullable<FluxoNode['execucoesAtivas']> }) {
   if (!execucoes || execucoes.total === 0) return null
-  // Pior caso determina a cor principal
-  const cor =
-    execucoes.atrasada > 0      ? { bg: '#fecdd3', text: '#9f1239', border: '#fb7185', dot: '#e11d48' } :
-    execucoes.vencendo > 0      ? { bg: '#fef3c7', text: '#92400e', border: '#fbbf24', dot: '#f59e0b' } :
-    execucoes.aguardandoResposta > 0 ? { bg: '#ede9fe', text: '#5b21b6', border: '#a78bfa', dot: '#8b5cf6' } :
-    execucoes.aguardandoInicio > 0   ? { bg: '#cffafe', text: '#155e75', border: '#67e8f9', dot: '#06b6d4' } :
-    execucoes.pausada > 0       ? { bg: '#f1f5f9', text: '#475569', border: '#cbd5e1', dot: '#94a3b8' } :
-                                  { bg: '#d1fae5', text: '#065f46', border: '#6ee7b7', dot: '#10b981' }
+  // Pior caso determina a cor principal (hex de status); fundo/texto/borda
+  // derivam dela e se adaptam ao tema.
+  const dot =
+    execucoes.atrasada > 0           ? '#e11d48' :
+    execucoes.vencendo > 0           ? '#f59e0b' :
+    execucoes.aguardandoResposta > 0 ? '#8b5cf6' :
+    execucoes.aguardandoInicio > 0   ? '#06b6d4' :
+    execucoes.pausada > 0            ? '#94a3b8' :
+                                       '#10b981'
+  const tons = tonsDoBloco(dot)
+  const cor = { dot, bg: tons.fillRoot, text: tons.textRoot, border: alfa(dot, 60) }
   const partes: string[] = []
   if (execucoes.atrasada > 0)            partes.push(`${execucoes.atrasada} atrasada${execucoes.atrasada > 1 ? 's' : ''}`)
   if (execucoes.vencendo > 0)            partes.push(`${execucoes.vencendo} vencendo`)
@@ -305,7 +323,7 @@ function ExecucoesPill({ execucoes }: { execucoes: NonNullable<FluxoNode['execuc
     >
       <span
         className="inline-block h-1.5 w-1.5 rounded-full shrink-0"
-        style={{ background: cor.dot, boxShadow: execucoes.atrasada > 0 ? `0 0 0 2px ${cor.dot}33` : undefined }}
+        style={{ background: cor.dot, boxShadow: execucoes.atrasada > 0 ? `0 0 0 2px ${alfa(cor.dot, 20)}` : undefined }}
       />
       {execucoes.total}
     </span>
@@ -334,19 +352,11 @@ function ExecucoesSection({ execucoes }: { execucoes: NonNullable<FluxoNode['exe
     const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     return `${dia} ${hora}`
   }
-  const iniciais = (name: string | null) => {
-    if (!name) return '?'
-    const parts = name.trim().split(/\s+/)
-    const first = parts[0] ?? ''
-    const last = parts[parts.length - 1] ?? ''
-    return parts.length === 1 ? first.slice(0, 2).toUpperCase()
-      : ((first[0] ?? '') + (last[0] ?? '')).toUpperCase()
-  }
   return (
     <div className="px-3 py-2.5 border-t bg-primary/5">
       <div className="flex items-center gap-1.5 mb-1.5">
-        <PlayCircle className="h-3 w-3 text-primary" />
-        <span className="text-[10px] font-bold text-primary uppercase tracking-wider">
+        <PlayCircle className="h-3 w-3 text-primary-on-surface" />
+        <span className="text-[10px] font-bold text-primary-on-surface uppercase tracking-wider">
           Em execução — {execucoes.total}
         </span>
       </div>
@@ -384,16 +394,15 @@ function ExecucoesSection({ execucoes }: { execucoes: NonNullable<FluxoNode['exe
         )}
       </div>
       {/* Lista de execuções */}
-      <ul className="space-y-1 max-h-[200px] overflow-y-auto pr-1">
+      <ul className="space-y-1 max-h-[200px] overflow-y-auto nice-scrollbar pr-1">
         {execucoes.itens.map(it => {
           const c = cores[it.situacao as keyof typeof cores] ?? cores.em_dia
-          const respImg = it.responsavel?.image ? resolveAssetUrl(it.responsavel.image) : ''
           return (
             <li key={it.id}>
               <a
                 href={`/meus-servicos?focus=${it.id}`}
                 className="block px-2 py-1.5 rounded border bg-card hover:bg-muted/40 transition-colors"
-                style={{ borderColor: `${c.dot}40` }}
+                style={{ borderColor: alfa(c.dot, 25) }}
                 title={`Ver detalhes da execução em /meus-servicos`}
               >
                 <div className="flex items-center gap-1.5">
@@ -408,14 +417,11 @@ function ExecucoesSection({ execucoes }: { execucoes: NonNullable<FluxoNode['exe
                 <div className="flex items-center gap-1.5 mt-1">
                   {/* Avatar do responsável */}
                   {it.responsavel ? (
-                    respImg ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={respImg} alt={it.responsavel.name ?? ''} className="h-4 w-4 rounded-full object-cover shrink-0" />
-                    ) : (
-                      <span className="h-4 w-4 rounded-full inline-flex items-center justify-center text-[7.5px] font-bold text-white shrink-0" style={{ background: c.dot }}>
-                        {iniciais(it.responsavel.name)}
-                      </span>
-                    )
+                    <UserAvatar
+                      user={{ name: it.responsavel.name ?? '', image: it.responsavel.image }}
+                      className="h-4 w-4 text-[7.5px] font-bold"
+                      bgColor={c.dot}
+                    />
                   ) : (
                     <span className="h-4 w-4 rounded-full inline-flex items-center justify-center text-[7.5px] font-bold text-muted-foreground shrink-0 border border-dashed">?</span>
                   )}
@@ -478,7 +484,7 @@ function NodeEdgeButtons({ data, hidden }: { data: ServicoNodeData; hidden?: boo
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); data.onAddPred!(n.id) }}
-            className="h-5 w-5 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary-hover hover:scale-110 transition-all"
+            className="h-5 w-5 inline-flex items-center justify-center rounded-full bg-emerald-600 text-white shadow-md hover:bg-emerald-700 hover:scale-110 transition-all"
             title="Adicionar predecessor (origem)"
             aria-label="Adicionar bloco antes"
           >
@@ -506,7 +512,7 @@ function NodeEdgeButtons({ data, hidden }: { data: ServicoNodeData; hidden?: boo
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); data.onAddSucc!(n.id) }}
-            className="h-5 w-5 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary-hover hover:scale-110 transition-all"
+            className="h-5 w-5 inline-flex items-center justify-center rounded-full bg-emerald-600 text-white shadow-md hover:bg-emerald-700 hover:scale-110 transition-all"
             title="Adicionar sucessor (destino)"
             aria-label="Adicionar bloco depois"
           >
@@ -542,28 +548,26 @@ function ServicoNodeComp({ data }: NodeProps) {
 
   const pal = areaPalette(n.area?.name)
   const fill = !n.ativo
-    ? '#f3f4f6'
+    ? NEUTRO.fill
     : isAncestral
-      ? '#f9fafb'
+      ? NEUTRO.fillAncestral
       : isRoot
         ? pal.fillRoot
         : pal.fillLight
   const borderColor = !n.ativo
-    ? '#9ca3af'
+    ? NEUTRO.border
     : isExpanded
       ? pal.borderRoot
       : isAncestral
-        ? '#9ca3af'
+        ? NEUTRO.border
         : isRoot
           ? pal.borderRoot
           : pal.border
-  const textColor = !n.ativo
-    ? '#6b7280'
-    : isAncestral
-      ? '#6b7280'
-      : isRoot
-        ? pal.textRoot
-        : pal.text
+  const textColor = !n.ativo || isAncestral
+    ? NEUTRO.text
+    : isRoot
+      ? pal.textRoot
+      : pal.text
   const totalPassos = n.etapas.reduce((acc, et) => acc + et.passos.length, 0)
 
   return (
@@ -586,7 +590,7 @@ function ServicoNodeComp({ data }: NodeProps) {
       <Handle
         type="target"
         position={Position.Left}
-        className="!w-2 !h-2 !border !border-white"
+        className="!w-2 !h-2 !border !border-card"
         style={{ background: borderColor }}
       />
       {/* Wrapper interno com overflow:hidden — clipa header amber/marca d'água
@@ -652,7 +656,7 @@ function ServicoNodeComp({ data }: NodeProps) {
           {n.categoriaServico === 'MENSAL' && (n.acessoriasObrigacoes?.length ?? 0) > 0 && (
             <span
               className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8.5px] font-bold leading-none shrink-0"
-              style={{ background: `${borderColor}30`, color: textColor, border: `1px solid ${borderColor}55` }}
+              style={{ background: alfa(borderColor, 19), color: textColor, border: `1px solid ${alfa(borderColor, 33)}` }}
               title={`Obrigações Acessórias:\n• ${n.acessoriasObrigacoes!.join('\n• ')}`}
             >
               <svg className="h-2 w-2" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -666,7 +670,7 @@ function ServicoNodeComp({ data }: NodeProps) {
       <Handle
         type="source"
         position={Position.Right}
-        className="!w-2 !h-2 !border !border-white"
+        className="!w-2 !h-2 !border !border-card"
         style={{ background: borderColor }}
       />
     </div>
@@ -696,8 +700,9 @@ function EncadeamentoEdgeComp(props: EdgeProps) {
     sourceX, sourceY, sourcePosition,
     targetX, targetY, targetPosition,
   })
+  // Selecionada = primária (acento do sistema); as demais, cor por TIPO de encadeamento.
   const stroke = selected
-    ? '#0d9488'
+    ? 'var(--color-primary)'
     : !d.iniciaAuto ? '#f59e0b' : !d.obrigatorio ? '#0ea5e9' : '#94a3b8'
   return (
     <g opacity={d.atenuado ? 0.4 : 1}>
@@ -715,14 +720,13 @@ function EncadeamentoEdgeComp(props: EdgeProps) {
       <path
         d={edgePath}
         fill="none"
-        stroke={stroke}
         strokeWidth={selected ? 2.5 : 1.5}
         strokeDasharray={!d.obrigatorio ? '4 3' : undefined}
         markerEnd={markerEnd}
-        style={{ pointerEvents: 'none' }}
+        style={{ pointerEvents: 'none', stroke }}
       />
       {d.condicao != null && (
-        <circle cx={labelX - (d.rotulo ? 28 : 0)} cy={labelY} r={5} fill="#a78bfa" stroke="#fff" strokeWidth={1.5}>
+        <circle cx={labelX - (d.rotulo ? 28 : 0)} cy={labelY} r={5} fill="#a78bfa" strokeWidth={1.5} style={{ stroke: 'var(--color-card)' }}>
           <title>Encadeamento condicional</title>
         </circle>
       )}
@@ -732,17 +736,15 @@ function EncadeamentoEdgeComp(props: EdgeProps) {
             x={-36} y={-9}
             width={72} height={18}
             rx={9} ry={9}
-            fill="#fff"
-            stroke={stroke}
             strokeWidth={1}
+            style={{ fill: 'var(--color-card)', stroke }}
           />
           <text
             x={0} y={4}
             fontSize="10"
             fontWeight="600"
-            fill={stroke}
             textAnchor="middle"
-            style={{ pointerEvents: 'none' }}
+            style={{ pointerEvents: 'none', fill: stroke }}
           >
             {d.rotulo.length > 12 ? d.rotulo.slice(0, 11) + '…' : d.rotulo}
           </text>
@@ -766,17 +768,10 @@ function DecisaoNodeComp({ data }: NodeProps) {
   // Decisões são neutras (cinza) por padrão — a forma de losango já carrega
   // toda a semântica do tipo. Cor reservada pras atividades (que diferenciam
   // áreas operacionais — Fiscal/Contábil/Trabalhista).
-  const GRAY = {
-    fillLight: '#f3f4f6',  // gray-100
-    fillRoot:  '#e5e7eb',  // gray-200
-    border:    '#9ca3af',  // gray-400
-    borderRoot:'#4b5563',  // gray-600
-    text:      '#374151',  // gray-700
-    textRoot:  '#111827',  // gray-900
-  }
-  const borderColor = !n.ativo ? '#d1d5db' : isAncestral ? '#9ca3af' : isRoot ? GRAY.borderRoot : GRAY.border
-  const fill = !n.ativo ? '#f9fafb' : isAncestral ? '#f9fafb' : isRoot ? GRAY.fillRoot : GRAY.fillLight
-  const textColor = !n.ativo ? '#9ca3af' : isAncestral ? '#6b7280' : isRoot ? GRAY.textRoot : GRAY.text
+  const GRAY = tonsDoBloco('var(--color-muted-foreground)')
+  const borderColor = !n.ativo || isAncestral ? NEUTRO.border : isRoot ? GRAY.borderRoot : GRAY.border
+  const fill = !n.ativo ? NEUTRO.fill : isAncestral ? NEUTRO.fillAncestral : isRoot ? GRAY.fillRoot : GRAY.fillLight
+  const textColor = !n.ativo || isAncestral ? NEUTRO.text : isRoot ? GRAY.textRoot : GRAY.text
 
   return (
     <div
@@ -799,13 +794,13 @@ function DecisaoNodeComp({ data }: NodeProps) {
       <Handle
         type="target"
         position={Position.Left}
-        className="!w-2 !h-2 !border !border-white"
+        className="!w-2 !h-2 !border !border-card"
         style={{ background: borderColor, top: '50%' }}
       />
       <Handle
         type="source"
         position={Position.Right}
-        className="!w-2 !h-2 !border !border-white"
+        className="!w-2 !h-2 !border !border-card"
         style={{ background: borderColor, top: '50%' }}
       />
       {/* Losango quadrado — desenhado em SVG pra a borda renderizar corretamente. */}
@@ -820,8 +815,7 @@ function DecisaoNodeComp({ data }: NodeProps) {
           >
             <polygon
               points={`${DECISION_SIZE / 2},${strokeW} ${DECISION_SIZE - strokeW},${DECISION_SIZE / 2} ${DECISION_SIZE / 2},${DECISION_SIZE - strokeW} ${strokeW},${DECISION_SIZE / 2}`}
-              fill={fill}
-              stroke={borderColor}
+              style={{ fill, stroke: borderColor }}
               strokeWidth={strokeW}
               strokeDasharray={isAncestral ? '4 3' : undefined}
               strokeLinejoin="round"
@@ -859,14 +853,10 @@ function PerguntaNodeComp({ data }: NodeProps) {
   const isAncestral = n.position === 'ANCESTRAL'
 
   // Paleta âmbar — destaca o bloco como ponto de interação humana.
-  const AMBER = {
-    fillLight: '#fffbeb', fillRoot: '#fde68a',
-    border:    '#f59e0b', borderRoot: '#b45309',
-    text:      '#92400e', textRoot:   '#78350f',
-  }
-  const borderColor = !n.ativo ? '#d1d5db' : isAncestral ? '#fcd34d' : isRoot ? AMBER.borderRoot : AMBER.border
-  const fill = !n.ativo ? '#f9fafb' : isAncestral ? '#fffbeb' : isRoot ? AMBER.fillRoot : AMBER.fillLight
-  const textColor = !n.ativo ? '#9ca3af' : isAncestral ? '#a16207' : isRoot ? AMBER.textRoot : AMBER.text
+  const AMBER = tonsDoBloco('#f59e0b')
+  const borderColor = !n.ativo ? NEUTRO.border : isAncestral ? alfa(AMBER.border, 55) : isRoot ? AMBER.borderRoot : AMBER.border
+  const fill = !n.ativo ? NEUTRO.fill : isRoot ? AMBER.fillRoot : AMBER.fillLight
+  const textColor = !n.ativo ? NEUTRO.text : isRoot ? AMBER.textRoot : AMBER.text
 
   const opcoes = (n.perguntaOpcoes ?? []) as string[]
   const pergunta = n.perguntaTexto?.trim() || n.nome
@@ -896,13 +886,13 @@ function PerguntaNodeComp({ data }: NodeProps) {
       <Handle
         type="target"
         position={Position.Left}
-        className="!w-2 !h-2 !border !border-white"
+        className="!w-2 !h-2 !border !border-card"
         style={{ background: borderColor, top: '50%' }}
       />
       <Handle
         type="source"
         position={Position.Right}
-        className="!w-2 !h-2 !border !border-white"
+        className="!w-2 !h-2 !border !border-card"
         style={{ background: borderColor, top: '50%' }}
       />
       {/* Wrapper interno com overflow:hidden — clipa só o conteúdo (header
@@ -936,7 +926,7 @@ function PerguntaNodeComp({ data }: NodeProps) {
                 <span
                   key={i}
                   className="inline-block px-1 py-0.5 rounded text-[8.5px] leading-none font-medium"
-                  style={{ background: `${borderColor}25`, color: textColor, border: `1px solid ${borderColor}55` }}
+                  style={{ background: alfa(borderColor, 15), color: textColor, border: `1px solid ${alfa(borderColor, 33)}` }}
                 >
                   {op}
                 </span>
@@ -970,10 +960,10 @@ function DocumentacaoNodeComp({ data }: NodeProps) {
   const isAncestral = n.position === 'ANCESTRAL'
   // Documentação também segue a área (forma de documento distingue o tipo).
   // Sem área, usa o azul legado como fallback semântico.
-  const palBase = n.area?.name ? areaPalette(n.area.name) : { fillLight: '#eff6ff', fillRoot: '#dbeafe', border: '#3b82f6', borderRoot: '#1d4ed8', text: '#1d4ed8', textRoot: '#1e3a8a' }
-  const borderColor = !n.ativo ? '#9ca3af' : isAncestral ? '#9ca3af' : isRoot ? palBase.borderRoot : palBase.border
-  const fill = !n.ativo ? '#f3f4f6' : isAncestral ? '#f9fafb' : isRoot ? palBase.fillRoot : palBase.fillLight
-  const textColor = !n.ativo ? '#6b7280' : isAncestral ? '#6b7280' : isRoot ? palBase.textRoot : palBase.text
+  const palBase = n.area?.name ? areaPalette(n.area.name) : tonsDoBloco('#3b82f6')
+  const borderColor = !n.ativo || isAncestral ? NEUTRO.border : isRoot ? palBase.borderRoot : palBase.border
+  const fill = !n.ativo ? NEUTRO.fill : isAncestral ? NEUTRO.fillAncestral : isRoot ? palBase.fillRoot : palBase.fillLight
+  const textColor = !n.ativo || isAncestral ? NEUTRO.text : isRoot ? palBase.textRoot : palBase.text
 
   return (
     <div
@@ -992,8 +982,8 @@ function DocumentacaoNodeComp({ data }: NodeProps) {
       title={n.nome}
     >
       <NodeEdgeButtons data={d} hidden={isAncestral} />
-      <Handle type="target" position={Position.Left} className="!w-2 !h-2 !border !border-white" style={{ background: borderColor }} />
-      <Handle type="source" position={Position.Right} className="!w-2 !h-2 !border !border-white" style={{ background: borderColor }} />
+      <Handle type="target" position={Position.Left} className="!w-2 !h-2 !border !border-card" style={{ background: borderColor }} />
+      <Handle type="source" position={Position.Right} className="!w-2 !h-2 !border !border-card" style={{ background: borderColor }} />
       <div
         className="absolute inset-0 flex items-center px-3"
         style={{
@@ -1032,27 +1022,11 @@ function EventoNodeComp({ data }: NodeProps) {
   const ref = useRef<HTMLDivElement>(null)
   const isFim = n.tipo === 'FIM'
   const isAncestral = n.position === 'ANCESTRAL'
-  const borderColor = !n.ativo
-    ? '#9ca3af'
-    : isAncestral
-      ? '#9ca3af'
-      : isFim
-        ? '#dc2626' // red-600
-        : '#16a34a' // green-600
-  const fill = !n.ativo
-    ? '#f3f4f6'
-    : isAncestral
-      ? '#f9fafb'
-      : isFim
-        ? '#fee2e2'
-        : '#dcfce7'
-  const textColor = !n.ativo
-    ? '#6b7280'
-    : isAncestral
-      ? '#6b7280'
-      : isFim
-        ? '#7f1d1d'
-        : '#14532d'
+  // Início = verde, Fim = vermelho (semântica de evento), tons adaptados ao tema.
+  const tons = tonsDoBloco(isFim ? '#dc2626' : '#16a34a')
+  const borderColor = !n.ativo || isAncestral ? NEUTRO.border : tons.border
+  const fill = !n.ativo ? NEUTRO.fill : isAncestral ? NEUTRO.fillAncestral : tons.fillRoot
+  const textColor = !n.ativo || isAncestral ? NEUTRO.text : tons.textRoot
   const size = 90 // diâmetro
 
   return (
@@ -1074,8 +1048,8 @@ function EventoNodeComp({ data }: NodeProps) {
       <NodeEdgeButtons data={d} hidden={isAncestral} />
       {/* Início só tem saída; Fim só tem entrada */}
       {isFim
-        ? <Handle type="target" position={Position.Left} className="!w-2 !h-2 !border !border-white" style={{ background: borderColor }} />
-        : <Handle type="source" position={Position.Right} className="!w-2 !h-2 !border !border-white" style={{ background: borderColor }} />}
+        ? <Handle type="target" position={Position.Left} className="!w-2 !h-2 !border !border-card" style={{ background: borderColor }} />
+        : <Handle type="source" position={Position.Right} className="!w-2 !h-2 !border !border-card" style={{ background: borderColor }} />}
       <div
         className="w-full h-full rounded-full flex items-center justify-center text-center px-2"
         style={{
@@ -1110,8 +1084,7 @@ function CatalogoNodeComp({ data }: { data: { rotulo: string; detalhe?: string; 
   return (
     <div className={cn(
       'rounded-lg border border-dashed px-2.5 py-1.5 text-[11px] max-w-[190px] bg-background/95',
-      sub ? 'border-violet-400 text-violet-800 dark:text-violet-300'
-          : 'border-amber-400 text-amber-800 dark:text-amber-300',
+      sub ? cn('border-violet-400', TEXT.violet) : cn('border-amber-400', TEXT.amber),
     )}>
       <Handle type="target" position={Position.Left} className="!opacity-0 !pointer-events-none" />
       <div className="flex items-center gap-1.5">
@@ -1944,16 +1917,18 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
 
   return (
     <div
-      className={fullscreen ? 'fixed inset-0 z-[80] bg-background p-4' : 'relative'}
+      // Tela cheia em z-[45]: acima da sidebar (z-40) e ABAIXO do Dialog (z-50),
+      // pra os modais do editor abrirem por cima do canvas em tela cheia.
+      className={fullscreen ? 'fixed inset-0 z-[45] bg-background p-4' : 'relative'}
       style={fullscreen ? undefined : { height: 600 }}
     >
       {totalOrfaos > 0 && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[5] flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-100 border border-amber-300 text-amber-900 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-200 text-xs shadow-md">
+        <div className={cn('absolute top-2 left-1/2 -translate-x-1/2 z-[5] flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs shadow-md', STRONG.amber)}>
           <AlertTriangle className="h-3.5 w-3.5" />
           <span className="font-medium">
             {totalOrfaos} bloco{totalOrfaos > 1 ? 's' : ''} sem conexão
           </span>
-          <span className="text-amber-800 dark:text-amber-300">— arraste uma seta a partir/para o bloco pra reconectá-lo</span>
+          <span className="opacity-80">— arraste uma seta a partir/para o bloco pra reconectá-lo</span>
         </div>
       )}
       <ReactFlowProvider>
@@ -1990,7 +1965,8 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
           // a câmera acompanha automaticamente — sem precisar dar pan manual.
           autoPanOnNodeDrag
         >
-          <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#e5e7eb" />
+          {/* Cor dos pontos vem do tema (--xy-background-pattern-dots-color no globals.css). */}
+          <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
           {/* Atalho Ctrl/Cmd+F abre uma caixa de busca por nome de bloco */}
           <NodeSearchOverlay nodes={rawNodes} />
           <Controls showInteractive={false} />
@@ -2001,10 +1977,11 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
               nodeStrokeWidth={3}
               nodeColor={(n) => {
                 const d = n.data as ServicoNodeData
-                if (!d?.node) return '#94a3b8'
-                if (d.node.position === 'RAIZ') return '#047857'
-                if (d.node.position === 'ANCESTRAL') return '#d1d5db'
-                return '#10b981'
+                // Mesma cor da borda do bloco no canvas (área → cor do módulo).
+                if (!d?.node) return NEUTRO.border
+                if (d.node.position === 'ANCESTRAL' || !d.node.ativo) return NEUTRO.border
+                const pal = areaPalette(d.node.area?.name)
+                return d.node.position === 'RAIZ' ? pal.borderRoot : pal.border
               }}
               style={{ height: 80, width: 140 }}
             />
@@ -2016,7 +1993,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                 size="sm"
                 variant="outline"
                 onClick={() => setPaletteOpen(v => !v)}
-                className="gap-1.5 bg-white/80 dark:bg-black/40 backdrop-blur-sm"
+                className="gap-1.5 bg-card/80 backdrop-blur-sm"
                 title={paletteOpen ? 'Fechar catálogo de serviços' : 'Abrir catálogo de serviços'}
               >
                 {paletteOpen
@@ -2025,25 +2002,28 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                 Catálogo
               </Button>
               {paletteOpen && (
-                <div className="bg-white dark:bg-gray-900 border rounded-lg shadow-lg w-[300px] flex flex-col overflow-hidden" style={{ maxHeight: 'min(640px, calc(100vh - 12rem))' }}>
-                  {/* Faixa de contexto — visível quando o usuário clicou no +/− de um bloco */}
+                <div className="bg-popover border rounded-lg shadow-2xl dark:shadow-black/70 w-[300px] flex flex-col overflow-hidden" style={{ maxHeight: 'min(640px, calc(100vh - 12rem))' }}>
+                  {/* Faixa de contexto — visível quando o usuário clicou no +/− de um bloco.
+                      Verde = mesma semântica de CRIAR do "+" do bloco que abriu esta faixa. */}
                   {addingFromNode && (
-                    <div className="px-3 py-2 border-b bg-primary/5 text-[11px] flex items-start gap-2">
-                      <div className="shrink-0 inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary text-primary-foreground mt-0.5">
+                    <div className={cn('px-3 py-2 border-b text-[11px] flex items-start gap-2', BADGE.emerald)}>
+                      <div className="shrink-0 inline-flex items-center justify-center h-5 w-5 rounded-full bg-emerald-600 text-white mt-0.5">
                         <Plus className="h-3 w-3" strokeWidth={3} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-primary">
+                        <div className="font-semibold">
                           Adicionar {addingFromNode.direction === 'succ' ? 'sucessor de' : 'predecessor de'}
                         </div>
-                        <div className="truncate text-primary/80" title={addingFromNode.nome}>{addingFromNode.nome}</div>
-                        <div className="text-[10px] text-muted-foreground mt-0.5">Clique num serviço abaixo pra conectar direto.</div>
+                        <div className="truncate opacity-85" title={addingFromNode.nome}>{addingFromNode.nome}</div>
+                        <div className="text-[10px] opacity-70 mt-0.5">Clique num serviço abaixo pra conectar direto.</div>
                       </div>
                       <button
                         type="button"
-                        onClick={() => setAddingFromNode(null)}
-                        className="shrink-0 h-5 w-5 inline-flex items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
-                        title="Cancelar"
+                        // Fecha o painel inteiro (não só a faixa) — o painel foi aberto
+                        // pelo "+" do bloco, então cancelar desfaz a abertura toda.
+                        onClick={() => { setAddingFromNode(null); setPaletteOpen(false) }}
+                        className="shrink-0 h-5 w-5 inline-flex items-center justify-center rounded opacity-70 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10"
+                        title="Fechar"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -2054,8 +2034,8 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                     <div className="text-[11px] font-semibold mb-1.5">Novo bloco</div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
                       {([
-                        { tipo: 'ATIVIDADE' as const, label: 'Ativ.', color: '#10b981', shape: 'rect' },
-                        { tipo: 'DECISAO' as const, label: 'Decis.', color: '#a855f7', shape: 'diamond' },
+                        { tipo: 'ATIVIDADE' as const, label: 'Ativ.', color: 'var(--color-primary)', shape: 'rect' },
+                        { tipo: 'DECISAO' as const, label: 'Decis.', color: 'var(--color-muted-foreground)', shape: 'diamond' },
                         { tipo: 'PERGUNTA' as const, label: 'Pergunta', color: '#f59e0b', shape: 'question' },
                         { tipo: 'DOCUMENTACAO' as const, label: 'Doc.', color: '#3b82f6', shape: 'document' },
                         { tipo: 'INICIO' as const, label: 'Início', color: '#16a34a', shape: 'circle' },
@@ -2076,24 +2056,24 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                               setPerguntaMulti(true)
                             }
                           }}
-                          className="flex flex-col items-center gap-0.5 p-1.5 rounded border bg-white dark:bg-gray-800 hover:border-primary transition-colors"
+                          className="flex flex-col items-center gap-0.5 p-1.5 rounded border bg-card hover:border-primary transition-colors"
                           title={b.tipo}
                         >
                           {/* Mini-shape preview */}
                           {b.shape === 'rect' && (
-                            <div className="h-4 w-7 rounded-sm" style={{ background: `${b.color}25`, border: `1.5px solid ${b.color}` }} />
+                            <div className="h-4 w-7 rounded-sm" style={{ background: alfa(b.color, 15), border: `1.5px solid ${b.color}` }} />
                           )}
                           {b.shape === 'diamond' && (
-                            <div className="h-4 w-4" style={{ background: `${b.color}25`, border: `1.5px solid ${b.color}`, clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' }} />
+                            <div className="h-4 w-4" style={{ background: alfa(b.color, 15), border: `1.5px solid ${b.color}`, clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' }} />
                           )}
                           {b.shape === 'document' && (
-                            <div className="h-4 w-7" style={{ background: `${b.color}25`, border: `1.5px solid ${b.color}`, clipPath: 'polygon(0 0, 100% 0, 100% 78%, 80% 100%, 60% 78%, 40% 100%, 20% 78%, 0 100%)' }} />
+                            <div className="h-4 w-7" style={{ background: alfa(b.color, 15), border: `1.5px solid ${b.color}`, clipPath: 'polygon(0 0, 100% 0, 100% 78%, 80% 100%, 60% 78%, 40% 100%, 20% 78%, 0 100%)' }} />
                           )}
                           {b.shape === 'circle' && (
-                            <div className="h-4 w-4 rounded-full" style={{ background: `${b.color}25`, border: `1.5px solid ${b.color}` }} />
+                            <div className="h-4 w-4 rounded-full" style={{ background: alfa(b.color, 15), border: `1.5px solid ${b.color}` }} />
                           )}
                           {b.shape === 'question' && (
-                            <div className="h-4 w-7 rounded-sm flex items-center justify-center" style={{ background: `${b.color}25`, border: `1.5px solid ${b.color}` }}>
+                            <div className="h-4 w-7 rounded-sm flex items-center justify-center" style={{ background: alfa(b.color, 15), border: `1.5px solid ${b.color}` }}>
                               <span className="text-[8px] font-bold leading-none" style={{ color: b.color }}>?</span>
                             </div>
                           )}
@@ -2116,7 +2096,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                       />
                     </div>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-1">
+                  <div className="flex-1 overflow-y-auto nice-scrollbar p-1">
                     {loadingTodos ? (
                       <div className="flex items-center justify-center py-6 text-xs text-muted-foreground gap-1.5">
                         <Loader2 className="h-3.5 w-3.5 animate-spin" /> Carregando…
@@ -2167,15 +2147,17 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                           // Pre-seleciona o serviço-raiz como origem padrão
                           setOrigemSelect(rootId)
                         }}
-                        className="w-full text-left px-2 py-1.5 rounded hover:bg-primary/5 transition-colors group"
+                        // Verde = semântica de CRIAR (mesma do "+" do bloco e da faixa acima).
+                        className="w-full text-left px-2 py-1.5 rounded hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors group"
                       >
                         <div className="flex items-center gap-1.5">
                           <div
                             className="h-1.5 w-1.5 rounded-full shrink-0"
-                            style={{ background: s.tipo === 'DECISAO' ? '#a855f7' : '#10b981' }}
+                            style={{ background: s.tipo === 'DECISAO' ? 'var(--color-muted-foreground)' : (groupModuleColorVar(s.area?.name) ?? 'var(--color-primary)') }}
                           />
                           <span className="text-[12px] font-medium truncate flex-1">{s.nome}</span>
-                          <Plus className="h-3 w-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 shrink-0 text-primary" />
+                          {/* Tons do BADGE.emerald (700/300): legíveis sobre o hover verde também no dark. */}
+                          <Plus className="h-3 w-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 shrink-0 text-emerald-700 dark:text-emerald-300" />
                         </div>
                         {s.area?.name && (
                           <div className="text-[10px] text-muted-foreground ml-3 truncate">{s.area.name}</div>
@@ -2195,7 +2177,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
 
           <Panel position="top-right" className="flex items-center gap-2">
             {saving && (
-              <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1 bg-white/80 dark:bg-black/40 rounded px-2 py-1 backdrop-blur-sm">
+              <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1 bg-card/80 rounded px-2 py-1 backdrop-blur-sm">
                 <Loader2 className="h-3 w-3 animate-spin" /> Salvando…
               </span>
             )}
@@ -2203,7 +2185,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
               size="icon"
               variant="outline"
               onClick={() => setMinimapOn(v => !v)}
-              className="h-8 w-8 bg-white/80 dark:bg-black/40 backdrop-blur-sm"
+              className="h-8 w-8 bg-card/80 backdrop-blur-sm"
               title={minimapOn ? 'Ocultar minimap' : 'Mostrar minimap'}
             >
               {minimapOn ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -2215,8 +2197,8 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
               className={cn(
                 'h-8 w-8 backdrop-blur-sm',
                 snapToGrid
-                  ? 'bg-sky-100 dark:bg-sky-900/40 border-sky-400 text-sky-700 dark:text-sky-300'
-                  : 'bg-white/80 dark:bg-black/40',
+                  ? BADGE.sky
+                  : 'bg-card/80',
               )}
               title={snapToGrid ? 'Alinhamento à grade ativo (clique pra liberar)' : 'Alinhar à grade'}
             >
@@ -2231,8 +2213,8 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
               className={cn(
                 'h-8 w-8 backdrop-blur-sm',
                 mostrarCatalogo
-                  ? 'bg-violet-100 dark:bg-violet-900/40 border-violet-400 text-violet-700 dark:text-violet-300'
-                  : 'bg-white/80 dark:bg-black/40',
+                  ? BADGE.violet
+                  : 'bg-card/80',
               )}
               title={mostrarCatalogo
                 ? 'Ocultar subserviços e variações'
@@ -2244,7 +2226,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
               size="icon"
               variant="outline"
               onClick={() => setFullscreen(v => !v)}
-              className="h-8 w-8 bg-white/80 dark:bg-black/40 backdrop-blur-sm"
+              className="h-8 w-8 bg-card/80 backdrop-blur-sm"
               title={fullscreen ? 'Sair de tela cheia' : 'Tela cheia'}
             >
               {fullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
@@ -2254,7 +2236,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                 size="sm"
                 variant="outline"
                 onClick={reorganizar}
-                className="gap-1.5 bg-white/80 dark:bg-black/40 backdrop-blur-sm"
+                className="gap-1.5 bg-card/80 backdrop-blur-sm"
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
                 Auto-organizar
@@ -2267,25 +2249,22 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
       {/* Dialog: rotular aresta (Sim/Não/Sem rótulo pra DECISAO, texto livre pra demais).
           Aparece em 2 fluxos: criação (vinda de onConnect com origem DECISAO) e
           edição (duplo-clique numa aresta existente). */}
-      {rotuloDialog && createPortal(
-        <div
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={() => { setRotuloDialog(null); setRotuloLivreText('') }}
-        >
-          <div
-            className="bg-card border rounded-lg shadow-xl w-[420px] max-w-[90vw] p-4 space-y-3"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3 className="text-sm font-semibold">
+      <Dialog
+        open={!!rotuloDialog}
+        onOpenChange={aberto => { if (!aberto) { setRotuloDialog(null); setRotuloLivreText('') } }}
+      >
+        <DialogContent className="max-w-[420px]">
+          {rotuloDialog && (
+            <>
+              <DialogHeaderIcon icon={Tag} color="sky">
+                <DialogTitle>
                   {rotuloDialog.mode === 'decisao'
                     ? 'Esta saída representa qual resposta?'
                     : rotuloDialog.mode === 'pergunta'
                       ? 'Qual opção da pergunta dispara esta aresta?'
                       : 'Rótulo da aresta'}
-                </h3>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
+                </DialogTitle>
+                <DialogDescription>
                   {rotuloDialog.mode === 'decisao' && 'Saídas de blocos DECISÃO usam rótulos pra deixar o roteamento claro no fluxo.'}
                   {rotuloDialog.mode === 'pergunta' && 'Esta aresta só dispara quando o gestor escolhe a opção selecionada abaixo. Configure no bloco PERGUNTA pra adicionar/editar as opções.'}
                   {rotuloDialog.mode === 'livre' && 'Texto curto (até 80 caracteres) exibido na aresta.'}
@@ -2294,134 +2273,101 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                       Atual: <strong>{rotuloDialog.currentValue}</strong>
                     </span>
                   )}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => { setRotuloDialog(null); setRotuloLivreText('') }}
-                className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
+                </DialogDescription>
+              </DialogHeaderIcon>
 
-            {rotuloDialog.mode === 'decisao' ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-1">
-                <Button
-                  size="sm"
-                  onClick={() => aplicarRotulo('Sim')}
-                  className="text-white"
-                  style={{ backgroundColor: '#16a34a' }}
-                >
-                  Sim
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => aplicarRotulo('Não')}
-                  className="text-white"
-                  style={{ backgroundColor: '#dc2626' }}
-                >
-                  Não
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => aplicarRotulo(null)}
-                >
-                  Sem rótulo
-                </Button>
-              </div>
-            ) : rotuloDialog.mode === 'pergunta' ? (
-              <div className="space-y-2 pt-1">
-                {(rotuloDialog.opcoesPermitidas ?? []).length === 0 ? (
-                  <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 p-2.5 text-[11px] text-amber-800 dark:text-amber-200">
-                    O bloco PERGUNTA de origem não tem opções configuradas. Edite o bloco e adicione opções antes de rotular a aresta.
+              {rotuloDialog.mode === 'decisao' ? (
+                <DialogBody>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <Button size="sm" variant="success" onClick={() => aplicarRotulo('Sim')}>Sim</Button>
+                    <Button size="sm" variant="destructive" onClick={() => aplicarRotulo('Não')}>Não</Button>
+                    <Button size="sm" variant="outline" onClick={() => aplicarRotulo(null)}>Sem rótulo</Button>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 gap-1.5">
-                    {(rotuloDialog.opcoesPermitidas ?? []).map((op) => {
-                      const isAtual = rotuloDialog.currentValue?.toLowerCase() === op.toLowerCase()
-                      return (
-                        <button
-                          key={op}
-                          type="button"
-                          onClick={() => aplicarRotulo(op)}
-                          className={cn(
-                            'flex items-center justify-between gap-2 px-3 py-2 rounded border text-sm transition-colors',
-                            isAtual
-                              ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-700 text-amber-800 dark:text-amber-200 font-semibold'
-                              : 'border-border hover:bg-muted/50',
-                          )}
-                        >
-                          <span>{op}</span>
-                          {isAtual && <span className="text-[10px] uppercase tracking-wider">Atual</span>}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-                <div className="flex justify-between gap-2 pt-1">
-                  <Button variant="ghost" size="sm" onClick={() => aplicarRotulo(null)}>
-                    Limpar rótulo
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => { setRotuloDialog(null); setRotuloLivreText('') }}>
-                    Cancelar
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Input
-                  autoFocus
-                  value={rotuloLivreText}
-                  onChange={e => setRotuloLivreText(e.target.value.slice(0, 80))}
-                  placeholder="Ex: Aprovado, Pendente, Reprovado…"
-                  maxLength={80}
-                  className="h-9 text-sm"
-                  onKeyDown={e => { if (e.key === 'Enter') void aplicarRotulo(rotuloLivreText) }}
-                />
-                <div className="flex justify-between items-center gap-2 pt-1">
-                  <Button variant="ghost" size="sm" onClick={() => aplicarRotulo(null)}>
-                    Limpar rótulo
-                  </Button>
-                  <div className="flex gap-2">
+                </DialogBody>
+              ) : rotuloDialog.mode === 'pergunta' ? (
+                <>
+                  <DialogBody>
+                    {(rotuloDialog.opcoesPermitidas ?? []).length === 0 ? (
+                      <div className={cn('rounded-md border p-2.5 text-[11px]', BADGE.amber)}>
+                        O bloco PERGUNTA de origem não tem opções configuradas. Edite o bloco e adicione opções antes de rotular a aresta.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-1.5">
+                        {(rotuloDialog.opcoesPermitidas ?? []).map((op) => {
+                          const isAtual = rotuloDialog.currentValue?.toLowerCase() === op.toLowerCase()
+                          return (
+                            <button
+                              key={op}
+                              type="button"
+                              onClick={() => aplicarRotulo(op)}
+                              className={cn(
+                                'flex items-center justify-between gap-2 px-3 py-2 rounded border text-sm transition-colors',
+                                isAtual ? cn(BADGE.amber, 'font-semibold') : 'border-border hover:bg-muted/50',
+                              )}
+                            >
+                              <span>{op}</span>
+                              {isAtual && <span className="text-[10px] uppercase tracking-wider">Atual</span>}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </DialogBody>
+                  <DialogFooter className="sm:justify-between">
+                    <Button variant="ghost" size="sm" onClick={() => aplicarRotulo(null)}>
+                      Limpar rótulo
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => { setRotuloDialog(null); setRotuloLivreText('') }}>
                       Cancelar
                     </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => aplicarRotulo(rotuloLivreText)}
-                      style={{ backgroundColor: '#10b981' }}
-                      className="text-white"
-                    >
-                      Salvar
+                  </DialogFooter>
+                </>
+              ) : (
+                <>
+                  <DialogBody>
+                    <Input
+                      autoFocus
+                      value={rotuloLivreText}
+                      onChange={e => setRotuloLivreText(e.target.value.slice(0, 80))}
+                      placeholder="Ex: Aprovado, Pendente, Reprovado…"
+                      maxLength={80}
+                      className="h-9 text-sm"
+                      onKeyDown={e => { if (e.key === 'Enter') void aplicarRotulo(rotuloLivreText) }}
+                    />
+                  </DialogBody>
+                  <DialogFooter className="sm:justify-between">
+                    <Button variant="ghost" size="sm" onClick={() => aplicarRotulo(null)}>
+                      Limpar rótulo
                     </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>,
-        document.body,
-      )}
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => { setRotuloDialog(null); setRotuloLivreText('') }}>
+                        Cancelar
+                      </Button>
+                      <Button size="sm" variant="info" onClick={() => aplicarRotulo(rotuloLivreText)}>
+                        Salvar
+                      </Button>
+                    </div>
+                  </DialogFooter>
+                </>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog: substituir entradas existentes (quando target já tem aresta(s) de entrada) */}
-      {substituirDialog && createPortal(
-        <div
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={() => !substituirBusy && setSubstituirDialog(null)}
-        >
-          <div
-            className="bg-card border rounded-lg shadow-xl w-[460px] max-w-[90vw] p-4 space-y-3"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3 className="text-sm font-semibold flex items-center gap-1.5">
-                  <Link2 className={cn('h-4 w-4', TEXT.amber)} />
+      <Dialog
+        open={!!substituirDialog}
+        onOpenChange={aberto => { if (!aberto && !substituirBusy) setSubstituirDialog(null) }}
+      >
+        <DialogContent className="max-w-[460px]" hideClose={substituirBusy}>
+          {substituirDialog && (
+            <>
+              <DialogHeaderIcon icon={Link2} color="amber">
+                <DialogTitle>
                   Bloco já recebe {substituirDialog.existentes.length === 1 ? 'uma seta' : `${substituirDialog.existentes.length} setas`}
-                </h3>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
+                </DialogTitle>
+                <DialogDescription>
                   {(() => {
                     const target = rawNodes.find(n => n.id === substituirDialog.pendingConnection.target)?.nome ?? 'destino'
                     const source = rawNodes.find(n => n.id === substituirDialog.pendingConnection.source)?.nome ?? 'origem'
@@ -2430,280 +2376,239 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                       <>O bloco <strong>{target}</strong> já tem entrada de <strong>{lista}</strong>. Você está criando nova seta de <strong>{source}</strong>.</>
                     )
                   })()}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => !substituirBusy && setSubstituirDialog(null)}
-                disabled={substituirBusy}
-                className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <div className="flex flex-col gap-2 pt-2 border-t">
-              <Button
-                size="sm"
-                onClick={() => resolverSubstituicao('substituir')}
-                disabled={substituirBusy}
-                className="gap-1.5 justify-start"
-                style={{ backgroundColor: '#ef4444', color: '#fff' }}
-              >
-                {substituirBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Minus className="h-3.5 w-3.5" />}
-                Substituir — remove a{substituirDialog.existentes.length > 1 ? 's' : ''} existente{substituirDialog.existentes.length > 1 ? 's' : ''} e cria a nova
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => resolverSubstituicao('adicionar')}
-                disabled={substituirBusy}
-                className="gap-1.5 justify-start"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Adicionar — mantém as existentes e cria a nova como entrada adicional
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setSubstituirDialog(null)}
-                disabled={substituirBusy}
-                className="justify-start"
-              >
-                Cancelar
-              </Button>
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )}
+                </DialogDescription>
+              </DialogHeaderIcon>
+              <DialogBody className="flex flex-col gap-2">
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => resolverSubstituicao('substituir')}
+                  disabled={substituirBusy}
+                  className="gap-1.5 justify-start"
+                >
+                  {substituirBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Minus className="h-3.5 w-3.5" />}
+                  Substituir — remove a{substituirDialog.existentes.length > 1 ? 's' : ''} existente{substituirDialog.existentes.length > 1 ? 's' : ''} e cria a nova
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => resolverSubstituicao('adicionar')}
+                  disabled={substituirBusy}
+                  className="gap-1.5 justify-start"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Adicionar — mantém as existentes e cria a nova como entrada adicional
+                </Button>
+              </DialogBody>
+              <DialogFooter>
+                <Button size="sm" variant="outline" onClick={() => setSubstituirDialog(null)} disabled={substituirBusy}>
+                  Cancelar
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog: criar novo bloco primitivo (pede nome, depois cai no fluxo de origem) */}
-      {novoBlocoTipo && createPortal(
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setNovoBlocoTipo(null)}>
-          <div
-            className="bg-card border rounded-lg shadow-xl w-[420px] max-w-[90vw] p-4 space-y-3"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3 className="text-sm font-semibold flex items-center gap-1.5">
-                  <Plus className="h-4 w-4 text-primary" />
+      <Dialog open={!!novoBlocoTipo} onOpenChange={aberto => { if (!aberto && !addingBusy) setNovoBlocoTipo(null) }}>
+        <DialogContent className="max-w-[420px]">
+          {novoBlocoTipo && (
+            <>
+              <DialogHeaderIcon icon={Plus} color="emerald">
+                <DialogTitle>
                   Novo bloco — {novoBlocoTipo === 'ATIVIDADE' ? 'Atividade'
                     : novoBlocoTipo === 'DECISAO' ? 'Decisão'
                     : novoBlocoTipo === 'DOCUMENTACAO' ? 'Documentação'
                     : novoBlocoTipo === 'INICIO' ? 'Início'
                     : novoBlocoTipo === 'PERGUNTA' ? 'Pergunta'
                     : 'Fim'}
-                </h3>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
+                </DialogTitle>
+                <DialogDescription>
                   {novoBlocoTipo === 'DECISAO' && 'Losango que roteia conforme condições nas saídas.'}
                   {novoBlocoTipo === 'DOCUMENTACAO' && 'Marco informativo no fluxo (sem etapas).'}
                   {novoBlocoTipo === 'INICIO' && 'Marcador de entrada — vai apontar para o serviço-raiz.'}
                   {novoBlocoTipo === 'FIM' && 'Marcador de saída — encerra um ramo do fluxo.'}
                   {novoBlocoTipo === 'ATIVIDADE' && 'Bloco executável com etapas/passos (configure depois).'}
                   {novoBlocoTipo === 'PERGUNTA' && 'Decisão interativa — execução pausa esperando o gestor escolher uma das opções.'}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setNovoBlocoTipo(null)}
-                className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold text-foreground">Nome *</label>
-              <Input
-                autoFocus
-                value={novoBlocoNome}
-                onChange={e => setNovoBlocoNome(e.target.value)}
-                placeholder={
-                  novoBlocoTipo === 'DECISAO' ? 'Ex: Cliente é PJ?'
-                  : novoBlocoTipo === 'DOCUMENTACAO' ? 'Ex: Verificar documentação fiscal'
-                  : novoBlocoTipo === 'INICIO' ? 'Ex: Início do processo'
-                  : novoBlocoTipo === 'FIM' ? 'Ex: Processo concluído'
-                  : novoBlocoTipo === 'PERGUNTA' ? 'Ex: Definir áreas contratadas'
-                  : 'Ex: Nome da atividade'
-                }
-                className="h-9 text-sm"
-                onKeyDown={e => { if (e.key === 'Enter' && novoBlocoNome.trim() && novoBlocoTipo !== 'PERGUNTA') void criarNovoBloco() }}
-              />
-            </div>
-
-            {/* Campos específicos do PERGUNTA — pré-preenchidos com as 3 áreas */}
-            {novoBlocoTipo === 'PERGUNTA' && (
-              <>
+                </DialogDescription>
+              </DialogHeaderIcon>
+              <DialogBody className="space-y-3">
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-semibold text-foreground">Pergunta exibida ao gestor *</label>
-                  <Textarea
-                    value={perguntaTexto}
-                    onChange={e => setPerguntaTexto(e.target.value)}
-                    placeholder="Ex: Serviço mensal em todas as áreas?"
-                    rows={2}
-                    maxLength={500}
-                    className="resize-none focus:ring-2 focus:ring-amber-400"
+                  <Label className="text-[13px] font-semibold">Nome *</Label>
+                  <Input
+                    autoFocus
+                    value={novoBlocoNome}
+                    onChange={e => setNovoBlocoNome(e.target.value)}
+                    placeholder={
+                      novoBlocoTipo === 'DECISAO' ? 'Ex: Cliente é PJ?'
+                      : novoBlocoTipo === 'DOCUMENTACAO' ? 'Ex: Verificar documentação fiscal'
+                      : novoBlocoTipo === 'INICIO' ? 'Ex: Início do processo'
+                      : novoBlocoTipo === 'FIM' ? 'Ex: Processo concluído'
+                      : novoBlocoTipo === 'PERGUNTA' ? 'Ex: Definir áreas contratadas'
+                      : 'Ex: Nome da atividade'
+                    }
+                    className="h-9 text-sm"
+                    onKeyDown={e => { if (e.key === 'Enter' && novoBlocoNome.trim() && novoBlocoTipo !== 'PERGUNTA') void criarNovoBloco() }}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-semibold text-foreground">
-                    Opções de resposta * <span className="text-muted-foreground font-normal">(viram rótulos das arestas)</span>
-                  </label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {perguntaOpcoes.map((op, idx) => (
-                      <span
-                        key={idx}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
-                        style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b55' }}
-                      >
-                        {op}
-                        <button
+
+                {/* Campos específicos do PERGUNTA — pré-preenchidos com as 3 áreas */}
+                {novoBlocoTipo === 'PERGUNTA' && (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label className="text-[13px] font-semibold">Pergunta exibida ao gestor *</Label>
+                      <Textarea
+                        value={perguntaTexto}
+                        onChange={e => setPerguntaTexto(e.target.value)}
+                        placeholder="Ex: Serviço mensal em todas as áreas?"
+                        rows={2}
+                        maxLength={500}
+                        className="resize-none focus:ring-2 focus:ring-amber-400"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[13px] font-semibold">
+                        Opções de resposta * <span className="text-muted-foreground font-normal">(viram rótulos das arestas)</span>
+                      </Label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {perguntaOpcoes.map((op, idx) => (
+                          <span
+                            key={idx}
+                            className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium', BADGE.amber)}
+                          >
+                            {op}
+                            <button
+                              type="button"
+                              onClick={() => setPerguntaOpcoes(prev => prev.filter((_, i) => i !== idx))}
+                              className="hover:text-destructive"
+                              title="Remover opção"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex gap-1.5">
+                        <Input
+                          value={perguntaOpcaoNova}
+                          onChange={e => setPerguntaOpcaoNova(e.target.value)}
+                          placeholder="Nova opção"
+                          maxLength={80}
+                          className="h-8 text-sm"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              const v = perguntaOpcaoNova.trim()
+                              if (v && !perguntaOpcoes.includes(v) && perguntaOpcoes.length < 20) {
+                                setPerguntaOpcoes(prev => [...prev, v])
+                                setPerguntaOpcaoNova('')
+                              }
+                            }
+                          }}
+                        />
+                        <Button
                           type="button"
-                          onClick={() => setPerguntaOpcoes(prev => prev.filter((_, i) => i !== idx))}
-                          className="hover:text-red-600"
-                          title="Remover opção"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const v = perguntaOpcaoNova.trim()
+                            if (v && !perguntaOpcoes.includes(v) && perguntaOpcoes.length < 20) {
+                              setPerguntaOpcoes(prev => [...prev, v])
+                              setPerguntaOpcaoNova('')
+                            }
+                          }}
+                          disabled={!perguntaOpcaoNova.trim() || perguntaOpcoes.length >= 20}
                         >
-                          <X className="h-3 w-3" />
-                        </button>
+                          <Plus className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Cada opção deve casar com o rótulo de uma aresta de saída deste bloco.
+                        Defina os rótulos por duplo-clique nas arestas após criar o bloco.
+                      </p>
+                    </div>
+                    <label className="flex items-center gap-2 text-[11px] cursor-pointer select-none">
+                      <Checkbox
+                        checked={perguntaMulti}
+                        onCheckedChange={v => setPerguntaMulti(v === true)}
+                        className="cursor-pointer"
+                      />
+                      <span className="font-medium">Permitir múltipla escolha</span>
+                      <span className="text-muted-foreground font-normal">
+                        (várias opções em paralelo)
                       </span>
-                    ))}
-                  </div>
-                  <div className="flex gap-1.5">
-                    <Input
-                      value={perguntaOpcaoNova}
-                      onChange={e => setPerguntaOpcaoNova(e.target.value)}
-                      placeholder="Nova opção"
-                      maxLength={80}
-                      className="h-8 text-sm"
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          const v = perguntaOpcaoNova.trim()
-                          if (v && !perguntaOpcoes.includes(v) && perguntaOpcoes.length < 20) {
-                            setPerguntaOpcoes(prev => [...prev, v])
-                            setPerguntaOpcaoNova('')
-                          }
-                        }
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        const v = perguntaOpcaoNova.trim()
-                        if (v && !perguntaOpcoes.includes(v) && perguntaOpcoes.length < 20) {
-                          setPerguntaOpcoes(prev => [...prev, v])
-                          setPerguntaOpcaoNova('')
-                        }
-                      }}
-                      disabled={!perguntaOpcaoNova.trim() || perguntaOpcoes.length >= 20}
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    Cada opção deve casar com o rótulo de uma aresta de saída deste bloco.
-                    Defina os rótulos por duplo-clique nas arestas após criar o bloco.
-                  </p>
-                </div>
-                <label className="flex items-center gap-2 text-[11px] cursor-pointer select-none">
-                  <Checkbox
-                    checked={perguntaMulti}
-                    onCheckedChange={v => setPerguntaMulti(v === true)}
-                    className="cursor-pointer"
-                  />
-                  <span className="font-medium">Permitir múltipla escolha</span>
-                  <span className="text-muted-foreground font-normal">
-                    (várias opções em paralelo)
-                  </span>
-                </label>
-              </>
-            )}
-
-            <div className="flex justify-end gap-2 pt-2 border-t">
-              <Button variant="outline" size="sm" onClick={() => setNovoBlocoTipo(null)} disabled={addingBusy}>
-                Cancelar
-              </Button>
-              <Button
-                size="sm"
-                onClick={criarNovoBloco}
-                disabled={addingBusy || !novoBlocoNome.trim()}
-                style={{ backgroundColor: '#10b981' }}
-                className="text-white gap-1.5"
-              >
-                {addingBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                {novoBlocoTipo === 'INICIO' ? 'Criar e conectar à raiz' : 'Próximo: escolher origem'}
-              </Button>
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )}
+                    </label>
+                  </>
+                )}
+              </DialogBody>
+              <DialogFooter>
+                <Button variant="outline" size="sm" onClick={() => setNovoBlocoTipo(null)} disabled={addingBusy}>
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="success"
+                  onClick={criarNovoBloco}
+                  disabled={addingBusy || !novoBlocoNome.trim()}
+                  className="gap-1.5"
+                >
+                  {addingBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                  {novoBlocoTipo === 'INICIO' ? 'Criar e conectar à raiz' : 'Próximo: escolher origem'}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog: escolher bloco origem ao adicionar serviço da palette */}
-      {addingDest && createPortal(
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setAddingDest(null)}>
-          <div
-            className="bg-card border rounded-lg shadow-xl w-[440px] max-w-[90vw] p-4 space-y-3"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3 className="text-sm font-semibold flex items-center gap-1.5">
-                  <Plus className="h-4 w-4 text-primary" />
-                  Adicionar serviço ao fluxo
-                </h3>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
+      <Dialog open={!!addingDest} onOpenChange={aberto => { if (!aberto && !addingBusy) setAddingDest(null) }}>
+        <DialogContent className="max-w-[440px]">
+          {addingDest && (
+            <>
+              <DialogHeaderIcon icon={Plus} color="emerald">
+                <DialogTitle>Adicionar serviço ao fluxo</DialogTitle>
+                <DialogDescription>
                   Vou adicionar <strong>{addingDest.nome}</strong> como sucessor de qual bloco?
+                </DialogDescription>
+              </DialogHeaderIcon>
+              <DialogBody className="space-y-1.5">
+                <Label className="text-[13px] font-semibold">Bloco origem *</Label>
+                <Select value={origemSelect} onValueChange={setOrigemSelect}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="— Selecione —" /></SelectTrigger>
+                  <SelectContent>
+                    {blocosConectaveis.map(b => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.nome}{b.id === rootId ? ' (raiz)' : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground">
+                  O sucessor será criado com defaults (auto-início, obrigatório, herda responsável).
+                  Você pode editar as flags depois clicando na aresta.
                 </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAddingDest(null)}
-                className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold text-foreground">Bloco origem *</label>
-              <select
-                value={origemSelect}
-                onChange={e => setOrigemSelect(e.target.value)}
-                className="h-9 w-full rounded-md px-3 text-sm"
-              >
-                <option value="">— Selecione —</option>
-                {blocosConectaveis.map(b => (
-                  <option key={b.id} value={b.id}>
-                    {b.nome}{b.id === rootId ? ' (raiz)' : ''}
-                  </option>
-                ))}
-              </select>
-              <p className="text-[10px] text-muted-foreground">
-                O sucessor será criado com defaults (auto-início, obrigatório, herda responsável).
-                Você pode editar as flags depois clicando na aresta.
-              </p>
-            </div>
-            <div className="flex justify-end gap-2 pt-2 border-t">
-              <Button variant="outline" size="sm" onClick={() => setAddingDest(null)} disabled={addingBusy}>
-                Cancelar
-              </Button>
-              <Button
-                size="sm"
-                onClick={adicionarServicoAoFluxo}
-                disabled={addingBusy || !origemSelect}
-                style={{ backgroundColor: '#10b981' }}
-                className="text-white gap-1.5"
-              >
-                {addingBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                Adicionar
-              </Button>
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )}
+              </DialogBody>
+              <DialogFooter>
+                <Button variant="outline" size="sm" onClick={() => setAddingDest(null)} disabled={addingBusy}>
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="success"
+                  onClick={adicionarServicoAoFluxo}
+                  disabled={addingBusy || !origemSelect}
+                  className="gap-1.5"
+                >
+                  {addingBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                  Adicionar
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Popover de prévia (mantido do FluxoGraph antigo) */}
       {expanded && (() => {
@@ -2728,17 +2633,19 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
       {/* Legenda */}
       <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
         <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm border-2" style={{ borderColor: '#9ca3af', borderStyle: 'dashed' }} />
+          <span className="inline-block h-2.5 w-2.5 rounded-sm border-2 border-dashed" style={{ borderColor: NEUTRO.border }} />
           Anterior (cadeia)
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: '#047857' }} />
+          <span className="inline-block h-2.5 w-2.5 rounded-sm border-[2.5px] border-foreground/60" />
           Raiz (atual)
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: '#10b981' }} />
+          <span className="inline-block h-2.5 w-2.5 rounded-sm border border-foreground/40" />
           Sucessor
         </span>
+        <span className="text-muted-foreground/60">·</span>
+        <span>Cor do bloco = módulo da área</span>
         <span className="text-muted-foreground/60">·</span>
         <span className="inline-flex items-center gap-1.5">
           <span className="inline-block h-0.5 w-4" style={{ backgroundColor: '#f59e0b' }} />
@@ -2832,7 +2739,7 @@ function NodeSearchOverlay({ nodes }: { nodes: FluxoNode[] }) {
 
   return (
     <Panel position="top-center">
-      <div className="w-[360px] rounded-lg border bg-popover shadow-xl overflow-hidden">
+      <div className="w-[360px] rounded-lg border bg-popover shadow-2xl dark:shadow-black/70 overflow-hidden">
         <div className="flex items-center gap-2 px-3 py-2 border-b">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <input
@@ -2860,7 +2767,7 @@ function NodeSearchOverlay({ nodes }: { nodes: FluxoNode[] }) {
             Nenhum bloco encontrado
           </div>
         ) : (
-          <ul className="max-h-[280px] overflow-y-auto">
+          <ul className="max-h-[280px] overflow-y-auto nice-scrollbar">
             {resultados.map((n, i) => (
               <li key={n.id}>
                 <button
@@ -2869,7 +2776,7 @@ function NodeSearchOverlay({ nodes }: { nodes: FluxoNode[] }) {
                   onMouseEnter={() => setActiveIdx(i)}
                   className={cn(
                     'w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-xs transition-colors',
-                    i === activeIdx ? 'bg-sky-50 dark:bg-sky-950/30' : 'hover:bg-muted/40',
+                    i === activeIdx ? 'bg-primary/10' : 'hover:bg-muted/40',
                   )}
                 >
                   <span className="truncate font-medium">{n.nome}</span>
@@ -3027,39 +2934,38 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
   return createPortal(
     <div
       ref={popRef}
-      className="fixed z-[90] rounded-lg border bg-popover shadow-xl overflow-hidden"
+      className="fixed z-[90] rounded-lg border bg-popover shadow-2xl dark:shadow-black/70 overflow-hidden"
       style={{ top: pos.top, left: pos.left, width: W, maxHeight: MAX_H }}
     >
       <div
-        className="px-3 py-2.5 border-b flex items-start justify-between gap-2"
-        style={{ backgroundColor: isRoot ? '#d1fae5' : '#ecfdf5' }}
+        className={cn('px-3 py-2.5 border-b flex items-start justify-between gap-2', isRoot ? 'bg-primary/15' : 'bg-primary/5')}
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
             {isRoot && <Badge className="text-[9px] h-4 bg-primary hover:bg-primary-hover text-primary-foreground">RAIZ</Badge>}
-            <span className="text-sm font-semibold truncate text-primary">{node.nome}</span>
+            <span className="text-sm font-semibold truncate text-foreground">{node.nome}</span>
           </div>
-          <div className="flex items-center gap-2 text-[10px] text-primary mt-0.5">
+          <div className="flex items-center gap-2 text-[10px] text-primary-on-surface mt-0.5">
             {node.area?.name && <span>{node.area.name}</span>}
             {(() => {
               const sla = formatNodeSla(node.slaMinutos, node.slaHoras)
               return sla && <span>· SLA {sla}</span>
             })()}
             <span>· {node.prioridade}</span>
-            {!node.ativo && <span className="font-semibold text-rose-600">· INATIVO</span>}
+            {!node.ativo && <span className={cn('font-semibold', TEXT.rose)}>· INATIVO</span>}
           </div>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-primary/10 text-primary shrink-0"
+          className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-primary/10 text-primary-on-surface shrink-0"
           title="Fechar"
         >
           <X className="h-3 w-3" />
         </button>
       </div>
 
-      <div className="overflow-y-auto" style={{ maxHeight: MAX_H - 100 }}>
+      <div className="overflow-y-auto nice-scrollbar" style={{ maxHeight: MAX_H - 100 }}>
         {isPergunta ? (
           // Form de edição do bloco PERGUNTA — campos: nome, texto, opções, multi
           <div className="p-3 space-y-3">
@@ -3091,15 +2997,14 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
                 {pergOpcoes.map((op, idx) => (
                   <span
                     key={idx}
-                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
-                    style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b55' }}
+                    className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[10px] font-medium', BADGE.amber)}
                   >
                     {op}
                     {podeEditar && (
                       <button
                         type="button"
                         onClick={() => setPergOpcoes(prev => prev.filter((_, i) => i !== idx))}
-                        className="hover:text-red-600"
+                        className="hover:text-destructive"
                         title="Remover"
                       >
                         <X className="h-2.5 w-2.5" />
@@ -3176,7 +3081,7 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
                       className={cn(
                         'rounded border px-2 py-1 text-[10px] font-medium transition-colors',
                         active
-                          ? 'border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200'
+                          ? BADGE.amber
                           : 'border-border bg-card text-muted-foreground hover:text-foreground',
                       )}
                     >
@@ -3242,7 +3147,7 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
             {node.etapas.map((et, ei) => (
               <div key={et.id} className="px-3 py-2">
                 <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-[9px] font-bold text-primary bg-primary/10 rounded px-1.5 py-0.5">
+                  <span className="text-[9px] font-bold text-primary-on-surface bg-primary/10 rounded px-1.5 py-0.5">
                     {ei + 1}
                   </span>
                   <span className="text-[11px] font-semibold text-foreground truncate">{et.nome}</span>
@@ -3275,23 +3180,23 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
 
         {/* Obrigações Acessórias mapeadas — só em serviços MENSAL com vínculos */}
         {!isPergunta && node.categoriaServico === 'MENSAL' && (node.acessoriasObrigacoes?.length ?? 0) > 0 && (
-          <div className="px-3 py-2.5 border-t bg-amber-50/40 dark:bg-amber-950/20">
+          <div className={cn('px-3 py-2.5 border-t', SURFACE.amber)}>
             <div className="flex items-center gap-1.5 mb-1.5">
-              <svg className="h-3 w-3 text-amber-700 dark:text-amber-300" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <svg className={cn('h-3 w-3', TEXT.amber)} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M4 6c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V6zm2 0v.01L12 11l6-4.99V6H6zm12 2.5l-5.4 4.5c-.35.3-.85.3-1.2 0L6 8.5V18h12V8.5z"/>
               </svg>
-              <span className="text-[10px] font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wider">
+              <span className={cn('text-[10px] font-bold uppercase tracking-wider', TEXT.amber)}>
                 Acessórias — {node.acessoriasObrigacoes!.length} obrigaç{node.acessoriasObrigacoes!.length === 1 ? 'ão' : 'ões'}
               </span>
             </div>
             <ul className="space-y-0.5 ml-4">
               {node.acessoriasObrigacoes!.slice(0, 8).map((nome, i) => (
-                <li key={i} className="text-[11px] text-amber-900/80 dark:text-amber-200/80 truncate" title={nome}>
+                <li key={i} className="text-[11px] text-foreground/80 truncate" title={nome}>
                   • {nome}
                 </li>
               ))}
               {node.acessoriasObrigacoes!.length > 8 && (
-                <li className="text-[10px] text-amber-800/70 dark:text-amber-300/70 italic">
+                <li className="text-[10px] text-muted-foreground italic">
                   +{node.acessoriasObrigacoes!.length - 8} obrigação(ões)…
                 </li>
               )}
@@ -3312,7 +3217,6 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
                 onClick={handleSalvarPergunta}
                 disabled={pergSalvando}
                 className="h-7 text-[11px] gap-1.5"
-                style={{ backgroundColor: '#f59e0b' }}
               >
                 {pergSalvando ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
                 Salvar
@@ -3329,7 +3233,6 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
                 size="sm"
                 onClick={onOpenServico}
                 className="h-7 text-[11px] gap-1.5"
-                style={{ backgroundColor: '#10b981' }}
               >
                 Abrir serviço <ArrowRight className="h-3 w-3" />
               </Button>

@@ -2483,7 +2483,7 @@ export default function ServicoDetailPage() {
             <p className="text-[11px] text-muted-foreground">
               Monte o fluxo por perguntas guiadas ou edite os blocos diretamente no canvas.
             </p>
-            <Button variant="success" size="sm" onClick={() => setAssistOpen(true)} className="gap-1.5">
+            <Button size="sm" onClick={() => setAssistOpen(true)} className="gap-1.5">
               <Zap className="h-4 w-4" /> Montar com assistente
             </Button>
           </div>
