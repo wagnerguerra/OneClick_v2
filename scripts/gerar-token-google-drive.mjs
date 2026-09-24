@@ -217,7 +217,9 @@ async function main() {
   console.log(`  Escopo: ${tokens.scope ?? ESCOPOS.join(' ')}\n`)
   console.log('Troque esta linha em /opt/oneclick/.env na VPS:\n')
   console.log(`GOOGLE_DRIVE_OAUTH_REFRESH_TOKEN=${tokens.refresh_token}\n`)
-  console.log('Depois reinicie a API:  docker restart oneclick-api\n')
+  // `docker restart` NÃO serve: o container é do docker compose e as variáveis
+  // entram na CRIAÇÃO. Reiniciar mantém a chave antiga; é preciso recriar.
+  console.log('Depois recrie a API (restart não relê o .env):  cd /opt/oneclick && docker compose up -d api\n')
   console.log(
     'Para não repetir isto daqui a uma semana: se o app OAuth estiver em modo "Testing"\n'
     + 'no Google Cloud Console (APIs & Services → OAuth consent screen), publique-o\n'
