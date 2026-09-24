@@ -863,7 +863,7 @@ export default function CaixaPostalPage() {
       {/* Modal Consulta Automática */}
       <Dialog open={scheduleOpen} onOpenChange={(o) => { if (!o) { setScheduleOpen(false); stopProgressPolling(); setExecLogDetalhe(null) } }}>
         <DialogContent className="max-w-[720px]">
-          <DialogHeaderIcon icon={CalendarClock} color="sky">
+          <DialogHeaderIcon icon={CalendarClock} color="slate">
             <DialogTitle>Consulta Automática e-CAC</DialogTitle>
             <DialogDescription>Agende a busca automática de mensagens para todos os clientes mensais</DialogDescription>
           </DialogHeaderIcon>

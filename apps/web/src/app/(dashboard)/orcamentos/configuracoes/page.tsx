@@ -677,7 +677,7 @@ function ModelosPropostaTab() {
 
       <Dialog open={!!edit} onOpenChange={o => !o && setEdit(null)}>
         <DialogContent className="max-w-2xl">
-          <DialogHeaderIcon icon={Sparkles}>
+          <DialogHeaderIcon icon={Sparkles} color={edit?._new ? 'emerald' : 'sky'}>
             <DialogTitle>{edit?._new ? 'Novo modelo de proposta' : 'Editar modelo'}</DialogTitle>
             <DialogDescription>Texto de referência que a IA usa pra aprender o padrão das propostas.</DialogDescription>
           </DialogHeaderIcon>
@@ -710,7 +710,7 @@ function ModelosPropostaTab() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEdit(null)}>Cancelar</Button>
-            <Button onClick={salvar} disabled={saving} style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5">
+            <Button onClick={salvar} disabled={saving} variant={edit?._new ? 'success' : 'info'} className="gap-1.5">
               {saving && <Loader2 className="h-4 w-4 animate-spin" />} Salvar
             </Button>
           </DialogFooter>

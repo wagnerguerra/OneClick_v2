@@ -769,7 +769,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
               type="button"
               onClick={adicionarObrigacao}
               disabled={!obrSelecionada || adicionando}
-              style={{ backgroundColor: PRIMARY, color: 'white' }}
+              variant="success"
             >
               {adicionando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               Adicionar

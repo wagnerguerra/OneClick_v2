@@ -2810,7 +2810,7 @@ export default function ServicoDetailPage() {
       {/* Modal de Encadeamento (Adicionar/Editar) */}
       <Dialog open={encModalOpen} onOpenChange={setEncModalOpen}>
         <DialogContent className="sm:max-w-[560px]">
-          <DialogHeaderIcon icon={Network} color="violet">
+          <DialogHeaderIcon icon={Network} color={editingEnc ? 'sky' : 'emerald'}>
             <DialogTitle>{editingEnc ? 'Editar sucessor' : 'Adicionar sucessor'}</DialogTitle>
             <DialogDescription>Configure o serviço que será criado após este.</DialogDescription>
           </DialogHeaderIcon>
@@ -2860,7 +2860,7 @@ export default function ServicoDetailPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEncModalOpen(false)} disabled={encSaving}>Cancelar</Button>
-            <Button onClick={salvarEncadeamento} disabled={encSaving} className="gap-1.5" style={{ backgroundColor: PRIMARY }}>
+            <Button onClick={salvarEncadeamento} disabled={encSaving} className="gap-1.5" variant={editingEnc ? 'info' : 'success'}>
               {encSaving && <Loader2 className="h-4 w-4 animate-spin" />}
               {editingEnc ? 'Salvar' : 'Adicionar'}
             </Button>

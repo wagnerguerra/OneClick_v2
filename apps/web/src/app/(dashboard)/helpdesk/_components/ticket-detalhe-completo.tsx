@@ -1949,7 +1949,8 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
             <Button
               onClick={() => { patch({ arquivado: true }, 'arquivado'); setArquivarOpen(false) }}
               disabled={savingField === 'arquivado'}
-              className="gap-1.5 bg-amber-500 hover:bg-amber-600 text-white"
+              variant="warning"
+              className="gap-1.5"
             >
               {savingField === 'arquivado' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
               Sim, arquivar
@@ -1983,7 +1984,8 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
             <Button
               onClick={salvarEdicaoMensagem}
               disabled={savingEdit || !editingConteudo.replace(/<[^>]+>/g, '').trim()}
-              className="gap-1.5 bg-sky-500 hover:bg-sky-600 text-white"
+              variant="info"
+              className="gap-1.5"
             >
               {savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar
@@ -2029,7 +2031,8 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
             <Button
               onClick={salvarEdicaoDescricao}
               disabled={savingDescricao || !editTitulo.trim() || !editDescricaoConteudo.replace(/<[^>]+>/g, '').trim()}
-              className="gap-1.5 bg-sky-500 hover:bg-sky-600 text-white"
+              variant="info"
+              className="gap-1.5"
             >
               {savingDescricao ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar

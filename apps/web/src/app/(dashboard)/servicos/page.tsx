@@ -2073,7 +2073,7 @@ export default function ServicosPage() {
       {/* ══════════════════ MODAL: Adicionar/Editar Sucessor ══════════════════ */}
       <Dialog open={encModalOpen} onOpenChange={setEncModalOpen}>
         <DialogContent className="sm:max-w-[560px]">
-          <DialogHeaderIcon icon={Network} color="violet">
+          <DialogHeaderIcon icon={Network} color={editingEnc ? 'sky' : 'emerald'}>
             <DialogTitle>{editingEnc ? 'Editar sucessor' : 'Adicionar sucessor'}</DialogTitle>
             <DialogDescription>
               Define como este serviço se conecta ao próximo na cadeia de processos.
@@ -2254,7 +2254,7 @@ export default function ServicosPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEncModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSaveEnc} disabled={encSaving} className="gap-1.5" style={{ backgroundColor: PRIMARY }}>
+            <Button onClick={handleSaveEnc} disabled={encSaving} className="gap-1.5" variant={editingEnc ? 'info' : 'success'}>
               {encSaving && <Loader2 className="h-4 w-4 animate-spin" />}
               {editingEnc ? 'Salvar' : 'Adicionar'}
             </Button>

@@ -824,7 +824,8 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
               size="sm"
               onClick={handlePausar}
               disabled={!pausarMotivo.trim()}
-              className="gap-1.5 text-white bg-amber-500 hover:bg-amber-600"
+              variant="warning"
+              className="gap-1.5"
             >
               <Pause className="h-4 w-4" /> Pausar
             </Button>
