@@ -35,9 +35,9 @@ interface TabItem {
 }
 
 const TABS: TabItem[] = [
-  { key: 'visao-geral', label: 'Visao Geral', icon: Eye },
+  { key: 'visao-geral', label: 'Visão Geral', icon: Eye },
   { key: 'matriz', label: 'Matriz de Resultados', icon: Table2 },
-  { key: 'analise', label: 'Analise', icon: PieChart },
+  { key: 'analise', label: 'Análise', icon: PieChart },
   { key: 'gerenciar', label: 'Gerenciar Contas', icon: Settings2 },
 ]
 
@@ -153,10 +153,16 @@ export default function BiFaturamentoPage() {
   const clienteSelecionado = clientes.find(c => c.id === clienteId)
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar>
+    <div className="flex flex-col gap-5">
+      {/* Topo — PADRAO_PAGINAS §1.1: título + trilha, e nada mais. A linha de
+          descrição que existia aqui não aparece em nenhuma outra página do
+          sistema, e vinha num wrapper que brigava consigo mesmo (text-xs por
+          fora, text-sm por dentro).
+
+          `mb-0`: o wrapper da página já separa os blocos com `gap-5`, e a
+          margem própria do cabeçalho somava a ela. Mesma correção do /crm,
+          /clientes e /gestao-certificados. */}
+      <PageHeaderBar className="mb-0 sm:mb-0">
         <h1 className="truncate">Dashboard Financeiro</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
@@ -165,14 +171,9 @@ export default function BiFaturamentoPage() {
           <span className="text-muted-foreground/50">›</span>
           <span>Dashboard Financeiro</span>
         </p>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            <p className="text-sm text-muted-foreground">
-              Analise financeira e indicadores de desempenho
-            </p>
-        </div>
       </PageHeaderBar>
 
-      {/* Filter bar */}
+      {/* Barra de filtros — cliente, anos e meses que regem as quatro abas */}
       <Card>
         <div className="px-5 py-4">
           <div className="flex flex-wrap items-end gap-4">
@@ -220,7 +221,10 @@ export default function BiFaturamentoPage() {
                               setClienteId(c.id)
                               setComboOpen(false)
                             }}
-                            className="group flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-xs hover:bg-violet-500 hover:text-white aria-selected:bg-violet-500 aria-selected:text-white"
+                            // Cor do MÓDULO pela var, não um violet cravado: o
+                            // Contábil é editável em /admin/design-system e o
+                            // hex fixo ignorava a troca.
+                            className="group flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-xs hover:bg-[var(--mod-contabil,#a78bfa)] hover:text-white aria-selected:bg-[var(--mod-contabil,#a78bfa)] aria-selected:text-white"
                           >
                             <Check className={cn('h-3.5 w-3.5 shrink-0', c.id === clienteId ? 'opacity-100' : 'opacity-0')} />
                             <div className="min-w-0 flex-1">
@@ -365,16 +369,16 @@ export default function BiFaturamentoPage() {
               </div>
             </div>
 
-            {/* Conteudo da aba */}
+            {/* Conteúdo da aba */}
             <div key={activeTab} className="flex-1 min-w-0" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
-              {/* Titulo interno */}
+              {/* Título interno */}
               <div className="px-4 py-3 border-b border-border/60">
                 <h4 className="text-[13px] font-semibold text-foreground">
                   {TABS.find(t => t.key === activeTab)?.label}
                 </h4>
               </div>
 
-              {/* Conteudo */}
+              {/* Conteúdo */}
               <div className="p-3">
                 {activeTab === 'visao-geral' && (
                   <BiVisaoGeral clienteId={clienteId} anos={anosSelecionados} meses={mesesSelecionados} />
