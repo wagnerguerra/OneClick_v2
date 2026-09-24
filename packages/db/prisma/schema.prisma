@@ -4753,6 +4753,18 @@ model OrcamentoItem {
   /// Id solto, sem FK, como o `Orcamento.clienteId` e o `orcamentoId` da
   /// execução: o padrão da tabela.
   responsavelId   String?  @map("responsavel_id")
+  /// DESCONTINUADO (25/09/2026) — o subserviço saiu do sistema. Nenhum código
+  /// lê ou grava isto. A coluna fica no schema POR UM DEPLOY, e só por isso:
+  ///
+  /// o pipeline roda `prisma db push --accept-data-loss` ANTES dos SQLs de
+  /// `prisma/sql/`. Sem a coluna aqui, o db push a derrubaria primeiro, e o
+  /// `2026-09-25-remove-subservicos.sql` — que copia o nome do subserviço
+  /// para a descrição dos 4 itens que o usavam — chegaria tarde, com a
+  /// informação já apagada.
+  ///
+  /// REMOVER no deploy seguinte ao que aplicar aquele SQL. Aí o db push
+  /// derruba a coluna, e o nome já está a salvo na descrição.
+  subservicoId    String?  @map("subservico_id")
   // Texto escolhido do catálogo — vira o "texto padrão" exibido para este item
   catalogoTextoId String?  @map("catalogo_texto_id")
   situacao        String   @default("A_FAZER") // A_FAZER | FAZENDO | PENDENTE | CONCLUIDO (legado crp_orcamentos.com_orc_ser.situacao)

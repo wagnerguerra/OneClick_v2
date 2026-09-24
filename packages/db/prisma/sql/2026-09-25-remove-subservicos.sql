@@ -5,10 +5,20 @@
 -- terceiro nível, criado em 08/2026, e na prática foi usado uma vez: um serviço
 -- com cinco filhos e quatro itens de orçamento.
 --
--- Roda DEPOIS do `prisma db push`? Não: roda ANTES, como todo SQL cirúrgico do
--- pipeline. Isso importa aqui porque o `db push` também removeria a coluna e a
--- tabela — mas sem o passo 1 abaixo, e aí a informação de o QUE foi vendido nos
--- quatro orçamentos se perderia junto.
+-- ORDEM DO PIPELINE — o que decide a forma deste script:
+--
+-- o deploy roda `prisma db push --accept-data-loss` (Stage 4) ANTES dos SQLs
+-- desta pasta (Stage 4.5). Por isso a coluna `orcamento_itens.subservico_id`
+-- CONTINUA no schema.prisma neste deploy, marcada como descontinuada: se ela
+-- saísse junto, o db push a derrubaria primeiro e o passo 1 abaixo encontraria
+-- a coluna já apagada — os quatro orçamentos perderiam o nome do que foi
+-- vendido. A primeira versão deste script tinha exatamente esse defeito.
+--
+-- Então são dois deploys:
+--   1. este: o db push derruba a TABELA (os 5 vínculos pai → filho não
+--      carregam informação que precise sobreviver) e a FK da coluna; este SQL
+--      copia os nomes para a descrição;
+--   2. o seguinte: a coluna sai do schema e o db push a derruba.
 --
 -- Idempotente: pode rodar de novo sem efeito.
 
@@ -19,11 +29,14 @@
 -- o cliente comprou: a descrição guarda "SERVIÇO EXTRA - ÁREA LEGALIZAÇÃO" e o
 -- vínculo guarda "ADESÃO COMPETE". Um deles (#4800) já foi enviado ao cliente.
 --
--- Dropar a coluna direto deixaria quatro propostas dizendo menos do que diziam.
--- Então o nome do subserviço entra na própria descrição, que é onde ele já
--- aparecia para quem lia a proposta.
+-- Apagar o vínculo sem isto deixaria quatro propostas dizendo menos do que
+-- diziam. Então o nome do subserviço entra na própria descrição, que é onde ele
+-- já aparecia para quem lia a proposta.
 --
--- O `POSITION(... ) = 0` evita repetir o nome se este script rodar duas vezes
+-- O `servicos` do JOIN continua existindo: o subserviço era um serviço inteiro,
+-- e só o VÍNCULO pai → filho é que sai.
+--
+-- O `POSITION(...) = 0` evita repetir o nome se este script rodar duas vezes
 -- ou se alguém já tiver juntado os dois textos à mão.
 DO $$
 BEGIN
@@ -41,23 +54,19 @@ BEGIN
 END $$;
 
 -- ─────────────────────────────────────────────────────────────
--- 2. A coluna do item de orçamento
+-- 2. A coluna do item NÃO é derrubada aqui.
 --
--- A FK e o índice caem junto com a coluna; o DROP explícito da constraint vem
--- antes só para o comando não depender da ordem que o Postgres escolhe.
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'orcamento_itens_subservico_id_fkey') THEN
-    ALTER TABLE orcamento_itens DROP CONSTRAINT orcamento_itens_subservico_id_fkey;
-  END IF;
-END $$;
-
-DROP INDEX IF EXISTS orcamento_itens_subservico_id_idx;
-
-ALTER TABLE orcamento_itens DROP COLUMN IF EXISTS subservico_id;
+-- Ela sai pelo db push do deploy seguinte, quando deixar o schema.prisma.
+-- Derrubá-la neste script faria o db push daquele deploy recriá-la vazia,
+-- porque ela ainda estaria no schema. A FK já caiu no db push deste deploy
+-- (a relação saiu do schema); o índice cai junto com a coluna.
 
 -- ─────────────────────────────────────────────────────────────
 -- 3. A tabela de vínculos pai → filho
+--
+-- Normalmente já derrubada pelo db push deste deploy (o modelo saiu do
+-- schema). O `IF EXISTS` é para o script também servir a um banco em que o db
+-- push não tenha rodado.
 DROP TABLE IF EXISTS servico_subservicos;
 
 -- ─────────────────────────────────────────────────────────────
