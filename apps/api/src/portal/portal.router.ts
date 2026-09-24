@@ -28,6 +28,22 @@ interface ConviteApi {
 }
 
 /**
+ * O que o portal usa do motor do BI — declarado pela FORMA, pelo mesmo motivo
+ * do `ConviteApi` acima: o front tipa o cliente tRPC a partir deste arquivo.
+ *
+ * O retorno fica `unknown` de propósito. A tela do cliente é a mesma da
+ * versão por link (`bi-public`), que já consome estes quatro métodos sem tipo
+ * fino; amarrar aqui os tipos do serviço puxaria o `BiService` inteiro para o
+ * `AppRouter`.
+ */
+interface BiApi {
+  anosComBalancete(clienteId: string): Promise<unknown>
+  balanceteKpis(clienteId: string, ano: number, meses?: string): Promise<unknown>
+  balanceteAnalise(clienteId: string, ano: number, meses?: string): Promise<unknown>
+  balanceteMatriz(clienteId: string, ano: number): Promise<unknown>
+}
+
+/**
  * Rotas do Portal do Cliente.
  *
  * Por ora só o convite — que é PÚBLICO por natureza: quem abre o link ainda não
@@ -44,6 +60,7 @@ export function createPortalRouter(
   driveService: GestaoArquivosDriveService,
   obrigacoesService: PortalObrigacoesService,
   contatoService: PortalContatoService,
+  biService: BiApi,
 ) {
   return router({
     /**
@@ -222,6 +239,49 @@ export function createPortalRouter(
         .input(z.object({ clienteId: z.string(), solicitacaoId: z.string() }))
         .mutation(({ input, ctx }) =>
           arquivosService.marcarSolicitacaoAtendida(ctx.portal, input.solicitacaoId, ctx.userId)),
+    }),
+
+    /**
+     * Dashboard Financeiro — o mesmo BI da versão por link, dentro do portal.
+     *
+     * Dois portões, os dois resolvidos ANTES do handler por
+     * `portalModuloProcedure('bi')`: o módulo liberado para a EMPRESA e a
+     * permissão da PESSOA (`podeVerBi`), que `modulosDoVinculo` já descontou da
+     * lista. Nenhuma rota aqui confere `podeVerBi` por conta própria, e isso é
+     * o ponto: a próxima rota do BI que alguém escrever herda o gate sem
+     * precisar lembrar dele.
+     *
+     * O cliente consultado é SEMPRE o do vínculo (`ctx.portal.clienteId`),
+     * nunca um id vindo do input para o serviço — o input só serve para o
+     * `portalProcedure` resolver o vínculo.
+     */
+    bi: router({
+      anos: portalModuloProcedure('bi')
+        .input(z.object({ clienteId: z.string() }))
+        .query(({ ctx }) => biService.anosComBalancete(ctx.portal.clienteId)),
+
+      kpis: portalModuloProcedure('bi')
+        .input(z.object({
+          clienteId: z.string(),
+          ano: z.number().int().min(2000).max(2100),
+          meses: z.string().regex(/^\d{1,2}(,\d{1,2})*$/).optional(),
+        }))
+        .query(({ ctx, input }) => biService.balanceteKpis(ctx.portal.clienteId, input.ano, input.meses)),
+
+      analise: portalModuloProcedure('bi')
+        .input(z.object({
+          clienteId: z.string(),
+          ano: z.number().int().min(2000).max(2100),
+          meses: z.string().regex(/^\d{1,2}(,\d{1,2})*$/).optional(),
+        }))
+        .query(({ ctx, input }) => biService.balanceteAnalise(ctx.portal.clienteId, input.ano, input.meses)),
+
+      matriz: portalModuloProcedure('bi')
+        .input(z.object({
+          clienteId: z.string(),
+          ano: z.number().int().min(2000).max(2100),
+        }))
+        .query(({ ctx, input }) => biService.balanceteMatriz(ctx.portal.clienteId, input.ano)),
     }),
 
     /**

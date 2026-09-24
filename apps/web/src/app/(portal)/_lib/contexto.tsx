@@ -31,7 +31,9 @@ export interface VinculoPortal {
   podeVer: boolean
   podeEditar: boolean
   podeExcluir: boolean
-  /** Módulos que o master liberou para a empresa deste cliente. */
+  /** Vê o Dashboard Financeiro. Já descontado de `modulos` pelo servidor. */
+  podeVerBi: boolean
+  /** Módulos liberados para esta pessoa neste cliente. */
   modulos: string[]
   /** Acompanha o cliente ATIVO: trocar de empresa pode trocar de escritório. */
   escritorio: MarcaDoEscritorio | null

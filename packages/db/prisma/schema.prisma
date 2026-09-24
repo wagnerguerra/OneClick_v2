@@ -714,6 +714,10 @@ model ClienteUsuario {
   podeVer     Boolean @default(true) @map("pode_ver")
   podeEditar  Boolean @default(false) @map("pode_editar")
   podeExcluir Boolean @default(false) @map("pode_excluir")
+  /// Dashboard Financeiro (BI) no portal. Nasce DESLIGADO: os números da
+  /// empresa não são para todo usuário do cliente — o escritório libera pessoa
+  /// a pessoa. Também depende do módulo `bi` estar liberado para a empresa.
+  podeVerBi   Boolean @default(false) @map("pode_ver_bi")
 
   /// Quem criou o vínculo. Pode ser um usuário INTERNO (escritório cadastrando
   /// o primeiro administrador) ou o próprio administrador do cliente.

@@ -53,6 +53,7 @@ interface AcessoDaPessoa {
   podeVer: boolean
   podeEditar: boolean
   podeExcluir: boolean
+  podeVerBi: boolean
   cliente: { id: string; razaoSocial: string; grupo: string | null; status: string }
 }
 
@@ -64,6 +65,7 @@ interface UsuarioPortal {
   podeVer: boolean
   podeEditar: boolean
   podeExcluir: boolean
+  podeVerBi: boolean
   criadoEm: string
   user: {
     id: string; name: string; email: string; telefone: string | null
@@ -83,6 +85,9 @@ const formVazio = () => ({
   podeVer: true,
   podeEditar: false,
   podeExcluir: false,
+  // Os números da empresa não são para todo usuário do cliente: o escritório
+  // libera pessoa a pessoa, por ato deliberado.
+  podeVerBi: false,
 })
 
 /**
@@ -159,6 +164,7 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
         telefone: form.telefone.trim() || null,
         nivel: form.nivel, areas: form.areas,
         podeVer: form.podeVer, podeEditar: form.podeEditar, podeExcluir: form.podeExcluir,
+        podeVerBi: form.podeVerBi,
         clientesAdicionais: irmasMarcadas,
       }) as {
         criouUsuario: boolean
@@ -226,6 +232,7 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
         podeVer: editando.podeVer,
         podeEditar: editando.podeEditar,
         podeExcluir: editando.podeExcluir,
+        podeVerBi: editando.podeVerBi,
       })
 
       // Só chama se houver grupo na tela: sem isso, um cliente sem irmãs
@@ -498,6 +505,10 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
               valores={form}
               onToggle={(campo, v) => setForm(f => ({ ...f, [campo]: v }))}
             />
+            <CampoBi
+              valor={form.podeVerBi}
+              onToggle={v => setForm(f => ({ ...f, podeVerBi: v }))}
+            />
             <CampoGrupo
               grupo={grupo}
               marcadas={irmasMarcadas}
@@ -538,6 +549,10 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
                 podeExcluir: editando?.podeExcluir ?? false,
               }}
               onToggle={(campo, v) => setEditando(u => (u ? { ...u, [campo]: v } : u))}
+            />
+            <CampoBi
+              valor={editando?.podeVerBi ?? false}
+              onToggle={v => setEditando(u => (u ? { ...u, podeVerBi: v } : u))}
             />
             <label className="flex items-center gap-2 text-sm">
               <Checkbox
@@ -650,6 +665,7 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
                           a.podeEditar && 'envia',
                           a.podeExcluir && 'exclui',
                         ].filter(Boolean).join(', ') || 'sem acesso a arquivos'}
+                        {a.podeVerBi && ' · vê o dashboard'}
                         {!a.ativo && ' · desativado'}
                       </span>
                     </span>
@@ -785,6 +801,31 @@ function CampoPermissoes({ valores, onToggle }: {
         A pasta de arquivos não é separada por área: quem pode ver enxerga tudo
         o que estiver nela.
       </p>
+    </div>
+  )
+}
+
+/**
+ * Dashboard Financeiro no portal.
+ *
+ * Campo à parte das permissões de arquivo porque é outra coisa: não é o que a
+ * pessoa faz com documentos, é se ela enxerga os NÚMEROS da empresa — receita,
+ * custos, resultado. Há quem cuide dos documentos do cliente e não deva ver o
+ * lucro dele.
+ */
+function CampoBi({ valor, onToggle }: { valor: boolean; onToggle: (v: boolean) => void }) {
+  return (
+    <div>
+      <Label className="text-[13px] font-semibold">Painel do cliente</Label>
+      <label className="mt-1.5 flex cursor-pointer items-start gap-2 rounded-lg border border-border p-2.5">
+        <Checkbox checked={valor} onCheckedChange={v => onToggle(v === true)} className="mt-0.5" />
+        <span className="min-w-0">
+          <span className="block text-[13px] text-foreground">Ver o Dashboard Financeiro</span>
+          <span className="block text-[11px] text-muted-foreground">
+            Receita, custos, despesas e resultado da empresa, mês a mês — o BI do balancete.
+          </span>
+        </span>
+      </label>
     </div>
   )
 }

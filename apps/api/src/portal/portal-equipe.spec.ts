@@ -12,7 +12,7 @@ import type { VinculoPortal } from './portal-escopo'
 
 const vinculo = (areas: string[]): VinculoPortal => ({
   clienteId: 'cli-1', nivel: 'OPERACIONAL', areas,
-  podeVer: true, podeEditar: false, podeExcluir: false, modulos: [],
+  podeVer: true, podeEditar: false, podeExcluir: false, podeVerBi: false, modulos: [],
 } as unknown as VinculoPortal)
 
 const ana = { name: 'Ana Fiscal', email: 'ana@escritorio.com', image: null, isActive: true }
