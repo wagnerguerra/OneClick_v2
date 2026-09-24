@@ -476,7 +476,7 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
       {/* ── Pedir documento ─────────────────────────────────────────────── */}
       <Dialog open={pedidoAberto} onOpenChange={setPedidoAberto}>
         <DialogContent className="sm:max-w-[520px]">
-          <DialogHeaderIcon icon={Inbox} color="amber">
+          <DialogHeaderIcon icon={Inbox}>
             <DialogTitle>Pedir um documento ao cliente</DialogTitle>
           </DialogHeaderIcon>
           <DialogBody className="space-y-4">

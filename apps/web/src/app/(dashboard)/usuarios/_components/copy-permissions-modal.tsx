@@ -96,7 +96,7 @@ export function CopyPermissionsModal({ open, onClose, onSuccess }: CopyPermissio
   return (
     <Dialog open={open} onOpenChange={o => !o && handleClose()}>
       <DialogContent className="max-w-lg">
-        <DialogHeaderIcon icon={Copy} color="indigo">
+        <DialogHeaderIcon icon={Copy}>
           <DialogTitle>Copiar Permissões</DialogTitle>
           <DialogDescription>
             {step === 'source'
@@ -139,39 +139,36 @@ export function CopyPermissionsModal({ open, onClose, onSuccess }: CopyPermissio
             /* Etapa 2: Selecionar destinos */
             <div className="space-y-1">
               {/* Selecionar todos */}
-              <button
-                type="button"
-                onClick={selectAllTargets}
-                className="flex w-full items-center gap-3 rounded-[2px] bg-muted/30 p-2 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
-              >
+              {/* <label>, não <button>: o Checkbox (Radix) já é um <button> — aninhar
+                  quebra a hidratação. Clicar na linha aciona o checkbox via label. */}
+              <label className="flex w-full cursor-pointer items-center gap-3 rounded-[2px] bg-muted/30 p-2 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors">
                 <Checkbox
                   checked={targetIds.size > 0 && targetIds.size === filteredUsers.filter(u => u.id !== sourceId && !u.isMaster).length}
+                  onCheckedChange={selectAllTargets}
                 />
                 Selecionar todos
-              </button>
+              </label>
 
               {filteredUsers.filter(u => u.id !== sourceId && !u.isMaster).map(user => {
                 const selected = targetIds.has(user.id)
                 return (
-                  <button
+                  <label
                     key={user.id}
-                    type="button"
-                    onClick={() => toggleTarget(user.id)}
                     className={cn(
-                      'flex w-full items-center gap-3 rounded-[2px] border p-2.5 text-left transition-all duration-200',
+                      'flex w-full cursor-pointer items-center gap-3 rounded-[2px] border p-2.5 text-left transition-all duration-200',
                       selected
                         ? 'bg-primary/[0.04] border-primary/20'
                         : 'border-border/30 hover:bg-muted/20',
                     )}
                   >
-                    <Checkbox checked={selected} />
+                    <Checkbox checked={selected} onCheckedChange={() => toggleTarget(user.id)} />
                     <UserAvatar user={{ name: user.name, image: null }} className="h-8 w-8 shrink-0 text-xs" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">{user.name}</p>
                       <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                     </div>
                     {selected && <Check className="h-4 w-4 text-primary shrink-0" />}
-                  </button>
+                  </label>
                 )
               })}
             </div>
@@ -181,7 +178,6 @@ export function CopyPermissionsModal({ open, onClose, onSuccess }: CopyPermissio
           {step === 'targets' && (
             <>
               <Button
-                variant="success"
                 size="sm"
                 type="button"
                 disabled={targetIds.size === 0 || copying}

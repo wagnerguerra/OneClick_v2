@@ -609,7 +609,7 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
           sem abrir cliente por cliente. */}
       <Dialog open={Boolean(vendoAcessos)} onOpenChange={v => { if (!v) setVendoAcessos(null) }}>
         <DialogContent className="max-w-lg">
-          <DialogHeaderIcon icon={Building2} color="sky">
+          <DialogHeaderIcon icon={Building2}>
             <DialogTitle>Empresas que {vendoAcessos?.user.name} acessa</DialogTitle>
             <DialogDescription>
               O mesmo login enxerga todas. Marque para revogar.

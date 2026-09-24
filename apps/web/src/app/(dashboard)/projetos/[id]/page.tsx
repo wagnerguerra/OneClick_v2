@@ -526,7 +526,6 @@ export default function ProjetoDetailPage() {
         open={modalOpen}
         onOpenChange={setModalOpen}
         projetoId={projetoId}
-        projetoCor={projetoCor}
         tarefaId={editingId}
         onSaved={onModalSaved}
       />

@@ -44,12 +44,11 @@ interface Props {
   open: boolean
   onOpenChange: (v: boolean) => void
   projetoId: string
-  projetoCor: string
   tarefaId: string | null              // null = nova
   onSaved: () => void
 }
 
-export function TarefaDetalheModal({ open, onOpenChange, projetoId, projetoCor, tarefaId, onSaved }: Props) {
+export function TarefaDetalheModal({ open, onOpenChange, projetoId, tarefaId, onSaved }: Props) {
   const isEdit = !!tarefaId
   const [activeTab, setActiveTab] = useState<'detalhes' | 'atividade' | 'anexos'>('detalhes')
 
@@ -312,7 +311,6 @@ export function TarefaDetalheModal({ open, onOpenChange, projetoId, projetoCor, 
                   disabled={sendingComment || !comentario.trim()}
                   size="sm"
                   className="h-9"
-                  style={{ background: projetoCor }}
                 >
                   {sendingComment ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><Send className="h-3.5 w-3.5 mr-1" /> Registrar</>}
                 </Button>
@@ -331,7 +329,7 @@ export function TarefaDetalheModal({ open, onOpenChange, projetoId, projetoCor, 
               ) : (
                 <div className="space-y-2.5">
                   {eventos.map((ev) => (
-                    <EventoItem key={ev.id} evento={ev} cor={projetoCor} />
+                    <EventoItem key={ev.id} evento={ev} />
                   ))}
                 </div>
               )}
@@ -370,7 +368,7 @@ export function TarefaDetalheModal({ open, onOpenChange, projetoId, projetoCor, 
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancelar
           </Button>
-          <Button onClick={handleSave} disabled={saving} style={{ background: projetoCor }}>
+          <Button onClick={handleSave} disabled={saving} variant={isEdit ? 'info' : 'success'}>
             {saving ? (
               <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Salvando...</>
             ) : isEdit ? 'Atualizar' : 'Criar tarefa'}
@@ -383,15 +381,14 @@ export function TarefaDetalheModal({ open, onOpenChange, projetoId, projetoCor, 
 
 // ─── Item da timeline ──────────────────────────────────────────
 
-function EventoItem({ evento, cor }: { evento: EventoLido; cor: string }) {
+function EventoItem({ evento }: { evento: EventoLido }) {
   const dt = new Date(evento.createdAt)
   const dtTexto = dt.toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 
   if (evento.tipo === 'comentario') {
     return (
       <div className="flex gap-3 items-start">
-        <div className="h-7 w-7 rounded-full flex items-center justify-center shrink-0"
-          style={{ background: `color-mix(in srgb, ${cor} 20%, transparent)`, color: cor }}>
+        <div className="h-7 w-7 rounded-full flex items-center justify-center shrink-0 bg-primary/20 text-primary">
           <MessageSquare className="h-3.5 w-3.5" />
         </div>
         <div className="flex-1 bg-muted/40 rounded-md px-3 py-2">

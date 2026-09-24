@@ -698,7 +698,7 @@ function EncerramentoDialog({ open, onClose, row, onSave }: {
         </DialogBody>
 
         <DialogFooter>
-          <Button variant="success" size="sm" onClick={handleSave} className="gap-1.5">
+          <Button variant="warning" size="sm" onClick={handleSave} className="gap-1.5">
             <Save className="h-4 w-4" /> Salvar
           </Button>
           {(row.dataEncerramento || row.observacoes) && (

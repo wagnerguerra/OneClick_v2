@@ -120,7 +120,8 @@
    Padrão) = a própria primária, mas no DARK de cada skin aponta pro tom CLARO
    (--skin-<key>-dark-soft) — o --color-primary dark fica escuro só pro texto branco
    dos botões sólidos. O <Button variant="soft"> consome text-[color:var(--btn-soft-fg)],
-   bg-[color:var(--btn-soft-bg)] e o hover mistura var(--btn-soft-accent). */
+   bg-[color:var(--btn-soft-bg)] e o hover mistura var(--btn-soft-accent).
+   As abas ([role="tab"]) também usam --btn-soft-fg no dark (hover/ativa). */
 :root {
   --btn-soft-accent: var(--color-primary);
   --btn-soft-fg: var(--btn-soft-accent);
@@ -1025,13 +1026,15 @@ html:has([data-portal-root]) { scroll-behavior: smooth; }
     opacity: 1;
     cursor: auto;
   }
+  /* Cor das abas: light = primária; dark = a mesma cor do texto do soft button
+     dark (var(--btn-soft-fg)), que já traz o ajuste por skin. */
   [role="tablist"] button[role="tab"]:hover {
-    color: #5ea3cb;
-    border-bottom-color: rgba(94, 163, 203, 0.3);
+    color: var(--color-primary);
+    border-bottom-color: color-mix(in oklab, var(--color-primary) 30%, transparent);
   }
   [role="tablist"] button[role="tab"][data-state="active"] {
-    color: #5ea3cb;
-    border-bottom-color: #5ea3cb;
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
     background: rgba(255, 255, 255, 0.92);
     border-radius: 6px 6px 0 0;
     box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.06);
@@ -1040,14 +1043,15 @@ html:has([data-portal-root]) { scroll-behavior: smooth; }
     color: #adb5bd;
   }
   .dark [role="tablist"] button[role="tab"][data-state="active"] {
-    color: #5ea3cb;
-    border-bottom-color: #5ea3cb;
+    color: var(--btn-soft-fg);
+    border-bottom-color: var(--btn-soft-fg);
     background: rgba(30, 41, 59, 0.92);
     border-radius: 6px 6px 0 0;
     box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.3);
   }
   .dark [role="tablist"] button[role="tab"]:hover {
-    color: #5ea3cb;
+    color: var(--btn-soft-fg);
+    border-bottom-color: color-mix(in oklab, var(--btn-soft-fg) 30%, transparent);
   }
 
   /* Dark mode overrides */
