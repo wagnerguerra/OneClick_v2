@@ -1,5 +1,9 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma, Prisma } from '@saas/db'
+import {
+  decidirDesconto, intensidadeDesconto,
+  MOTIVO_GERAL_BLOQUEADO, MOTIVO_ITEM_BLOQUEADO,
+} from './desconto-exclusivo'
 import { idsDeEmpresasInativas, semEmpresaInativa } from '../common/empresa-inativa'
 import type { CreateOrcamentoInput, UpdateOrcamentoInput, ListOrcamentoInput, CreateOrcamentoItemInput, UpdateOrcamentoItemInput } from '@saas/types'
 import { filtroDeBusca, escopoDeEmpresa, consolidar } from './orcamento-busca-cliente'
@@ -1518,6 +1522,19 @@ export class OrcamentoService {
       )
     }
 
+    // Desconto geral novo (ou aumentado) só passa se nenhum item tiver desconto.
+    const inp = input as { descontoPct?: number | null; descontoValor?: number | null }
+    const geralPedido = intensidadeDesconto(inp.descontoPct, inp.descontoValor)
+    if (geralPedido > 0) {
+      const decisao = decidirDesconto(
+        geralPedido,
+        intensidadeDesconto(atual.descontoPct as number | null, atual.descontoValor as number | null),
+        await this.temDescontoEmItem(id),
+        MOTIVO_GERAL_BLOQUEADO,
+      )
+      if (!decisao.permitido) throw new Error(decisao.motivo as string)
+    }
+
     // Congelado + master → monta o diff de auditoria ANTES de gravar.
     const mudancas = congelado && isMaster ? this.diffOrcamentoCongelado(atual, input) : []
 
@@ -1535,6 +1552,39 @@ export class OrcamentoService {
 
     this.emitEvent('dados-gerais', { orcamentoId: id, empresaId: orc.empresaId, actorUserId: userId })
     return orc
+  }
+
+  // ── Desconto: um OU outro, nunca os dois ─────────────────
+  //
+  // Os dois somavam em silêncio. No #4630, 20% em cada item mais 20% de
+  // desconto geral viraram 40% no resumo, e quem olhou concluiu que a conta
+  // estava errada — ela não estava, mas ninguém tinha como saber que havia
+  // dois descontos.
+  //
+  // A regra agora é excludente por orçamento. Vale na GRAVAÇÃO, não só na tela:
+  // o campo desabilitado no front é conveniência, o portão é aqui.
+  //
+  // Orçamento que JÁ tem os dois continua como está — a guarda só barra o
+  // valor NOVO. Bloquear o que já foi gravado impediria até de arrumar: toda
+  // edição de outro campo passa pelo mesmo `update` (auto-save), e o
+  // orçamento ficaria impossível de salvar.
+
+  /** Há desconto em algum item de serviço? */
+  private async temDescontoEmItem(orcamentoId: string): Promise<boolean> {
+    const itens = await prisma.orcamentoItem.findMany({
+      where: { orcamentoId, tipo: 'SERVICO' },
+      select: { descontoPct: true, descontoValor: true },
+    })
+    return itens.some(i => Number(i.descontoPct ?? 0) > 0 || Number(i.descontoValor ?? 0) > 0)
+  }
+
+  /** O orçamento tem desconto geral gravado? */
+  private async temDescontoGeral(orcamentoId: string): Promise<boolean> {
+    const o = await prisma.orcamento.findUnique({
+      where: { id: orcamentoId },
+      select: { descontoPct: true, descontoValor: true },
+    })
+    return Number(o?.descontoPct ?? 0) > 0 || Number(o?.descontoValor ?? 0) > 0
   }
 
   /** Diff legível dos campos mais relevantes de um orçamento congelado editado pelo master. */
@@ -3805,6 +3855,14 @@ export class OrcamentoService {
     // TAXA/DESPESA nunca recebem desconto, então zeramos por segurança mesmo que
     // o cliente mande algo.
     const ehServico = input.tipo === 'SERVICO'
+    const descontoPedido = ehServico
+      ? intensidadeDesconto(input.itemDescontoPct, input.itemDescontoValor)
+      : 0
+    if (descontoPedido > 0) {
+      // Item novo não tem desconto anterior — o `atual` é sempre 0 aqui.
+      const decisao = decidirDesconto(descontoPedido, 0, await this.temDescontoGeral(input.orcamentoId), MOTIVO_ITEM_BLOQUEADO)
+      if (!decisao.permitido) throw new Error(decisao.motivo as string)
+    }
     const item = await prisma.orcamentoItem.create({
       data: {
         orcamentoId: input.orcamentoId,
@@ -3902,10 +3960,24 @@ export class OrcamentoService {
   async updateItem(id: string, data: UpdateOrcamentoItemInput, ctx?: CtxPermissao) {
     const item = await prisma.orcamentoItem.findUnique({
       where: { id },
-      select: { orcamentoId: true, tipo: true, catalogoId: true, subservicoId: true },
+      select: { orcamentoId: true, tipo: true, catalogoId: true, subservicoId: true, descontoPct: true, descontoValor: true },
     })
     if (!item) throw new Error('Item não encontrado')
     await this.assertEditable(item.orcamentoId)
+
+    // Desconto de item novo (ou aumentado) só passa se não houver desconto
+    // geral no orçamento. Só o valor NOVO é barrado — quem já tem os dois
+    // continua podendo editar quantidade, valor e, principalmente, ZERAR.
+    const descontoPedido = intensidadeDesconto(data.itemDescontoPct, data.itemDescontoValor)
+    if (descontoPedido > 0) {
+      const decisao = decidirDesconto(
+        descontoPedido,
+        intensidadeDesconto(item.descontoPct as number | null, item.descontoValor as number | null),
+        await this.temDescontoGeral(item.orcamentoId),
+        MOTIVO_ITEM_BLOQUEADO,
+      )
+      if (!decisao.permitido) throw new Error(decisao.motivo as string)
+    }
 
     // A exigência do subserviço vale na ESCOLHA do serviço, não em toda edição.
     //

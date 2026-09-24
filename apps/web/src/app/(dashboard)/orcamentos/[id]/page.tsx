@@ -97,6 +97,10 @@ interface OrcamentoItem {
 }
 
 // Desconto líquido de um item de serviço (limitado ao próprio subtotal).
+/** Mesma frase do backend — a tela explica, o servidor barra. */
+const TRAVA_DESCONTO_ITEM =
+  'Este orçamento já tem desconto geral. Zere o desconto geral (em "Desconto e Pagamento") para aplicar desconto item a item — os dois juntos somariam.'
+
 function descontoDoItem(item: { tipo: string; quantidade: number; valorUnitario: number; descontoPct?: number | string | null; descontoValor?: number | string | null }): number {
   if (item.tipo !== 'SERVICO') return 0
   const subtotal = (Number(item.quantidade) || 0) * (Number(item.valorUnitario) || 0)
@@ -1887,6 +1891,18 @@ export default function OrcamentoDetailPage() {
   const descontoItensParte = Math.min(descontoItensLocal, descontoAplicado)
   const descontoGeralParte = Math.max(0, descontoAplicado - descontoItensParte)
   const temDuasParcelas = descontoItensParte > 0 && descontoGeralParte > 0
+
+  // Desconto é um OU outro: geral, ou item a item. Nunca os dois, porque
+  // somariam e o total deixaria de bater com o que as linhas mostram (#4630).
+  //
+  // O bloqueio só vale para valor NOVO. Campo que JÁ tem desconto continua
+  // editável — é por ele que se desfaz a combinação, e travá-lo deixaria o
+  // orçamento antigo sem saída. Mesma regra que o backend aplica na gravação;
+  // aqui é conveniência, o portão é lá.
+  const temDescontoEmItem = descontoItensLocal > 0
+  const temDescontoGeralAtivo = descontoPctNum > 0 || descontoValorNum > 0
+  const geralBloqueadoPorItem = temDescontoEmItem && !temDescontoGeralAtivo
+  const itemBloqueadoPorGeral = temDescontoGeralAtivo
   const totalGeral = orc?.totalGeral != null ? Number(orc.totalGeral) : Math.max(0, subtotal - descontoLocal)
   // Percentual EFETIVO sobre a base de serviços. Mostrar o `descontoPct`
   // cadastrado escondia o desconto por item: no #4747 dizia "0,0%" com 785
@@ -2538,16 +2554,17 @@ export default function OrcamentoDetailPage() {
                               <Label className="text-[13px] font-semibold text-foreground">Valor R$</Label>
                               <Input type="number" value={itemValor} onChange={e => setItemValor(e.target.value)} className="h-9 w-[110px] text-sm" step="0.01" min="0" placeholder="0,00" />
                             </div>
-                            {/* Desconto por item — só serviço (#HLP0302) */}
+                            {/* Desconto por item — só serviço (#HLP0302), e só quando
+                                não há desconto geral: os dois somariam (#4630). */}
                             {itemTipo === 'SERVICO' && (
                               <>
                                 <div className="space-y-1.5">
                                   <Label className="text-[13px] font-semibold text-foreground">Desc %</Label>
-                                  <Input type="number" value={itemDescPct} onChange={e => setItemDescPct(e.target.value)} className="h-9 w-[80px] text-sm" step="0.01" min="0" max="100" placeholder="0" />
+                                  <Input type="number" value={itemDescPct} onChange={e => setItemDescPct(e.target.value)} disabled={itemBloqueadoPorGeral} title={itemBloqueadoPorGeral ? TRAVA_DESCONTO_ITEM : undefined} className="h-9 w-[80px] text-sm" step="0.01" min="0" max="100" placeholder="0" />
                                 </div>
                                 <div className="space-y-1.5">
                                   <Label className="text-[13px] font-semibold text-foreground">Desc R$</Label>
-                                  <Input type="number" value={itemDescValor} onChange={e => setItemDescValor(e.target.value)} className="h-9 w-[90px] text-sm" step="0.01" min="0" placeholder="0,00" />
+                                  <Input type="number" value={itemDescValor} onChange={e => setItemDescValor(e.target.value)} disabled={itemBloqueadoPorGeral} title={itemBloqueadoPorGeral ? TRAVA_DESCONTO_ITEM : undefined} className="h-9 w-[90px] text-sm" step="0.01" min="0" placeholder="0,00" />
                                 </div>
                               </>
                             )}
@@ -2668,20 +2685,27 @@ export default function OrcamentoDetailPage() {
                                       <Input type="number" value={editValor} onChange={e => setEditValor(e.target.value)}
                                         className="h-9 w-[80px] text-xs text-right rounded-l-none" step="0.01" />
                                     </div>
-                                    {editTipo === 'SERVICO' && (
+                                    {editTipo === 'SERVICO' && (() => {
+                                      // Trava quando há desconto geral — exceto se ESTE item já
+                                      // tem desconto: é por aqui que se zera para desfazer a
+                                      // combinação de um orçamento anterior ao bloqueio.
+                                      const jaTem = (parseFloat(editDescPct) || 0) > 0 || (parseFloat(editDescValor) || 0) > 0
+                                      const travado = itemBloqueadoPorGeral && !jaTem
+                                      return (
                                       <>
-                                        <div className="flex" title="Desconto em percentual">
+                                        <div className="flex" title={travado ? TRAVA_DESCONTO_ITEM : 'Desconto em percentual'}>
                                           <span className="inline-flex items-center px-1.5 h-9 border border-r-0 border-input bg-muted text-[10px] text-muted-foreground rounded-l-md">-%</span>
-                                          <Input type="number" value={editDescPct} onChange={e => setEditDescPct(e.target.value)}
+                                          <Input type="number" value={editDescPct} onChange={e => setEditDescPct(e.target.value)} disabled={travado}
                                             className="h-9 w-[52px] text-xs text-right rounded-l-none" step="0.01" min="0" max="100" placeholder="0" />
                                         </div>
-                                        <div className="flex" title="Desconto em reais">
+                                        <div className="flex" title={travado ? TRAVA_DESCONTO_ITEM : 'Desconto em reais'}>
                                           <span className="inline-flex items-center px-1.5 h-9 border border-r-0 border-input bg-muted text-[10px] text-muted-foreground rounded-l-md">-R$</span>
-                                          <Input type="number" value={editDescValor} onChange={e => setEditDescValor(e.target.value)}
+                                          <Input type="number" value={editDescValor} onChange={e => setEditDescValor(e.target.value)} disabled={travado}
                                             className="h-9 w-[64px] text-xs text-right rounded-l-none" step="0.01" min="0" placeholder="0,00" />
                                         </div>
                                       </>
-                                    )}
+                                      )
+                                    })()}
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-right text-xs font-medium whitespace-nowrap">
@@ -2771,26 +2795,34 @@ export default function OrcamentoDetailPage() {
                           <span>O desconto geral está desativado nas configurações (&ldquo;Usar apenas desconto por item&rdquo;). Aplique o desconto item a item na aba <strong>Itens</strong>.</span>
                         </div>
                       )}
-                      {/* Os dois descontos SOMAM (#HLP0302), e nada dizia isso. No
-                          #4630, 20% em cada item mais 20% aqui viraram 40% no
-                          resumo, e a conclusão de quem olhou foi que o total
-                          estava errado. */}
+                      {/* O campo está travado porque já há desconto item a item —
+                          os dois somariam, e foi assim que o #4630 chegou a 40%
+                          com 20% na tela. */}
+                      {!apenasDescontoItem && geralBloqueadoPorItem && (
+                        <div className={cn('mx-5 mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]', BADGE.amber)}>
+                          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                          <span>
+                            Já há desconto nos itens ({formatCurrency(descontoItensParte)}). Zere o desconto dos itens para usar o desconto geral — os dois juntos somariam.
+                          </span>
+                        </div>
+                      )}
+                      {/* Orçamento anterior ao bloqueio, que ficou com os dois. */}
                       {!apenasDescontoItem && temDuasParcelas && (
                         <div className={cn('mx-5 mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]', BADGE.amber)}>
                           <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                           <span>
-                            Este orçamento tem desconto <strong>nos itens</strong> ({formatCurrency(descontoItensParte)}) e desconto <strong>geral</strong> ({formatCurrency(descontoGeralParte)}), e os dois somam: {descontoPercentCalc.toFixed(1)}% sobre os serviços. Para aplicar só um deles, zere o campo abaixo ou o desconto dos itens.
+                            Este orçamento tem desconto <strong>nos itens</strong> ({formatCurrency(descontoItensParte)}) <strong>e</strong> desconto geral ({formatCurrency(descontoGeralParte)}), e os dois somam: {descontoPercentCalc.toFixed(1)}% sobre os serviços. Zere um dos dois para valer só um.
                           </span>
                         </div>
                       )}
                       <div className="p-5 grid grid-cols-12 gap-3">
                         <div className="col-span-12 sm:col-span-4 space-y-1.5">
                           <Label className="text-[13px] font-semibold text-foreground">Desconto %</Label>
-                          <Input type="number" value={formDescontoPercent} onChange={e => setFormDescontoPercent(e.target.value)} disabled={apenasDescontoItem || (isLocked && !isMasterReal)} className="h-9 text-sm" step="0.01" min="0" max="100" placeholder="0" />
+                          <Input type="number" value={formDescontoPercent} onChange={e => setFormDescontoPercent(e.target.value)} disabled={apenasDescontoItem || geralBloqueadoPorItem || (isLocked && !isMasterReal)} className="h-9 text-sm" step="0.01" min="0" max="100" placeholder="0" />
                         </div>
                         <div className="col-span-12 sm:col-span-4 space-y-1.5">
                           <Label className="text-[13px] font-semibold text-foreground">Desconto R$</Label>
-                          <Input type="number" value={formDesconto} onChange={e => setFormDesconto(e.target.value)} disabled={apenasDescontoItem || (isLocked && !isMasterReal)} className="h-9 text-sm" step="0.01" min="0" placeholder="0,00" />
+                          <Input type="number" value={formDesconto} onChange={e => setFormDesconto(e.target.value)} disabled={apenasDescontoItem || geralBloqueadoPorItem || (isLocked && !isMasterReal)} className="h-9 text-sm" step="0.01" min="0" placeholder="0,00" />
                         </div>
                         <div className="col-span-12 space-y-1.5">
                           <div className="flex items-center justify-between">
