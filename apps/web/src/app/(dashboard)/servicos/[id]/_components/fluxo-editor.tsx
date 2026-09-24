@@ -1135,6 +1135,37 @@ function tipoToFlowType(tipo?: string): 'servico' | 'decisao' | 'documentacao' |
   return 'servico'
 }
 
+/**
+ * Fecha um popover do editor ao clicar fora dele.
+ *
+ * Escuta `pointerdown` na fase de CAPTURA: o React Flow interrompe a propagação
+ * do mousedown nos blocos (pra arrastar/selecionar), então um listener comum no
+ * document só via cliques no fundo do canvas — clicar num bloco ou no "+" dele
+ * não fechava nada. Com um modal aberto não fecha: o clique é do modal.
+ * `ignorar` diz quais alvos não contam como "fora" (ex.: o próprio gatilho,
+ * que já alterna o popover no click).
+ */
+function useFecharAoClicarFora(
+  ref: React.RefObject<HTMLElement | null>,
+  aberto: boolean,
+  onFechar: () => void,
+  ignorar?: (alvo: Element) => boolean,
+) {
+  useEffect(() => {
+    if (!aberto) return
+    function onDown(e: PointerEvent) {
+      const alvo = e.target
+      if (!(alvo instanceof Element)) return
+      if (ref.current?.contains(alvo)) return
+      if (document.querySelector('[role="dialog"][data-state="open"], .swal2-container')) return
+      if (ignorar?.(alvo)) return
+      onFechar()
+    }
+    document.addEventListener('pointerdown', onDown, true)
+    return () => document.removeEventListener('pointerdown', onDown, true)
+  }, [aberto, ref, onFechar, ignorar])
+}
+
 // ─────────────────────────────────────────────────────────────
 // FluxoEditor — componente principal
 // ─────────────────────────────────────────────────────────────
@@ -1189,6 +1220,12 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
    *  sem precisar abrir o modal de origem. */
   const [addingFromNode, setAddingFromNode] = useState<{ nodeId: string; nome: string; direction: 'succ' | 'pred' } | null>(null)
   const [addingBusy, setAddingBusy] = useState(false)
+  // Painel do Catálogo fecha ao clicar fora. O botão "Catálogo" fica de fora:
+  // ele mesmo alterna o painel no click.
+  const paletteRef = useRef<HTMLDivElement>(null)
+  const fecharPalette = useCallback(() => { setPaletteOpen(false); setAddingFromNode(null) }, [])
+  const ignorarBotaoCatalogo = useCallback((alvo: Element) => !!alvo.closest('[data-fluxo-catalogo-toggle]'), [])
+  useFecharAoClicarFora(paletteRef, paletteOpen, fecharPalette, ignorarBotaoCatalogo)
   // Novo bloco — pra criar um Servico do tipo escolhido on-the-fly
   const [novoBlocoTipo, setNovoBlocoTipo] = useState<null | 'ATIVIDADE' | 'DECISAO' | 'DOCUMENTACAO' | 'INICIO' | 'FIM' | 'PERGUNTA'>(null)
   const [novoBlocoNome, setNovoBlocoNome] = useState('')
@@ -1734,21 +1771,18 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
         obrigatorio: true,
         herdaResponsavel: true,
       })
-      // INICIO não precisa de origem (é o ponto de partida): aponta pro bloco
-      // do "+" que abriu a palette, ou pra raiz.
+      // INICIO não precisa de origem (é o ponto de partida): sempre aponta pra raiz.
       if (novoBlocoTipo === 'INICIO') {
-        await conectar(created.id, addingFromNode?.nodeId ?? rootId)
-        setAddingFromNode(null)
-        setPaletteOpen(false)
+        await conectar(created.id, rootId)
         await alerts.success('Início criado', 'Bloco adicionado. Recarregando…')
         onChanged?.()
         return
       }
       // Veio do "+" de um bloco: a âncora e a direção já estão definidas, então
       // conecta direto (igual ao clique num serviço existente do catálogo), sem
-      // perguntar a origem. FIM só tem entrada, então é sempre sucessor.
-      if (addingFromNode) {
-        const comoSucessor = addingFromNode.direction === 'succ' || novoBlocoTipo === 'FIM'
+      // perguntar a origem. FIM mantém o fluxo de sempre (modal de origem).
+      if (addingFromNode && novoBlocoTipo !== 'FIM') {
+        const comoSucessor = addingFromNode.direction === 'succ'
         await conectar(
           comoSucessor ? addingFromNode.nodeId : created.id,
           comoSucessor ? created.id : addingFromNode.nodeId,
@@ -2031,6 +2065,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                 size="sm"
                 variant="outline"
                 onClick={() => setPaletteOpen(v => !v)}
+                data-fluxo-catalogo-toggle
                 className="gap-1.5 bg-card/80 backdrop-blur-sm"
                 title={paletteOpen ? 'Fechar catálogo de serviços' : 'Abrir catálogo de serviços'}
               >
@@ -2040,7 +2075,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                 Catálogo
               </Button>
               {paletteOpen && (
-                <div className="bg-popover border rounded-lg shadow-2xl dark:shadow-black/70 w-[300px] flex flex-col overflow-hidden" style={{ maxHeight: 'min(640px, calc(100vh - 12rem))' }}>
+                <div ref={paletteRef} className="bg-popover border rounded-lg shadow-2xl dark:shadow-black/70 w-[300px] flex flex-col overflow-hidden" style={{ maxHeight: 'min(640px, calc(100vh - 12rem))' }}>
                   {/* Faixa de contexto — visível quando o usuário clicou no +/− de um bloco.
                       Verde = mesma semântica de CRIAR do "+" do bloco que abriu esta faixa. */}
                   {addingFromNode && (
@@ -2465,7 +2500,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                 <DialogDescription>
                   {novoBlocoTipo === 'DECISAO' && 'Losango que roteia conforme condições nas saídas.'}
                   {novoBlocoTipo === 'DOCUMENTACAO' && 'Marco informativo no fluxo (sem etapas).'}
-                  {novoBlocoTipo === 'INICIO' && `Marcador de entrada — vai apontar para ${addingFromNode ? addingFromNode.nome : 'o serviço-raiz'}.`}
+                  {novoBlocoTipo === 'INICIO' && 'Marcador de entrada — vai apontar para o serviço-raiz.'}
                   {novoBlocoTipo === 'FIM' && 'Marcador de saída — encerra um ramo do fluxo.'}
                   {novoBlocoTipo === 'ATIVIDADE' && 'Bloco executável com etapas/passos (configure depois).'}
                   {novoBlocoTipo === 'PERGUNTA' && 'Decisão interativa — execução pausa esperando o gestor escolher uma das opções.'}
@@ -2592,9 +2627,9 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                   className="gap-1.5"
                 >
                   {addingBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                  {addingFromNode
-                    ? `Criar e conectar a ${addingFromNode.nome}`
-                    : novoBlocoTipo === 'INICIO' ? 'Criar e conectar à raiz' : 'Próximo: escolher origem'}
+                  {novoBlocoTipo === 'INICIO' ? 'Criar e conectar à raiz'
+                    : addingFromNode && novoBlocoTipo !== 'FIM' ? `Criar e conectar a ${addingFromNode.nome}`
+                    : 'Próximo: escolher origem'}
                 </Button>
               </DialogFooter>
             </>
@@ -2883,21 +2918,19 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
   }, [recalc])
 
   useEffect(() => {
-    function onDown(e: MouseEvent) {
-      const target = e.target
-      if (target instanceof Element && popRef.current?.contains(target)) return
-      onClose()
-    }
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
     }
-    document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
+    return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  // Clicar no próprio bloco (fora dos botões +/−) não conta como "fora": o click
+  // do bloco já alterna o popover — fechar aqui faria ele reabrir em seguida.
+  const ignorarProprioBloco = useCallback((alvo: Element) => (
+    !!alvo.closest(`.react-flow__node[data-id="${CSS.escape(node.id)}"]`) && !alvo.closest('button')
+  ), [node.id])
+  useFecharAoClicarFora(popRef, true, onClose, ignorarProprioBloco)
 
   // ── Edição inline de bloco PERGUNTA ──
   // Quando o nó é PERGUNTA, o popover renderiza form de edição em vez do listing
