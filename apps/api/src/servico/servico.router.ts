@@ -75,11 +75,6 @@ export function createServicoRouter(servicoService: ServicoService) {
       .input(z.object({ id: z.string(), data: updateServicoSchema }))
       .mutation(({ input }) => servicoService.updateServico(input.id, input.data)),
 
-    /** Define, de uma vez, quais serviços são subserviços deste. */
-    setSubservicos: writeProcedure(MODULE)
-      .input(z.object({ paiId: z.string().min(1), filhoIds: z.array(z.string().min(1)) }))
-      .mutation(({ input }) => servicoService.setSubservicos(input.paiId, input.filhoIds)),
-
     // ── Variações do serviço (texto + valor oferecidos no orçamento) ──
     listVariacoes: readProcedure(MODULE)
       .input(z.object({ servicoId: z.string().min(1) }))

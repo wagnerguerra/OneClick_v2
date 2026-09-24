@@ -539,14 +539,6 @@ export class ServicoService {
         etapas: { orderBy: { ordem: 'asc' }, include: { passos: { orderBy: { ordem: 'asc' } } } },
         // Quando carrega FLUXO, traz infos do pai pra UI conseguir agrupar.
         servicoPai: { select: { id: true, nome: true } },
-        // Subserviços do catálogo comercial — a tela monta a árvore com isto.
-        subservicos: {
-          orderBy: { ordem: 'asc' },
-          select: { ordem: true, filho: { select: { id: true, nome: true, valorPadrao: true, ativo: true } } },
-        },
-        eSubservicoDe: {
-          select: { pai: { select: { id: true, nome: true } } },
-        },
         // Grupos a que o serviço pertence (M→N) — usado pra mostrar coluna
         // "Grupo" na listagem.
         grupos: {
@@ -571,60 +563,6 @@ export class ServicoService {
     // Expõe a relação `area { name }` crua + o escalar `areaId` (para edição).
     // O front lê `s.area?.name` direto — sem alias `categoria`.
     return rows
-  }
-
-  /**
-   * Define quais serviços são subserviços deste, de uma vez.
-   *
-   * Substitui o conjunto inteiro em vez de somar um a um: a tela edita a lista
-   * como um todo, e aplicar diferença aqui evita o estado intermediário em que
-   * o serviço fica sem nenhum filho por um instante.
-   *
-   * Um serviço não pode ser subserviço de si mesmo, e o vínculo não desce mais
-   * de um nível: a árvore que o catálogo precisa é mãe → filho → variação, e
-   * permitir neto viraria um labirinto na hora de escolher no orçamento.
-   */
-  async setSubservicos(paiId: string, filhoIds: string[]) {
-    const pai = await prisma.servico.findUnique({ where: { id: paiId }, select: { id: true } })
-    if (!pai) throw new Error('Serviço não encontrado.')
-
-    const alvos = [...new Set(filhoIds)].filter((id) => id !== paiId)
-
-    if (alvos.length > 0) {
-      // Um filho que já é pai de alguém criaria o terceiro nível.
-      const jaSaoPais = await prisma.servicoSubservico.findMany({
-        where: { paiId: { in: alvos } },
-        select: { pai: { select: { nome: true } } },
-        take: 1,
-      })
-      if (jaSaoPais.length > 0) {
-        throw new Error(
-          `"${jaSaoPais[0]!.pai.nome}" já tem subserviços próprios e por isso não pode virar subserviço de outro. `
-          + 'O catálogo trabalha com dois níveis: serviço e subserviço.',
-        )
-      }
-    }
-
-    // O próprio pai já ser filho de alguém também fecharia três níveis.
-    if (alvos.length > 0) {
-      const paiEhFilho = await prisma.servicoSubservico.findFirst({
-        where: { filhoId: paiId },
-        select: { pai: { select: { nome: true } } },
-      })
-      if (paiEhFilho) {
-        throw new Error(
-          `Este serviço já é subserviço de "${paiEhFilho.pai.nome}" e por isso não pode ter subserviços próprios.`,
-        )
-      }
-    }
-
-    await prisma.$transaction([
-      prisma.servicoSubservico.deleteMany({ where: { paiId } }),
-      ...alvos.map((filhoId, i) =>
-        prisma.servicoSubservico.create({ data: { paiId, filhoId, ordem: i } })),
-    ])
-
-    return { ok: true, total: alvos.length }
   }
 
   // ── Variações ─────────────────────────────────────────────
@@ -707,12 +645,6 @@ export class ServicoService {
           include: { grupo: { select: { id: true, nome: true, cor: true } } },
           orderBy: { grupo: { nome: 'asc' } },
         },
-        // Subserviços do catálogo comercial — aba "Subserviços".
-        subservicos: {
-          orderBy: { ordem: 'asc' },
-          select: { filho: { select: { id: true, nome: true } } },
-        },
-        eSubservicoDe: { select: { pai: { select: { id: true, nome: true } } } },
       },
     })
   }
@@ -783,9 +715,7 @@ export class ServicoService {
       /** User fixo quando atribuicaoResponsavel = MANUAL_FIXO. */
       responsavelFixoId: string | null;
       position: Position;
-      /** Subserviços do catálogo comercial — camada opcional do desenho. */
-      subservicos: Array<{ id: string; nome: string }>;
-      /** Variações oferecidas no orçamento — mesma camada. */
+      /** Variações oferecidas no orçamento — camada opcional do desenho. */
       variacoes: Array<{ id: string; titulo: string; valor: string | null }>;
       etapas: Array<{ id: string; nome: string; ordem: number; passos: Array<{ id: string; nome: string; ordem: number; obrigatorio: boolean }> }>;
     }> = []
@@ -811,13 +741,6 @@ export class ServicoService {
           acessoriasMaps: {
             where: { ativo: true, servicoId: { not: null } },
             select: { nome: true },
-          },
-          // Camada de catálogo — o desenho pode mostrá-la por cima do fluxo
-          // de execução, sem misturar as duas coisas.
-          subservicos: {
-            orderBy: { ordem: 'asc' },
-            where: { filho: { ativo: true } },
-            select: { filho: { select: { id: true, nome: true } } },
           },
           etapas: {
             orderBy: { ordem: 'asc' },
@@ -864,7 +787,6 @@ export class ServicoService {
         responsavelFixoId: svc.responsavelFixoId,
         categoriaServico: svc.categoriaServico as string,
         acessoriasObrigacoes: Array.from(new Set(svc.acessoriasMaps.map(m => m.nome))).sort(),
-        subservicos: svc.subservicos.map(v => v.filho),
         // As variações vivem na tabela do orçamento, sem relação Prisma — a
         // busca é em lote, depois do BFS, para não fazer uma consulta por bloco.
         variacoes: [],

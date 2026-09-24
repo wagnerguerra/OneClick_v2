@@ -87,10 +87,8 @@ interface OrcamentoItem {
   descontoPct?: number | string | null
   descontoValor?: number | string | null
   catalogoId?: string | null
-  subservicoId?: string | null
   catalogoTextoId?: string | null
   /** Nomes do que foi escolhido — vêm do servidor só para exibição. */
-  subservico?: { id: string; nome: string } | null
   catalogoTexto?: { id: string; titulo: string } | null
   situacao?: string
   ordem?: number
@@ -537,8 +535,6 @@ export default function OrcamentoDetailPage() {
   // área), e o `canAssign` que o servidor devolve é o que decide se o menu
   // chega a listar alguém — assim a tela não oferece o que o servidor recusa.
   const canChangeResponsavel = isMaster || subPerms.change_responsavel === true
-  // Quem tem isto pode vender o serviço como um todo, sem dizer qual subserviço.
-  const canItemSemSubservico = isMaster || subPerms.item_sem_subservico === true
   const canEnviarPesquisa = isMaster || subPerms.enviar_pesquisa === true
   // Catálogo de serviços é configuração administrativa do módulo — restrito a master/empresa-master
   const canManageCatalogo = isMaster || isEmpresaMaster
@@ -729,8 +725,6 @@ export default function OrcamentoDetailPage() {
   const [itemDescValor, setItemDescValor] = useState('')
   const [itemCatalogoId, setItemCatalogoId] = useState<string>('')
   const [itemTextoId, setItemTextoId] = useState<string>('')
-  /** Subserviço escolhido dentro do serviço — opcional; o serviço pode ser vendido inteiro. */
-  const [itemSubservicoId, setItemSubservicoId] = useState<string>('')
   const [addingItem, setAddingItem] = useState(false)
 
   // Aplicar grupo de serviços (ServicoGrupo tipo=ORCAMENTO) em lote
@@ -741,7 +735,7 @@ export default function OrcamentoDetailPage() {
   const [aplicandoGrupoOrc, setAplicandoGrupoOrc] = useState(false)
 
   // Catalogo (servicos disponiveis para orcamento)
-  const [catalogo, setCatalogo] = useState<Array<{ id: string; nome: string; tipo: string; valorPadrao: number | string | null; textoPadrao: string | null; textos?: CatalogoTexto[]; subservicos?: Array<{ id: string; nome: string; valorPadrao: number | string | null; textoPadrao: string | null; textos?: CatalogoTexto[] }> }>>([])
+  const [catalogo, setCatalogo] = useState<Array<{ id: string; nome: string; tipo: string; valorPadrao: number | string | null; textoPadrao: string | null; textos?: CatalogoTexto[] }>>([])
 
   // Inline edit
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
@@ -753,7 +747,6 @@ export default function OrcamentoDetailPage() {
   const [editDescValor, setEditDescValor] = useState('')
   const [editCatalogoId, setEditCatalogoId] = useState<string>('')
   const [editTextoId, setEditTextoId] = useState<string>('')
-  const [editSubservicoId, setEditSubservicoId] = useState<string>('')
   // #HLP0302 — "Usar apenas desconto por item" (config). Marcada = geral bloqueado.
   const [apenasDescontoItem, setApenasDescontoItem] = useState(true)
 
@@ -1481,18 +1474,16 @@ export default function OrcamentoDetailPage() {
         itemDescontoPct: itemTipo === 'SERVICO' ? (parseFloat(itemDescPct) || undefined) : undefined,
         itemDescontoValor: itemTipo === 'SERVICO' ? (parseFloat(itemDescValor) || undefined) : undefined,
         catalogoId: itemCatalogoId || undefined,
-        subservicoId: itemSubservicoId || undefined,
         catalogoTextoId: itemTextoId || undefined,
       })
 
       // Texto padrão do serviço → "Texto para o Cliente". Com variação
       // escolhida, o texto DELA já foi aplicado no `handleSelecionarTexto` e
       // vence o padrão — a mesma precedência que o backend usa em
-      // `textosDosItens`. Com subserviço, é ele quem manda, como no valor.
+      // `textosDosItens`.
       if (itemTipo === 'SERVICO' && itemCatalogoId && !itemTextoId) {
-        const pai = catalogo.find(c => c.id === itemCatalogoId)
-        const alvo = itemSubservicoId ? pai?.subservicos?.find(x => x.id === itemSubservicoId) : pai
-        anexarTextoPadraoCliente(itemDescricao.trim() || pai?.nome || 'Serviço', alvo?.textoPadrao)
+        const servico = catalogo.find(c => c.id === itemCatalogoId)
+        anexarTextoPadraoCliente(itemDescricao.trim() || servico?.nome || 'Serviço', servico?.textoPadrao)
       }
 
       setItemTipo('')
@@ -1502,8 +1493,6 @@ export default function OrcamentoDetailPage() {
       setItemDescPct('')
       setItemDescValor('')
       setItemCatalogoId('')
-    setItemSubservicoId('')
-      setItemSubservicoId('')
       setItemTextoId('')
       fetchOrc(true)
     } catch (e) { alerts.error('Erro', (e as Error).message) }
@@ -1558,20 +1547,6 @@ export default function OrcamentoDetailPage() {
     setItemValor('')
   }
 
-  /**
-   * Falta escolher o subserviço obrigatório.
-   *
-   * A regra é a mesma do servidor — repetida aqui só para o botão explicar
-   * antes de o usuário clicar, em vez de devolver erro depois. Quem tem a
-   * permissão `item_sem_subservico` não é travado: pode vender o serviço como
-   * um todo. Quem decide de verdade é o backend; isto é conveniência de tela.
-   */
-  const faltaSubservico = (() => {
-    if (canItemSemSubservico) return false
-    const cat = catalogo.find(c => c.id === itemCatalogoId)
-    return !!cat?.subservicos?.length && !itemSubservicoId
-  })()
-
   // Helper de "captura de valor": o valor FIXO do serviço (valorPadrao) prevalece.
   // Só quando o serviço NÃO tem valor fixo (null/0) é que o valor do texto escolhido
   // é capturado para o valorUnitário do item.
@@ -1585,47 +1560,15 @@ export default function OrcamentoDetailPage() {
     if (!item) return
     setItemCatalogoId(catalogoId)
     setItemTextoId('')
-    setItemSubservicoId('')
     setItemDescricao(item.nome)
     if (item.valorPadrao != null) setItemValor(String(item.valorPadrao))
-  }
-
-  /**
-   * Escolha do subserviço.
-   *
-   * Quando há subserviço, é ELE que descreve e precifica o item — o serviço
-   * mãe vira só o agrupador. Por isso a descrição e o valor passam a vir do
-   * filho, e a variação recomeça: as variações são dele, não do pai.
-   */
-  function handleSelecionarSubservico(subId: string) {
-    setItemSubservicoId(subId)
-    setItemTextoId('')
-    const pai = catalogo.find(c => c.id === itemCatalogoId)
-    // "Sem subserviço": a descrição e o valor voltam a ser os do serviço todo,
-    // que é o que está sendo vendido. Sem isto, ficaria na tela o nome do
-    // filho que o usuário acabou de tirar.
-    if (!subId) {
-      if (pai) {
-        setItemDescricao(pai.nome)
-        if (pai.valorPadrao != null) setItemValor(String(pai.valorPadrao))
-      }
-      return
-    }
-    const sub = pai?.subservicos?.find(x => x.id === subId)
-    if (!sub) return
-    setItemDescricao(`${pai!.nome} — ${sub.nome}`)
-    if (sub.valorPadrao != null) setItemValor(String(sub.valorPadrao))
   }
 
   // Escolha do texto do registro (no formulário de inclusão). Captura o valor do
   // texto SOMENTE se o serviço não tem valor fixo (regra confirmada).
   function handleSelecionarTexto(textoId: string) {
     setItemTextoId(textoId)
-    const pai = catalogo.find(c => c.id === itemCatalogoId)
-    // Com subserviço escolhido, é ele quem manda no texto e no valor.
-    const item = itemSubservicoId
-      ? pai?.subservicos?.find(x => x.id === itemSubservicoId)
-      : pai
+    const item = catalogo.find(c => c.id === itemCatalogoId)
     const texto = item?.textos?.find(t => t.id === textoId)
     if (texto && !temValorFixo(item?.valorPadrao) && texto.valor != null) {
       setItemValor(String(texto.valor))
@@ -1643,7 +1586,6 @@ export default function OrcamentoDetailPage() {
     setEditDescPct(item.descontoPct != null && Number(item.descontoPct) > 0 ? String(item.descontoPct) : '')
     setEditDescValor(item.descontoValor != null && Number(item.descontoValor) > 0 ? String(item.descontoValor) : '')
     setEditCatalogoId(item.catalogoId ?? '')
-    setEditSubservicoId(item.subservicoId ?? '')
     setEditTextoId(item.catalogoTextoId ?? '')
   }
 
@@ -1654,37 +1596,14 @@ export default function OrcamentoDetailPage() {
     if (!item) return
     setEditCatalogoId(catalogoId)
     setEditTextoId('')
-    setEditSubservicoId('')
     setEditDescricao(item.nome)
     if (item.valorPadrao != null) setEditValor(String(item.valorPadrao))
-  }
-
-  /** Mesma regra da inclusão: com subserviço, é ele que descreve e precifica. */
-  function handleSelecionarSubservicoEdit(subId: string) {
-    setEditSubservicoId(subId)
-    setEditTextoId('')
-    const pai = catalogo.find(c => c.id === editCatalogoId)
-    // Igual à inclusão: tirar o subserviço devolve a descrição do serviço todo.
-    if (!subId) {
-      if (pai) {
-        setEditDescricao(pai.nome)
-        if (pai.valorPadrao != null) setEditValor(String(pai.valorPadrao))
-      }
-      return
-    }
-    const sub = pai?.subservicos?.find(x => x.id === subId)
-    if (!sub) return
-    setEditDescricao(`${pai!.nome} — ${sub.nome}`)
-    if (sub.valorPadrao != null) setEditValor(String(sub.valorPadrao))
   }
 
   // Escolha do texto na EDIÇÃO — mesma regra de captura de valor.
   function handleSelecionarTextoEdit(textoId: string) {
     setEditTextoId(textoId)
-    const pai = catalogo.find(c => c.id === editCatalogoId)
-    const item = editSubservicoId
-      ? pai?.subservicos?.find(x => x.id === editSubservicoId)
-      : pai
+    const item = catalogo.find(c => c.id === editCatalogoId)
     const texto = item?.textos?.find(t => t.id === textoId)
     if (texto && !temValorFixo(item?.valorPadrao) && texto.valor != null) {
       setEditValor(String(texto.valor))
@@ -1706,7 +1625,6 @@ export default function OrcamentoDetailPage() {
           itemDescontoPct: editTipo === 'SERVICO' ? (parseFloat(editDescPct) || null) : null,
           itemDescontoValor: editTipo === 'SERVICO' ? (parseFloat(editDescValor) || null) : null,
           catalogoId: editCatalogoId || null,
-          subservicoId: editSubservicoId || null,
           catalogoTextoId: editTextoId || null,
         },
       })
@@ -2497,39 +2415,7 @@ export default function OrcamentoDetailPage() {
                               <CatalogoCombobox catalogo={catalogo} tipo={itemTipo} selectedId={itemCatalogoId} onSelect={handleSelecionarDescricao} disabled={!itemTipo} />
                             </div>
                             {(() => {
-                              const cat = catalogo.find(c => c.id === itemCatalogoId)
-                              if (!cat?.subservicos?.length) return null
-                              return (
-                                <div className="space-y-1.5 min-w-[180px]">
-                                  {/* A opção de vender o serviço inteiro só aparece
-                                      para quem tem a permissão. Para os demais o
-                                      serviço foi decomposto justamente para não
-                                      entrar genérico no orçamento. */}
-                                  <Label className="text-[13px] font-semibold text-foreground">Subserviço</Label>
-                                  <Select
-                                    value={itemSubservicoId || (canItemSemSubservico ? '__todo__' : undefined)}
-                                    onValueChange={v => handleSelecionarSubservico(v === '__todo__' ? '' : v)}
-                                  >
-                                    <SelectTrigger className="h-9 w-[220px] text-sm"><SelectValue placeholder="Escolha o subserviço" /></SelectTrigger>
-                                    <SelectContent>
-                                      {canItemSemSubservico && (
-                                        <SelectItem value="__todo__">Sem subserviço — o serviço todo</SelectItem>
-                                      )}
-                                      {cat.subservicos.map(sub => (
-                                        <SelectItem key={sub.id} value={sub.id}>{sub.nome}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              )
-                            })()}
-                            {(() => {
-                              const cat = catalogo.find(c => c.id === itemCatalogoId)
-                              // Escolhido o subserviço, as variações são DELE — as do
-                              // pai descreveriam outro serviço.
-                              const dono = itemSubservicoId
-                                ? cat?.subservicos?.find(x => x.id === itemSubservicoId)
-                                : cat
+                              const dono = catalogo.find(c => c.id === itemCatalogoId)
                               if (!dono?.textos?.length) return null
                               return (
                                 <div className="space-y-1.5 min-w-[180px]">
@@ -2569,8 +2455,7 @@ export default function OrcamentoDetailPage() {
                               </>
                             )}
                             <Button variant="success" size="sm" onClick={handleAddItem}
-                              disabled={addingItem || !itemTipo || !itemDescricao.trim() || faltaSubservico}
-                              title={faltaSubservico ? 'Escolha o subserviço antes de incluir.' : undefined}
+                              disabled={addingItem || !itemTipo || !itemDescricao.trim()}
                               className="gap-1.5 h-9">
                               {addingItem ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                               Incluir Item
@@ -2612,10 +2497,10 @@ export default function OrcamentoDetailPage() {
                                   R$ lado a lado. O campo de desconto em reais ficava com
                                   ~64px e cortava o número: "0,0(" no lugar de "0,00".
 
-                                  Faixa 1 = o que o item É (tipo, descrição, subserviço,
-                                  variação). Faixa 2 = quanto ele VALE (quantidade, valor,
-                                  descontos, total). É a mesma leitura do formulário de
-                                  inclusão, logo acima.
+                                  Faixa 1 = o que o item É (tipo, descrição, variação).
+                                  Faixa 2 = quanto ele VALE (quantidade, valor, descontos,
+                                  total). É a mesma leitura do formulário de inclusão,
+                                  logo acima.
                                 */}
                                 <TableCell colSpan={7} className="p-0">
                                   <div
@@ -2627,7 +2512,7 @@ export default function OrcamentoDetailPage() {
                                       <span className="pb-2 text-xs text-muted-foreground">{idx + 1}</span>
                                       <div className="space-y-1">
                                         <Label className="text-[11px] font-semibold text-muted-foreground">Tipo</Label>
-                                        <Select value={editTipo} onValueChange={v => { setEditTipo(v); setEditCatalogoId(''); setEditTextoId(''); setEditSubservicoId('') }}>
+                                        <Select value={editTipo} onValueChange={v => { setEditTipo(v); setEditCatalogoId(''); setEditTextoId('') }}>
                                           <SelectTrigger className="h-9 w-[110px] text-xs"><SelectValue /></SelectTrigger>
                                           <SelectContent>
                                             <SelectItem value="SERVICO">Serviço</SelectItem>
@@ -2650,35 +2535,7 @@ export default function OrcamentoDetailPage() {
                                         />
                                       </div>
                                       {(() => {
-                                        const cat = catalogo.find(c => c.id === editCatalogoId)
-                                        if (!cat?.subservicos?.length) return null
-                                        return (
-                                          <div className="space-y-1">
-                                            {/* Sem asterisco: na edição o subserviço só é exigido se o
-                                                serviço estiver sendo trocado. */}
-                                            <Label className="text-[11px] font-semibold text-muted-foreground">Subserviço</Label>
-                                            <Select
-                                              value={editSubservicoId || (canItemSemSubservico ? '__todo__' : undefined)}
-                                              onValueChange={v => handleSelecionarSubservicoEdit(v === '__todo__' ? '' : v)}
-                                            >
-                                              <SelectTrigger className="h-9 w-[170px] shrink-0 text-xs"><SelectValue placeholder="Subserviço" /></SelectTrigger>
-                                              <SelectContent>
-                                                {canItemSemSubservico && (
-                                                  <SelectItem value="__todo__">Sem subserviço</SelectItem>
-                                                )}
-                                                {cat.subservicos.map(sub => (
-                                                  <SelectItem key={sub.id} value={sub.id}>{sub.nome}</SelectItem>
-                                                ))}
-                                              </SelectContent>
-                                            </Select>
-                                          </div>
-                                        )
-                                      })()}
-                                      {(() => {
-                                        const cat = catalogo.find(c => c.id === editCatalogoId)
-                                        const dono = editSubservicoId
-                                          ? cat?.subservicos?.find(x => x.id === editSubservicoId)
-                                          : cat
+                                        const dono = catalogo.find(c => c.id === editCatalogoId)
                                         if (!dono?.textos?.length) return null
                                         return (
                                           <div className="space-y-1">
@@ -2769,17 +2626,12 @@ export default function OrcamentoDetailPage() {
                                 <TableCell className="whitespace-nowrap"><TipoBadge tipo={item.tipo} /></TableCell>
                                 <TableCell className="text-sm cursor-pointer" onClick={() => startEditItem(item)}>
                                   <div className="whitespace-nowrap">{item.descricao}</div>
-                                  {/* O que foi escolhido dentro do serviço. Em linha
-                                      própria, e não colado na descrição: a descrição é
+                                  {/* A variação escolhida dentro do serviço. Em linha
+                                      própria, e não colada na descrição: a descrição é
                                       editável à mão, e o vínculo continua valendo mesmo
                                       quando alguém reescreve o texto. */}
-                                  {(item.subservico?.nome || item.catalogoTexto?.titulo) && (
+                                  {item.catalogoTexto?.titulo && (
                                     <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                                      {item.subservico?.nome && (
-                                        <span className={cn('rounded px-1.5 py-0.5', BADGE.violet)}>
-                                          {item.subservico.nome}
-                                        </span>
-                                      )}
                                       {item.catalogoTexto?.titulo && (
                                         <span className={cn('rounded px-1.5 py-0.5', BADGE.amber)}>
                                           {item.catalogoTexto.titulo}

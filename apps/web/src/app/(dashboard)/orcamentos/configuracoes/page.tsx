@@ -41,7 +41,6 @@ interface ConfigState {
   emailLembretes: string
   // #HLP0302 — "Usar apenas desconto por item". true (padrão) = desconto geral bloqueado.
   apenasDescontoItem: boolean
-  exigirSubservico: boolean
 }
 
 const DEFAULT_CONFIG: ConfigState = {
@@ -66,7 +65,6 @@ const DEFAULT_CONFIG: ConfigState = {
   followupTipoEventoId: '',
   emailLembretes: '',
   apenasDescontoItem: true,
-  exigirSubservico: true,
 }
 
 type TabKey = 'gerais' | 'prazos' | 'emails' | 'textos' | 'areas' | 'modelos' | 'ia' | 'pesquisa'
@@ -144,7 +142,6 @@ export default function OrcamentosConfiguracoesPage() {
         followup_tipo_evento_id: config.followupTipoEventoId,
         email_lembretes: config.emailLembretes,
         apenas_desconto_item: config.apenasDescontoItem ? '1' : '0',
-        exigir_subservico: config.exigirSubservico ? '1' : '0',
       })
       alerts.success('Salvo', 'Configurações atualizadas')
     } catch {
@@ -348,17 +345,6 @@ export default function OrcamentosConfiguracoesPage() {
                       <Checkbox checked={config.apenasDescontoItem} onCheckedChange={v => setConfig(c => ({ ...c, apenasDescontoItem: v === true }))} accentColor="var(--mod-comercial, #fb7185)" className="mt-0.5" />
                       <span className="text-[11px] text-muted-foreground">
                         <strong className="text-foreground font-medium">Usar apenas desconto por item.</strong> Marcado, o desconto é aplicado item a item (só serviços) e o desconto geral do orçamento fica desativado. Desmarcado, o desconto por item e o desconto geral <strong className="text-foreground font-medium">somam</strong>.
-                      </span>
-                    </label>
-                  </div>
-
-                  {/* #HLP0374 — exigência de subserviço */}
-                  <div className="col-span-12 border-t border-border pt-4 mt-1 space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground block">Itens do orçamento</label>
-                    <label className="flex items-start gap-2 cursor-pointer select-none">
-                      <Checkbox checked={config.exigirSubservico} onCheckedChange={v => setConfig(c => ({ ...c, exigirSubservico: v === true }))} accentColor="var(--mod-comercial, #fb7185)" className="mt-0.5" />
-                      <span className="text-[11px] text-muted-foreground">
-                        <strong className="text-foreground font-medium">Exigir subserviço ao incluir um item.</strong> Marcado, um serviço que foi dividido em subserviços só entra no orçamento com o subserviço escolhido — quem precisa vendê-lo fechado depende da permissão <em>&quot;Incluir serviço sem escolher o subserviço&quot;</em>. Desmarcado, a exigência não vale para ninguém e o serviço pode ser orçado como um todo.
                       </span>
                     </label>
                   </div>

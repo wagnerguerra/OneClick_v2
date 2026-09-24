@@ -17,7 +17,6 @@ interface Item {
   descontoPct?: number | string | null
   descontoValor?: number | string | null
   /** Escolhas feitas dentro do serviço — precisam aparecer na proposta. */
-  subservico?: { id: string; nome: string } | null
   catalogoTexto?: { id: string; titulo: string } | null
 }
 
@@ -681,14 +680,12 @@ export default function ImprimirOrcamentoPage() {
                       <td className="tipo">{item.tipoLabel}</td>
                       <td>
                         {item.descricao}
-                        {/* Subserviço e variação em linha própria: quem lê a
-                            proposta precisa saber exatamente o que foi
-                            contratado, e não só o nome do serviço guarda-chuva. */}
-                        {(item.subservico?.nome || item.catalogoTexto?.titulo) && (
+                        {/* A variação em linha própria: quem lê a proposta
+                            precisa saber exatamente o que foi contratado, e não
+                            só o nome do serviço. */}
+                        {item.catalogoTexto?.titulo && (
                           <div style={{ marginTop: 2, fontSize: 10.5, color: '#64748b' }}>
-                            {item.subservico?.nome && <span>{item.subservico.nome}</span>}
-                            {item.subservico?.nome && item.catalogoTexto?.titulo && <span> · </span>}
-                            {item.catalogoTexto?.titulo && <span>{item.catalogoTexto.titulo}</span>}
+                            {item.catalogoTexto.titulo}
                           </div>
                         )}
                         {desc > 0 && (

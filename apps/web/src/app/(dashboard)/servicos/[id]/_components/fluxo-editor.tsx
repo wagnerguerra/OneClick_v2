@@ -33,7 +33,7 @@ import {
   Calculator, Users, Shield, ClipboardList, Settings,
   Store, Building2, Scale, Monitor, Award,
   GitBranch, FileText, PlayCircle, CheckCircle2, HelpCircle, Box,
-  Network, Layers,
+  Layers,
 } from 'lucide-react'
 import { Badge, Button, Input, cn, Checkbox, Textarea } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
@@ -91,7 +91,6 @@ export interface FluxoNode {
    *  chips dentro do bloco quando o serviço é MENSAL. */
   acessoriasObrigacoes?: string[]
   /** Camada de catálogo — desenhada por cima do fluxo, quando ligada. */
-  subservicos?: Array<{ id: string; nome: string }>
   variacoes?: Array<{ id: string; titulo: string; valor: string | null }>
   /** Resumo das execuções ativas (em andamento, aguardando, etc) deste bloco.
    *  Backend agrega por servicoId em getFluxo. Renderizado como pill no rodapé
@@ -1098,24 +1097,19 @@ function EventoNodeComp({ data }: NodeProps) {
 
 // Registro de tipos custom (precisa ser estável)
 /**
- * Bloco da camada de catálogo — subserviço ou variação.
+ * Bloco da camada de catálogo — a variação com que o serviço é vendido.
  *
  * Deliberadamente diferente dos blocos de execução: menor, tracejado e sem
- * alças de conexão. Ele não roda; está ali para mostrar do que o serviço é
- * feito e como ele é vendido. Confundir os dois faria alguém procurar um
- * "COMPETE" na fila de execução.
+ * alças de conexão. Ele não roda; está ali para mostrar como o serviço é
+ * vendido. Confundir os dois faria alguém procurar um "Plano Completo" na fila
+ * de execução.
  */
-function CatalogoNodeComp({ data }: { data: { rotulo: string; detalhe?: string; kind: 'sub' | 'var' } }) {
-  const sub = data.kind === 'sub'
+function CatalogoNodeComp({ data }: { data: { rotulo: string; detalhe?: string } }) {
   return (
-    <div className={cn(
-      'rounded-lg border border-dashed px-2.5 py-1.5 text-[11px] max-w-[190px] bg-background/95',
-      sub ? 'border-violet-400 text-violet-800 dark:text-violet-300'
-          : 'border-amber-400 text-amber-800 dark:text-amber-300',
-    )}>
+    <div className="rounded-lg border border-dashed border-amber-400 px-2.5 py-1.5 text-[11px] max-w-[190px] bg-background/95 text-amber-800 dark:text-amber-300">
       <Handle type="target" position={Position.Left} className="!opacity-0 !pointer-events-none" />
       <div className="flex items-center gap-1.5">
-        {sub ? <Network className="h-3 w-3 shrink-0" /> : <Layers className="h-3 w-3 shrink-0" />}
+        <Layers className="h-3 w-3 shrink-0" />
         <span className="truncate font-medium" title={data.rotulo}>{data.rotulo}</span>
       </div>
       {data.detalhe && (
@@ -1169,7 +1163,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
    * Camada de catálogo por cima do fluxo.
    *
    * Desligada por padrão: o fluxo existe para responder "o que roda quando", e
-   * ligar subserviço e variação de saída poluiria justamente essa leitura.
+   * ligar as variações de venda poluiria justamente essa leitura.
    */
   const [mostrarCatalogo, setMostrarCatalogo] = useState(false)
   useEffect(() => {
@@ -1888,16 +1882,12 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
     for (const n of nodes) {
       const dono = (n.data as ServicoNodeData).node
       const filhos = [
-        ...(dono.subservicos ?? []).map(sv => ({
-          id: `sub:${sv.id}`, rotulo: sv.nome, detalhe: undefined as string | undefined, kind: 'sub' as const,
-        })),
         ...(dono.variacoes ?? []).map(v => ({
           id: `var:${v.id}`,
           rotulo: v.titulo,
           detalhe: v.valor != null
             ? `R$ ${Number(v.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
             : undefined,
-          kind: 'var' as const,
         })),
       ]
       if (filhos.length === 0) continue
@@ -1910,7 +1900,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
           id: idUnico,
           type: 'catalogo',
           position: { x: n.position.x + LARGURA_BLOCO + 60, y: n.position.y + i * ALTURA_LINHA },
-          data: { rotulo: f.rotulo, detalhe: f.detalhe, kind: f.kind },
+          data: { rotulo: f.rotulo, detalhe: f.detalhe },
           draggable: false,
           selectable: false,
           deletable: false,
@@ -1922,7 +1912,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
           animated: false,
           style: {
             strokeDasharray: '4 3',
-            stroke: f.kind === 'sub' ? '#a78bfa' : '#fbbf24',
+            stroke: '#fbbf24',
             strokeWidth: 1.5,
           },
           selectable: false,
@@ -2235,8 +2225,8 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                   : 'bg-white/80 dark:bg-black/40',
               )}
               title={mostrarCatalogo
-                ? 'Ocultar subserviços e variações'
-                : 'Mostrar subserviços e variações do catálogo'}
+                ? 'Ocultar as variações'
+                : 'Mostrar as variações do catálogo'}
             >
               <Layers className="h-3.5 w-3.5" />
             </Button>
