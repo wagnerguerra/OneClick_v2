@@ -232,6 +232,24 @@ function areaPalette(categoria: string | null | undefined): AreaPaletteEntry {
   return tonsDoBloco(groupModuleColorVar(categoria) ?? 'var(--color-primary)')
 }
 
+/**
+ * Tons de um bloco pelo TIPO — fonte única usada pelos blocos do canvas, pelo
+ * minimapa e pelo popover de detalhes. Atividade (e Documentação com área) =
+ * cor da área; Decisão = neutra (a forma de losango já diz o tipo); Pergunta =
+ * âmbar (interação humana); Documentação sem área = azul; Início/Fim =
+ * verde/vermelho. Não considera inativo/ancestral — isso é estado, não tipo.
+ */
+function tonsDoNo(n: Pick<FluxoNode, 'tipo' | 'area'>): AreaPaletteEntry {
+  switch (n.tipo) {
+    case 'DECISAO':      return tonsDoBloco('var(--color-muted-foreground)')
+    case 'PERGUNTA':     return tonsDoBloco('#f59e0b')
+    case 'DOCUMENTACAO': return n.area?.name ? areaPalette(n.area.name) : tonsDoBloco('#3b82f6')
+    case 'INICIO':       return tonsDoBloco('#16a34a')
+    case 'FIM':          return tonsDoBloco('#dc2626')
+    default:             return areaPalette(n.area?.name)
+  }
+}
+
 /** Cor com transparência — funciona com hex E com var() (concatenar `${cor}30` não). */
 const alfa = (cor: string, pct: number) => `color-mix(in oklab, ${cor} ${pct}%, transparent)`
 
@@ -546,7 +564,7 @@ function ServicoNodeComp({ data }: NodeProps) {
   const ref = useRef<HTMLDivElement>(null)
   void rootId
 
-  const pal = areaPalette(n.area?.name)
+  const pal = tonsDoNo(n)
   const fill = !n.ativo
     ? NEUTRO.fill
     : isAncestral
@@ -768,7 +786,7 @@ function DecisaoNodeComp({ data }: NodeProps) {
   // Decisões são neutras (cinza) por padrão — a forma de losango já carrega
   // toda a semântica do tipo. Cor reservada pras atividades (que diferenciam
   // áreas operacionais — Fiscal/Contábil/Trabalhista).
-  const GRAY = tonsDoBloco('var(--color-muted-foreground)')
+  const GRAY = tonsDoNo(n)
   const borderColor = !n.ativo || isAncestral ? NEUTRO.border : isRoot ? GRAY.borderRoot : GRAY.border
   const fill = !n.ativo ? NEUTRO.fill : isAncestral ? NEUTRO.fillAncestral : isRoot ? GRAY.fillRoot : GRAY.fillLight
   const textColor = !n.ativo || isAncestral ? NEUTRO.text : isRoot ? GRAY.textRoot : GRAY.text
@@ -853,7 +871,7 @@ function PerguntaNodeComp({ data }: NodeProps) {
   const isAncestral = n.position === 'ANCESTRAL'
 
   // Paleta âmbar — destaca o bloco como ponto de interação humana.
-  const AMBER = tonsDoBloco('#f59e0b')
+  const AMBER = tonsDoNo(n)
   const borderColor = !n.ativo ? NEUTRO.border : isAncestral ? alfa(AMBER.border, 55) : isRoot ? AMBER.borderRoot : AMBER.border
   const fill = !n.ativo ? NEUTRO.fill : isRoot ? AMBER.fillRoot : AMBER.fillLight
   const textColor = !n.ativo ? NEUTRO.text : isRoot ? AMBER.textRoot : AMBER.text
@@ -960,7 +978,7 @@ function DocumentacaoNodeComp({ data }: NodeProps) {
   const isAncestral = n.position === 'ANCESTRAL'
   // Documentação também segue a área (forma de documento distingue o tipo).
   // Sem área, usa o azul legado como fallback semântico.
-  const palBase = n.area?.name ? areaPalette(n.area.name) : tonsDoBloco('#3b82f6')
+  const palBase = tonsDoNo(n)
   const borderColor = !n.ativo || isAncestral ? NEUTRO.border : isRoot ? palBase.borderRoot : palBase.border
   const fill = !n.ativo ? NEUTRO.fill : isAncestral ? NEUTRO.fillAncestral : isRoot ? palBase.fillRoot : palBase.fillLight
   const textColor = !n.ativo || isAncestral ? NEUTRO.text : isRoot ? palBase.textRoot : palBase.text
@@ -1023,7 +1041,7 @@ function EventoNodeComp({ data }: NodeProps) {
   const isFim = n.tipo === 'FIM'
   const isAncestral = n.position === 'ANCESTRAL'
   // Início = verde, Fim = vermelho (semântica de evento), tons adaptados ao tema.
-  const tons = tonsDoBloco(isFim ? '#dc2626' : '#16a34a')
+  const tons = tonsDoNo(n)
   const borderColor = !n.ativo || isAncestral ? NEUTRO.border : tons.border
   const fill = !n.ativo ? NEUTRO.fill : isAncestral ? NEUTRO.fillAncestral : tons.fillRoot
   const textColor = !n.ativo || isAncestral ? NEUTRO.text : tons.textRoot
@@ -1977,10 +1995,10 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
               nodeStrokeWidth={3}
               nodeColor={(n) => {
                 const d = n.data as ServicoNodeData
-                // Mesma cor da borda do bloco no canvas (área → cor do módulo).
+                // Mesma cor da borda do bloco no canvas (cor do tipo/área).
                 if (!d?.node) return NEUTRO.border
                 if (d.node.position === 'ANCESTRAL' || !d.node.ativo) return NEUTRO.border
-                const pal = areaPalette(d.node.area?.name)
+                const pal = tonsDoNo(d.node)
                 return d.node.position === 'RAIZ' ? pal.borderRoot : pal.border
               }}
               style={{ height: 80, width: 140 }}
@@ -2930,6 +2948,8 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
   if (!pos || typeof document === 'undefined') return null
 
   const totalPassos = node.etapas.reduce((acc, et) => acc + et.passos.length, 0)
+  // Popover tematizado pela cor do TIPO do bloco — a mesma que ele tem no canvas.
+  const tons = tonsDoNo(node)
 
   return createPortal(
     <div
@@ -2938,14 +2958,22 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
       style={{ top: pos.top, left: pos.left, width: W, maxHeight: MAX_H }}
     >
       <div
-        className={cn('px-3 py-2.5 border-b flex items-start justify-between gap-2', isRoot ? 'bg-primary/15' : 'bg-primary/5')}
+        className="px-3 py-2.5 border-b flex items-start justify-between gap-2"
+        style={{ background: isRoot ? tons.fillRoot : tons.fillLight, borderBottomColor: alfa(tons.border, 40) }}
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
-            {isRoot && <Badge className="text-[9px] h-4 bg-primary hover:bg-primary-hover text-primary-foreground">RAIZ</Badge>}
+            {isRoot && (
+              <span
+                className="inline-flex items-center h-4 px-1.5 rounded text-[9px] font-bold border"
+                style={{ background: alfa(tons.border, 22), color: tons.textRoot, borderColor: alfa(tons.border, 50) }}
+              >
+                RAIZ
+              </span>
+            )}
             <span className="text-sm font-semibold truncate text-foreground">{node.nome}</span>
           </div>
-          <div className="flex items-center gap-2 text-[10px] text-primary-on-surface mt-0.5">
+          <div className="flex items-center gap-2 text-[10px] mt-0.5" style={{ color: tons.text }}>
             {node.area?.name && <span>{node.area.name}</span>}
             {(() => {
               const sla = formatNodeSla(node.slaMinutos, node.slaHoras)
@@ -2958,7 +2986,8 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
         <button
           type="button"
           onClick={onClose}
-          className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-primary/10 text-primary-on-surface shrink-0"
+          className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-[color:var(--tom-hover)] shrink-0"
+          style={{ color: tons.text, '--tom-hover': alfa(tons.border, 18) } as React.CSSProperties}
           title="Fechar"
         >
           <X className="h-3 w-3" />
@@ -3147,7 +3176,10 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
             {node.etapas.map((et, ei) => (
               <div key={et.id} className="px-3 py-2">
                 <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-[9px] font-bold text-primary-on-surface bg-primary/10 rounded px-1.5 py-0.5">
+                  <span
+                    className="text-[9px] font-bold rounded px-1.5 py-0.5"
+                    style={{ background: alfa(tons.border, 15), color: tons.textRoot }}
+                  >
                     {ei + 1}
                   </span>
                   <span className="text-[11px] font-semibold text-foreground truncate">{et.nome}</span>
