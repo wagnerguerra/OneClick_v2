@@ -2,6 +2,7 @@ import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import { SciService, type SciBalanceteLinha } from '../cliente/sci.service'
 import { BiSyncEventsService } from './bi-sync-events.service'
+import { conferirBalanceteFecha } from './balancete-integridade'
 
 export interface RefreshJob {
   status: 'idle' | 'running' | 'done' | 'error'
@@ -623,6 +624,30 @@ export class BiBalanceteService {
     }
 
     const rows = Array.from(deduped.values())
+
+    // ── Conferência de integridade do balancete ───────────────────────────
+    //
+    // O balancete do SCI carrega uma invariante contábil: a soma dos débitos é
+    // igual à soma dos créditos. É o "Total de débitos / Total de créditos /
+    // Diferença: 0,00" do bloco RESUMO do relatório impresso — bloco que, aliás,
+    // o tratamento manual do Power BI descarta, perdendo a conferência.
+    //
+    // Conferimos sobre as FOLHAS: cada nível sintético repete o valor das filhas,
+    // e somar todos os níveis contaria a mesma coisa várias vezes.
+    //
+    // Não bloqueia a importação: um balancete desbalanceado é problema do
+    // fechamento contábil, não deste código, e travar aqui esconderia o dado de
+    // quem precisa vê-lo para corrigir. Mas passa a ficar registrado, em vez de
+    // ninguém nunca saber.
+    const conferencia = conferirBalanceteFecha(rows)
+    if (!conferencia.fecha) {
+      console.warn(
+        `[BiBalancete] Balancete ${periodo} do cliente ${clienteId} NÃO FECHA: `
+        + `débitos ${conferencia.somaDebitos.toFixed(2)} × `
+        + `créditos ${conferencia.somaCreditos.toFixed(2)} `
+        + `(diferença ${conferencia.diferenca.toFixed(2)})`,
+      )
+    }
 
     await prisma.$transaction(async (tx) => {
       if (substituirExistentes) {

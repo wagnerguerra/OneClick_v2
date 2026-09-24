@@ -133,14 +133,25 @@ export class BiService {
       where: { clienteId, periodo: { gte: periodoInicio, lte: periodoFim } },
     })
 
-    // 3. Build value map: conta → ref → movimento
+    // 3. Mapa de valores: conta → ref → (créditos − débitos)
+    //
+    // Era `movimento`, e essa era a raiz da divergência com os KPIs: eles sempre
+    // somaram `creditos - debitos`. Duas bases diferentes na mesma tela, sem
+    // chance de fechar. Pior, `movimento` é corrompido na importação quando a
+    // mesma conta volta em vários centros de custo — o dedup soma débito e
+    // crédito mas guarda o MENOR movimento em valor absoluto.
+    //
+    // `creditos - debitos` também carrega o SINAL CONTÁBIL naturalmente: receita
+    // é credora (positiva), despesa é devedora (negativa). É o mesmo
+    // `SUM(Crédito) - SUM(Débito)` do `Realizado Base` do Power BI.
     const valueMap = new Map<string, Map<string, number>>()
     const refs = new Set<string>()
     for (const l of linhas) {
       refs.add(l.periodo)
       if (!valueMap.has(l.conta)) valueMap.set(l.conta, new Map())
       const refMap = valueMap.get(l.conta)!
-      refMap.set(l.periodo, (refMap.get(l.periodo) || 0) + Number(l.movimento))
+      const valor = Number(l.creditos) - Number(l.debitos)
+      refMap.set(l.periodo, (refMap.get(l.periodo) || 0) + valor)
     }
     const sortedRefs = Array.from(refs).sort()
 
@@ -161,7 +172,10 @@ export class BiService {
 
     const aplicarOp = (acc: number, op: string, v: number): number => {
       const o = (op || 'soma').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      if (o === 'subtracao' || o === 'subtração' || o === '-') return acc - Math.abs(v)
+      // Sem `Math.abs`: com o sinal natural de `creditos - debitos`, o operando
+      // já vem negativo quando é despesa. Forçar o módulo aqui invertia estorno
+      // — uma conta redutora com saldo credor virava despesa maior.
+      if (o === 'subtracao' || o === 'subtração' || o === '-') return acc - v
       if (o === 'multiplicacao' || o === '*') return acc * v
       if (o === 'divisao' || o === '/') return v !== 0 ? acc / v : acc
       return acc + v // soma
@@ -182,7 +196,7 @@ export class BiService {
         return acc
       }
       // Legacy: single operation between all operands
-      if (operacao === 'subtracao' && vals.length === 2) return (vals[0] ?? 0) - Math.abs(vals[1] ?? 0)
+      if (operacao === 'subtracao' && vals.length === 2) return (vals[0] ?? 0) - (vals[1] ?? 0)
       return vals.reduce((a, b) => a + b, 0)
     }
 
@@ -227,8 +241,19 @@ export class BiService {
     }
     const receitaBrutaNode = receitaBrutaId ? nodesById.get(receitaBrutaId) : null
 
-    // 8. Detect expense/cost categories (displayed as negative)
-    const isDespesa = (nome: string) => /dedu[cç]|custo|despesa|imposto|abatimento/i.test(nome)
+    // 8. (removido) Detecção de despesa por NOME.
+    //
+    // Havia aqui um regex sobre o nome da categoria
+    // (/dedu[cç]|custo|despesa|imposto|abatimento/) que decidia o sinal exibido,
+    // com `realizado = isDesp ? -Math.abs(v) : v`. Dois defeitos graves:
+    //
+    //  - o nome vem de `nomeExibicao || nomeSci`, campo LIVRE editado na tela de
+    //    categorias: renomear uma linha mudava o sinal do número;
+    //  - `-Math.abs()` destrói estorno. Conta redutora de despesa com saldo
+    //    credor era forçada a negativa e AUMENTAVA a despesa. Simetricamente,
+    //    receita com "imposto" no nome virava negativa.
+    //
+    // O sinal agora vem do dado (`creditos - debitos`), como no Power BI.
 
     // 9. Build visible hierarchy (only ativo=true, skip invisible parents)
     const visibleParent = new Map<string, string | null>()
@@ -279,7 +304,6 @@ export class BiService {
         const cat = catMap.get(conta)
         const node = nodesById.get(conta)
         const nome = cat?.nomeExibicao || cat?.nomeSci || conta
-        const isDesp = isDespesa(nome)
         const hasSub = (visibleChildren.get(conta)?.length ?? 0) > 0
 
         const valores: Record<string, { realizado: number; pct_av: number }> = {}
@@ -287,11 +311,15 @@ export class BiService {
 
         for (const ref of sortedRefs) {
           const v = node?.valores.get(ref) ?? 0
-          const realizado = isDesp ? -Math.abs(v) : v
+          const realizado = v
           totalReal += realizado
 
+          // % de análise vertical sobre a Receita Bruta, com DUAS casas — era
+          // inteiro (`Math.round(x*100)`), enquanto as margens dos KPIs na mesma
+          // tela usam duas. `Math.abs` no resultado espelha o
+          // `ABS(DIVIDE(...))` da medida "% do Faturamento" do Power BI.
           const rb = receitaBrutaNode?.valores.get(ref) ?? 0
-          const pct_av = rb !== 0 ? Math.round((Math.abs(v) / Math.abs(rb)) * 100) : 0
+          const pct_av = rb !== 0 ? Math.round(Math.abs(v / rb) * 10000) / 100 : 0
 
           valores[ref] = { realizado, pct_av }
         }

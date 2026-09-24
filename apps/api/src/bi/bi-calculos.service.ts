@@ -166,6 +166,15 @@ async function somarPorCategoriaDre(
   }
 
   // COALESCE(override do cliente, template global)
+  //
+  // SOMENTE FOLHAS. Sem este NOT EXISTS, categorizar uma conta sintética que já
+  // tem filhas categorizadas soma o mesmo valor duas vezes — e a tela de
+  // categorias deixa categorizar qualquer nível, sem validar nem avisar. Até
+  // agora o que protegia era acidente: o template global só tem contas de
+  // nível 5. O Power BI resolve o mesmo problema por construção — a consulta
+  // da `dPlano de Contas` filtra `Comprimento = 13 ou 19`, isto é, só folhas.
+  //
+  // Folha = conta sem nenhuma outra conta descendente no MESMO período.
   const sql = `
     SELECT COALESCE(SUM(l.creditos - l.debitos), 0)::float AS valor
     FROM cliente_bi_linhas l
@@ -176,6 +185,13 @@ async function somarPorCategoriaDre(
     WHERE l.cliente_id = $1
       AND ${p.sql}
       AND COALESCE(cbc.categoria_dre, pccp.categoria_dre) = $2
+      AND NOT EXISTS (
+        SELECT 1 FROM cliente_bi_linhas f
+        WHERE f.cliente_id = l.cliente_id
+          AND f.periodo = l.periodo
+          AND f.conta LIKE l.conta || '.%'
+          AND LENGTH(f.conta) > LENGTH(l.conta)
+      )
       ${ignoradasClause}
   `
 
