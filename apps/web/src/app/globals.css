@@ -18,6 +18,11 @@
   --color-primary: #0067ff;
   --color-primary-hover: #0058db;
   --color-primary-foreground: #ffffff;
+  /* Primária LEGÍVEL sobre superfície (texto/ícone/borda na cor primária em cima
+     de card/fundo). No light = a própria primária; no dark = tom claro por skin
+     (ver bloco do soft). Use no lugar de --color-primary sempre que a cor for
+     ficar sobre superfície escura no dark. Utilitário: text-primary-on-surface. */
+  --color-primary-on-surface: var(--btn-soft-accent);
   --color-secondary: #e8e8e8;
   --color-secondary-foreground: #1a1a1a;
   --color-muted: #f0f0f0;
@@ -119,19 +124,19 @@
    O soft NÃO usa --color-primary direto: usa --btn-soft-accent, que no light (e no
    Padrão) = a própria primária, mas no DARK de cada skin aponta pro tom CLARO
    (--skin-<key>-dark-soft) — o --color-primary dark fica escuro só pro texto branco
-   dos botões sólidos. O <Button variant="soft"> consome text-[color:var(--btn-soft-fg)],
-   bg-[color:var(--btn-soft-bg)] e o hover mistura var(--btn-soft-accent).
-   As abas ([role="tab"]) também usam --btn-soft-fg no dark (hover/ativa). */
+   dos botões sólidos. O texto do soft é o token de tema --color-primary-on-surface
+   (declarado no @theme; primária legível sobre superfície — também usado nas abas
+   [role="tab"] no dark). Fundo = --btn-soft-bg; o hover mistura --btn-soft-accent. */
 :root {
   --btn-soft-accent: var(--color-primary);
-  --btn-soft-fg: var(--btn-soft-accent);
   --btn-soft-bg: color-mix(in oklab, var(--btn-soft-accent) 15%, transparent);
 }
-/* Texto do soft no DARK misturado com branco (o accent já vem do -dark-soft na fiação). */
-.dark[data-skin="lilas"]   { --btn-soft-fg: color-mix(in oklab, var(--btn-soft-accent), white 15%); }
-.dark[data-skin="grafite"] { --btn-soft-fg: color-mix(in oklab, var(--btn-soft-accent), white 70%); }
-/* Padrão (sem data-skin) no DARK: texto do soft um tiquinho mais claro. */
-.dark:not([data-skin]) { --btn-soft-fg: color-mix(in oklab, var(--btn-soft-accent), white 25%); }
+/* No DARK, algumas skins ainda misturam branco p/ legibilidade (o accent já vem do
+   -dark-soft na fiação). */
+.dark[data-skin="lilas"]   { --color-primary-on-surface: color-mix(in oklab, var(--btn-soft-accent), white 15%); }
+.dark[data-skin="grafite"] { --color-primary-on-surface: color-mix(in oklab, var(--btn-soft-accent), white 70%); }
+/* Padrão (sem data-skin) no DARK: um tiquinho mais claro. */
+.dark:not([data-skin]) { --color-primary-on-surface: color-mix(in oklab, var(--btn-soft-accent), white 25%); }
 
 /* Pulso do badge do sino (modelo LuminAux: scale 1→1.15→1, 1.6s, infinito) e
    entrada do drawer de notificações pela direita. */
@@ -1027,7 +1032,7 @@ html:has([data-portal-root]) { scroll-behavior: smooth; }
     cursor: auto;
   }
   /* Cor das abas: light = primária; dark = a mesma cor do texto do soft button
-     dark (var(--btn-soft-fg)), que já traz o ajuste por skin. */
+     dark (var(--color-primary-on-surface)), que já traz o ajuste por skin. */
   [role="tablist"] button[role="tab"]:hover {
     color: var(--color-primary);
     border-bottom-color: color-mix(in oklab, var(--color-primary) 30%, transparent);
@@ -1043,15 +1048,15 @@ html:has([data-portal-root]) { scroll-behavior: smooth; }
     color: #adb5bd;
   }
   .dark [role="tablist"] button[role="tab"][data-state="active"] {
-    color: var(--btn-soft-fg);
-    border-bottom-color: var(--btn-soft-fg);
+    color: var(--color-primary-on-surface);
+    border-bottom-color: var(--color-primary-on-surface);
     background: rgba(30, 41, 59, 0.92);
     border-radius: 6px 6px 0 0;
     box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.3);
   }
   .dark [role="tablist"] button[role="tab"]:hover {
-    color: var(--btn-soft-fg);
-    border-bottom-color: color-mix(in oklab, var(--btn-soft-fg) 30%, transparent);
+    color: var(--color-primary-on-surface);
+    border-bottom-color: color-mix(in oklab, var(--color-primary-on-surface) 30%, transparent);
   }
 
   /* Dark mode overrides */
