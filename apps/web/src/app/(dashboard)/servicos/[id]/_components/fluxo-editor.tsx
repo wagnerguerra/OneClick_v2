@@ -226,10 +226,12 @@ const NEUTRO = {
 /**
  * Cor do bloco pela área dele. A área é um bloco da sidebar, então a cor é a
  * do módulo (`var(--mod-<slug>)`, editável no design-system) — indicador de
- * qual módulo executa o bloco. Área sem cor de módulo cai na primária.
+ * qual módulo executa o bloco. Sem área (ou área sem cor de módulo) cai no
+ * verde fixo da Atividade — convenção do editor, mesma cor da prévia "Ativ.".
  */
+const COR_ATIVIDADE = '#10b981'
 function areaPalette(categoria: string | null | undefined): AreaPaletteEntry {
-  return tonsDoBloco(groupModuleColorVar(categoria) ?? 'var(--color-primary)')
+  return tonsDoBloco(groupModuleColorVar(categoria) ?? COR_ATIVIDADE)
 }
 
 /**
@@ -2066,7 +2068,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                 variant="outline"
                 onClick={() => setPaletteOpen(v => !v)}
                 data-fluxo-catalogo-toggle
-                className="gap-1.5 bg-card/80 backdrop-blur-sm"
+                className="gap-1.5 bg-card/80 dark:bg-black/40 backdrop-blur-sm"
                 title={paletteOpen ? 'Fechar catálogo de serviços' : 'Abrir catálogo de serviços'}
               >
                 {paletteOpen
@@ -2107,7 +2109,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                     <div className="text-[11px] font-semibold mb-1.5">Novo bloco</div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
                       {([
-                        { tipo: 'ATIVIDADE' as const, label: 'Ativ.', color: 'var(--color-primary)', shape: 'rect' },
+                        { tipo: 'ATIVIDADE' as const, label: 'Ativ.', color: COR_ATIVIDADE, shape: 'rect' },
                         { tipo: 'DECISAO' as const, label: 'Decis.', color: 'var(--color-muted-foreground)', shape: 'diamond' },
                         { tipo: 'PERGUNTA' as const, label: 'Pergunta', color: '#f59e0b', shape: 'question' },
                         { tipo: 'DOCUMENTACAO' as const, label: 'Doc.', color: '#3b82f6', shape: 'document' },
@@ -2129,7 +2131,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                               setPerguntaMulti(true)
                             }
                           }}
-                          className="flex flex-col items-center gap-0.5 p-1.5 rounded border bg-card hover:border-primary transition-colors"
+                          className="flex flex-col items-center gap-0.5 p-1.5 rounded border bg-card dark:bg-[color-mix(in_oklab,var(--color-background)_50%,var(--color-popover))] hover:border-primary transition-colors"
                           title={b.tipo}
                         >
                           {/* Mini-shape preview */}
@@ -2226,7 +2228,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                         <div className="flex items-center gap-1.5">
                           <div
                             className="h-1.5 w-1.5 rounded-full shrink-0"
-                            style={{ background: s.tipo === 'DECISAO' ? 'var(--color-muted-foreground)' : (groupModuleColorVar(s.area?.name) ?? 'var(--color-primary)') }}
+                            style={{ background: s.tipo === 'DECISAO' ? 'var(--color-muted-foreground)' : (groupModuleColorVar(s.area?.name) ?? COR_ATIVIDADE) }}
                           />
                           <span className="text-[12px] font-medium truncate flex-1">{s.nome}</span>
                           {/* Tons do BADGE.emerald (700/300): legíveis sobre o hover verde também no dark. */}
@@ -2250,7 +2252,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
 
           <Panel position="top-right" className="flex items-center gap-2">
             {saving && (
-              <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1 bg-card/80 rounded px-2 py-1 backdrop-blur-sm">
+              <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1 bg-card/80 dark:bg-black/40 rounded px-2 py-1 backdrop-blur-sm">
                 <Loader2 className="h-3 w-3 animate-spin" /> Salvando…
               </span>
             )}
@@ -2258,7 +2260,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
               size="icon"
               variant="outline"
               onClick={() => setMinimapOn(v => !v)}
-              className="h-8 w-8 bg-card/80 backdrop-blur-sm"
+              className="h-8 w-8 bg-card/80 dark:bg-black/40 backdrop-blur-sm"
               title={minimapOn ? 'Ocultar minimap' : 'Mostrar minimap'}
             >
               {minimapOn ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -2271,7 +2273,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                 'h-8 w-8 backdrop-blur-sm',
                 snapToGrid
                   ? BADGE.sky
-                  : 'bg-card/80',
+                  : 'bg-card/80 dark:bg-black/40',
               )}
               title={snapToGrid ? 'Alinhamento à grade ativo (clique pra liberar)' : 'Alinhar à grade'}
             >
@@ -2287,7 +2289,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                 'h-8 w-8 backdrop-blur-sm',
                 mostrarCatalogo
                   ? BADGE.violet
-                  : 'bg-card/80',
+                  : 'bg-card/80 dark:bg-black/40',
               )}
               title={mostrarCatalogo
                 ? 'Ocultar subserviços e variações'
@@ -2299,7 +2301,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
               size="icon"
               variant="outline"
               onClick={() => setFullscreen(v => !v)}
-              className="h-8 w-8 bg-card/80 backdrop-blur-sm"
+              className="h-8 w-8 bg-card/80 dark:bg-black/40 backdrop-blur-sm"
               title={fullscreen ? 'Sair de tela cheia' : 'Tela cheia'}
             >
               {fullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
@@ -2309,7 +2311,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                 size="sm"
                 variant="outline"
                 onClick={reorganizar}
-                className="gap-1.5 bg-card/80 backdrop-blur-sm"
+                className="gap-1.5 bg-card/80 dark:bg-black/40 backdrop-blur-sm"
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
                 Auto-organizar
