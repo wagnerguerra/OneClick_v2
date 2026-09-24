@@ -19,7 +19,7 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import {
   Palette, Layout, Box, Inbox, Hash, Copy, Check, Lock,
   Info, Lightbulb, AlertTriangle, FileCode, Workflow,
-  Sparkles, Database, Plus, Search, Eye, Edit, Trash2,
+  Database, Plus, Search, Eye, Edit, Trash2,
   MoreVertical, Calculator, FileText, MessageSquare,
   Settings, X, Save, ListChecks, ShoppingCart, RotateCcw,
   ArrowLeft, Smartphone, Calendar, ChevronRight, ArrowUp, ArrowDown,
@@ -1116,7 +1116,7 @@ import { Database } from 'lucide-react'
 
 <Dialog open={open} onOpenChange={setOpen}>
   <DialogContent className="max-w-lg">
-    <DialogHeaderIcon icon={Database} color="sky">
+    <DialogHeaderIcon icon={Database} color="emerald">
       <DialogTitle>Novo ativo</DialogTitle>
       <DialogDescription>
         Cadastro rápido — depois você pode editar todos os campos na página do ativo.
@@ -1130,7 +1130,7 @@ import { Database } from 'lucide-react'
     </DialogBody>
     <DialogFooter>
       <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-      <Button onClick={handleSave}>Salvar</Button>
+      <Button variant="success" onClick={handleSave}>Salvar</Button>
     </DialogFooter>
   </DialogContent>
 </Dialog>`}
@@ -1140,7 +1140,7 @@ import { Database } from 'lucide-react'
             <Button>Abrir modal de exemplo</Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
-            <DialogHeaderIconDemo icon={Database} color="sky">
+            <DialogHeaderIconDemo icon={Database} color="emerald">
               <DialogTitle>Novo ativo</DialogTitle>
               <DialogDescription>
                 Cadastro rápido — depois você pode editar todos os campos na página do ativo.
@@ -1158,7 +1158,7 @@ import { Database } from 'lucide-react'
             </DialogBody>
             <DialogFooter>
               <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-              <Button onClick={() => setOpen(false)}>Salvar</Button>
+              <Button variant="success" onClick={() => setOpen(false)}>Salvar</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1198,22 +1198,32 @@ import { Database } from 'lucide-react'
 
       <SubTitle>Cores aceitas (prop color)</SubTitle>
       <Note>
-        Use cores semânticas conforme o contexto da ação. Estado default é <code className="text-[11px]">sky</code>.
+        <code className="text-[11px]">color</code> é opcional — o default é <code className="text-[11px]">primary</code> (a cor
+        do sistema, acompanha a skin). O componente aceita qualquer uma das cores abaixo.
       </Note>
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-        {(['sky','emerald','rose','amber','violet','indigo','cyan','orange','fuchsia','lime','slate','red','purple','blue'] as const).map(c => (
+        {(['primary','sky','emerald','rose','amber','violet','indigo','cyan','orange','fuchsia','lime','slate','red','purple','blue'] as const).map(c => (
           <ColorDemo key={c} color={c} />
         ))}
       </div>
 
-      <SubTitle>Quando usar cada cor</SubTitle>
+      <SubTitle>Quando usar cada cor (guideline)</SubTitle>
+      <Note>
+        Guideline, não regra absoluta — fuja dela quando a intenção pedir. A ação principal do modal sugere a cor,
+        e o ícone e o botão de confirmação dessa ação seguem juntos. Prefira a <code className="text-[11px]">variant</code> do
+        Button a <code className="text-[11px]">style</code>/<code className="text-[11px]">bg-*</code> manual; só a ação principal leva
+        cor (Cancelar/Fechar ficam <code className="text-[11px]">outline</code>). Modal único de criar/editar alterna os dois juntos:
+        {' '}<code className="text-[11px]">color={'{'}editando ? &apos;sky&apos; : &apos;emerald&apos;{'}'}</code> +{' '}
+        <code className="text-[11px]">variant={'{'}editando ? &apos;info&apos; : &apos;success&apos;{'}'}</code>.
+      </Note>
       <Card className="p-4 space-y-2">
-        <ContextRow color="emerald" icon={Plus}    when="Criar / Novo / Cadastrar" />
-        <ContextRow color="sky"     icon={Edit}    when="Editar / Atualizar / Visualizar" />
-        <ContextRow color="rose"    icon={Trash2}  when="Excluir / Remover / Destrutivo" />
-        <ContextRow color="amber"   icon={AlertTriangle} when="Avisos / Confirmações / Atenção" />
-        <ContextRow color="slate"   icon={Settings} when="Configurações / Settings" />
-        <ContextRow color="violet"  icon={Sparkles} when="Recursos especiais / Premium" />
+        <ContextRow color="emerald" icon={Plus}          button='variant="success"'     when="Criar / Novo / Adicionar / Cadastrar" />
+        <ContextRow color="sky"     icon={Edit}          button='variant="info"'        when="Editar / Alterar" />
+        <ContextRow color="rose"    icon={Trash2}        button='variant="destructive"' when="Excluir / Remover" />
+        <ContextRow color="amber"   icon={AlertTriangle} button='variant="warning"'     when="Aviso / confirmação arriscada" />
+        <ContextRow color="slate"   icon={Settings}      button="default (sem sólido slate)" when="Configurações / parâmetros" />
+        <ContextRow color="emerald" icon={Database}      button='variant="success"'     when="Importar / Exportar / Upload / Download" />
+        <ContextRow color="primary" icon={Eye}           button="default"               when="Visualizar / detalhes / progresso (omitir color)" />
       </Card>
 
       <SubTitle>Confirmação destrutiva (alerts.confirm)</SubTitle>
@@ -1294,6 +1304,7 @@ function DialogHeaderIconDemo({ icon: Icon, color, children }: { icon: typeof Da
 
 function ColorDemo({ color }: { color: string }) {
   const COLOR_CLS: Record<string, string> = {
+    primary:  'bg-primary/10 text-primary',
     sky:      cn('bg-sky-100 dark:bg-sky-950/40', TEXT.sky),
     emerald:  cn('bg-emerald-100 dark:bg-emerald-950/40', TEXT.emerald),
     rose:     cn('bg-rose-100 dark:bg-rose-950/40', TEXT.rose),
@@ -1319,8 +1330,9 @@ function ColorDemo({ color }: { color: string }) {
   )
 }
 
-function ContextRow({ color, icon: Icon, when }: { color: string; icon: typeof Plus; when: string }) {
+function ContextRow({ color, icon: Icon, when, button }: { color: string; icon: typeof Plus; when: string; button?: string }) {
   const COLOR_CLS: Record<string, string> = {
+    primary:  'bg-primary/10 text-primary',
     sky:      cn('bg-sky-100 dark:bg-sky-950/40', TEXT.sky),
     emerald:  cn('bg-emerald-100 dark:bg-emerald-950/40', TEXT.emerald),
     rose:     cn('bg-rose-100 dark:bg-rose-950/40', TEXT.rose),
@@ -1336,6 +1348,7 @@ function ContextRow({ color, icon: Icon, when }: { color: string; icon: typeof P
       <div className="flex-1 text-[12px]">
         <code className="text-[11px] font-mono font-semibold">color=&quot;{color}&quot;</code>
         <span className="text-foreground/70 ml-2">→ {when}</span>
+        {button && <span className="block text-[11px] text-muted-foreground">botão de confirmação: <code className="font-mono">{button}</code></span>}
       </div>
     </div>
   )

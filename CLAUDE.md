@@ -104,12 +104,11 @@ No frontend: sempre `useServerTable + DataTable`. Nunca paginação client-side 
 `React Hook Form + Zod + shadcn/ui Form`. Schema do form = schema do DTO Nest. Campos: `h-9 text-sm`, label `text-[13px] font-semibold`, espaçamento `space-y-1.5`.
 
 ### Modais — `DialogHeaderIcon` obrigatório
-Todo modal usa `<DialogHeaderIcon icon={X} color="Y">` (componente em `apps/web/src/components/ui/dialog-header-icon.tsx`). Cores: `sky | emerald | rose | amber | violet | indigo | cyan | orange | fuchsia | lime | slate | red | purple | blue`.
+Todo modal usa `<DialogHeaderIcon icon={X} color="Y">` (componente em `apps/web/src/components/ui/dialog-header-icon.tsx`). `color` é opcional — o default `primary` é a cor do sistema. Cores: `primary | sky | emerald | rose | amber | violet | indigo | cyan | orange | fuchsia | lime | slate | red | purple | blue`.
 
-Por contexto: Criar=`emerald` · Editar=`sky`/`blue` · Excluir=`rose`/`red` · Avisos=`amber` · Config=`slate`/`violet` · Import/Export=`emerald`/`sky`.
+**Qual cor usar por ação** (ícone + botão de confirmação da ação principal) é guideline, documentada num lugar só: `/admin/design-system` → aba "Modais" → "Quando usar cada cor" (`apps/web/src/app/(dashboard)/admin/design-system/page.tsx`). Consulte lá antes de escolher; não copie a tabela pra outro lugar.
 
 **Proibido:** `<DialogHeader>` cru, ícone inline no `<DialogTitle>`, divs com bg colorido manual.
-Doc viva: `/admin/design-system` → aba "Modais".
 
 ### Sub-abas (Card com pills laterais)
 Wrapper `<Card>` + `flex min-h-[450px]` + sidebar de pills `w-[170px] bg-muted/40 border-r border-border`. Pill ativa = cor do módulo (CSS var). Conteúdo com `key={activeTab}` + `animation: fadeSlideIn 0.25s`. Títulos internos `text-[13px] font-semibold text-foreground` com `border-b` full-width via `-mx-5`. Textareas = `<RichEditor>` (TipTap), nunca textarea puro. Grid 12 colunas.

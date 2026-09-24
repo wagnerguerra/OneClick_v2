@@ -7,15 +7,21 @@
  * Padrão da casa: TODO modal deve usar esse componente em vez do {DialogHeader}
  * cru, garantindo consistência visual em todo o sistema.
  *
+ * Cor: `color` é opcional (default `primary` = cor do sistema) e aceita
+ * qualquer cor do `IconColor`. Qual cor usar em cada ação (ícone + botão de
+ * confirmação) é guideline, documentada num lugar só: /admin/design-system →
+ * aba "Modais" → "Quando usar cada cor"
+ * (apps/web/src/app/(dashboard)/admin/design-system/page.tsx).
+ *
  * Uso básico:
- *   <DialogHeaderIcon icon={Database} color="sky">
+ *   <DialogHeaderIcon icon={Database} color="emerald">
  *     <DialogTitle>Novo ativo</DialogTitle>
  *     <DialogDescription>Cadastro rápido — depois você pode editar...</DialogDescription>
  *   </DialogHeaderIcon>
  *
  * Variante sr-only (acessibilidade — Radix exige um DialogTitle sempre,
  *  mesmo em loaders/skeletons):
- *   <DialogHeaderIcon icon={Loader2} color="sky" srOnly>
+ *   <DialogHeaderIcon icon={Loader2} srOnly>
  *     <DialogTitle>Carregando…</DialogTitle>
  *   </DialogHeaderIcon>
  *
@@ -38,8 +44,8 @@ type IconColor =
 // bg = superfície própria do quadrado do ícone (local); a cor do ícone deriva
 // do papel TEXT da fonte única. slate mantém literal (dark -300, não casa TEXT).
 // `primary` (DEFAULT) = a cor primária do sistema (var --color-primary, adapta
-// ao tema sozinha). Só passe outra cor quando a intenção é semântica
-// (criar=emerald, excluir=rose, aviso=amber…); a cor do módulo NÃO se usa mais.
+// ao tema sozinha). Guideline de qual cor usar por ação: /admin/design-system →
+// aba "Modais" (ver topo do arquivo); a cor do módulo NÃO se usa mais.
 const COLOR_CLASSES: Record<IconColor, string> = {
   primary:  'bg-primary/10 text-primary',
   sky:      cn('bg-sky-100 dark:bg-sky-950/40', TEXT.sky),
@@ -62,7 +68,8 @@ interface Props {
   /** Ícone Lucide à esquerda (renderizado em h-6 w-6 dentro de um box h-12 w-12). */
   icon: LucideIcon
   /** Cor temática do ícone — bg do quadrado + cor do ícone. Padrão: primary
-   *  (cor do sistema). Passe outra só para intenção semântica. */
+   *  (cor do sistema). Aceita qualquer cor da lista; guideline por ação em
+   *  /admin/design-system → aba "Modais". */
   color?: IconColor
   /**
    * Cor de acento por VALOR/variável (ex.: a cor do módulo `var(--mod-<slug>)`).
