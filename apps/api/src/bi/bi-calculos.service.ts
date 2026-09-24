@@ -198,150 +198,21 @@ async function somarPorCategoriaDre(
 @Injectable()
 export class BiCalculosService {
   // ========================================================================
-  // 1. Receita Bruta — valor natural positivo (Crédito > Débito esperado)
-  // ========================================================================
-
-  async calcularReceitaBruta(
-    clienteId: string,
-    periodoInicio: string,
-    periodoFim: string,
-    periodosSelecionados?: string[],
-  ): Promise<number> {
-    return somarPorCategoriaDre(clienteId, 'RECEITA_BRUTA', periodoInicio, periodoFim, periodosSelecionados)
-  }
-
-  // ========================================================================
-  // 2. Deduções/Impostos — valor natural negativo (entrega ABS pro card)
-  // ========================================================================
-
-  async calcularDeducoes(
-    clienteId: string,
-    periodoInicio: string,
-    periodoFim: string,
-    periodosSelecionados?: string[],
-  ): Promise<number> {
-    const algebrico = await somarPorCategoriaDre(clienteId, 'DEDUCOES_IMPOSTOS', periodoInicio, periodoFim, periodosSelecionados)
-    return Math.abs(algebrico)
-  }
-
-  // ========================================================================
-  // 3. Custo das Vendas — valor natural negativo, ABS pra card
-  // ========================================================================
-
-  async calcularCustoDasVendas(
-    clienteId: string,
-    periodoInicio: string,
-    periodoFim: string,
-    contasIgnoradas?: string[],
-    periodosSelecionados?: string[],
-  ): Promise<number> {
-    const algebrico = await somarPorCategoriaDre(clienteId, 'CUSTO_DAS_VENDAS', periodoInicio, periodoFim, periodosSelecionados, contasIgnoradas)
-    return Math.abs(algebrico)
-  }
-
-  // ========================================================================
-  // 3b. Custos Fixos Card — alias de Custo das Vendas (mesma categoria DRE)
-  // (mantido pra compatibilidade com o frontend; equivale ao card "Custos Fixos"
-  // do PowerBI que filtra dMáscara[Categoria]="CUSTO DAS VENDAS")
-  // ========================================================================
-
-  async calcularCustosFixosCard(
-    clienteId: string,
-    periodoInicio: string,
-    periodoFim: string,
-    periodosSelecionados?: string[],
-  ): Promise<number> {
-    return this.calcularCustoDasVendas(clienteId, periodoInicio, periodoFim, undefined, periodosSelecionados)
-  }
-
-  // ========================================================================
-  // 4. Despesas Operacionais — valor natural negativo, ABS pra card
+  // Os NOVE métodos `calcular*` por categoria (Receita Bruta, Deduções,
+  // Custo das Vendas, Custos Fixos, Despesas Operacionais, Receitas e
+  // Despesas Financeiras, IR/CS e Lucro Líquido) foram REMOVIDOS daqui.
   //
-  // CORREÇÃO: antes usava SUM(ABS(movimento)) por leaf, o que inflava o total
-  // quando havia contas redutoras (estornos com Crédito > Débito, ex:
-  // "(-) Crédito COFINS sobre Aluguel"). Agora soma algébrico e ABS no final.
-  // ========================================================================
-
-  async calcularDespesasOperacionais(
-    clienteId: string,
-    periodoInicio: string,
-    periodoFim: string,
-    contasIgnoradas?: string[],
-    periodosSelecionados?: string[],
-  ): Promise<number> {
-    const algebrico = await somarPorCategoriaDre(clienteId, 'DESPESAS_OPERACIONAIS', periodoInicio, periodoFim, periodosSelecionados, contasIgnoradas)
-    return Math.abs(algebrico)
-  }
-
-  // ========================================================================
-  // 5. Receitas Financeiras — valor natural positivo
-  // ========================================================================
-
-  async calcularReceitasFinanceiras(
-    clienteId: string,
-    periodoInicio: string,
-    periodoFim: string,
-  ): Promise<number> {
-    return somarPorCategoriaDre(clienteId, 'RECEITAS_FINANCEIRAS', periodoInicio, periodoFim)
-  }
-
-  // ========================================================================
-  // 6. Despesas Financeiras — valor natural negativo, ABS pra card
-  // ========================================================================
-
-  async calcularDespesasFinanceiras(
-    clienteId: string,
-    periodoInicio: string,
-    periodoFim: string,
-  ): Promise<number> {
-    const algebrico = await somarPorCategoriaDre(clienteId, 'DESPESAS_FINANCEIRAS', periodoInicio, periodoFim)
-    return Math.abs(algebrico)
-  }
-
-  // ========================================================================
-  // 7. IR/CS — valor natural negativo, ABS pra card
-  // ========================================================================
-
-  async calcularIRCS(
-    clienteId: string,
-    periodoInicio: string,
-    periodoFim: string,
-  ): Promise<number> {
-    const algebrico = await somarPorCategoriaDre(clienteId, 'IR_CS', periodoInicio, periodoFim)
-    return Math.abs(algebrico)
-  }
-
-  // ========================================================================
-  // 8. Lucro Líquido — soma natural de todas as contas categorizadas no DRE
+  // Cada um era uma soma por categoria seguida de `Math.abs`, e juntos
+  // reimplementavam — com regra própria e sinal próprio — o que a máscara
+  // resolve por acumulação em `mascara-dre.ts`. Depois que o
+  // `calcularKpisCompleto` passou a usar a máscara, nenhum deles tinha mais
+  // chamador: de fora, este serviço só expõe `calcularKpisCompleto`,
+  // `obterDadosMensais` e `obterContasPorNatureza`.
   //
-  // Equivale ao subtotal "RESULTADO LÍQUIDO" da dMáscara do PowerBI:
-  // acumula todas as categorias com sinal natural. Funciona porque:
-  //   RB(+) + Ded(-) + CV(-) + DespVar(-) + DespOp(-) + RF(+) + DF(-) + IR(-) + DistLucros(-)
-  // = Lucro Líquido
+  // Deixar os nove de pé não seria inofensivo: manter duas implementações da
+  // mesma regra, uma delas com `Math.abs` embutido, é exatamente como este
+  // módulo ganhou dois motores de cálculo que não fechavam entre si.
   // ========================================================================
-
-  async calcularLucroLiquidoSerpro(
-    clienteId: string,
-    periodoInicio: string,
-    periodoFim: string,
-    periodosSelecionados?: string[],
-  ): Promise<number> {
-    const p = buildPeriodoClause('l.periodo', periodoInicio, periodoFim, periodosSelecionados, 2)
-
-    const sql = `
-      SELECT COALESCE(SUM(l.creditos - l.debitos), 0)::float AS valor
-      FROM cliente_bi_linhas l
-      LEFT JOIN cliente_bi_categorias cbc
-        ON cbc.cliente_id = l.cliente_id AND cbc.conta = l.conta AND cbc.categoria_dre IS NOT NULL
-      LEFT JOIN plano_contas_categoria_padrao pccp
-        ON pccp.classificacao = l.conta
-      WHERE l.cliente_id = $1
-        AND ${p.sql}
-        AND COALESCE(cbc.categoria_dre, pccp.categoria_dre) IS NOT NULL
-    `
-    const rows = await prisma.$queryRawUnsafe<KpiValor[]>(sql, clienteId, ...p.params)
-    return toNumber(rows[0]?.valor)
-  }
 
   // ========================================================================
   // 9. KPIs Completo — consolida tudo
