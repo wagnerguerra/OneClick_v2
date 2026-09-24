@@ -7,9 +7,10 @@ import {
 } from 'lucide-react'
 import { Badge } from '@saas/ui'
 import { ArticleShell } from '../_components/article-shell'
+import { corDoArtigo } from '../_components/articles-catalog'
 import { Section, Step, Callout, QuickLink, DefRow } from '../_components/article-blocks'
 
-const MODULO_COLOR = 'var(--mod-ti, #22d3ee)' // cyan — grupo TI
+const MODULO_COLOR = corDoArtigo('helpdesk')
 const FAQ_COLOR = 'var(--color-primary)'
 
 export default function FaqHelpdeskPage() {

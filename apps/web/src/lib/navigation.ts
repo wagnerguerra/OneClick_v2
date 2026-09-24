@@ -367,6 +367,28 @@ export function groupColorVar(label: string): string {
 }
 
 /**
+ * Bloco da sidebar de uma rota que EXISTE de verdade no menu (item publicado,
+ * não `wip`) e cujo bloco tem cor de módulo. Match exato, depois pelo primeiro
+ * segmento. Devolve null quando a rota não é uma página do sistema ou o bloco
+ * não tem cor (ex.: Ajuda). Usado pelo FAQ p/ derivar a cor do artigo do slug.
+ */
+export function getModuleGroupForRoute(href: string): { label: string; cor: string } | null {
+  const pathClean = href.split('?')[0]!.split('#')[0]!
+  const buscar = (alvo: string) => {
+    for (const group of navigation) {
+      if (!GROUP_SLUG[group.label]) continue
+      for (const item of group.items) {
+        const casou = [item, ...(item.subItems ?? [])].some(i => i.href === alvo && !i.wip)
+        if (casou) return { label: group.label, cor: groupColorVar(group.label) }
+      }
+    }
+    return null
+  }
+  const segments = pathClean.split('/').filter(Boolean)
+  return buscar(pathClean) ?? (segments.length > 0 ? buscar(`/${segments[0]}`) : null)
+}
+
+/**
  * Retorna o LABEL do grupo ao qual a rota pertence (ex.: "Administrativo").
  * Mesma resolução do getGroupHexForHref: match exato, depois prefixo.
  * Usado como legenda dos itens do Acesso rápido.

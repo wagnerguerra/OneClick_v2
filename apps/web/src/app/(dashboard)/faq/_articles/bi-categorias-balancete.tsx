@@ -5,9 +5,10 @@ import {
   Lightbulb, Info, ArrowRight,
 } from 'lucide-react'
 import { ArticleShell } from '../_components/article-shell'
+import { corDoArtigo } from '../_components/articles-catalog'
 import { Section, Step, Callout, QuickLink, DefRow } from '../_components/article-blocks'
 
-const MODULO_COLOR = 'var(--mod-contabil, #8b5cf6)'
+const MODULO_COLOR = corDoArtigo('bi-categorias-balancete')
 const FAQ_COLOR = 'var(--color-primary)'
 
 export default function FaqBiCategoriasBalancetePage() {

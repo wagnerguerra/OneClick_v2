@@ -6,9 +6,10 @@ import {
   Lightbulb, Tag, UserCog,
 } from 'lucide-react'
 import { ArticleShell } from '../_components/article-shell'
+import { corDoArtigo } from '../_components/articles-catalog'
 import { Section, Step, Callout, DefRow } from '../_components/article-blocks'
 
-const MODULO_COLOR = 'var(--mod-ti, #0ea5e9)' // sky — TI
+const MODULO_COLOR = corDoArtigo('controle-ativos')
 const FAQ_COLOR = 'var(--color-primary)'
 
 export default function FaqControleAtivosPage() {

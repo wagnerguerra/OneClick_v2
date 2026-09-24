@@ -17,6 +17,7 @@ import { trpc } from '@/lib/trpc'
 import { ArticleShell } from '../_components/article-shell'
 import { resolveFaqIcon } from '../_components/faq-icons'
 import { faqArticleComponents } from '../_articles'
+import { corDoArtigo } from '../_components/articles-catalog'
 
 interface DbArtigo {
   slug: string
@@ -64,7 +65,7 @@ export default function FaqArtigoPage() {
     return (
       <ArticleShell
         modulo={artigo.modulo}
-        moduloColor={artigo.moduloColor}
+        moduloColor={corDoArtigo(artigo.slug, artigo.moduloColor)}
         icon={Icon}
         titulo={artigo.titulo}
         descricao={artigo.descricao}

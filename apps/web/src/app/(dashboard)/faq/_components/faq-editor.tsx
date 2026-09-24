@@ -7,7 +7,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { PageHeader } from '@/components/page-header'
-import { CATEGORIA_ORDEM } from './articles-catalog'
+import { CATEGORIA_ORDEM, corAutomaticaDoArtigo, corDoArtigo } from './articles-catalog'
 import { iconByName, FAQ_ICON_NAMES, resolveFaqIcon } from './faq-icons'
 
 export interface FaqForm {
@@ -23,7 +23,8 @@ export interface FaqForm {
   publicado: boolean
 }
 
-// Paleta de cores de módulo (mesmas usadas no projeto).
+// Paleta p/ a cor manual do artigo (quando o slug não é página do sistema).
+const HEX = /^#[0-9a-f]{6}$/i
 const CORES = [
   '#0891b2', '#fb7185', '#8b5cf6', '#10b981', '#f59e0b', '#0284c7',
   '#e11d48', '#16a34a', '#7c3aed', '#ea580c', '#475569', '#0d9488',
@@ -49,12 +50,15 @@ export function FaqEditor({ titulo, value, onChange, onSave, saving, slugTravado
 }) {
   const set = <K extends keyof FaqForm>(k: K, v: FaqForm[K]) => onChange({ ...value, [k]: v })
   const HeaderIcon = resolveFaqIcon(value.icon)
+  // Slug que é página do sistema → cor do bloco dela, sem escolha manual.
+  const auto = corAutomaticaDoArtigo(value.slug)
+  const cor = corDoArtigo(value.slug, value.moduloColor)
 
   return (
     <div className="space-y-5 pb-12">
       {/* Header padrão do sistema (PageHeader) — back no breadcrumb + Salvar à direita */}
       <PageHeader
-        color={value.moduloColor}
+        color={cor}
         icon={HeaderIcon}
         title={titulo}
         breadcrumb={(
@@ -106,18 +110,25 @@ export function FaqEditor({ titulo, value, onChange, onSave, saving, slugTravado
           </Select>
         </div>
 
-        {/* Cor do módulo */}
+        {/* Cor do artigo — automática quando o slug é uma página do sistema */}
         <div className="col-span-12 md:col-span-6 space-y-1.5">
-          <Label className="text-[13px] font-semibold">Cor do módulo</Label>
-          <div className="flex flex-wrap items-center gap-1.5">
+          <Label className="text-[13px] font-semibold">Cor do artigo</Label>
+          <div className={cn('flex flex-wrap items-center gap-1.5', auto && 'opacity-40 pointer-events-none')} aria-disabled={!!auto}>
             {CORES.map(c => (
-              <button key={c} type="button" onClick={() => set('moduloColor', c)}
-                className={cn('h-7 w-7 rounded-md border transition-transform hover:scale-110', value.moduloColor === c ? 'ring-2 ring-offset-1 ring-foreground/40' : 'border-border')}
+              <button key={c} type="button" onClick={() => set('moduloColor', c)} disabled={!!auto}
+                className={cn('h-7 w-7 rounded-md border transition-transform hover:scale-110', !auto && value.moduloColor === c ? 'ring-2 ring-offset-1 ring-foreground/40' : 'border-border')}
                 style={{ backgroundColor: c }} title={c} />
             ))}
-            <input type="color" value={value.moduloColor} onChange={e => set('moduloColor', e.target.value)}
+            <input type="color" value={HEX.test(value.moduloColor) ? value.moduloColor : '#000000'} disabled={!!auto}
+              onChange={e => set('moduloColor', e.target.value)}
               className="h-7 w-9 rounded-md border border-border bg-transparent p-0.5 cursor-pointer" title="Cor personalizada" />
           </div>
+          {auto && (
+            <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: auto.cor }} />
+              Automática: cor do bloco <strong className="font-semibold text-foreground">{auto.label}</strong>, porque o slug corresponde à página <code className="font-mono">/{value.slug}</code>.
+            </p>
+          )}
         </div>
 
         {/* Tags */}
@@ -137,7 +148,7 @@ export function FaqEditor({ titulo, value, onChange, onSave, saving, slugTravado
               return (
                 <button key={name} type="button" onClick={() => set('icon', name)} title={name}
                   className={cn('flex h-8 w-8 items-center justify-center rounded-md border transition-colors', sel ? 'text-white' : 'border-border text-muted-foreground hover:bg-muted')}
-                  style={sel ? { backgroundColor: value.moduloColor, borderColor: value.moduloColor } : undefined}>
+                  style={sel ? { backgroundColor: cor, borderColor: cor } : undefined}>
                   <I className="h-4 w-4" />
                 </button>
               )

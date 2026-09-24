@@ -5,9 +5,10 @@ import {
   Lightbulb, Info, ArrowRight, FileSearch,
 } from 'lucide-react'
 import { ArticleShell } from '../_components/article-shell'
+import { corDoArtigo } from '../_components/articles-catalog'
 import { Section, Step, Callout, QuickLink, DefRow } from '../_components/article-blocks'
 
-const MODULO_COLOR = 'var(--mod-fiscal, #0ea5e9)' // sky (Fiscal)
+const MODULO_COLOR = corDoArtigo('situacao-fiscal')
 const FAQ_COLOR = 'var(--color-primary)'
 
 export default function FaqSituacaoFiscalPage() {

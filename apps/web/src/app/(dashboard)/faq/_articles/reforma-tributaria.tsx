@@ -5,11 +5,12 @@ import {
   Sigma, Database, Share2, ShieldAlert, HelpCircle,
 } from 'lucide-react'
 import { ArticleShell } from '../_components/article-shell'
+import { corDoArtigo } from '../_components/articles-catalog'
 import {
   Section, Step, Callout, QuickLink, DefRow, Figura, CasoPratico,
 } from '../_components/article-blocks'
 
-const MODULO_COLOR = 'var(--mod-fiscal, #0369a1)'
+const MODULO_COLOR = corDoArtigo('reforma-tributaria')
 const FAQ_COLOR = 'var(--color-primary)'
 const IMG = '/materiais/faq/reforma-tributaria'
 

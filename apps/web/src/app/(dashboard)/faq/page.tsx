@@ -17,7 +17,8 @@ import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { trpc } from '@/lib/trpc'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { alerts } from '@/lib/alerts'
-import { FAQ_ARTIGOS, CATEGORIA_ORDEM } from './_components/articles-catalog'
+import { groupColorVar } from '@/lib/navigation'
+import { FAQ_ARTIGOS, CATEGORIA_ORDEM, corDoArtigo } from './_components/articles-catalog'
 import { resolveFaqIcon } from './_components/faq-icons'
 
 /** Acento da seção FAQ — o mesmo do cabeçalho dos artigos. */
@@ -26,17 +27,18 @@ const FAQ_COLOR = 'var(--color-primary)'
 /**
  * Ícone e cor de cada categoria.
  *
- * Categoria não é módulo: não existe em `module_colors`, então não há CSS var
- * para puxar. O hex aqui segue a convenção que o próprio catálogo de artigos já
- * usa (`moduloColor`). Categoria nova sem entrada cai no acento do FAQ.
+ * No FAQ a cor de módulo é só INDICADOR de que o conteúdo é de um módulo:
+ * categoria que corresponde a um bloco da sidebar usa a cor dele; as que
+ * misturam blocos (Operacional) ou não são módulo (Templates) ficam no acento
+ * do FAQ. Categoria nova sem entrada também cai no acento.
  */
 const CATEGORIA_META: Record<string, { icon: ComponentType<{ className?: string }>; cor: string }> = {
-  'Comercial': { icon: Handshake, cor: '#e11d48' },
-  'Fiscal': { icon: Landmark, cor: '#0369a1' },
-  'Operacional': { icon: Workflow, cor: '#7c3aed' },
-  'Trabalhista': { icon: Users, cor: '#ea580c' },
-  'Cadastros e estrutura': { icon: Database, cor: '#059669' },
-  'Templates por Segmento': { icon: Layers, cor: '#0891b2' },
+  'Comercial': { icon: Handshake, cor: groupColorVar('Comercial') },
+  'Fiscal': { icon: Landmark, cor: groupColorVar('Fiscal') },
+  'Operacional': { icon: Workflow, cor: FAQ_COLOR },
+  'Trabalhista': { icon: Users, cor: groupColorVar('Trabalhista') },
+  'Cadastros e estrutura': { icon: Database, cor: groupColorVar('Cadastros') },
+  'Templates por Segmento': { icon: Layers, cor: FAQ_COLOR },
 }
 const metaDaCategoria = (c: string) => CATEGORIA_META[c] ?? { icon: Sparkles, cor: FAQ_COLOR }
 
@@ -94,14 +96,14 @@ export default function FaqHubPage() {
       if (!a.disponivel) continue
       map.set(a.slug, {
         slug: a.slug, titulo: a.titulo, descricao: a.descricao, modulo: a.modulo,
-        moduloColor: a.moduloColor, Icon: a.icon, categoria: a.categoria, tags: a.tags,
+        moduloColor: corDoArtigo(a.slug, a.moduloColor), Icon: a.icon, categoria: a.categoria, tags: a.tags,
         fonte: 'codigo', rascunho: false,
       })
     }
     for (const d of dbArtigos) {
       map.set(d.slug, {
         slug: d.slug, titulo: d.titulo, descricao: d.descricao, modulo: d.modulo,
-        moduloColor: d.moduloColor, Icon: resolveFaqIcon(d.icon), categoria: d.categoria,
+        moduloColor: corDoArtigo(d.slug, d.moduloColor), Icon: resolveFaqIcon(d.icon), categoria: d.categoria,
         tags: d.tags ?? [], fonte: 'banco', dbId: d.id, rascunho: !d.publicado,
       })
     }

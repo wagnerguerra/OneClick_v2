@@ -5,10 +5,11 @@ import {
   MessageSquare, Settings2, Info, Lightbulb, ArrowRight, AlertTriangle, Users,
 } from 'lucide-react'
 import { ArticleShell } from '../_components/article-shell'
+import { corDoArtigo } from '../_components/articles-catalog'
 import { Section, Step, Callout, DefRow, QuickLink, CasoPratico } from '../_components/article-blocks'
 
-const MODULO_COLOR = '#fb7185' // rosa — módulo comercial/orçamentos
-const FAQ_COLOR = 'var(--color-primary)'    // acento primário do sistema (padrão FAQ)
+const MODULO_COLOR = corDoArtigo('orcamentos-notificacoes-email')
+const FAQ_COLOR = 'var(--color-primary)'    // ciano — padrão FAQ
 
 export default function FaqOrcamentosNotificacoesEmailPage() {
   return (
