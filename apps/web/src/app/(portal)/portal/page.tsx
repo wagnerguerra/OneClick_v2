@@ -65,11 +65,27 @@ function competenciaDe(d: Date): string {
 }
 
 /** Liga a promessa ao estado: `undefined` enquanto consulta, `null` se falhar. */
-function consultar<T>(promessa: Promise<T>, definir: (v: Consulta<T>) => void, vivo: () => boolean) {
+function consultar<T>(
+  promessa: Promise<T>,
+  definir: (v: Consulta<T>) => void,
+  vivo: () => boolean,
+  /**
+   * Recebe a mensagem do servidor quando a consulta falha. Opcional: a maioria
+   * dos blocos só precisa saber QUE falhou. O de documentos precisa saber POR
+   * QUÊ — "tente de novo em instantes" é a instrução errada quando o problema é
+   * a conexão do escritório com o Drive, que não volta sozinha.
+   */
+  aoFalhar?: (mensagem: string | null) => void,
+) {
   definir(undefined)
+  aoFalhar?.(null)
   promessa
     .then((v) => { if (vivo()) definir(v) })
-    .catch(() => { if (vivo()) definir(null) })
+    .catch((e: unknown) => {
+      if (!vivo()) return
+      definir(null)
+      aoFalhar?.(e instanceof Error && e.message ? e.message : null)
+    })
 }
 
 export default function PortalInicioPage() {
@@ -91,6 +107,7 @@ export default function PortalInicioPage() {
   const [obrigacoes, setObrigacoes] = useState<Consulta<Obrigacao[]>>(undefined)
   const [resumo, setResumo] = useState<Consulta<ResumoObrigacoes>>(undefined)
   const [pasta, setPasta] = useState<Consulta<PastaDrive>>(undefined)
+  const [erroPasta, setErroPasta] = useState<string | null>(null)
   const [equipe, setEquipe] = useState<Consulta<AreaDaEquipe[]>>(undefined)
   const [escrevendoPara, setEscrevendoPara] = useState<AreaDaEquipe | null>(null)
 
@@ -105,7 +122,7 @@ export default function PortalInicioPage() {
     consultar(api.equipe.query({ clienteId }), setEquipe, vivo)
     if (temDocumentos) {
       consultar(api.solicitacoes.pendentes.query({ clienteId }), setPendencias, vivo)
-      consultar(api.arquivos.drive.query({ clienteId, subPastaId: null }), setPasta, vivo)
+      consultar(api.arquivos.drive.query({ clienteId, subPastaId: null }), setPasta, vivo, setErroPasta)
     }
     if (temObrigacoes) {
       consultar(api.obrigacoes.listar.query({ clienteId, competencia }), setObrigacoes, vivo)
@@ -172,7 +189,7 @@ export default function PortalInicioPage() {
         <div className="flex min-w-0 flex-col gap-5 lg:col-start-1 lg:row-span-2 lg:row-start-1 xl:col-start-2 xl:row-span-1">
           {temDocumentos && <BlocoPendencias pendencias={pendencias} podeEditar={podeEditar} hoje={hoje} />}
           {temObrigacoes && <BlocoObrigacoes lista={obrigacoes} resumo={resumo} mes={mes} hoje={hoje} />}
-          {temDocumentos && <BlocoDocumentos pasta={pasta} hoje={hoje} />}
+          {temDocumentos && <BlocoDocumentos pasta={pasta} hoje={hoje} erro={erroPasta} />}
           {!temDocumentos && !temObrigacoes && (
             <section className="anim-subir flex flex-col items-center gap-2 rounded-2xl border border-[#e6ebf2] bg-white px-6 py-12 text-center dark:border-[#1b2739] dark:bg-[#0e1726]">
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-[#16233a] dark:text-slate-400">

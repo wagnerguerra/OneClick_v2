@@ -195,10 +195,11 @@ function Carregando({ linhas = 3 }: { linhas?: number }) {
   )
 }
 
-function Falhou() {
+/** `mensagem` é a do servidor, quando ele disse o que houve; senão, a genérica. */
+function Falhou({ mensagem }: { mensagem?: string | null }) {
   return (
     <p className="px-5 py-6 text-center text-[12.5px] text-slate-500 dark:text-slate-400">
-      Não foi possível carregar agora. Tente de novo em instantes.
+      {mensagem || 'Não foi possível carregar agora. Tente de novo em instantes.'}
     </p>
   )
 }
@@ -505,7 +506,7 @@ function extensao(nome: string): string {
   return partes.length > 1 ? (partes.pop() ?? '').slice(0, 4).toUpperCase() : 'ARQ'
 }
 
-export function BlocoDocumentos({ pasta, hoje }: { pasta: Consulta<PastaDrive>; hoje: Date | null }) {
+export function BlocoDocumentos({ pasta, hoje, erro }: { pasta: Consulta<PastaDrive>; hoje: Date | null; erro?: string | null }) {
   const recentes = (pasta?.itens ?? [])
     .slice()
     .sort((a, b) => {
@@ -523,7 +524,7 @@ export function BlocoDocumentos({ pasta, hoje }: { pasta: Consulta<PastaDrive>; 
       subtitulo={pasta?.vinculada ? (pasta.nome ?? 'Pasta da sua empresa') : undefined}
       acao={<VerTudo href="/portal/documentos">Abrir documentos</VerTudo>}
     >
-      {pasta === undefined ? <Carregando linhas={4} /> : pasta === null ? <Falhou /> : !pasta.vinculada ? (
+      {pasta === undefined ? <Carregando linhas={4} /> : pasta === null ? <Falhou mensagem={erro} /> : !pasta.vinculada ? (
         <Vazio
           icone={FolderOpen}
           titulo="Documentos indisponíveis"
