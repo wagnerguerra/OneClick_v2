@@ -175,6 +175,7 @@ export default function ImprimirOrcamentoPage() {
     ? Number(orc.totalGeral)
     : Math.max(0, totalServicos - descontoLocal + totalTaxas + totalDespesas)
   const temDesconto = descontoCalculado > 0
+  const descontoPercentEfetivo = totalServicos > 0 ? (descontoCalculado / totalServicos) * 100 : 0
 
   // HTML "Descrição" — strip pra detectar conteudo real (RichEditor as vezes salva <p></p>)
   const descricaoHtml = orc.textoCorpoCliente || ''
@@ -724,7 +725,11 @@ export default function ImprimirOrcamentoPage() {
             {temDesconto && (
               <div className="totals-row discount">
                 <span className="lbl">
-                  Desconto{descontoPct > 0 ? ` (${descontoPct.toFixed(descontoPct % 1 === 0 ? 0 : 1)}%)` : ''}
+                  {/* Percentual EFETIVO sobre a base de serviços. Rotular com o
+                      `descontoPct` do cabeçalho mentia quando havia desconto por
+                      item: no #4630 dizia "(20%)" ao lado de R$ 2.880,00, que é
+                      40% dos serviços. */}
+                  Desconto{descontoPercentEfetivo > 0 ? ` (${descontoPercentEfetivo.toFixed(descontoPercentEfetivo % 1 === 0 ? 0 : 1)}%)` : ''}
                 </span>
                 <span className="val">− {formatCurrency(descontoCalculado)}</span>
               </div>

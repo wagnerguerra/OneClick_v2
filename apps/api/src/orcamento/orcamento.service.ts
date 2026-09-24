@@ -3109,8 +3109,25 @@ export class OrcamentoService {
     </table>`
   }
 
-  /** Bloco de totais — quebrado por categoria + desconto + total geral em destaque verde. */
+  /**
+   * Bloco de totais — por categoria + desconto + total geral em destaque.
+   *
+   * O desconto sai de `descontoAplicado`, que é o que o `recalcularTotais`
+   * gravou. Antes era recalculado aqui:
+   *
+   *     const desc = num(orc.descontoValor)
+   *       || (num(orc.descontoPct) > 0 ? (tServ + tTax + tDesp) * num(orc.descontoPct) / 100 : 0)
+   *
+   * Essa conta ignorava o desconto POR ITEM e aplicava o percentual geral sobre
+   * serviços + taxas + despesas (o backend aplica só sobre serviços). No #4630
+   * o documento que vai ao cliente mostrava Serviços 7.200,00, Desconto
+   * −1.440,00 e Total geral 4.320,00 — uma tabela onde a subtração não fecha.
+   *
+   * Mesmo defeito do #4747 e do resumo da tela: valor derivado é do backend, e
+   * quem exibe compõe. Ver `docs/PADRAO_ESTADOS_E_PERMISSOES.md`.
+   */
   private buildTotaisBlock(orc: {
+    descontoAplicado?: number | string | null | { toNumber: () => number }
     descontoPct?: number | string | null | { toNumber: () => number }
     descontoValor?: number | string | null | { toNumber: () => number }
     totalServicos: number | string | { toNumber: () => number }
@@ -3126,8 +3143,12 @@ export class OrcamentoService {
     const tServ = num(orc.totalServicos)
     const tTax = num(orc.totalTaxas)
     const tDesp = num(orc.totalDespesas)
-    const desc = num(orc.descontoValor) || (num(orc.descontoPct) > 0 ? (tServ + tTax + tDesp) * num(orc.descontoPct) / 100 : 0)
     const total = num(orc.totalGeral)
+    // Retaguarda só para registro antigo, anterior ao `descontoAplicado`: o que
+    // sobra entre o bruto e o total gravado É o desconto concedido.
+    const desc = orc.descontoAplicado != null
+      ? num(orc.descontoAplicado)
+      : Math.max(0, tServ + tTax + tDesp - total)
 
     const linha = (label: string, valor: number, color = '#374151') => `
       <tr>
@@ -3222,6 +3243,7 @@ export class OrcamentoService {
       descontoValor: i.descontoValor as unknown as { toNumber: () => number } | null,
     })))
     const totaisBlock = this.buildTotaisBlock({
+      descontoAplicado: orc.descontoAplicado as unknown as { toNumber: () => number } | null,
       descontoPct: orc.descontoPct as unknown as { toNumber: () => number } | null,
       descontoValor: orc.descontoValor as unknown as { toNumber: () => number } | null,
       totalServicos: orc.totalServicos as unknown as { toNumber: () => number },
@@ -3536,6 +3558,7 @@ export class OrcamentoService {
       descontoValor: i.descontoValor as unknown as { toNumber: () => number } | null,
     })))
     const totaisBlock = this.buildTotaisBlock({
+      descontoAplicado: orc.descontoAplicado as unknown as { toNumber: () => number } | null,
       descontoPct: orc.descontoPct as unknown as { toNumber: () => number } | null,
       descontoValor: orc.descontoValor as unknown as { toNumber: () => number } | null,
       totalServicos: orc.totalServicos as unknown as { toNumber: () => number },

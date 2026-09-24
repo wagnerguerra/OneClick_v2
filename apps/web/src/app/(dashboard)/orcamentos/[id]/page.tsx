@@ -1873,6 +1873,20 @@ export default function OrcamentoDetailPage() {
   const descontoLocal = Math.min(totalServicos, descontoItensLocal + descontoGeralLocal)
 
   const descontoAplicado = orc?.descontoAplicado != null ? Number(orc.descontoAplicado) : (orc ? descontoLocal : 0)
+
+  // As DUAS parcelas do desconto, separadas.
+  //
+  // O resumo mostrava só o total e o percentual efetivo: no #4630, "Desconto
+  // (40,0%) − R$ 2.880,00" com itens marcando −20% cada. Os 40% são reais (20%
+  // em cada item MAIS 20% de desconto geral, que somam por decisão do #HLP0302),
+  // mas a linha única não tinha como explicar isso — e quem olhava concluía que
+  // a conta estava errada.
+  //
+  // A parcela por item é somada aqui a partir dos próprios itens; o geral é o
+  // que sobra do valor GRAVADO, para os dois nunca desmentirem o Total Geral.
+  const descontoItensParte = Math.min(descontoItensLocal, descontoAplicado)
+  const descontoGeralParte = Math.max(0, descontoAplicado - descontoItensParte)
+  const temDuasParcelas = descontoItensParte > 0 && descontoGeralParte > 0
   const totalGeral = orc?.totalGeral != null ? Number(orc.totalGeral) : Math.max(0, subtotal - descontoLocal)
   // Percentual EFETIVO sobre a base de serviços. Mostrar o `descontoPct`
   // cadastrado escondia o desconto por item: no #4747 dizia "0,0%" com 785
@@ -2757,6 +2771,18 @@ export default function OrcamentoDetailPage() {
                           <span>O desconto geral está desativado nas configurações (&ldquo;Usar apenas desconto por item&rdquo;). Aplique o desconto item a item na aba <strong>Itens</strong>.</span>
                         </div>
                       )}
+                      {/* Os dois descontos SOMAM (#HLP0302), e nada dizia isso. No
+                          #4630, 20% em cada item mais 20% aqui viraram 40% no
+                          resumo, e a conclusão de quem olhou foi que o total
+                          estava errado. */}
+                      {!apenasDescontoItem && temDuasParcelas && (
+                        <div className={cn('mx-5 mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]', BADGE.amber)}>
+                          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                          <span>
+                            Este orçamento tem desconto <strong>nos itens</strong> ({formatCurrency(descontoItensParte)}) e desconto <strong>geral</strong> ({formatCurrency(descontoGeralParte)}), e os dois somam: {descontoPercentCalc.toFixed(1)}% sobre os serviços. Para aplicar só um deles, zere o campo abaixo ou o desconto dos itens.
+                          </span>
+                        </div>
+                      )}
                       <div className="p-5 grid grid-cols-12 gap-3">
                         <div className="col-span-12 sm:col-span-4 space-y-1.5">
                           <Label className="text-[13px] font-semibold text-foreground">Desconto %</Label>
@@ -3276,10 +3302,29 @@ export default function OrcamentoDetailPage() {
                 <span className="text-muted-foreground">Subtotal</span>
                 <span className="font-medium">{formatCurrency(subtotal)}</span>
               </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Desconto ({descontoPercentCalc.toFixed(1)}%)</span>
-                <span className={cn('font-medium', TEXT.orange)}>- {formatCurrency(descontoAplicado)}</span>
-              </div>
+              {temDuasParcelas ? (
+                <>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Desconto nos itens</span>
+                    <span className={cn('font-medium', TEXT.orange)}>- {formatCurrency(descontoItensParte)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">
+                      Desconto geral{descontoPctNum > 0 ? ` (${descontoPctNum.toFixed(descontoPctNum % 1 === 0 ? 0 : 1)}%)` : ''}
+                    </span>
+                    <span className={cn('font-medium', TEXT.orange)}>- {formatCurrency(descontoGeralParte)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-muted-foreground">Desconto total ({descontoPercentCalc.toFixed(1)}%)</span>
+                    <span className={cn('font-semibold', TEXT.orange)}>- {formatCurrency(descontoAplicado)}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Desconto ({descontoPercentCalc.toFixed(1)}%)</span>
+                  <span className={cn('font-medium', TEXT.orange)}>- {formatCurrency(descontoAplicado)}</span>
+                </div>
+              )}
               <div className="border-t border-border/60 pt-2 mt-2 flex items-center justify-between">
                 <span className="text-sm font-semibold">Total Geral</span>
                 <span className="text-base font-bold" style={{ color: MODULE_COLOR }}>{formatCurrency(totalGeral)}</span>
