@@ -1024,15 +1024,24 @@ export class ClienteService {
   // ============================================================
   // Lista para select (dropdown)
   // ============================================================
-  // Lookup leve usado em vários módulos (orçamentos, CRM, contratos, etc).
-  // Diferente do `list` completo, este filtro inclui clientes órfãos
-  // (empresaId=null — legado/migração) para que dropdowns nunca venham
-  // vazios por causa de divergência de scope. Master continua vendo tudo.
+  /**
+   * Lookup leve usado em vários módulos (orçamentos, CRM, contratos, BI).
+   *
+   * A empresa ATIVA vale também para o master — mesmo critério do
+   * `area.listForSelect`. Um seletor que mistura clientes de dois tenants
+   * mostra nomes que não existem na empresa carregada e não diz de qual
+   * tenant cada um é; trocar de empresa é pelo seletor do cabeçalho, que já
+   * alimenta o `ctx.empresaId`. Só master SEM empresa ativa vê tudo.
+   *
+   * Isolamento estrito para quem não é master: nunca clientes órfãos
+   * (empresaId=null) nem de outra empresa.
+   */
   async listForSelect(isMaster?: boolean, empresaId?: string) {
-    // Isolamento estrito: não-master só vê clientes da própria empresa (nunca NULL/global).
-    const where: Prisma.ClienteWhereInput = isMaster
-      ? { status: 'ATIVO' }
-      : { status: 'ATIVO', empresaId: empresaId ?? '__none__' }
+    const where: Prisma.ClienteWhereInput = empresaId
+      ? { status: 'ATIVO', empresaId }
+      : isMaster
+        ? { status: 'ATIVO' }
+        : { status: 'ATIVO', empresaId: '__none__' }
     return prisma.cliente.findMany({
       where,
       select: { id: true, razaoSocial: true, nomeFantasia: true, code: true, documento: true, situacao: true },

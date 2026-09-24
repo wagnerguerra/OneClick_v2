@@ -122,7 +122,11 @@ export function createBiRouter(biService: BiService) {
     // ── Categorias — Copiar / Backup / Restaurar / Limpar ──
     categoriasCopiar: protectedProcedure
       .input(biCategoriasCopiarSchema)
-      .mutation(({ input }) => biService.categoriasCopiar(input.documentoOrigem, input.documentoDestino)),
+      .mutation(({ input, ctx }) => biService.categoriasCopiar(
+        input.documentoOrigem,
+        input.documentoDestino,
+        { isMaster: ctx.isMaster, empresaId: ctx.empresaId },
+      )),
 
     categoriasBackup: protectedProcedure
       .input(biBackupSchema)

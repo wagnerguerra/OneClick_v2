@@ -1,5 +1,6 @@
 import { Injectable, forwardRef, Inject } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import type { Prisma } from '@saas/db'
 import { BiCalculosService } from './bi-calculos.service'
 import { BiBalanceteService } from './bi-balancete.service'
 import { SciService } from '../cliente/sci.service'
@@ -833,13 +834,31 @@ export class BiService {
   // ══════════════════════════════════════════════════════════════
   // Copiar categorias entre clientes
   // ══════════════════════════════════════════════════════════════
-  async categoriasCopiar(documentoOrigem: string, documentoDestino: string) {
+  /**
+   * Copia a configuração de categorias de um cliente para outro.
+   *
+   * O parâmetro de entrada é o DOCUMENTO (CNPJ), que é público e adivinhável —
+   * por isso os dois lados passam pelo recorte da empresa ativa do chamador.
+   * Sem isso, mandar um CNPJ qualquer sobrescreveria a configuração de um
+   * cliente de outro tenant. Master sem empresa ativa segue sem recorte.
+   */
+  async categoriasCopiar(
+    documentoOrigem: string,
+    documentoDestino: string,
+    caller: { isMaster?: boolean; empresaId?: string } = {},
+  ) {
+    const doTenant: Prisma.ClienteWhereInput = caller.empresaId
+      ? { empresaId: caller.empresaId }
+      : caller.isMaster
+        ? {}
+        : { empresaId: '__none__' }
+
     const origem = await prisma.cliente.findFirst({
-      where: { documento: documentoOrigem, status: 'ATIVO' },
+      where: { documento: documentoOrigem, status: 'ATIVO', ...doTenant },
       select: { id: true },
     })
     const destino = await prisma.cliente.findFirst({
-      where: { documento: documentoDestino, status: 'ATIVO' },
+      where: { documento: documentoDestino, status: 'ATIVO', ...doTenant },
       select: { id: true },
     })
     if (!origem) throw new Error('Cliente de origem não encontrado.')

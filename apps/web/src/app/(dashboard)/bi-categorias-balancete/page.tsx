@@ -29,6 +29,7 @@ interface ClienteOption {
   razaoSocial: string
   documento: string
   nomeFantasia?: string | null
+  situacao?: string | null
 }
 
 interface Categoria {
@@ -438,16 +439,28 @@ export default function BiCategoriasBalancetePage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   /* --- load clients --- */
+  // O lookup ja vem recortado pela empresa ativa (backend). Aqui sobra o
+  // recorte de NEGOCIO: o BI de faturamento existe para cliente MENSAL, e o
+  // modal de copia anuncia isso em letras miudas — o filtro precisa existir
+  // para a frase ser verdade.
+  //
+  // Excecao: o cliente que veio por `?cliente=` entra na lista mesmo se nao
+  // for MENSAL. A "Versao expandida" do card contabil abre esta tela para
+  // qualquer cliente, e sumir com ele deixaria a tela em branco sem dizer por
+  // que. Ele aparece no seletor, mas nao como DESTINO de copia.
   useEffect(() => {
     trpc.cliente.listForSelect.query()
-      .then((list: ClienteOption[]) => {
-        setClientes(list)
-        if (clienteParam) {
-          const found = list.find(
-            (c) => c.id === clienteParam || c.documento === clienteParam || c.documento.replace(/\D/g, '') === clienteParam.replace(/\D/g, ''),
+      .then((todos: ClienteOption[]) => {
+        const casaComParam = (c: ClienteOption) =>
+          !!clienteParam && (
+            c.id === clienteParam ||
+            c.documento === clienteParam ||
+            c.documento.replace(/\D/g, '') === clienteParam.replace(/\D/g, '')
           )
-          if (found) setClienteId(found.id)
-        }
+        const doParam = clienteParam ? todos.find(casaComParam) : undefined
+        const list = todos.filter((c) => c.situacao === 'MENSAL' || c.id === doParam?.id)
+        setClientes(list)
+        if (doParam) setClienteId(doParam.id)
       })
       .catch(() => alerts.error('Erro', 'Falha ao carregar clientes'))
   }, [clienteParam])
@@ -499,12 +512,14 @@ export default function BiCategoriasBalancetePage() {
   const selectedCliente = clientes.find((c) => c.id === clienteId)
   const selectedDocumento = selectedCliente?.documento ?? ''
 
-  // Clientes de destino do modal "Copiar configuração" (todos menos o atual),
-  // já com CNPJ formatado e filtrados pela busca do modal.
+  // Clientes de destino do modal "Copiar configuração": MENSAL, menos o atual,
+  // já com CNPJ formatado e filtrados pela busca do modal. O MENSAL repetido
+  // aqui cobre o cliente que entrou na lista pelo `?cliente=` — ele pode ser
+  // origem, nunca destino.
   const destinosCopiar = useMemo(() => {
     const q = copiarBusca.trim().toLowerCase()
     return clientes
-      .filter(c => c.id !== clienteId)
+      .filter(c => c.id !== clienteId && c.situacao === 'MENSAL')
       .map(c => ({ ...c, cnpjFormatado: formatCnpj(c.documento) }))
       .filter(c => !q || `${c.razaoSocial} ${c.documento}`.toLowerCase().includes(q))
   }, [clientes, clienteId, copiarBusca])
