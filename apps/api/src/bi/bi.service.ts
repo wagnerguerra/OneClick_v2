@@ -4,7 +4,7 @@ import type { Prisma } from '@saas/db'
 import { BiCalculosService } from './bi-calculos.service'
 import { BiBalanceteService } from './bi-balancete.service'
 import { SciService } from '../cliente/sci.service'
-import { carregarDepara, sqlJoinsCategoria, sqlSomenteFolhas, SQL_CATEGORIA, ehFolha } from './categoria-sql'
+import { carregarDepara, sqlJoinsCategoria, sqlSomenteFolhas, sqlPeriodosEscolhidos, SQL_CATEGORIA, ehFolha } from './categoria-sql'
 import { nivel3De } from './depara-nivel3'
 import type { DeparaCliente } from './depara-nivel3'
 import { calcularDre, INDICE, MASCARA_DRE, type CategoriaDre } from './mascara-dre'
@@ -370,10 +370,13 @@ export class BiService {
     somasMensais: Map<string, Partial<Record<CategoriaDre, number>>>,
     periodoInicio: string,
     periodoFim: string,
+    periodosEscolhidos?: string[],
   ): Partial<Record<CategoriaDre, number>> {
+    const escolhidos = periodosEscolhidos && periodosEscolhidos.length > 0 ? new Set(periodosEscolhidos) : null
     const total: Partial<Record<CategoriaDre, number>> = {}
     for (const [periodo, somas] of somasMensais) {
       if (periodo < periodoInicio || periodo > periodoFim) continue
+      if (escolhidos && !escolhidos.has(periodo)) continue
       for (const [cat, valor] of Object.entries(somas)) {
         const k = cat as CategoriaDre
         total[k] = (total[k] ?? 0) + (valor ?? 0)
@@ -402,24 +405,29 @@ export class BiService {
 
     const [kpis, fontesReceita, fontesDespesas, mesesCustosDespesas] = await Promise.all([
       this.calculos.calcularKpisCompleto(clienteId, periodoInicio, periodoFim, periodosSelecionados),
-      this.buscarFontesReceita(clienteId, periodoInicio, periodoFim),
-      this.buscarFontesDespesas(clienteId, periodoInicio, periodoFim),
-      this.buscarMesesCustosDespesas(clienteId, periodoInicio, periodoFim),
+      // Os meses escolhidos valem para TUDO que a aba mostra. Só o
+      // `calcularKpisCompleto` recebia o recorte: os cartões acompanhavam o
+      // filtro enquanto "Principais Fontes de Receita" ao lado continuava
+      // somando o ano inteiro — com Ago desmarcado, o cartão dizia 16,8 mi e a
+      // fonte logo abaixo dizia 20,1 mi.
+      this.buscarFontesReceita(clienteId, periodoInicio, periodoFim, periodosSelecionados),
+      this.buscarFontesDespesas(clienteId, periodoInicio, periodoFim, periodosSelecionados),
+      this.buscarMesesCustosDespesas(clienteId, periodoInicio, periodoFim, periodosSelecionados),
     ])
 
     // Override KPIs with custom account selections if defined
     const overrides: Record<string, number> = {}
     if (inclReceita.length > 0) {
-      overrides.receitaBruta = await this.somarContasSelecionadas(clienteId, periodoInicio, periodoFim, inclReceita)
+      overrides.receitaBruta = await this.somarContasSelecionadas(clienteId, periodoInicio, periodoFim, inclReceita, periodosSelecionados)
     }
     if (inclCustos.length > 0) {
-      overrides.custosFixos = await this.somarContasSelecionadas(clienteId, periodoInicio, periodoFim, inclCustos)
+      overrides.custosFixos = await this.somarContasSelecionadas(clienteId, periodoInicio, periodoFim, inclCustos, periodosSelecionados)
     }
     if (inclDespesas.length > 0) {
-      overrides.despesasOperacionais = await this.somarContasSelecionadas(clienteId, periodoInicio, periodoFim, inclDespesas)
+      overrides.despesasOperacionais = await this.somarContasSelecionadas(clienteId, periodoInicio, periodoFim, inclDespesas, periodosSelecionados)
     }
     if (inclLucro.length > 0) {
-      overrides.lucroLiquido = await this.somarContasSelecionadas(clienteId, periodoInicio, periodoFim, inclLucro)
+      overrides.lucroLiquido = await this.somarContasSelecionadas(clienteId, periodoInicio, periodoFim, inclLucro, periodosSelecionados)
     }
 
     const finalKpis = { ...kpis, ...overrides }
@@ -458,10 +466,11 @@ export class BiService {
    * para despesa, e cinco contas 04.1.1.01.* cravadas para custo fixo. Plano de
    * contas de outro cliente zera o grafico enquanto o cartao mostra valor.
    */
-  private sqlCategoriaFolha(depara: DeparaCliente, categoria: string | null): string {
+  private sqlCategoriaFolha(depara: DeparaCliente, categoria: string | null, periodos?: string[]): string {
     return `
       ${sqlJoinsCategoria(depara)}
       WHERE l.cliente_id = $1 AND l.periodo BETWEEN $2 AND $3
+        ${sqlPeriodosEscolhidos(periodos)}
         AND ${SQL_CATEGORIA} ${categoria ? `= '${categoria}'` : 'IS NOT NULL'}
         AND ${sqlSomenteFolhas()}`
   }
@@ -474,25 +483,27 @@ export class BiService {
    * `-ABS` invertia estorno igual ao regex da matriz. `creditos - debitos` ja
    * traz o sinal contabil.
    */
-  private async somarContasSelecionadas(clienteId: string, periodoInicio: string, periodoFim: string, contas: string[]) {
+  private async somarContasSelecionadas(clienteId: string, periodoInicio: string, periodoFim: string, contas: string[], periodos?: string[]) {
     if (contas.length === 0) return 0
     const placeholders = contas.map((_, i) => `$${i + 4}`).join(', ')
     const rows = await prisma.$queryRawUnsafe<Array<{ total: number }>>(
-      `SELECT COALESCE(SUM(creditos - debitos), 0)::float AS total
-       FROM cliente_bi_linhas
-       WHERE cliente_id = $1 AND periodo BETWEEN $2 AND $3 AND conta IN (${placeholders})`,
+      `SELECT COALESCE(SUM(l.creditos - l.debitos), 0)::float AS total
+       FROM cliente_bi_linhas l
+       WHERE l.cliente_id = $1 AND l.periodo BETWEEN $2 AND $3
+         ${sqlPeriodosEscolhidos(periodos)}
+         AND l.conta IN (${placeholders})`,
       clienteId, periodoInicio, periodoFim, ...contas,
     )
     return Number(rows[0]?.total ?? 0)
   }
 
   /** Top 5 fontes de receita — contas da categoria RECEITA_BRUTA, folhas. */
-  private async buscarFontesReceita(clienteId: string, periodoInicio: string, periodoFim: string) {
+  private async buscarFontesReceita(clienteId: string, periodoInicio: string, periodoFim: string, periodos?: string[]) {
     const depara = await carregarDepara(clienteId)
     const rows = await prisma.$queryRawUnsafe<Array<{ conta: string; nome_conta: string; total: number }>>(
       `SELECT l.conta, l.nome_conta, SUM(l.creditos - l.debitos)::float AS total
        FROM cliente_bi_linhas l
-       ${this.sqlCategoriaFolha(depara, 'RECEITA_BRUTA')}
+       ${this.sqlCategoriaFolha(depara, 'RECEITA_BRUTA', periodos)}
        GROUP BY l.conta, l.nome_conta
        HAVING ABS(SUM(l.creditos - l.debitos)) > 0.01
        ORDER BY SUM(l.creditos - l.debitos) DESC
@@ -503,12 +514,12 @@ export class BiService {
   }
 
   /** Top 5 fontes de despesa — categoria DESPESAS_OPERACIONAIS, folhas. */
-  private async buscarFontesDespesas(clienteId: string, periodoInicio: string, periodoFim: string) {
+  private async buscarFontesDespesas(clienteId: string, periodoInicio: string, periodoFim: string, periodos?: string[]) {
     const depara = await carregarDepara(clienteId)
     const rows = await prisma.$queryRawUnsafe<Array<{ conta: string; nome_conta: string; total: number }>>(
       `SELECT l.conta, l.nome_conta, ABS(SUM(l.creditos - l.debitos))::float AS total
        FROM cliente_bi_linhas l
-       ${this.sqlCategoriaFolha(depara, 'DESPESAS_OPERACIONAIS')}
+       ${this.sqlCategoriaFolha(depara, 'DESPESAS_OPERACIONAIS', periodos)}
        GROUP BY l.conta, l.nome_conta
        HAVING ABS(SUM(l.creditos - l.debitos)) > 0.01
        ORDER BY ABS(SUM(l.creditos - l.debitos)) DESC
@@ -532,13 +543,13 @@ export class BiService {
    * CUSTO_DAS_VENDAS e DESPESAS_OPERACIONAIS. Grafico e cartao passam a falar
    * da mesma coisa, em qualquer plano de contas.
    */
-  private async buscarMesesCustosDespesas(clienteId: string, periodoInicio: string, periodoFim: string) {
+  private async buscarMesesCustosDespesas(clienteId: string, periodoInicio: string, periodoFim: string, periodos?: string[]) {
     const depara = await carregarDepara(clienteId)
     const serie = (categoria: string) =>
       prisma.$queryRawUnsafe<Array<{ periodo: string; total: number }>>(
         `SELECT l.periodo, ABS(SUM(l.creditos - l.debitos))::float AS total
          FROM cliente_bi_linhas l
-         ${this.sqlCategoriaFolha(depara, categoria)}
+         ${this.sqlCategoriaFolha(depara, categoria, periodos)}
          GROUP BY l.periodo ORDER BY l.periodo`,
         clienteId, periodoInicio, periodoFim,
       )
@@ -551,9 +562,9 @@ export class BiService {
     const custosMap = new Map(custos.map(r => [r.periodo, r.total]))
     const despesasMap = new Map(despesas.map(r => [r.periodo, r.total]))
 
-    // Unir os períodos
-    const periodos = new Set([...custosMap.keys(), ...despesasMap.keys()])
-    return Array.from(periodos).sort().map(p => ({
+    // Unir os períodos que vieram das duas séries
+    const refs = new Set([...custosMap.keys(), ...despesasMap.keys()])
+    return Array.from(refs).sort().map(p => ({
       mes: Number(p.slice(4)),
       custosFixos: custosMap.get(p) ?? 0,
       despesas: despesasMap.get(p) ?? 0,
@@ -563,7 +574,14 @@ export class BiService {
   // ══════════════════════════════════════════════════════════════
   // Balancete — Análise Vertical e Horizontal
   // ══════════════════════════════════════════════════════════════
-  async balanceteAnalise(clienteId: string, ano: number, _meses?: string) {
+  async balanceteAnalise(clienteId: string, ano: number, meses?: string) {
+    // O `meses` chegava aqui e era descartado (`_meses`). A série mensal
+    // continua vindo inteira — o gráfico precisa dela para desenhar a variação
+    // contra o mês anterior —, mas o que é TOTAL do período passa a respeitar
+    // o recorte: a análise vertical e o "Resultado por natureza".
+    const periodosSelecionados = meses
+      ? meses.split(',').map(m => `${ano}${m.padStart(2, '0')}`)
+      : undefined
     const periodoInicio = `${ano}01`
     const periodoFim = `${ano}12`
     // Inclui dezembro do ano anterior pra calcular a variação% de janeiro
@@ -671,7 +689,7 @@ export class BiService {
               SUM(l.creditos - l.debitos)::float AS valor,
               ${SQL_CATEGORIA} AS categoria
        FROM cliente_bi_linhas l
-       ${this.sqlCategoriaFolha(deparaAnalise, null)}
+       ${this.sqlCategoriaFolha(deparaAnalise, null, periodosSelecionados)}
        GROUP BY l.conta, l.nome_conta, ${SQL_CATEGORIA}
        HAVING ABS(SUM(l.creditos - l.debitos)) > 0.01
        ORDER BY ABS(SUM(l.creditos - l.debitos)) DESC
@@ -691,7 +709,7 @@ export class BiService {
     // — o Resultado Operacional nunca somava o resultado financeiro, e o
     // "Antes de Participações" repetia o Lucro Líquido. O painel mostrava o
     // mesmo número duas vezes, em duas duplas.
-    const dreTotal = calcularDre(this.somarTotais(somasMensais, periodoInicio, periodoFim))
+    const dreTotal = calcularDre(this.somarTotais(somasMensais, periodoInicio, periodoFim, periodosSelecionados))
     const noIndice = (i: number) => dreTotal.get(i) ?? 0
     const rl = noIndice(INDICE.RECEITA_LIQUIDA)
     const pct = (v: number) => rl !== 0 ? Math.round((v / rl) * 10000) / 100 : 0

@@ -62,3 +62,21 @@ export const SQL_CATEGORIA = 'COALESCE(cbc.categoria_dre, dp.categoria)'
 
 // O filtro de folha mora em `folha.ts` — sem Prisma, para ter teste direto.
 export { sqlSomenteFolhas, ehFolha } from './folha'
+
+/**
+ * Restringe a consulta aos meses escolhidos no filtro da tela.
+ *
+ * Vem como fragmento ADICIONAL, somado ao `BETWEEN` do ano — e não no lugar
+ * dele. Trocar um pelo outro deixaria `$2`/`$3` sem referência no SQL, e o
+ * Postgres recusa a consulta ("bind message supplies 3 parameters, but
+ * prepared statement requires 1").
+ *
+ * Os períodos são gerados por nós (`ano` + mês do filtro), mas passam por um
+ * formato estrito antes de virarem literal: é dado que chegou pela URL.
+ */
+export function sqlPeriodosEscolhidos(periodos: string[] | undefined, alias = 'l'): string {
+  if (!periodos || periodos.length === 0) return ''
+  const validos = periodos.filter(p => /^\d{6}$/.test(p))
+  if (validos.length === 0) return ''
+  return `AND ${alias}.periodo IN (${validos.map(p => `'${p}'`).join(', ')})`
+}
