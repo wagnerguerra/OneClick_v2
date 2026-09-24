@@ -91,11 +91,25 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
   const data = dataByAno[ano] ?? null // Dados do ano principal para KPI cards
   const isComparativo = anos.length > 1
 
+  // Os meses escolhidos no filtro, na ordem do calendário.
+  //
+  // Os gráficos desenhavam os doze meses sempre. Os cartões já respeitavam o
+  // filtro (o `meses` vai na consulta), então a tela mostrava o total de três
+  // meses ao lado de um gráfico do ano inteiro — e as colunas vazias de um ano
+  // ainda em curso pareciam meses zerados.
+  //
+  // O recorte é aqui, e não no servidor: a série mensal vem completa de
+  // qualquer jeito (a análise é por ano), e filtrar na renderização mantém o
+  // gráfico instantâneo ao marcar e desmarcar mês.
+  const mesesVisiveis = MESES_LABELS
+    .map((label, i) => ({ label, mes: i + 1 }))
+    .filter(m => meses.length === 0 || meses.includes(m.mes))
+
   // Dados para gráfico de barras (custos x despesas por mês) — comparativo
-  const barData = MESES_LABELS.map((label, i) => {
+  const barData = mesesVisiveis.map(({ label, mes }) => {
     const entry: Record<string, unknown> = { mes: label }
     for (const a of anos) {
-      const mesDados = (dataByAno[a]?.mesesCustosDespesas ?? []).find(m => m.mes === i + 1)
+      const mesDados = (dataByAno[a]?.mesesCustosDespesas ?? []).find(m => m.mes === mes)
       entry[`custos_${a}`] = mesDados?.custosFixos ?? 0
       entry[`despesas_${a}`] = mesDados?.despesas ?? 0
     }
@@ -153,11 +167,11 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
               <CardContent className="p-4 bg-card">
                 {(() => {
                   // Build chart data from indicadoresHorizontais
-                  const chartData = MESES_LABELS.map((label, i) => {
+                  const chartData = mesesVisiveis.map(({ label, mes }) => {
                     const entry: Record<string, unknown> = { mes: label }
                     for (const a of anos) {
                       const indicadorData = analiseByAno[a]?.[indicador] ?? []
-                      const mesData = indicadorData.find(d => d.mes === i + 1)
+                      const mesData = indicadorData.find(d => d.mes === mes)
                       entry[`valor_${a}`] = mesData?.valor ?? 0
                     }
                     // Calcular variação % entre os dois primeiros anos selecionados
