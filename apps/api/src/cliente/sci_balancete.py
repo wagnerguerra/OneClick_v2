@@ -123,7 +123,20 @@ def main():
         BDSALDO_DEB AS DEBITO,
         BDSALDO_CRE AS CREDITO,
         BDMOVIMENTO,
-        BDSALDO_ATUAL
+        BDSALDO_ATUAL,
+        -- A procedure devolve 45 colunas; abaixo as que faltavam e importam.
+        -- BDTIPCTA: 0 = sintetica, 1 = analitica. Conferido na base (08/2026 da
+        -- Finatto: 257 linhas tipo 0, exemplo "01"; 148 tipo 1, exemplo
+        -- "01.1.1.01.001"). Substitui a nossa heuristica de contar pontos e de
+        -- procurar descendente.
+        BDTIPCTA AS TIPO_CONTA,
+        -- Centro de custo. Hoje vem 0 quando PRCODTPCC e vazio, mas guardar a
+        -- dimensao e o que permite segmentar quando o cliente usar.
+        BDCODTPCC AS CC_CODIGO,
+        BDNOMTPCC AS CC_NOME,
+        -- CNPJ da empresa: serve para conferir que o dado devolvido e mesmo de
+        -- quem pedimos. Nada validava isso.
+        BDCNPJEMP AS CNPJ_EMPRESA
     FROM VSUC_SP_RETORNA_BALANCETE(
         ?, ?, ?, ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,

@@ -177,12 +177,20 @@ async function somarPorCategoriaDre(
     WHERE l.cliente_id = $1
       AND ${p.sql}
       AND COALESCE(cbc.categoria_dre, pccp.categoria_dre) = $2
-      AND NOT EXISTS (
-        SELECT 1 FROM cliente_bi_linhas f
-        WHERE f.cliente_id = l.cliente_id
-          AND f.periodo = l.periodo
-          AND f.conta LIKE l.conta || '.%'
-          AND LENGTH(f.conta) > LENGTH(l.conta)
+      AND (
+        -- A coluna analitica e o BDTIPCTA do SCI: a FONTE dizendo se e folha.
+        -- (sem crase nos comentarios: isto vive dentro de um template literal)
+        l.analitica = true
+        -- Linha importada antes dessa coluna existir cai na heuristica antiga:
+        -- e folha quem nao tem descendente no mesmo periodo. Erra quando um
+        -- nivel nao foi importado — dai preferir o dado da fonte.
+        OR (l.analitica IS NULL AND NOT EXISTS (
+          SELECT 1 FROM cliente_bi_linhas f
+          WHERE f.cliente_id = l.cliente_id
+            AND f.periodo = l.periodo
+            AND f.conta LIKE l.conta || '.%'
+            AND LENGTH(f.conta) > LENGTH(l.conta)
+        ))
       )
       ${ignoradasClause}
   `

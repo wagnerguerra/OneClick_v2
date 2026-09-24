@@ -2008,11 +2008,28 @@ model ClienteBiLinha {
   creditos      Decimal  @default(0) @db.Decimal(18, 2)
   saldoAtual    Decimal  @default(0) @map("saldo_atual") @db.Decimal(18, 2)
   movimento     Decimal  @default(0) @db.Decimal(18, 2)
+  /// `BDTIPCTA` do SCI: true = analitica (folha), false = sintetica.
+  ///
+  /// Classificacao da FONTE. Ate agora o modulo adivinhava folha contando
+  /// pontos na classificacao ou procurando descendente no proprio balancete —
+  /// heuristica que erra quando um nivel nao foi importado. Nulo = linha
+  /// importada antes desta coluna existir; nesses casos o calculo cai de volta
+  /// na heuristica.
+  analitica     Boolean? @map("analitica")
+  /// `BDCODTPCC` / `BDNOMTPCC` — centro de custo.
+  ///
+  /// Entra na CHAVE porque a mesma conta pode voltar uma vez por centro de
+  /// custo. Sem isso, o importador precisava deduplicar por conta e escolher
+  /// um `movimento` entre as linhas coincidentes — o que fazia
+  /// `movimento != creditos - debitos`. Vem 0 quando a empresa nao usa centro
+  /// de custo, que e o caso mais comum hoje.
+  ccCodigo      Int      @default(0) @map("cc_codigo")
+  ccNome        String   @default("") @map("cc_nome")
   createdAt     DateTime @default(now()) @map("created_at")
 
   cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
 
-  @@unique([clienteId, periodo, conta])
+  @@unique([clienteId, periodo, conta, ccCodigo])
   @@index([clienteId, periodo])
   @@map("cliente_bi_linhas")
 }

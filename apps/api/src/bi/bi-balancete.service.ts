@@ -593,25 +593,32 @@ export class BiBalanceteService {
       conta: string; nomeConta: string
       saldoAnterior: number; debitos: number; creditos: number
       saldoAtual: number; movimento: number
+      analitica: boolean; ccCodigo: number; ccNome: string
     }>()
 
     for (const l of linhas) {
       const conta = this.normalizeContaForStorage(l.CLASSIFICACAO)
       if (!conta) continue
 
-      const existing = deduped.get(conta)
+      // A chave inclui o CENTRO DE CUSTO. A mesma conta volta uma vez por
+      // centro de custo, e agrupar só por conta era o que obrigava a escolher
+      // um `movimento` entre linhas distintas — pela heurística do "menor em
+      // valor absoluto (evitar inflação)", que deixava
+      // `movimento != creditos - debitos` e só nas linhas fundidas.
+      const chave = `${conta}|${l.CC_CODIGO ?? 0}`
+      const existing = deduped.get(chave)
       if (existing) {
-        // Consolidar duplicatas somando valores
+        // Restou duplicata mesmo com o centro de custo na chave (ex.: duas
+        // classificações que normalizam para a mesma conta). Soma tudo,
+        // inclusive o movimento: um total somado é defensável; escolher um
+        // dos valores não é.
         existing.saldoAnterior += l.BDSALDO_ANTERIOR
         existing.debitos += l.DEBITO
         existing.creditos += l.CREDITO
         existing.saldoAtual += l.BDSALDO_ATUAL
-        // Para movimento, usar o menor em valor absoluto (evitar inflação)
-        if (Math.abs(l.BDMOVIMENTO) < Math.abs(existing.movimento)) {
-          existing.movimento = l.BDMOVIMENTO
-        }
+        existing.movimento += l.BDMOVIMENTO
       } else {
-        deduped.set(conta, {
+        deduped.set(chave, {
           conta,
           nomeConta: l.NOME_CONTA,
           saldoAnterior: l.BDSALDO_ANTERIOR,
@@ -619,11 +626,37 @@ export class BiBalanceteService {
           creditos: l.CREDITO,
           saldoAtual: l.BDSALDO_ATUAL,
           movimento: l.BDMOVIMENTO,
+          // `BDTIPCTA`: 1 = analítica (folha), 0 = sintética.
+          analitica: Number(l.TIPO_CONTA ?? 0) === 1,
+          ccCodigo: Number(l.CC_CODIGO ?? 0),
+          ccNome: String(l.CC_NOME ?? ''),
         })
       }
     }
 
     const rows = Array.from(deduped.values())
+
+    // ── O dado é mesmo da empresa que pedimos? ────────────────────────
+    //
+    // A procedure devolve `BDCNPJEMP` e nada conferia. O `PRCODEMP` vem de
+    // `cliente.idSistema` — um id digitado ou descoberto por CNPJ. Id errado no
+    // cadastro importava o balancete de OUTRA empresa, em silêncio, sob o nome
+    // do cliente certo.
+    const cnpjSci = String(linhas[0]?.CNPJ_EMPRESA ?? '').replace(/\D/g, '')
+    if (cnpjSci) {
+      const cli = await prisma.cliente.findUnique({
+        where: { id: clienteId },
+        select: { documento: true, razaoSocial: true },
+      }).catch(() => null)
+      const cnpjCliente = (cli?.documento ?? '').replace(/\D/g, '')
+      if (cnpjCliente && cnpjCliente !== cnpjSci) {
+        throw new Error(
+          `O SCI devolveu o balancete do CNPJ ${cnpjSci}, mas o cliente `
+          + `${cli?.razaoSocial ?? clienteId} tem CNPJ ${cnpjCliente}. `
+          + 'Confira o ID SCI no cadastro do cliente antes de importar.',
+        )
+      }
+    }
 
     // ── Conferência de integridade do balancete ───────────────────────────
     //
@@ -662,18 +695,24 @@ export class BiBalanceteService {
             conta: r.conta, nomeConta: r.nomeConta,
             saldoAnterior: r.saldoAnterior, debitos: r.debitos,
             creditos: r.creditos, saldoAtual: r.saldoAtual, movimento: r.movimento,
+            analitica: r.analitica, ccCodigo: r.ccCodigo, ccNome: r.ccNome,
           })),
         })
       } else {
         // Insert only new (skip existing)
         for (const r of rows) {
           await tx.clienteBiLinha.upsert({
-            where: { clienteId_periodo_conta: { clienteId, periodo, conta: r.conta } },
+            where: {
+              clienteId_periodo_conta_ccCodigo: {
+                clienteId, periodo, conta: r.conta, ccCodigo: r.ccCodigo,
+              },
+            },
             create: {
               clienteId, periodo,
               conta: r.conta, nomeConta: r.nomeConta,
               saldoAnterior: r.saldoAnterior, debitos: r.debitos,
               creditos: r.creditos, saldoAtual: r.saldoAtual, movimento: r.movimento,
+              analitica: r.analitica, ccCodigo: r.ccCodigo, ccNome: r.ccNome,
             },
             update: {}, // No update — preserve existing
           })

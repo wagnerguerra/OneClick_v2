@@ -17,6 +17,16 @@ export interface SciBalanceteLinha {
   CREDITO: number
   BDMOVIMENTO: number
   BDSALDO_ATUAL: number
+  /** `BDTIPCTA`: 0 = sintética, 1 = analítica. Classificação do PRÓPRIO SCI —
+   *  conferida na base (08/2026 da Finatto: 257 linhas tipo 0, começando em
+   *  "01"; 148 tipo 1, começando em "01.1.1.01.001"). */
+  TIPO_CONTA: number
+  /** `BDCODTPCC` / `BDNOMTPCC` — centro de custo. Vem 0/"" quando a empresa não
+   *  usa, que é o caso da Finatto hoje. */
+  CC_CODIGO: number
+  CC_NOME: string
+  /** `BDCNPJEMP` — serve para conferir que o dado é de quem pedimos. */
+  CNPJ_EMPRESA: string
 }
 
 @Injectable()
@@ -324,6 +334,10 @@ export class SciService {
       CREDITO: Number(row.CREDITO ?? row.BDSALDO_CRE ?? 0),
       BDMOVIMENTO: Number(row.BDMOVIMENTO ?? 0),
       BDSALDO_ATUAL: Number(row.BDSALDO_ATUAL ?? 0),
+      TIPO_CONTA: Number(row.TIPO_CONTA ?? row.BDTIPCTA ?? 0),
+      CC_CODIGO: Number(row.CC_CODIGO ?? row.BDCODTPCC ?? 0),
+      CC_NOME: String(row.CC_NOME ?? row.BDNOMTPCC ?? '').trim(),
+      CNPJ_EMPRESA: String(row.CNPJ_EMPRESA ?? row.BDCNPJEMP ?? '').replace(/\D/g, ''),
     }))
   }
 }
