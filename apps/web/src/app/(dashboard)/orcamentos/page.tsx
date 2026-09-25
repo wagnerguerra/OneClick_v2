@@ -983,7 +983,7 @@ export default function OrcamentosPage() {
               <div className="flex items-end">
                 <label className="inline-flex items-center gap-2 h-9 cursor-pointer select-none">
                   <Checkbox className="cursor-pointer" accentColor={PRIMARY} checked={incluirParalizados} onCheckedChange={v => { setIncluirParalizados(v === true); setPage(1) }} />
-                  <span className="text-sm text-foreground">Incluir paralizados</span>
+                  <span className="text-sm text-foreground">Incluir paralisados</span>
                 </label>
               </div>
             </div>
@@ -1164,7 +1164,7 @@ export default function OrcamentosPage() {
                     <span className="flex items-center gap-1.5 min-w-0">
                       <span className="truncate">{getClienteNome(orc) || '—'}</span>
                       {orc.paralizado && (
-                        <Badge variant="outline" className={cn('shrink-0 text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.amber)}>Paralizado</Badge>
+                        <Badge variant="outline" className={cn('shrink-0 text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.amber)}>Paralisado</Badge>
                       )}
                     </span>
                     {/* Número e status, que ganham coluna a partir de `sm` */}
@@ -1656,7 +1656,7 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
         <h4 className="min-w-0 text-[13px] font-semibold leading-tight line-clamp-2">
           <span className="shrink-0">#{orc.numero}</span> {clienteNome || 'Sem cliente'}
           {orc.paralizado && (
-            <Badge variant="outline" className={cn('ml-1 align-middle text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.amber)}>Paralizado</Badge>
+            <Badge variant="outline" className={cn('ml-1 align-middle text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.amber)}>Paralisado</Badge>
           )}
         </h4>
         <div className="h-6 w-6 shrink-0 -mr-1 -mt-0.5">

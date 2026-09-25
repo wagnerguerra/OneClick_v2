@@ -2303,7 +2303,7 @@ export class OrcamentoService {
   async paralizar(id: string, motivo: string, userId?: string) {
     const orc = await prisma.orcamento.findUnique({ where: { id } })
     if (!orc) throw new Error('Orçamento não encontrado')
-    if (orc.paralizado) throw new Error('Orçamento já está paralizado')
+    if (orc.paralizado) throw new Error('Orçamento já está paralisado')
 
     const updated = await prisma.orcamento.update({
       where: { id },
@@ -2314,7 +2314,7 @@ export class OrcamentoService {
         paralizadoMotivo: motivo,
       },
     })
-    await this.addEvento(id, userId, 'paralizacao', null, null, `Orçamento paralizado: ${motivo}`)
+    await this.addEvento(id, userId, 'paralizacao', null, null, `Orçamento paralisado: ${motivo}`)
     this.emitEvent('kanban', { orcamentoId: id, empresaId: updated.empresaId, actorUserId: userId })
     return updated
   }
@@ -2322,7 +2322,7 @@ export class OrcamentoService {
   async retomar(id: string, userId?: string) {
     const orc = await prisma.orcamento.findUnique({ where: { id } })
     if (!orc) throw new Error('Orçamento não encontrado')
-    if (!orc.paralizado) throw new Error('Orçamento não está paralizado')
+    if (!orc.paralizado) throw new Error('Orçamento não está paralisado')
 
     const updated = await prisma.orcamento.update({
       where: { id },

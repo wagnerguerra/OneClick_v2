@@ -1135,13 +1135,13 @@ export default function OrcamentoDetailPage() {
   // ── Workflow estendido (paralizar, retomar, reabrir, editar datas) ──
 
   async function handleParalizar() {
-    if (!paralizarMotivo.trim()) { alerts.warning('Atenção', 'Informe o motivo da paralização'); return }
+    if (!paralizarMotivo.trim()) { alerts.warning('Atenção', 'Informe o motivo da paralisação'); return }
     setWorkflowLoading(true)
     try {
       await (trpc.orcamento as any).paralizar.mutate({ id, motivo: paralizarMotivo.trim() })
       setParalizarModal(false)
       setParalizarMotivo('')
-      alerts.success('Paralizado', 'Orçamento paralizado com sucesso')
+      alerts.success('Paralisado', 'Orçamento paralisado com sucesso')
       fetchOrc(true)
     } catch (e) { alerts.error('Erro', (e as Error).message) }
     finally { setWorkflowLoading(false) }
@@ -1784,7 +1784,7 @@ export default function OrcamentoDetailPage() {
                 ) : (
                   canParalizar && (
                     <DropdownMenuItem onClick={() => setParalizarModal(true)}>
-                      <Pause className="h-4 w-4 mr-2 text-amber-500" /> Paralizar
+                      <Pause className="h-4 w-4 mr-2 text-amber-500" /> Paralisar
                     </DropdownMenuItem>
                   )
                 )}
@@ -1929,7 +1929,7 @@ export default function OrcamentoDetailPage() {
                 {/* Badges de estado, na mesma linha do status e das áreas (vidro, como os chips) */}
                 {orc.paralizado && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase ring-1 ring-white/25 backdrop-blur text-amber-200">
-                    <Pause className="h-3 w-3" /> Paralizado
+                    <Pause className="h-3 w-3" /> Paralisado
                   </span>
                 )}
                 {orc.arquivado && (
@@ -2054,7 +2054,7 @@ export default function OrcamentoDetailPage() {
           <div className="flex items-start gap-3">
             <Pause className={cn('h-5 w-5 shrink-0 mt-0.5', TEXT.amber)} />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Orçamento Paralizado</p>
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Orçamento Paralisado</p>
               <p className={cn('text-xs mt-0.5', TEXT.amber)}>{orc.paralizadoMotivo}</p>
               {orc.paralizadoEm && (
                 <p className={cn('text-[10px]', TEXT.amber, 'mt-1')}>
@@ -3521,9 +3521,9 @@ export default function OrcamentoDetailPage() {
       <Dialog open={paralizarModal} onOpenChange={setParalizarModal}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeaderIcon icon={Pause} color="amber">
-            <DialogTitle className="text-[15px]">Paralizar orçamento</DialogTitle>
+            <DialogTitle className="text-[15px]">Paralisar orçamento</DialogTitle>
             <DialogDescription className="text-[11px]">
-              Ao paralizar, o orçamento será marcado como pausado mas manterá o status atual. Útil quando aguarda informações do cliente.
+              Ao paralisar, o orçamento será marcado como pausado mas manterá o status atual. Útil quando aguarda informações do cliente.
             </DialogDescription>
           </DialogHeaderIcon>
           <DialogBody className="space-y-3">
@@ -3542,7 +3542,7 @@ export default function OrcamentoDetailPage() {
             <Button variant="outline" size="sm" onClick={() => setParalizarModal(false)} disabled={workflowLoading}>Cancelar</Button>
             <Button size="sm" variant="warning" className="gap-1.5" onClick={handleParalizar} disabled={workflowLoading || !paralizarMotivo.trim()}>
               {workflowLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pause className="h-4 w-4" />}
-              Paralizar
+              Paralisar
             </Button>
           </DialogFooter>
         </DialogContent>
