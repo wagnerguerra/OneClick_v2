@@ -189,6 +189,7 @@ export default function GruposPage() {
       title: `Remover grupo "${g.nome}"`,
       text: 'Os serviços continuam intactos — só perdem o vínculo com o grupo.',
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     try {

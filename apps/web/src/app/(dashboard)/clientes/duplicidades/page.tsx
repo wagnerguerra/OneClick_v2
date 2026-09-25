@@ -345,6 +345,7 @@ function MesclarModal({ grupo, destinoId, onClose, onDone }: {
       text: `${totalMover} registro(s) serão movidos. Os cadastros mesclados vão para a lixeira. Não há como desfazer.`,
       icon: 'warning',
       confirmText: 'Mesclar',
+      destructive: true,
     })
     if (!ok) return
     setExecutando(true)

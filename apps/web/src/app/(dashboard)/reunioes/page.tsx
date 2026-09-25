@@ -86,7 +86,7 @@ export default function ReunioesPage() {
     const ok = await alerts.confirm({
       title: `Excluir "${r.titulo}"?`,
       text: 'A reunião, as ações e o histórico serão apagados.',
-      icon: 'warning', confirmText: 'Excluir',
+      icon: 'warning', confirmText: 'Excluir', destructive: true,
     })
     if (!ok) return
     try {

@@ -654,6 +654,7 @@ export default function ServicosPage() {
       title: 'Remover sucessor',
       text: `O sucessor "${nome}" será desvinculado deste serviço.`,
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -836,6 +837,7 @@ export default function ServicosPage() {
       text: 'Esta ação não pode ser desfeita pelo fluxo normal.',
       confirmText: 'Excluir',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -946,7 +948,7 @@ export default function ServicosPage() {
       }
       texto += '\n\nCancelar a execução não desfaz o orçamento nem o card do CRM, mas eles ficam visivelmente sem serviço ativo. Confirmar?'
     }
-    const ok = await alerts.confirm({ title: 'Cancelar execução', text: texto, icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Cancelar execução', text: texto, icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.servico as any).cancelarExecucao.mutate({ id })

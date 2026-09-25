@@ -219,6 +219,7 @@ export function NotificacoesSection({
       title: 'Desativar recorrência',
       text: 'O serviço deixará de ser disparado automaticamente. Execuções já criadas não são afetadas.',
       confirmText: 'Desativar',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -309,6 +310,7 @@ export function NotificacoesSection({
       title: 'Remover regra',
       text: 'Esta regra de notificação será excluída. Logs históricos ficam preservados.',
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     try {

@@ -214,7 +214,7 @@ export default function ControleFeriasDetalhePage() {
   }
 
   async function excluirGozo(e: Evento) {
-    const ok = await alerts.confirm({ title: 'Excluir o gozo?', text: `${dataBR(e.dataInicio)} a ${dataBR(e.dataFim)} (${e.dias} dias)`, icon: 'warning', confirmText: 'Excluir' })
+    const ok = await alerts.confirm({ title: 'Excluir o gozo?', text: `${dataBR(e.dataInicio)} a ${dataBR(e.dataFim)} (${e.dias} dias)`, icon: 'warning', confirmText: 'Excluir', destructive: true })
     if (!ok) return
     try {
       await (trpc.controleFerias as any).excluirEvento.mutate({ id: e.id })
@@ -238,7 +238,7 @@ export default function ControleFeriasDetalhePage() {
   }
 
   async function excluirArquivo(a: Arquivo) {
-    const ok = await alerts.confirm({ title: `Excluir "${a.nome}"?`, text: '', icon: 'warning', confirmText: 'Excluir' })
+    const ok = await alerts.confirm({ title: `Excluir "${a.nome}"?`, text: '', icon: 'warning', confirmText: 'Excluir', destructive: true })
     if (!ok) return
     try {
       await (trpc.controleFerias as any).excluirArquivo.mutate({ id: a.id })

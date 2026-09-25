@@ -476,6 +476,7 @@ function TemplateEditor({ mode, passoId, initial, onCancel, onSaved, onDeleted }
       text: `O modelo "${initial.nome}" será removido permanentemente.`,
       confirmText: 'Excluir',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     setDeleting(true)

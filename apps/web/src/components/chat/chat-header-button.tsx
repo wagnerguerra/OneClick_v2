@@ -497,6 +497,7 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
       text: 'A conversa some daqui pra você. Se chegar uma nova mensagem, ela volta automaticamente. Outros participantes continuam vendo o histórico.',
       confirmText: 'Excluir',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -1439,6 +1440,7 @@ function ChatView({ conversa, meuId, onMessageSent }: {
       text: 'A mensagem será substituída por "Mensagem excluída" para todos os participantes.',
       confirmText: 'Excluir',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {

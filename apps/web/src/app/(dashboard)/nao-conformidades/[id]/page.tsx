@@ -353,7 +353,7 @@ export default function NaoConformidadeDetalhePage() {
                           {podeExcluir && (
                             <Button variant="soft-destructive" size="icon-sm" title="Excluir"
                               onClick={async () => {
-                                const ok = await alerts.confirm({ title: 'Excluir a ação?', text: '', icon: 'warning', confirmText: 'Excluir' })
+                                const ok = await alerts.confirm({ title: 'Excluir a ação?', text: '', icon: 'warning', confirmText: 'Excluir', destructive: true })
                                 if (ok) rodar(() => (trpc.naoConformidade as any).excluirAcao.mutate({ id: a.id }), '')
                               }}>
                               <Trash2 className="h-3.5 w-3.5" />

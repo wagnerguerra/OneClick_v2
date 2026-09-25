@@ -135,6 +135,7 @@ export default function AtivosPage() {
       text: `O ativo ${tag} será baixado (descartado). Os registros são mantidos pra histórico.`,
       confirmText: 'Baixar',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {

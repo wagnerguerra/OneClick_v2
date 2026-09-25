@@ -172,7 +172,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
       const ok = await alerts.confirm({
         title: 'Substituir todas as obrigações?',
         text: 'Isto REMOVE todas as obrigações atuais do cliente — inclusive as adicionadas manualmente — antes de aplicar o grupo. Não dá pra desfazer.',
-        confirmText: 'Substituir tudo', icon: 'warning',
+        confirmText: 'Substituir tudo', icon: 'warning', destructive: true,
       })
       if (!ok) return
     }
@@ -249,7 +249,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
     const ok = await alerts.confirm({
       title: `Desvincular ${selected.size} obrigação(ões)?`,
       text: 'O vínculo será removido. Você pode reaplicar um grupo de obrigações depois, se precisar.',
-      confirmText: 'Desvincular', icon: 'warning',
+      confirmText: 'Desvincular', icon: 'warning', destructive: true,
     })
     if (!ok) return
     try {

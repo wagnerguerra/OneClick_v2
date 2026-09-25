@@ -77,6 +77,7 @@ export default function TarefasPage() {
       text: `"${t.titulo}" será removida permanentemente.`,
       confirmText: 'Excluir',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {

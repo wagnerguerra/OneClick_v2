@@ -855,7 +855,7 @@ export default function OrcamentoDetailPage() {
   }
 
   async function handleCoverRemove() {
-    const ok = await alerts.confirm({ title: 'Remover capa?', text: 'A imagem de fundo personalizada será removida e voltará ao padrão.', icon: 'warning', confirmText: 'Remover' })
+    const ok = await alerts.confirm({ title: 'Remover capa?', text: 'A imagem de fundo personalizada será removida e voltará ao padrão.', icon: 'warning', confirmText: 'Remover', destructive: true })
     if (!ok) return
     setUploadingCover(true)
     try {
@@ -993,9 +993,9 @@ export default function OrcamentoDetailPage() {
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
-  async function handleStatusAction(novoStatus: string, mensagemSucesso: string) {
+  async function handleStatusAction(novoStatus: string, mensagemSucesso: string, destructive?: boolean) {
     const c = CONFIRM_STATUS[novoStatus] ?? { title: 'Alterar status?', text: `O status do orçamento passará para ${STATUS_LABELS[novoStatus] || novoStatus}.`, confirmText: 'Confirmar', icon: 'question' as const }
-    const ok = await alerts.confirm({ title: c.title, text: c.text, confirmText: c.confirmText, cancelText: c.cancelText, icon: c.icon })
+    const ok = await alerts.confirm({ title: c.title, text: c.text, confirmText: c.confirmText, cancelText: c.cancelText, icon: c.icon, destructive })
     if (!ok) return
     await applyStatusChange(novoStatus, mensagemSucesso)
   }
@@ -1011,6 +1011,7 @@ export default function OrcamentoDetailPage() {
     cancelText?: string
     successMsg: string
     icon?: 'warning' | 'question'
+    destructive?: boolean
   }) {
     const ok = await alerts.confirm({
       title: opts.title,
@@ -1018,6 +1019,7 @@ export default function OrcamentoDetailPage() {
       confirmText: opts.confirmText,
       cancelText: opts.cancelText,
       icon: opts.icon ?? 'warning',
+      destructive: opts.destructive,
     })
     if (!ok) return
     await applyStatusChange(opts.novoStatus, opts.successMsg)
@@ -1234,7 +1236,7 @@ export default function OrcamentoDetailPage() {
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
   async function handleDesvincularCrm() {
-    const ok = await alerts.confirm({ title: 'Desvincular CRM', text: 'O card de CRM deixará de estar vinculado a este orçamento. O card não volta de coluna.', confirmText: 'Desvincular', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Desvincular CRM', text: 'O card de CRM deixará de estar vinculado a este orçamento. O card não volta de coluna.', confirmText: 'Desvincular', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.orcamento as any).desvincularOportunidade.mutate({ id })
@@ -1704,6 +1706,7 @@ export default function OrcamentoDetailPage() {
                     confirmText: 'Reprovar',
                     cancelText: 'Voltar',
                     successMsg: 'Orçamento reprovado',
+                    destructive: true,
                   })}>
                     <ThumbsDown className="h-4 w-4" /> Reprovar
                   </Button>
@@ -1736,6 +1739,7 @@ export default function OrcamentoDetailPage() {
                     confirmText: 'Encerrar orçamento',
                     cancelText: 'Voltar',
                     successMsg: 'Orçamento encerrado',
+                    destructive: true,
                   })}>
                     <Archive className="h-4 w-4" /> Encerrar
                   </Button>
@@ -2608,7 +2612,7 @@ export default function OrcamentoDetailPage() {
                   <Button key="aprovar" size="xs" variant="success" className="gap-1" onClick={() => handleStatusAction('APROVADO', 'Orçamento aprovado')}>
                     <ThumbsUp className="h-3 w-3" /> Aprovar
                   </Button>,
-                  <Button key="reprovar" size="xs" variant="destructive" className="gap-1" onClick={() => handleStatusAction('ENCERRADO', 'Orçamento reprovado')}>
+                  <Button key="reprovar" size="xs" variant="destructive" className="gap-1" onClick={() => handleStatusAction('ENCERRADO', 'Orçamento reprovado', true)}>
                     <ThumbsDown className="h-3 w-3" /> Reprovar
                   </Button>,
                 )
@@ -4081,7 +4085,7 @@ function MensagensCard({ orcamentoId, mensagens, usuarios = [], onChange, bare =
   }
 
   async function handleExcluir(id: string) {
-    const ok = await alerts.confirm({ title: 'Excluir mensagem?', text: 'Esta ação não pode ser desfeita.', confirmText: 'Excluir', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Excluir mensagem?', text: 'Esta ação não pode ser desfeita.', confirmText: 'Excluir', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.orcamento as any).deleteMensagem.mutate({ id })

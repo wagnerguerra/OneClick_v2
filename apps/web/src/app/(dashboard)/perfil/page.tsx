@@ -282,7 +282,7 @@ export default function MeuPerfilPage() {
     } catch { setTrustedDevices([]) }
   }
   async function handleRevokeDevice(id: string) {
-    const ok = await alerts.confirm({ title: 'Revogar este dispositivo?', text: 'O próximo login deste dispositivo exigirá novamente o código MFA.', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Revogar este dispositivo?', text: 'O próximo login deste dispositivo exigirá novamente o código MFA.', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.user as any).revokeMyTrustedDevice.mutate({ id })
@@ -292,7 +292,7 @@ export default function MeuPerfilPage() {
   }
   async function handleRevokeAllDevices() {
     if (trustedDevices.length === 0) return
-    const ok = await alerts.confirm({ title: 'Revogar todos?', text: `Os ${trustedDevices.length} dispositivos confiáveis serão removidos. Em todos eles o MFA será exigido novamente no próximo login.`, icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Revogar todos?', text: `Os ${trustedDevices.length} dispositivos confiáveis serão removidos. Em todos eles o MFA será exigido novamente no próximo login.`, icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.user as any).revokeAllMyTrustedDevices.mutate()
@@ -512,7 +512,7 @@ export default function MeuPerfilPage() {
   }
 
   async function removeSignaturePhoto() {
-    const ok = await alerts.confirm({ title: 'Remover foto da assinatura?', text: 'A foto será apagada — você pode subir outra depois.', confirmText: 'Remover' })
+    const ok = await alerts.confirm({ title: 'Remover foto da assinatura?', text: 'A foto será apagada — você pode subir outra depois.', confirmText: 'Remover', destructive: true })
     if (!ok) return
     setUploadingSignature(true)
     try {
@@ -690,7 +690,7 @@ export default function MeuPerfilPage() {
   }
 
   async function handleCoverRemove() {
-    const ok = await alerts.confirm({ title: 'Remover capa?', text: 'A imagem de fundo personalizada será removida e voltará ao padrão.', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Remover capa?', text: 'A imagem de fundo personalizada será removida e voltará ao padrão.', icon: 'warning', destructive: true })
     if (!ok) return
     setUploadingCover(true)
     try {

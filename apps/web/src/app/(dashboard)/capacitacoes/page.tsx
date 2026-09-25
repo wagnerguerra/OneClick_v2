@@ -103,7 +103,7 @@ export default function CapacitacoesPage() {
     const ok = await alerts.confirm({
       title: `Excluir "${c.titulo}"?`,
       text: `A capacitação e os seus ${c._count.participantes} participante(s) serão apagados.`,
-      icon: 'warning', confirmText: 'Excluir',
+      icon: 'warning', confirmText: 'Excluir', destructive: true,
     })
     if (!ok) return
     try {

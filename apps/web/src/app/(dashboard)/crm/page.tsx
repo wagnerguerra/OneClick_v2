@@ -924,6 +924,7 @@ export default function CrmPage() {
       text: `"${t.titulo}" será removida.`,
       confirmText: 'Excluir',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -983,7 +984,7 @@ export default function CrmPage() {
 
   const removeArquivo = async (arquivoId: string, fileName: string) => {
     if (!detail) return
-    const ok = await alerts.confirm({ title: 'Excluir arquivo', text: `Remover "${fileName}"?`, confirmText: 'Excluir', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Excluir arquivo', text: `Remover "${fileName}"?`, confirmText: 'Excluir', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.crm as any).removeArquivo.mutate({ id: arquivoId })

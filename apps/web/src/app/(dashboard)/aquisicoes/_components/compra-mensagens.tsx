@@ -254,7 +254,7 @@ export function MensagensTab({ compraId, currentUserId }: { compraId: string; cu
     } catch (e) { alerts.error('Erro', (e as Error).message); throw e }
   }
   async function excluir(id: string) {
-    const ok = await alerts.confirm({ title: 'Excluir mensagem?', text: 'Esta ação não pode ser desfeita.', icon: 'warning', confirmText: 'Excluir' })
+    const ok = await alerts.confirm({ title: 'Excluir mensagem?', text: 'Esta ação não pode ser desfeita.', icon: 'warning', confirmText: 'Excluir', destructive: true })
     if (!ok) return
     try {
       await (trpc.compra as any).removeMensagem.mutate({ id })

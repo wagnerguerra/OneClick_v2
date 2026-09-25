@@ -318,7 +318,7 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
       text: e._count.rodadas > 0
         ? `As ${e._count.rodadas} rodada(s) dela e os apontamentos vão junto.`
         : 'Não dá para desfazer.',
-      icon: 'warning', confirmText: 'Excluir',
+      icon: 'warning', confirmText: 'Excluir', destructive: true,
     })
     if (!ok) return
     try {

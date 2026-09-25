@@ -96,7 +96,7 @@ export default function PainelEditorPage() {
     await (trpc.painelTv as any).updateFolha.mutate({ id: folha.id, data: { titulo: r } }); load()
   }
   const excluirFolha = async (folha: any) => {
-    if (!(await alerts.confirm({ title: 'Excluir folha?', text: `"${folha.titulo}" e seus blocos serão removidos.`, icon: 'warning' }))) return
+    if (!(await alerts.confirm({ title: 'Excluir folha?', text: `"${folha.titulo}" e seus blocos serão removidos.`, icon: 'warning', destructive: true }))) return
     await (trpc.painelTv as any).deleteFolha.mutate({ id: folha.id })
     setActiveFolha(null); load()
   }
@@ -164,7 +164,7 @@ export default function PainelEditorPage() {
     } catch (e: any) { alerts.error('Erro', e?.message ?? 'Não foi possível salvar o bloco.') }
   }
   const excluirBloco = async (b: any) => {
-    if (!(await alerts.confirm({ title: 'Remover bloco?', text: metricById[b.metricId]?.label ?? b.metricId, icon: 'warning' }))) return
+    if (!(await alerts.confirm({ title: 'Remover bloco?', text: metricById[b.metricId]?.label ?? b.metricId, icon: 'warning', destructive: true }))) return
     await (trpc.painelTv as any).deleteBloco.mutate({ id: b.id }); load()
   }
   const onDragBlocos = async (e: DragEndEvent) => {

@@ -1581,6 +1581,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
         ? 'O sucessor não será mais criado automaticamente.'
         : 'Os sucessores não serão mais criados automaticamente.',
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) {
       // Aborta: força recarregar pra repintar
@@ -1629,6 +1630,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
         ? `Conexão com "${lista}" será removida.`
         : `Conexões com: ${lista}`,
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     try {

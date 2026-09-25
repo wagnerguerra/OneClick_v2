@@ -154,7 +154,7 @@ export function BiGerenciar({ clienteId, ano }: BiGerenciarProps) {
   // Deletar periodo
   async function handleDeletePeriodo() {
     if (!clienteId || !selectedPeriodo) return
-    const confirmed = await alerts.confirm({ title: 'Excluir período?', text: `Deseja excluir "${selectedPeriodo}" e todas as suas linhas?`, confirmText: 'Sim, excluir', icon: 'warning' })
+    const confirmed = await alerts.confirm({ title: 'Excluir período?', text: `Deseja excluir "${selectedPeriodo}" e todas as suas linhas?`, confirmText: 'Sim, excluir', icon: 'warning', destructive: true })
     if (!confirmed) return
     setDeleting(true)
     try {

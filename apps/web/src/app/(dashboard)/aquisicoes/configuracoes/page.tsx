@@ -239,7 +239,7 @@ function CriteriosTab() {
     catch (e) { alerts.error('Erro', (e as Error).message) }
   }
   async function excluir(c: Criterio) {
-    const ok = await alerts.confirm({ title: 'Excluir critério?', text: c.criterio, icon: 'warning', confirmText: 'Excluir' })
+    const ok = await alerts.confirm({ title: 'Excluir critério?', text: c.criterio, icon: 'warning', confirmText: 'Excluir', destructive: true })
     if (!ok) return
     try { await (trpc.compra as any).deleteCriterio.mutate({ id: c.id }); carregar() }
     catch (e) { alerts.error('Erro', (e as Error).message) }

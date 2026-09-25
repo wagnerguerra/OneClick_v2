@@ -127,7 +127,7 @@ export default function CrmFunilPage() {
 
   async function excluir() {
     if (!cfg?.id) return
-    const ok = await alerts.confirm({ title: 'Excluir campanha', text: `Excluir "${cfg.nome || cfg.slug}"? Esta ação não pode ser desfeita.`, confirmText: 'Excluir', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Excluir campanha', text: `Excluir "${cfg.nome || cfg.slug}"? Esta ação não pode ser desfeita.`, confirmText: 'Excluir', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await trpc.lead.deleteConfig.mutate({ id: cfg.id })

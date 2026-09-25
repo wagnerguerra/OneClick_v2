@@ -270,7 +270,7 @@ export default function ControleFeriasPage() {
     const ok = await alerts.confirm({
       title: `Excluir o período ${r.periodoInicial}/${r.periodoFinal}?`,
       text: 'Os gozos e recibos do período vão junto.',
-      icon: 'warning', confirmText: 'Excluir',
+      icon: 'warning', confirmText: 'Excluir', destructive: true,
     })
     if (!ok) return
     try {

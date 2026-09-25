@@ -189,7 +189,7 @@ export default function AnaliseContextoDetalhePage() {
   }
 
   async function excluirAcao(a: Acao) {
-    const ok = await alerts.confirm({ title: 'Excluir a ação?', text: 'A ação sai do plano.', icon: 'warning', confirmText: 'Excluir' })
+    const ok = await alerts.confirm({ title: 'Excluir a ação?', text: 'A ação sai do plano.', icon: 'warning', confirmText: 'Excluir', destructive: true })
     if (!ok) return
     try {
       await (trpc.analiseContexto as any).excluirAcao.mutate({ id: a.id })

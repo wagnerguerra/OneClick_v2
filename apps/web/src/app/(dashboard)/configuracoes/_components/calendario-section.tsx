@@ -455,6 +455,7 @@ export function CalendarioSection() {
       text: 'Os registros serão removidos do calendário. Essa ação não pode ser desfeita.',
       confirmText: 'Excluir',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {

@@ -62,13 +62,18 @@ export const alerts = {
     })
   },
 
-  async confirm(opts: { title: string; text: string; confirmText?: string; cancelText?: string; icon?: 'warning' | 'question' | 'info' }) {
+  /**
+   * Confirmação genérica. `destructive: true` pinta o botão de confirmar no
+   * vermelho de exclusão (o mesmo do `confirmDelete`) — use quando a ação
+   * exclui/remove algo mas precisa de título/texto próprios.
+   */
+  async confirm(opts: { title: string; text: string; confirmText?: string; cancelText?: string; icon?: 'warning' | 'question' | 'info'; destructive?: boolean }) {
     const result = await Swal.fire({
       icon: opts.icon ?? 'warning',
       title: opts.title,
       text: opts.text,
       showCancelButton: true,
-      confirmButtonColor: themeColor,
+      confirmButtonColor: opts.destructive ? '#ef4444' : themeColor,
       cancelButtonColor: '#6b7280',
       confirmButtonText: opts.confirmText ?? 'Confirmar',
       // cancelText customizável: quando a própria ação já é "cancelar", o botão de

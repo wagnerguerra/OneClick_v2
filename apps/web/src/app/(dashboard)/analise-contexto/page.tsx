@@ -136,7 +136,7 @@ export default function AnaliseContextoPage() {
     const ok = await alerts.confirm({
       title: `Excluir "${r.identificacao}"?`,
       text: 'O registro sai das listagens (as ações vão junto).',
-      icon: 'warning', confirmText: 'Excluir',
+      icon: 'warning', confirmText: 'Excluir', destructive: true,
     })
     if (!ok) return
     try {

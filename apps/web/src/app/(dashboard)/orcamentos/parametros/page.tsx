@@ -310,7 +310,7 @@ export default function ParametrosOrcamentosPage() {
   }
 
   async function handleExcluirTexto(t: CatalogoTexto) {
-    const ok = await alerts.confirm({ title: `Excluir texto "${t.titulo}"?`, text: 'Esta ação não pode ser desfeita.', confirmText: 'Excluir', icon: 'warning' })
+    const ok = await alerts.confirm({ title: `Excluir texto "${t.titulo}"?`, text: 'Esta ação não pode ser desfeita.', confirmText: 'Excluir', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.orcamento as any).removeCatalogoTexto.mutate({ id: t.id })
@@ -355,7 +355,7 @@ export default function ParametrosOrcamentosPage() {
     const text = item.usoCount > 0
       ? `Este item sai do catálogo e deixa de ser oferecido em novos orçamentos. Os ${item.usoCount} orçamento(s) que já o utilizam não são afetados.`
       : 'Este item sai do catálogo e deixa de ser oferecido em novos orçamentos.'
-    const ok = await alerts.confirm({ title: `Excluir "${item.nome}"?`, text, confirmText: 'Excluir', icon: 'warning' })
+    const ok = await alerts.confirm({ title: `Excluir "${item.nome}"?`, text, confirmText: 'Excluir', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.orcamento as any).deleteCatalogo.mutate({ id: item.id })

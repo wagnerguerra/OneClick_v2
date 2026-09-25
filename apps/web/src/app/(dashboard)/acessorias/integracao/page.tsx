@@ -1174,6 +1174,7 @@ function LimparVinculosModal({ onClose, onDone }: { onClose: () => void; onDone:
         : 'Todos os vínculos dos serviços marcados serão removidos, inclusive os feitos à mão. Não há como desfazer.',
       icon: 'warning',
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     setRemovendo(true)

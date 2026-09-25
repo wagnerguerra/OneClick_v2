@@ -75,7 +75,7 @@ export default function AquisicoesPage() {
   useEffect(() => { fetchData() }, [fetchData])
 
   async function handleDelete(id: string, code: number) {
-    const ok = await alerts.confirm({ title: `Excluir o pedido #${code}?`, text: 'O pedido será arquivado.', icon: 'warning', confirmText: 'Excluir' })
+    const ok = await alerts.confirm({ title: `Excluir o pedido #${code}?`, text: 'O pedido será arquivado.', icon: 'warning', confirmText: 'Excluir', destructive: true })
     if (!ok) return
     try { await (trpc.compra as any).delete.mutate({ id }); alerts.success('Excluído', 'Pedido arquivado.'); fetchData() }
     catch (e) { alerts.error('Erro', (e as Error).message) }

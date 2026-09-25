@@ -121,7 +121,7 @@ export default function MelhoriasPage() {
   }
 
   async function excluir(m: Row) {
-    const ok = await alerts.confirm({ title: `Excluir "${m.titulo}"?`, text: 'Esta ação não pode ser desfeita.', icon: 'warning', confirmText: 'Excluir' })
+    const ok = await alerts.confirm({ title: `Excluir "${m.titulo}"?`, text: 'Esta ação não pode ser desfeita.', icon: 'warning', confirmText: 'Excluir', destructive: true })
     if (!ok) return
     try {
       await (trpc.melhoria as any).excluir.mutate({ id: m.id })

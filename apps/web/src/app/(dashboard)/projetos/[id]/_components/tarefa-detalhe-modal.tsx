@@ -192,6 +192,7 @@ export function TarefaDetalheModal({ open, onOpenChange, projetoId, tarefaId, on
       title: 'Remover anexo?',
       text: 'O arquivo será excluído da tarefa.',
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     try {

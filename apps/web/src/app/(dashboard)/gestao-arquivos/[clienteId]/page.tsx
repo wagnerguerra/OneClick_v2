@@ -163,6 +163,7 @@ export default function GestaoArquivosClientePage() {
         + 'depois — nem pela lixeira, nem pelo suporte do Google.',
       icon: 'warning',
       confirmText: 'Apagar para sempre',
+      destructive: true,
     })
     if (!ok) return
 

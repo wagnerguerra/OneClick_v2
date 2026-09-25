@@ -603,6 +603,7 @@ export default function ServicoDetailPage() {
       text: `"${v.titulo}" deixa de ser oferecida ao lançar este serviço num orçamento. Itens já lançados com ela não mudam.`,
       icon: 'warning',
       confirmText: 'Excluir',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -807,6 +808,7 @@ export default function ServicoDetailPage() {
       title: 'Remover etapa',
       text: 'Todos os passos desta etapa serão removidos junto.',
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -987,6 +989,7 @@ export default function ServicoDetailPage() {
       title: 'Remover passo',
       text: 'Este passo será excluído da etapa.',
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     // 1) Marca o passo como "em saída" — CSS faz fade + collapse.
@@ -1072,6 +1075,7 @@ export default function ServicoDetailPage() {
       title: 'Remover sucessor',
       text: `O sucessor "${enc.servicoDestino.nome}" será desvinculado deste serviço.`,
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     try {

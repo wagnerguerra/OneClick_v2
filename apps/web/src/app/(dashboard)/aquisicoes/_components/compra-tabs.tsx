@@ -67,7 +67,7 @@ export function AnexosCard({ compraId }: { compraId: string }) {
     catch (e) { alerts.error('Erro', (e as Error).message) }
   }
   async function excluir(a: AnexoRow) {
-    const ok = await alerts.confirm({ title: 'Excluir anexo?', text: a.fileName, icon: 'warning', confirmText: 'Excluir' })
+    const ok = await alerts.confirm({ title: 'Excluir anexo?', text: a.fileName, icon: 'warning', confirmText: 'Excluir', destructive: true })
     if (!ok) return
     try { await (trpc.compra as any).removeAnexo.mutate({ id: a.id }); carregar() } catch (e) { alerts.error('Erro', (e as Error).message) }
   }

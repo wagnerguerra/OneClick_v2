@@ -1040,6 +1040,7 @@ function RegrasModal({ onClose, onMudou }: { onClose: () => void; onMudou: () =>
       text: `"${r.nome}" volta a ser considerada${r.cliente ? ` para ${r.cliente.razaoSocial}` : ''} na próxima sincronização.`,
       icon: 'warning',
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     setRemovendo(r.id)

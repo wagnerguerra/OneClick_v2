@@ -185,6 +185,7 @@ export default function ClausulasPage() {
       text: `Todas as versões de "${c.codigo}" serão despublicadas. Contratos antigos não são afetados (snapshots permanecem).`,
       confirmText: 'Despublicar',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {

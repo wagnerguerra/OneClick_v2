@@ -78,6 +78,7 @@ export default function SociosPage() {
       text: `"${name}" deixará de aparecer na lista de sócios ativos. O histórico e os vínculos são preservados.`,
       confirmText: 'Sim, inativar',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try { await trpc.socio.delete.mutate({ id }); await alerts.success('Sócio inativado', `"${name}" foi inativado.`); fetchData() }

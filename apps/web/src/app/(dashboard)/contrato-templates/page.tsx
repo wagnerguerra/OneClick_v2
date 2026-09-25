@@ -148,7 +148,7 @@ export default function ContratoTemplatesPage() {
   }
 
   async function handleExcluir(t: Template) {
-    const ok = await alerts.confirm({ title: 'Desativar modelo?', text: t.nome, confirmText: 'Desativar', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Desativar modelo?', text: t.nome, confirmText: 'Desativar', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.contrato as any).deleteTemplate.mutate({ id: t.id })

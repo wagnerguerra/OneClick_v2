@@ -366,6 +366,7 @@ export default function GestaoCertificadosPage() {
       text: 'O sistema vai procurar certificados duplicados (mesmo número de série ou mesmo CNPJ + emissor + vencimento) e excluir os redundantes, mantendo o registro mais antigo. Confirma?',
       confirmText: 'Varrer',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     setVarrendo(true)
@@ -391,6 +392,7 @@ export default function GestaoCertificadosPage() {
       text: `Esta ação é IRREVERSÍVEL. Os arquivos PFX e registros selecionados serão apagados permanentemente. Confirma?`,
       confirmText: `Excluir ${total}`,
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     setExcluindoLote(true)
@@ -416,6 +418,7 @@ export default function GestaoCertificadosPage() {
         text: `Esta ação é IRREVERSÍVEL. "${cert.titular}" e seu arquivo PFX serão apagados permanentemente. Confirma?`,
         confirmText: 'Excluir',
         icon: 'warning',
+        destructive: true,
       })
       if (!ok) return
       try {

@@ -197,6 +197,7 @@ export default function AtivoDetalhePage() {
       text: `O ativo ${tag} será baixado (descartado). Histórico mantido.`,
       confirmText: 'Baixar',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -670,7 +671,7 @@ function ManutencoesTab({ ativoId, manutencoes, fornecedores, users, onChanged }
                   </Button>
                   <Button variant="ghost" size="icon-xs" className="text-rose-600 hover:text-rose-700" title="Excluir"
                     onClick={async () => {
-                      const ok = await alerts.confirm({ title: 'Excluir manutenção', text: 'Esta ação não pode ser desfeita.', confirmText: 'Excluir' })
+                      const ok = await alerts.confirm({ title: 'Excluir manutenção', text: 'Esta ação não pode ser desfeita.', confirmText: 'Excluir', destructive: true })
                       if (!ok) return
                       try {
                         await (trpc.ativo as any).deleteManutencao.mutate({ id: m.id })
@@ -927,7 +928,7 @@ function AnexosTab({ ativoId, anexos, onChanged }: {
                 <button
                   type="button"
                   onClick={async () => {
-                    const ok = await alerts.confirm({ title: 'Remover anexo', text: a.fileName, confirmText: 'Remover' })
+                    const ok = await alerts.confirm({ title: 'Remover anexo', text: a.fileName, confirmText: 'Remover', destructive: true })
                     if (!ok) return
                     try {
                       await (trpc.ativo as any).deleteAnexo.mutate({ id: a.id })

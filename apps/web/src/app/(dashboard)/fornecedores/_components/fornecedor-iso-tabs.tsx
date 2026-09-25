@@ -153,7 +153,7 @@ export function AnexosTab({ fornecedorId }: { fornecedorId: string }) {
   }
 
   async function excluir(a: AnexoRow) {
-    const ok = await alerts.confirm({ title: 'Excluir anexo?', text: a.fileName, icon: 'warning', confirmText: 'Excluir' })
+    const ok = await alerts.confirm({ title: 'Excluir anexo?', text: a.fileName, icon: 'warning', confirmText: 'Excluir', destructive: true })
     if (!ok) return
     try { await (trpc.fornecedor as any).removeAnexo.mutate({ id: a.id }); carregar() }
     catch (e) { alerts.error('Erro', (e as Error).message) }
@@ -396,7 +396,7 @@ export function MensagensTab({ fornecedorId, currentUserId }: { fornecedorId: st
     catch (e) { alerts.error('Erro', (e as Error).message) }
   }
   async function excluir(id: string) {
-    const ok = await alerts.confirm({ title: 'Excluir mensagem?', text: 'Esta ação não pode ser desfeita.', icon: 'warning', confirmText: 'Excluir' })
+    const ok = await alerts.confirm({ title: 'Excluir mensagem?', text: 'Esta ação não pode ser desfeita.', icon: 'warning', confirmText: 'Excluir', destructive: true })
     if (!ok) return
     try { await (trpc.fornecedor as any).removeMensagem.mutate({ id }); carregar() }
     catch (e) { alerts.error('Erro', (e as Error).message) }

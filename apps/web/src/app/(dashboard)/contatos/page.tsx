@@ -104,7 +104,7 @@ export default function ContatosPage() {
   }
 
   async function excluir(r: Row) {
-    const ok = await alerts.confirm({ title: 'Excluir contato?', text: `"${r.nome}" sai da agenda. Você pode restaurá-lo depois em "Ver excluídos".`, confirmText: 'Excluir', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Excluir contato?', text: `"${r.nome}" sai da agenda. Você pode restaurá-lo depois em "Ver excluídos".`, confirmText: 'Excluir', icon: 'warning', destructive: true })
     if (!ok) return
     try { await (trpc as any).contato.excluir.mutate({ id: r.id }); alerts.success('Excluído', 'Contato removido da agenda.'); fetchData() }
     catch (e) { alerts.error('Erro', (e as Error).message) }

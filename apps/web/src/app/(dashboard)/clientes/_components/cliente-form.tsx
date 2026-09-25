@@ -217,7 +217,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
   }
 
   async function handleCoverRemove() {
-    const ok = await alerts.confirm({ title: 'Remover capa?', text: 'A imagem de fundo personalizada será removida e voltará ao padrão.', icon: 'warning', confirmText: 'Remover' })
+    const ok = await alerts.confirm({ title: 'Remover capa?', text: 'A imagem de fundo personalizada será removida e voltará ao padrão.', icon: 'warning', confirmText: 'Remover', destructive: true })
     if (!ok) return
     setUploadingCover(true)
     try {

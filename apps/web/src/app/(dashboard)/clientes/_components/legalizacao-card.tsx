@@ -135,7 +135,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
   async function handleBulkDeleteSocios() {
     const ids = [...selectedSocioIds]
     if (!ids.length) return
-    const ok = await alerts.confirm({ title: 'Excluir sócios?', text: `Excluir ${ids.length} sócio(s) selecionado(s)? Esta ação não pode ser desfeita.`, confirmText: 'Excluir', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Excluir sócios?', text: `Excluir ${ids.length} sócio(s) selecionado(s)? Esta ação não pode ser desfeita.`, confirmText: 'Excluir', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.socio as any).deleteMany.mutate({ ids })
@@ -810,6 +810,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                                         text: `Deseja excluir o sócio "${s.nomeCompleto}"? Esta ação não pode ser desfeita.`,
                                         confirmText: 'Excluir',
                                         icon: 'warning',
+                                        destructive: true,
                                       })
                                       if (!ok) return
                                       try {

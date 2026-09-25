@@ -136,6 +136,7 @@ export function MateriaisSection({ materiais, etapaId, passoId, readOnly, onChan
       title: 'Remover material',
       text: 'O material será excluído deste fluxo.',
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     setDeletingId(id)

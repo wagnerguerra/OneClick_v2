@@ -100,7 +100,7 @@ export default function NaoConformidadesPage() {
     const ok = await alerts.confirm({
       title: `Excluir a NC ${r.legacyId ? `#${r.legacyId}` : ''}?`,
       text: 'O registro sai das listagens (ações, mensagens e histórico vão junto).',
-      icon: 'warning', confirmText: 'Excluir',
+      icon: 'warning', confirmText: 'Excluir', destructive: true,
     })
     if (!ok) return
     try {

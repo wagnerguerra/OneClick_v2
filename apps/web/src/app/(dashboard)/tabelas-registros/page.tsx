@@ -86,7 +86,7 @@ export default function TabelasRegistrosPage() {
       text: t._count.versoes === 1
         ? 'O registro e a sua única versão serão apagados.'
         : `O registro e as suas ${t._count.versoes} versões serão apagados.`,
-      icon: 'warning', confirmText: 'Excluir',
+      icon: 'warning', confirmText: 'Excluir', destructive: true,
     })
     if (!ok) return
     try {

@@ -159,7 +159,7 @@ function CategoriasManagerModal({
     const ok = await alerts.confirm({
       title: 'Excluir categoria?',
       text: emUso > 0 ? `"${c.nome}" está em ${emUso} fornecedor(es); será removida deles.` : `"${c.nome}"`,
-      icon: 'warning', confirmText: 'Excluir',
+      icon: 'warning', confirmText: 'Excluir', destructive: true,
     })
     if (!ok) return
     try { await (trpc.fornecedor as any).deleteCategoria.mutate({ id: c.id }); onChanged(c.id) }

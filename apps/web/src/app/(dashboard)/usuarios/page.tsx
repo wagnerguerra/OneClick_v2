@@ -202,6 +202,7 @@ export default function UsuariosPage() {
       text: 'Os usuários selecionados serão desativados (soft-delete) e suas sessões encerradas. Master/Empresa Master e seu próprio usuário serão automaticamente pulados.',
       confirmText: 'Desativar selecionados',
       icon: 'warning',
+      destructive: true,
     })
     if (!confirmed) return
     try {
@@ -325,6 +326,7 @@ export default function UsuariosPage() {
       text: 'O usuário será desativado e suas sessões encerradas. Os registros vinculados (eventos da agenda, histórico, etc.) são preservados. Você pode reativá-lo depois alterando "Ativo" no formulário de edição.',
       confirmText: 'Desativar',
       icon: 'warning',
+      destructive: true,
     })
     if (!confirmed) return
     try {

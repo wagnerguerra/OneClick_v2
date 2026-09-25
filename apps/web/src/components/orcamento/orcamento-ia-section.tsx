@@ -216,6 +216,7 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
       text: 'Apagar todo o histórico desta conversa com a IA? Esta ação não pode ser desfeita.',
       confirmText: 'Limpar',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {

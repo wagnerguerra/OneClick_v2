@@ -74,6 +74,7 @@ export default function LoteDetalhePage() {
       text: 'Itens já processados serão mantidos. O processamento dos demais será interrompido.',
       confirmText: 'Cancelar lote',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {

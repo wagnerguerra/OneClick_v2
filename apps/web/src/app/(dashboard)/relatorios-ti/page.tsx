@@ -497,6 +497,7 @@ export default function RelatoriosTiPage() {
       text: `"${r.titulo}" sai do histórico. Novidades já publicadas a partir dele continuam no ar.`,
       icon: 'warning',
       confirmText: 'Excluir',
+      destructive: true,
     })
     if (!ok) return
     try {

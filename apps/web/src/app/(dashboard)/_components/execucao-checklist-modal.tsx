@@ -274,7 +274,7 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
       }
       texto += '\n\nCancelar a execução não desfaz o orçamento nem o card do CRM, mas eles ficam visivelmente sem serviço ativo. Confirmar?'
     }
-    const ok = await alerts.confirm({ title: 'Cancelar execução', text: texto, icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Cancelar execução', text: texto, icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.servico as any).cancelarExecucao.mutate({ id: execucao.id })

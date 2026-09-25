@@ -1229,7 +1229,9 @@ import { Database } from 'lucide-react'
       <SubTitle>Confirmação destrutiva (alerts.confirm)</SubTitle>
       <Note>
         Para confirmar ações destrutivas curtas (excluir, cancelar, etc.) use <code className="text-[11px]">alerts.confirm()</code> em
-        <code className="text-[11px]"> @/lib/alerts</code> — mais leve que abrir um Dialog completo.
+        <code className="text-[11px]"> @/lib/alerts</code> — mais leve que abrir um Dialog completo. Passe{' '}
+        <code className="text-[11px]">destructive: true</code> para o botão de confirmar sair vermelho (o mesmo do{' '}
+        <code className="text-[11px]">alerts.confirmDelete()</code>, que já é o atalho para "Excluir registro" com texto padrão).
       </Note>
 
       <CodeSnippet
@@ -1242,6 +1244,7 @@ async function handleDelete(id: string) {
     text: 'Esta ação é permanente. Deseja prosseguir?',
     confirmText: 'Excluir',
     icon: 'warning',
+    destructive: true, // botão de confirmar vermelho
   })
   if (!ok) return
   try {
@@ -1262,7 +1265,7 @@ async function handleDelete(id: string) {
         <Rule><code className="text-[11px]">{`<DialogContent>`}</code>: <code className="text-[11px]">max-w-lg</code> (default), <code className="text-[11px]">max-w-2xl</code>/<code className="text-[11px]">4xl</code> conforme conteúdo</Rule>
         <Rule><code className="text-[11px]">{`<DialogBody>`}</code>: campos com padrão de form (h-9 text-sm, space-y-1.5)</Rule>
         <Rule><code className="text-[11px]">{`<DialogFooter>`}</code>: Cancelar (outline) à esquerda, Salvar/Confirmar à direita</Rule>
-        <Rule>Confirmações destrutivas curtas: <code className="text-[11px]">alerts.confirm()</code></Rule>
+        <Rule>Confirmações destrutivas curtas: <code className="text-[11px]">alerts.confirm({`{ …, destructive: true }`})</code> ou <code className="text-[11px]">alerts.confirmDelete(nome)</code></Rule>
         <Rule>Toast de sucesso: <code className="text-[11px]">alerts.success()</code> · Erro: <code className="text-[11px]">alerts.error()</code></Rule>
         <AntiRule>NUNCA mais usar <code className="text-[11px]">{`<DialogTitle className="flex items-center gap-2">`}</code> com ícone inline</AntiRule>
         <AntiRule>NUNCA criar variações próprias do header — sempre <code className="text-[11px]">DialogHeaderIcon</code></AntiRule>

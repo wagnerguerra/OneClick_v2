@@ -251,7 +251,7 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
   }
 
   async function excluirMensagem(id: string) {
-    const ok = await alerts.confirm({ title: 'Excluir mensagem?', text: 'Não dá para desfazer.', icon: 'warning', confirmText: 'Excluir' })
+    const ok = await alerts.confirm({ title: 'Excluir mensagem?', text: 'Não dá para desfazer.', icon: 'warning', confirmText: 'Excluir', destructive: true })
     if (!ok) return
     try {
       await (trpc.projetos as never as { deleteRodadaMensagem: { mutate: (i: { id: string }) => Promise<unknown> } })
@@ -261,7 +261,7 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
   }
 
   async function excluirArquivo(id: string) {
-    const ok = await alerts.confirm({ title: 'Remover arquivo?', text: 'Ele será desvinculado da rodada.', confirmText: 'Remover' })
+    const ok = await alerts.confirm({ title: 'Remover arquivo?', text: 'Ele será desvinculado da rodada.', confirmText: 'Remover', destructive: true })
     if (!ok) return
     try {
       await (trpc.projetos as never as { removerRodadaArquivo: { mutate: (i: { id: string }) => Promise<unknown> } })
@@ -293,7 +293,7 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
   }
 
   async function excluirApontamento(id: string) {
-    const ok = await alerts.confirm({ title: 'Excluir apontamento?', text: 'Não dá para desfazer.', icon: 'warning', confirmText: 'Excluir' })
+    const ok = await alerts.confirm({ title: 'Excluir apontamento?', text: 'Não dá para desfazer.', icon: 'warning', confirmText: 'Excluir', destructive: true })
     if (!ok) return
     try {
       await (trpc.projetos as never as { deleteApontamento: { mutate: (i: { id: string }) => Promise<unknown> } })
@@ -308,7 +308,7 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
       text: r.apontamentos.length > 0
         ? `Os ${r.apontamentos.length} apontamento(s) dela vão junto.`
         : 'Não dá para desfazer.',
-      icon: 'warning', confirmText: 'Excluir',
+      icon: 'warning', confirmText: 'Excluir', destructive: true,
     })
     if (!ok) return
     try {

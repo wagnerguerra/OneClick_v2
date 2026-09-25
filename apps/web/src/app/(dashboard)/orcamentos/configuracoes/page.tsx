@@ -638,7 +638,7 @@ function ModelosPropostaTab() {
   }
 
   async function remover(m: ModeloProposta) {
-    const ok = await alerts.confirm({ title: 'Excluir modelo', text: `Excluir o modelo "${m.titulo}"?`, confirmText: 'Excluir', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Excluir modelo', text: `Excluir o modelo "${m.titulo}"?`, confirmText: 'Excluir', icon: 'warning', destructive: true })
     if (!ok) return
     try { await (trpc.orcamento as any).excluirModeloProposta.mutate({ id: m.id }); carregar() }
     catch (e) { alerts.error('Erro', (e as Error).message) }

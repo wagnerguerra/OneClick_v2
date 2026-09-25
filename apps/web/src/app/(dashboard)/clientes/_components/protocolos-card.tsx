@@ -135,7 +135,7 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
     const ok = await alerts.confirm({
       title: `Excluir o protocolo nº ${p.numero}?`,
       text: 'Ele sai da ficha, mas o registro é preservado no banco.',
-      icon: 'warning', confirmText: 'Excluir',
+      icon: 'warning', confirmText: 'Excluir', destructive: true,
     })
     if (!ok) return
     try {

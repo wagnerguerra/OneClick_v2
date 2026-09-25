@@ -689,7 +689,7 @@ export default function BiCategoriasBalancetePage() {
 
   const handleDeleteSelected = async () => {
     if (!clienteId || selected.size === 0) return
-    const ok = await alerts.confirm({ title: 'Excluir selecionadas', text: `Deseja excluir ${selected.size} categoria(s)?`, icon: 'warning', confirmText: 'Sim, excluir' })
+    const ok = await alerts.confirm({ title: 'Excluir selecionadas', text: `Deseja excluir ${selected.size} categoria(s)?`, icon: 'warning', confirmText: 'Sim, excluir', destructive: true })
     if (!ok) return
     try {
       for (const conta of selected) { await trpc.cliente.biDeleteCategoria.mutate({ clienteId, conta }) }
@@ -744,7 +744,7 @@ export default function BiCategoriasBalancetePage() {
 
   const handleLimpar = async () => {
     if (!selectedDocumento) return
-    const ok = await alerts.confirm({ title: 'Limpar personalizações', text: 'Isso irá reverter todas as categorias para o padrão. Deseja continuar?', icon: 'warning', confirmText: 'Sim, limpar' })
+    const ok = await alerts.confirm({ title: 'Limpar personalizações', text: 'Isso irá reverter todas as categorias para o padrão. Deseja continuar?', icon: 'warning', confirmText: 'Sim, limpar', destructive: true })
     if (!ok) return
     try { await trpc.bi.categoriasLimpar.mutate({ documento: selectedDocumento }); await loadCategorias(); alerts.success('Limpo', 'Personalizações removidas') }
     catch { alerts.error('Erro', 'Falha ao limpar personalizações') }
@@ -912,6 +912,7 @@ export default function BiCategoriasBalancetePage() {
       text: `Tem certeza que deseja excluir os dados do balancete de ${periodoStr}? Esta ação não pode ser desfeita.`,
       icon: 'warning',
       confirmText: 'Sim, excluir',
+      destructive: true,
     })
     if (!ok) return
 
@@ -939,6 +940,7 @@ export default function BiCategoriasBalancetePage() {
       text: `Isso irá remover permanentemente TODOS os dados do BI de "${nome}": linhas do balancete, categorias, cache, KPIs, regras e link público. Esta ação não pode ser desfeita.`,
       icon: 'warning',
       confirmText: 'Sim, apagar tudo',
+      destructive: true,
     })
     if (!ok) return
     // Segunda confirmação
@@ -947,6 +949,7 @@ export default function BiCategoriasBalancetePage() {
       text: `Digite "CONFIRMAR" para prosseguir.`,
       icon: 'warning',
       confirmText: 'Apagar tudo',
+      destructive: true,
     })
     if (!ok2) return
     try {

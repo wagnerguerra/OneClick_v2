@@ -86,7 +86,7 @@ export default function CotacoesPage() {
     const ok = await alerts.confirm({
       title: `Excluir a cotação #${c.code}?`,
       text: 'Ela sai da lista. Os pedidos já gerados não são afetados.',
-      icon: 'warning', confirmText: 'Excluir',
+      icon: 'warning', confirmText: 'Excluir', destructive: true,
     })
     if (!ok) return
     try { await (trpc.compra as any).deleteCotacao.mutate({ id: c.id }); carregar() }

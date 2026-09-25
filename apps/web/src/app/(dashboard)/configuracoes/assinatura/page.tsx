@@ -115,6 +115,7 @@ export default function AssinaturaPage() {
       title: 'Cancelar assinatura',
       text: 'Sua assinatura continuará ativa até o final do período atual. Deseja continuar?',
       confirmText: 'Cancelar assinatura',
+      destructive: true,
     })
     if (!confirmed) return
 

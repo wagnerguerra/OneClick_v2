@@ -354,6 +354,7 @@ export default function HelpdeskPage() {
       text: 'O chamado fica registrado como cancelado e sai da fila de atendimento.',
       confirmText: 'Cancelar chamado',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {

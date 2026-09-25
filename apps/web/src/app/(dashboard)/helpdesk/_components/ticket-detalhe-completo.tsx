@@ -598,6 +598,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
       text: 'Esta ação não pode ser desfeita. Anexos vinculados também serão removidos.',
       confirmText: 'Excluir',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {

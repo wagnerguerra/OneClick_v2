@@ -506,7 +506,7 @@ export default function AgendaConfiguracoesPage() {
     const ok = await alerts.confirm({
       title: 'Desativar sala?',
       text: `A sala "${s.nome}" será desativada — eventos antigos continuam apontando pra ela. Use editar pra reativar depois.`,
-      confirmText: 'Desativar', icon: 'warning',
+      confirmText: 'Desativar', icon: 'warning', destructive: true,
     })
     if (!ok) return
     try {

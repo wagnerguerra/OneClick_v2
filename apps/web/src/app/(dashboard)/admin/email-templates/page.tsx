@@ -164,6 +164,7 @@ export default function EmailTemplatesPage() {
       text: `O rascunho "${selected.nome}" será removido do sandbox.`,
       confirmText: 'Excluir',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     setTemplates((prev) => {
@@ -179,6 +180,7 @@ export default function EmailTemplatesPage() {
       text: 'Isso substitui TODOS os modelos do sandbox pelos exemplos originais. Seus rascunhos serão perdidos.',
       confirmText: 'Restaurar',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     setTemplates(SEED_TEMPLATES)

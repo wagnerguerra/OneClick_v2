@@ -221,7 +221,7 @@ export default function ColetaDocumentosPage() {
       const ok = await alerts.confirm({
         title: `Desativar a categoria “${c.nome}”?`,
         text: 'Ela some da lista de escolha nos novos registros. Os registros que já a usam continuam como estão.',
-        icon: 'warning', confirmText: 'Desativar',
+        icon: 'warning', confirmText: 'Desativar', destructive: true,
       })
       if (!ok) return
     }

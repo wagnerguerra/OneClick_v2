@@ -298,6 +298,7 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
         : `${u.user.name} perde o acesso ao portal. O histórico do que já enviou permanece.`,
       confirmText: 'Remover',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {

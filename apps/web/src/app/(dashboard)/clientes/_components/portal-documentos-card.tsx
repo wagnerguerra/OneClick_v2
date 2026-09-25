@@ -160,6 +160,7 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
         : `"${a.fileName}" deixa de aparecer no portal do cliente.`,
       confirmText: 'Tirar do portal',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -200,6 +201,7 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
       text: `"${s.titulo}" some da tela do cliente. O histórico fica.`,
       confirmText: 'Cancelar pedido',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {

@@ -101,7 +101,7 @@ export default function DocumentosInternosPage() {
       text: d._count.versoes === 1
         ? 'O documento e a sua única revisão serão apagados.'
         : `O documento e as suas ${d._count.versoes} revisões serão apagados.`,
-      icon: 'warning', confirmText: 'Excluir',
+      icon: 'warning', confirmText: 'Excluir', destructive: true,
     })
     if (!ok) return
     try {

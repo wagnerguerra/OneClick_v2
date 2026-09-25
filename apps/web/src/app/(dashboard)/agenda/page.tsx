@@ -1308,7 +1308,7 @@ export default function AgendaPage() {
 
   async function handleDeleteTipo(t: AgendaTipo) {
     if (!canManageTipos) return // [QA #13]
-    const ok = await alerts.confirm({ title: 'Excluir tipo', text: `Excluir "${t.nome}"?`, confirmText: 'Excluir', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Excluir tipo', text: `Excluir "${t.nome}"?`, confirmText: 'Excluir', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await trpc.agenda.deleteTipo.mutate({ id: t.id })

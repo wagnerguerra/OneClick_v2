@@ -398,6 +398,7 @@ export default function DtePage() {
       text: `Excluir ${ids.length} mensagem(ns) selecionada(s)?`,
       confirmText: 'Excluir',
       icon: 'warning',
+      destructive: true,
     })
     if (!confirmed) return
     try {
