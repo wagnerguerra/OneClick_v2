@@ -44,10 +44,10 @@ interface Socio {
 }
 
 const TIPO_SOCIO_LABELS: Record<string, string> = {
-  SOCIO_ADMINISTRADOR: 'Socio Administrador',
-  SOCIO_DIRETOR: 'Socio Diretor',
+  SOCIO_ADMINISTRADOR: 'Sócio Administrador',
+  SOCIO_DIRETOR: 'Sócio Diretor',
   REPRESENTANTE_LEGAL: 'Representante Legal',
-  SOCIO_QUOTISTA: 'Socio Quotista',
+  SOCIO_QUOTISTA: 'Sócio Quotista',
   TITULAR: 'Titular',
 }
 
@@ -63,7 +63,7 @@ const LINKS_RAPIDOS = [
   { label: 'RedeSim', url: 'https://www.gov.br/empresas-e-negocios/pt-br/redesim' },
   { label: 'JUCEES', url: 'https://www.jucees.es.gov.br' },
   { label: 'Corpo de Bombeiros ES', url: 'https://cb.es.gov.br' },
-  { label: 'Agencia Virtual SEFAZ', url: 'https://agenciavirtual.sefaz.es.gov.br' },
+  { label: 'Agência Virtual SEFAZ', url: 'https://agenciavirtual.sefaz.es.gov.br' },
 ]
 
 interface Acesso { id: string; portal: string; usuario: string | null; senha: string | null; observacoes: string | null }
@@ -665,12 +665,12 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                   <Input placeholder="NIRE" {...register('nire' as any)} />
                 </div>
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
-                  <Label>RG Edificacao</Label>
-                  <Input placeholder="RG Edificacao" {...register('rgEdificacao' as any)} />
+                  <Label>RG Edificação</Label>
+                  <Input placeholder="RG Edificação" {...register('rgEdificacao' as any)} />
                 </div>
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
-                  <Label>Codigo Simples</Label>
-                  <Input placeholder="Codigo Simples Nacional" {...register('codigoSimples' as any)} />
+                  <Label>Código Simples</Label>
+                  <Input placeholder="Código Simples Nacional" {...register('codigoSimples' as any)} />
                 </div>
 
                 {/* Separador Bombeiros */}
@@ -680,8 +680,8 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                 </div>
 
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
-                  <Label>Tipo / Ocupacao</Label>
-                  <Input placeholder="Tipo de ocupacao" {...register('bombeirosOcupacao' as any)} />
+                  <Label>Tipo / Ocupação</Label>
+                  <Input placeholder="Tipo de ocupação" {...register('bombeirosOcupacao' as any)} />
                 </div>
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
                   <Label>Metragem</Label>
@@ -712,7 +712,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     <h4 className="text-[13px] font-semibold text-foreground">Sócios vinculados</h4>
                     <div className="flex items-center gap-3">
                       {capitalSocial != null && <p className="text-[10px] text-muted-foreground">Capital Social: <strong>R$ {capitalSocial.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></p>}
-                      {socios.length > 0 && <p className="text-[10px] text-muted-foreground">Ultima consulta: <strong>{new Date(Math.max(...socios.map(s => new Date(s.createdAt).getTime()))).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong></p>}
+                      {socios.length > 0 && <p className="text-[10px] text-muted-foreground">Última consulta: <strong>{new Date(Math.max(...socios.map(s => new Date(s.createdAt).getTime()))).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong></p>}
                     </div>
                   </div>
                   {clienteId && (
@@ -741,13 +741,13 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
               <div className="p-5">
                 {sociosLoading ? (
                   <div className="flex items-center justify-center py-8 text-muted-foreground">
-                    <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando socios...
+                    <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando sócios...
                   </div>
                 ) : socios.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Users className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                    <p className="text-sm">Nenhum socio vinculado a este cliente.</p>
-                    <p className="text-xs mt-1">Vincule socios no modulo de Socios.</p>
+                    <p className="text-sm">Nenhum sócio vinculado a este cliente.</p>
+                    <p className="text-xs mt-1">Vincule sócios no módulo de Sócios.</p>
                   </div>
                 ) : (
                   <div className="rounded-lg border overflow-hidden">

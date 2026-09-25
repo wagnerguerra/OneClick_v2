@@ -174,9 +174,9 @@ export class CndSchedulerService implements OnModuleInit, OnModuleDestroy {
   // ── Execucao ──────────────────────────────────────────
 
   async runNow(userId: string | undefined, empresaId: string): Promise<{ message: string }> {
-    if (this.isRunning) return { message: 'Uma execucao ja esta em andamento.' }
+    if (this.isRunning) return { message: 'Uma execução já está em andamento.' }
     this.executeFetch('manual', userId, empresaId).catch(e => console.error('[CND Scheduler] Erro:', e.message))
-    return { message: 'Execucao iniciada em background.' }
+    return { message: 'Execução iniciada em background.' }
   }
 
   private async executeFetch(tipo: 'manual' | 'automatico' = 'automatico', userId?: string, empresaId?: string) {

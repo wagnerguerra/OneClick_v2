@@ -192,13 +192,13 @@ function ProgressDisplay({ progress, title, extraFields, logs }: {
       )}
 
       {progress.phase === 'running' && (
-        <p className="text-[10px] text-muted-foreground italic">Voce pode fechar esta janela. O processamento continua no servidor.</p>
+        <p className="text-[10px] text-muted-foreground italic">Você pode fechar esta janela. O processamento continua no servidor.</p>
       )}
 
       {/* Log detalhado */}
       {logs && logs.length > 0 && (
         <div className="mt-3">
-          <div className="text-[11px] font-semibold text-muted-foreground mb-1">Log de importacao ({logs.length} registros)</div>
+          <div className="text-[11px] font-semibold text-muted-foreground mb-1">Log de importação ({logs.length} registros)</div>
           <div className="nice-scrollbar rounded-md border bg-slate-900 dark:bg-slate-950 text-[11px] font-mono max-h-[250px] overflow-y-auto p-2 space-y-px">
             {logs.map((log, i) => (
               <div key={i} className={cn(
@@ -279,7 +279,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
   const canClose = !flowLoading || !!jobProgress
   const flowTitle = activeFlow === 'cadastrarCnpj' ? 'Cadastrar pelo CNPJ'
     : activeFlow === 'importarClientes' ? 'Importar Clientes'
-    : activeFlow === 'sciLote' ? 'Importacao de dados do SCI'
+    : activeFlow === 'sciLote' ? 'Importação de dados do SCI'
     : activeFlow === 'oneclickLote' ? 'Importar dados do OneClick'
     : activeFlow === 'idSistemaSci' ? 'Atualizar ID Sistema (SCI)'
     : activeFlow === 'serproCnpj' ? 'Atualizar via SERPRO CNPJ'
@@ -292,7 +292,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
     setFlowLoading(true)
     try {
       const result = await trpc.cliente.integration.cadastrarDasConsultas.mutate() as { cadastrados: number; erros: number; total: number }
-      await alerts.success('Cadastro concluido', `${result.cadastrados} cliente(s) cadastrado(s) de ${result.total} consulta(s). ${result.erros} erro(s).`)
+      await alerts.success('Cadastro concluído', `${result.cadastrados} cliente(s) cadastrado(s) de ${result.total} consulta(s). ${result.erros} erro(s).`)
       onRefreshList()
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
@@ -305,14 +305,14 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
   // ── 2. Cadastrar pelo CNPJ ──────────────────────────────
   async function handleCadastrarCnpj() {
     const doc = cnpjInput.replace(/\D/g, '')
-    if (doc.length !== 14) { alerts.error('CNPJ invalido', 'Informe um CNPJ com 14 digitos.'); return }
+    if (doc.length !== 14) { alerts.error('CNPJ inválido', 'Informe um CNPJ com 14 dígitos.'); return }
 
     setFlowLoading(true)
     try {
       const dados = await trpc.cliente.integration.buscarDadosCnpj.query({ cnpj: doc })
       const ok = await alerts.confirm({
         title: 'Dados encontrados',
-        text: `Razao Social: ${dados.razaoSocial}\nMunicipio: ${dados.municipio || '—'} / ${dados.uf || '—'}\n\nDeseja cadastrar este cliente?`,
+        text: `Razão Social: ${dados.razaoSocial}\nMunicípio: ${dados.municipio || '—'} / ${dados.uf || '—'}\n\nDeseja cadastrar este cliente?`,
         confirmText: 'Cadastrar',
         icon: 'question',
       })
@@ -347,7 +347,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
       }
     }).filter(c => c.documento.replace(/\D/g, '').length >= 11)
 
-    if (!clientes.length) { alerts.error('Nenhum valido', 'Nenhum documento valido encontrado.'); return }
+    if (!clientes.length) { alerts.error('Nenhum válido', 'Nenhum documento válido encontrado.'); return }
 
     setFlowLoading(true)
     try {
@@ -371,7 +371,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
       const result = await trpc.cliente.integration.fiscalSciLote.mutate({
         limit: sciLimit, force: sciForce, onlyMissing: !sciForce,
       }) as { processed: number; updated: number; skipped: number; failed: number }
-      await alerts.success('SCI Fiscal concluido', `Processados: ${result.processed} | Atualizados: ${result.updated} | Ignorados: ${result.skipped} | Erros: ${result.failed}`)
+      await alerts.success('SCI Fiscal concluído', `Processados: ${result.processed} | Atualizados: ${result.updated} | Ignorados: ${result.skipped} | Erros: ${result.failed}`)
       onRefreshList()
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
@@ -427,7 +427,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
 
       const ok = await alerts.confirm({
         title: `Atualizar ${preview.total} cliente(s)`,
-        text: `Serao consultados ${preview.total} CNPJs via BrasilAPI/ReceitaWS.\nTempo estimado: ${etaHuman} (~20s por CNPJ).\n\nDeseja continuar?`,
+        text: `Serão consultados ${preview.total} CNPJs via BrasilAPI/ReceitaWS.\nTempo estimado: ${etaHuman} (~20s por CNPJ).\n\nDeseja continuar?`,
         confirmText: 'Iniciar',
         icon: 'question',
       })
@@ -450,7 +450,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
 
       const ok = await alerts.confirm({
         title: `Atualizar ${preview.total} cliente(s)`,
-        text: `Serao consultados ${preview.total} CNPJs via SERPRO Consulta CNPJ.\nTempo estimado: ~${preview.total}s (~1s por CNPJ).\n${serproSocios ? 'QSA (socios) sera importado automaticamente.' : ''}\n\nDeseja continuar?`,
+        text: `Serão consultados ${preview.total} CNPJs via SERPRO Consulta CNPJ.\nTempo estimado: ~${preview.total}s (~1s por CNPJ).\n${serproSocios ? 'QSA (sócios) será importado automaticamente.' : ''}\n\nDeseja continuar?`,
         confirmText: 'Iniciar',
         icon: 'question',
       })
@@ -476,9 +476,9 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
       <DialogContent className="max-w-[760px]">
         {/* Header */}
         <DialogHeaderIcon icon={Database} color="emerald">
-          <DialogTitle>{flowTitle || 'Integracoes'}</DialogTitle>
+          <DialogTitle>{flowTitle || 'Integrações'}</DialogTitle>
           <DialogDescription>
-            {flowTitle ? 'Configure as opcoes e inicie o processamento' : 'Importacoes e atualizacoes para clientes'}
+            {flowTitle ? 'Configure as opções e inicie o processamento' : 'Importações e atualizações para clientes'}
           </DialogDescription>
         </DialogHeaderIcon>
 
@@ -522,7 +522,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
               </p>
               <textarea
                 className="w-full h-40 rounded-md px-3 py-2 text-xs font-mono resize-y focus:outline-none focus:ring-2 focus:ring-ring"
-                placeholder="12345678000100;Empresa Exemplo;email@ex.com;11999990000;Sao Paulo;SP"
+                placeholder="12345678000100;Empresa Exemplo;email@ex.com;11999990000;São Paulo;SP"
                 value={importText}
                 onChange={e => setImportText(e.target.value)}
               />
@@ -536,7 +536,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
           {/* Flow: SCI fiscal lote */}
           {activeFlow === 'sciLote' && !jobProgress && (
             <div className="space-y-4">
-              <p className="text-xs text-muted-foreground">Atualiza tributacao/regime via SCI para clientes CNPJ.</p>
+              <p className="text-xs text-muted-foreground">Atualiza tributação/regime via SCI para clientes CNPJ.</p>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[11px] font-medium text-muted-foreground">Limite</label>
@@ -545,7 +545,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
                 <div className="space-y-1 flex items-end">
                   <label className="flex items-center gap-2 text-xs pb-1.5">
                     <Checkbox checked={sciForce} onCheckedChange={v => setSciForce(v === true)} />
-                    Forcar sobrescrita
+                    Forçar sobrescrita
                   </label>
                 </div>
               </div>
@@ -560,18 +560,18 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
                 <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Dados a importar</div>
                 <div className="grid grid-cols-2 gap-px bg-border/50 rounded-lg overflow-hidden border border-border/50">
                   {([
-                    { key: 'razao', label: 'Razao Social / Fantasia', desc: 'Nome e fantasia' },
-                    { key: 'comercial', label: 'Comercial', desc: 'Situacao, tipo, origem' },
+                    { key: 'razao', label: 'Razão Social / Fantasia', desc: 'Nome e fantasia' },
+                    { key: 'comercial', label: 'Comercial', desc: 'Situação, tipo, origem' },
                     { key: 'grupo', label: 'Grupo', desc: 'Segmento/grupo' },
                     { key: 'contato', label: 'Contato', desc: 'E-mail e telefone' },
-                    { key: 'endereco', label: 'Endereco', desc: 'Logradouro, cidade, UF, CEP' },
-                    { key: 'fiscal', label: 'Fiscal', desc: 'Tributacao e regime' },
-                    { key: 'registros', label: 'Inscricoes', desc: 'IE e IM' },
-                    { key: 'datas', label: 'Datas', desc: 'Entrada e saida' },
-                    { key: 'areasContratadas', label: 'Areas contratadas', desc: 'Contabil, Fiscal, Trab...' },
-                    { key: 'socios', label: 'Socios (QSA)', desc: 'Importa da tabela cad_soc' },
-                    { key: 'servicosContratados', label: 'Servicos contratados', desc: 'Areas, responsaveis (aba Servicos)' },
-                    { key: 'particularidades', label: 'Particularidades', desc: 'Obs. por area (6 campos)' },
+                    { key: 'endereco', label: 'Endereço', desc: 'Logradouro, cidade, UF, CEP' },
+                    { key: 'fiscal', label: 'Fiscal', desc: 'Tributação e regime' },
+                    { key: 'registros', label: 'Inscrições', desc: 'IE e IM' },
+                    { key: 'datas', label: 'Datas', desc: 'Entrada e saída' },
+                    { key: 'areasContratadas', label: 'Áreas contratadas', desc: 'Contábil, Fiscal, Trab...' },
+                    { key: 'socios', label: 'Sócios (QSA)', desc: 'Importa da tabela cad_soc' },
+                    { key: 'servicosContratados', label: 'Serviços contratados', desc: 'Áreas, responsáveis (aba Serviços)' },
+                    { key: 'particularidades', label: 'Particularidades', desc: 'Obs. por área (6 campos)' },
                     { key: 'status', label: 'Status ativo/inativo', desc: 'Campo cad_cli_ativo' },
                   ] as const).map(({ key, label, desc }) => (
                     <label
@@ -602,7 +602,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
 
               {/* Opcoes */}
               <div>
-                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Opcoes</div>
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Opções</div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-medium text-muted-foreground">Limite de registros</label>
@@ -611,7 +611,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
                   <div className="space-y-2 pt-4">
                     {([
                       { state: ocAllClients, setter: setOcAllClients, label: 'Processar todos' },
-                      { state: ocForce, setter: setOcForce, label: 'Forcar sobrescrita' },
+                      { state: ocForce, setter: setOcForce, label: 'Forçar sobrescrita' },
                       { state: ocIncludeNew, setter: setOcIncludeNew, label: 'Incluir novos clientes' },
                       { state: ocSkipLeads, setter: setOcSkipLeads, label: 'Ignorar Leads' },
                     ] as const).map(({ state, setter, label }) => (
@@ -638,7 +638,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
                 <div className="space-y-1 flex items-end">
                   <label className="flex items-center gap-2 text-xs pb-1.5">
                     <Checkbox checked={idSciForce} onCheckedChange={v => setIdSciForce(v === true)} />
-                    Forcar sobrescrita
+                    Forçar sobrescrita
                   </label>
                 </div>
               </div>
@@ -648,15 +648,15 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
           {/* Flow: SERPRO CNPJ config */}
           {activeFlow === 'serproCnpj' && !jobProgress && (
             <div className="space-y-4">
-              <p className="text-xs text-muted-foreground">Atualiza dados cadastrais via API SERPRO Consulta CNPJ com importacao opcional de socios (QSA).</p>
+              <p className="text-xs text-muted-foreground">Atualiza dados cadastrais via API SERPRO Consulta CNPJ com importação opcional de sócios (QSA).</p>
               <label className="flex items-center gap-2 text-xs">
                 <Checkbox checked={serproSocios} onCheckedChange={v => setSerproSocios(v === true)} />
-                Importar QSA (socios) automaticamente
+                Importar QSA (sócios) automaticamente
               </label>
               {serproSocios && (
                 <label className="flex items-center gap-2 text-xs ml-5">
                   <Checkbox checked={serproForceSocios} onCheckedChange={v => setSerproForceSocios(v === true)} />
-                  Forcar reimportacao de socios (remove auto-importados e reimporta)
+                  Forçar reimportação de sócios (remove auto-importados e reimporta)
                 </label>
               )}
             </div>
@@ -730,7 +730,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
           {activeFlow === 'oneclickLote' && !jobProgress && (
             <Button variant="success" size="sm" onClick={handleOneClickLote} disabled={flowLoading} className="gap-1.5">
               {flowLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
-              Iniciar Importacao
+              Iniciar Importação
             </Button>
           )}
           {activeFlow === 'idSistemaSci' && !jobProgress && (

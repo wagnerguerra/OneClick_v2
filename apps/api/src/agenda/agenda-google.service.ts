@@ -17,7 +17,7 @@ export class AgendaGoogleService {
     const clientSecret = map.get('GOOGLE_CALENDAR_CLIENT_SECRET') || process.env.GOOGLE_CALENDAR_CLIENT_SECRET || ''
     const redirectUri = map.get('GOOGLE_CALENDAR_REDIRECT_URI') || process.env.GOOGLE_CALENDAR_REDIRECT_URI || ''
 
-    if (!clientId || !clientSecret) throw new Error('Google Calendar nao configurado. Preencha Client ID e Client Secret em Configuracoes.')
+    if (!clientId || !clientSecret) throw new Error('Google Calendar não configurado. Preencha Client ID e Client Secret em Configurações.')
 
     return new google.auth.OAuth2(clientId, clientSecret, redirectUri)
   }
@@ -95,7 +95,7 @@ export class AgendaGoogleService {
     const rows = await prisma.$queryRawUnsafe<Array<{ access_token: string; refresh_token: string | null; expires_at: Date | null }>>(
       'SELECT access_token, refresh_token, expires_at FROM google_calendar_tokens WHERE user_id = $1', userId
     )
-    if (rows.length === 0) throw new Error('Google Calendar nao vinculado. Vincule sua conta nas configuracoes.')
+    if (rows.length === 0) throw new Error('Google Calendar não vinculado. Vincule sua conta nas configurações.')
 
     const token = rows[0]!
     const oauth2Client = await this.getOAuthClient()

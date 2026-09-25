@@ -695,7 +695,7 @@ export default function BiCategoriasBalancetePage() {
       for (const conta of selected) { await trpc.cliente.biDeleteCategoria.mutate({ clienteId, conta }) }
       setCategorias((prev) => prev.filter((c) => !selected.has(c.conta)))
       setSelected(new Set()); setDirty(false)
-      alerts.success('Excluidas', `${selected.size} categoria(s) removida(s)`)
+      alerts.success('Excluídas', `${selected.size} categoria(s) removida(s)`)
     } catch { alerts.error('Erro', 'Falha ao excluir categorias') }
   }
 

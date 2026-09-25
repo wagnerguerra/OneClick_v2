@@ -417,7 +417,7 @@ export default function FaqOrcamentosPage() {
               <>
                 Menu (⋮) → <strong>Duplicar</strong>. Cria um novo orçamento em NOVO com os mesmos
                 itens, descontos, contatos e textos — mas <strong>sem</strong> as datas, decisões, processos
-                criados ou pesquisa. Numero novo, token novo, tudo zerado.
+                criados ou pesquisa. Número novo, token novo, tudo zerado.
                 <br /><br />
                 Útil pra cliente que pediu &quot;a mesma proposta do mês passado&quot; ou pra criar variações
                 (proposta A, B, C) durante negociação.

@@ -595,7 +595,7 @@ export default function ParametrosOrcamentosPage() {
           <DialogHeaderIcon icon={editing ? Pencil : Plus} color={editing ? 'sky' : 'emerald'}>
             <DialogTitle className="text-[15px]">{editing ? 'Editar item do catálogo' : 'Novo item do catálogo'}</DialogTitle>
             <DialogDescription className="text-[11px]">
-              Itens do catalogo ficam disponiveis para uso rapido ao montar um orcamento.
+              Itens do catálogo ficam disponíveis para uso rápido ao montar um orçamento.
             </DialogDescription>
           </DialogHeaderIcon>
           <DialogBody className="space-y-4">
@@ -640,11 +640,11 @@ export default function ParametrosOrcamentosPage() {
 
             <div>
               <Label className="text-xs font-medium">Texto padrão (opcional)</Label>
-              <p className="text-[11px] text-muted-foreground mb-2">Texto pre-preenchido como descricao detalhada quando este item for adicionado a um orcamento</p>
+              <p className="text-[11px] text-muted-foreground mb-2">Texto pré-preenchido como descrição detalhada quando este item for adicionado a um orçamento</p>
               <RichEditor
                 value={form.textoPadrao}
                 onChange={v => setForm(f => ({ ...f, textoPadrao: v }))}
-                placeholder="Descreva o servico..."
+                placeholder="Descreva o serviço..."
               />
             </div>
 
@@ -658,7 +658,7 @@ export default function ParametrosOrcamentosPage() {
               />
               <label htmlFor="disponivel" className="cursor-pointer flex-1">
                 <span className="text-sm font-medium block">Disponível para uso em orçamentos</span>
-                <span className="text-[11px] text-muted-foreground">Quando desmarcado, este item nao aparece na lista de selecao ao adicionar itens em um orcamento. Util para inativar temporariamente sem excluir.</span>
+                <span className="text-[11px] text-muted-foreground">Quando desmarcado, este item não aparece na lista de seleção ao adicionar itens em um orçamento. Útil para inativar temporariamente sem excluir.</span>
               </label>
             </div>
 

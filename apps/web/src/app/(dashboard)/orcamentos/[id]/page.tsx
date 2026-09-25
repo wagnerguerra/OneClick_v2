@@ -2605,31 +2605,31 @@ export default function OrcamentoDetailPage() {
               }
               if (orc.status === 'ENVIADO' && canAprovar) {
                 acoes.push(
-                  <Button key="aprovar" size="xs" variant="success" className="gap-1" onClick={() => handleStatusAction('APROVADO', 'Orcamento aprovado')}>
+                  <Button key="aprovar" size="xs" variant="success" className="gap-1" onClick={() => handleStatusAction('APROVADO', 'Orçamento aprovado')}>
                     <ThumbsUp className="h-3 w-3" /> Aprovar
                   </Button>,
-                  <Button key="reprovar" size="xs" variant="destructive" className="gap-1" onClick={() => handleStatusAction('ENCERRADO', 'Orcamento reprovado')}>
+                  <Button key="reprovar" size="xs" variant="destructive" className="gap-1" onClick={() => handleStatusAction('ENCERRADO', 'Orçamento reprovado')}>
                     <ThumbsDown className="h-3 w-3" /> Reprovar
                   </Button>,
                 )
               }
               if (orc.status === 'APROVADO' && canLiberar) {
                 acoes.push(
-                  <Button key="liberar" size="xs" variant="outline" className="gap-1" onClick={() => handleStatusAction('LIBERADO', 'Orcamento liberado')}>
+                  <Button key="liberar" size="xs" variant="outline" className="gap-1" onClick={() => handleStatusAction('LIBERADO', 'Orçamento liberado')}>
                     <DollarSign className="h-3 w-3" /> Liberar
                   </Button>,
                 )
               }
               if (orc.status === 'LIBERADO' && canEncerrar) {
                 acoes.push(
-                  <Button key="finalizar" size="xs" variant="outline" className="gap-1" onClick={() => handleStatusAction('FINALIZADO', 'Orcamento finalizado')}>
+                  <Button key="finalizar" size="xs" variant="outline" className="gap-1" onClick={() => handleStatusAction('FINALIZADO', 'Orçamento finalizado')}>
                     <CheckCircle2 className="h-3 w-3" /> Finalizar
                   </Button>,
                 )
               }
               if (orc.status === 'FINALIZADO' && canEncerrar) {
                 acoes.push(
-                  <Button key="encerrar" size="xs" variant="outline" className="gap-1" onClick={() => handleStatusAction('ENCERRADO', 'Orcamento encerrado')}>
+                  <Button key="encerrar" size="xs" variant="outline" className="gap-1" onClick={() => handleStatusAction('ENCERRADO', 'Orçamento encerrado')}>
                     <CheckCircle2 className="h-3 w-3" /> Encerrar
                   </Button>,
                 )
@@ -3521,7 +3521,7 @@ export default function OrcamentoDetailPage() {
       <Dialog open={paralizarModal} onOpenChange={setParalizarModal}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeaderIcon icon={Pause} color="amber">
-            <DialogTitle className="text-[15px]">Paralizar orcamento</DialogTitle>
+            <DialogTitle className="text-[15px]">Paralizar orçamento</DialogTitle>
             <DialogDescription className="text-[11px]">
               Ao paralizar, o orçamento será marcado como pausado mas manterá o status atual. Útil quando aguarda informações do cliente.
             </DialogDescription>
@@ -3533,7 +3533,7 @@ export default function OrcamentoDetailPage() {
                 value={paralizarMotivo}
                 onChange={e => setParalizarMotivo(e.target.value)}
                 rows={3}
-                placeholder="Ex.: Aguardando documentacao do cliente"
+                placeholder="Ex.: Aguardando documentação do cliente"
                 required
               />
             </div>

@@ -271,7 +271,7 @@ export default function RelatoriosTiPage() {
   }
 
   async function salvarNovidade() {
-    if (!novTitulo.trim()) { await alerts.warning('Novidade', 'Informe o titulo.'); return }
+    if (!novTitulo.trim()) { await alerts.warning('Novidade', 'Informe o título.'); return }
     setSalvandoNov(true)
     try {
       const base = {
@@ -288,7 +288,7 @@ export default function RelatoriosTiPage() {
       setNovModal(null)
       await carregarNovidades()
     } catch (e) {
-      await alerts.error('Nao foi possivel salvar', (e as Error).message)
+      await alerts.error('Não foi possível salvar', (e as Error).message)
     } finally {
       setSalvandoNov(false)
     }
@@ -299,7 +299,7 @@ export default function RelatoriosTiPage() {
       await (trpc.relatorioTi as any).despublicarNovidade.mutate({ id })
       await carregarNovidades()
     } catch (e) {
-      await alerts.error('Nao foi possivel despublicar', (e as Error).message)
+      await alerts.error('Não foi possível despublicar', (e as Error).message)
     }
   }
 
@@ -315,7 +315,7 @@ export default function RelatoriosTiPage() {
       await (trpc.relatorioTi as any).atualizarNovidade.mutate({ id, ativo: true })
       await carregarNovidades()
     } catch (e) {
-      await alerts.error('Nao foi possivel publicar', (e as Error).message)
+      await alerts.error('Não foi possível publicar', (e as Error).message)
     }
   }
 

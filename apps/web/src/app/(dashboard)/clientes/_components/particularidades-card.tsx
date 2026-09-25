@@ -81,8 +81,8 @@ export function ParticularidadesCard({ clienteId }: { clienteId: string }) {
     return (
       <Card className="p-8 text-center text-muted-foreground">
         <StickyNote className="h-8 w-8 mx-auto mb-2 opacity-40" />
-        <p className="text-sm">Nenhuma area contratada encontrada.</p>
-        <p className="text-xs mt-1">Contrate areas na aba Servicos primeiro.</p>
+        <p className="text-sm">Nenhuma área contratada encontrada.</p>
+        <p className="text-xs mt-1">Contrate áreas na aba Serviços primeiro.</p>
       </Card>
     )
   }
@@ -97,9 +97,9 @@ export function ParticularidadesCard({ clienteId }: { clienteId: string }) {
       <div className="flex items-center gap-2 border-b border-border/60 bg-muted/20 px-5 py-3">
         <div className="min-w-0 flex-1">
           <h4 className="text-sm font-semibold flex items-center gap-2">
-            <StickyNote className="h-4 w-4 text-primary" /> Particularidades por Area
+            <StickyNote className="h-4 w-4 text-primary" /> Particularidades por Área
           </h4>
-          <p className="text-[11px] text-muted-foreground mt-0.5">Notas e observacoes especificas de cada area contratada.</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Notas e observações específicas de cada área contratada.</p>
         </div>
         <button
           type="button"
@@ -150,7 +150,7 @@ export function ParticularidadesCard({ clienteId }: { clienteId: string }) {
                 <h4 className="text-[13px] font-semibold text-foreground truncate">{active.areaNome}</h4>
                 {activeDirty && <span className={cn('text-[10px] font-medium shrink-0', TEXT.amber)}>alterado</span>}
                 {!active.canEdit && (
-                  <span className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0" title="So o responsavel pela area, o gestor da area ou o master podem editar.">
+                  <span className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0" title="Só o responsável pela área, o gestor da área ou o master podem editar.">
                     <Lock className="h-3 w-3" /> somente leitura
                   </span>
                 )}
@@ -180,7 +180,7 @@ export function ParticularidadesCard({ clienteId }: { clienteId: string }) {
               <RichEditor
                 value={active.texto}
                 onChange={html => updateTexto(active.clienteAreaContratadaId, html)}
-                placeholder={`Particularidades da area ${active.areaNome}...`}
+                placeholder={`Particularidades da área ${active.areaNome}...`}
                 maxHeight={380}
                 readOnly={!active.canEdit}
               />
@@ -192,7 +192,7 @@ export function ParticularidadesCard({ clienteId }: { clienteId: string }) {
       {/* Footer */}
       <div className="border-t border-border/60 bg-muted/20 px-5 py-2.5">
         <p className="text-[11px] text-muted-foreground">
-          {rows.filter(r => r.texto.trim()).length} de {rows.length} areas com particularidades preenchidas
+          {rows.filter(r => r.texto.trim()).length} de {rows.length} áreas com particularidades preenchidas
         </p>
       </div>
       </MioloColapsavel>

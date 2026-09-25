@@ -1677,12 +1677,12 @@ export class ContratoService {
     if (!this.pdfSign.certificadoDisponivel()) {
       throw new TRPCError({
         code: 'PRECONDITION_FAILED',
-        message: 'Certificado do servidor nao disponivel. Verifique se o PFX foi enviado em /configuracoes/certificado e a senha em /configuracoes (grupo SERPRO).',
+        message: 'Certificado do servidor não disponível. Verifique se o PFX foi enviado em /configuracoes/certificado e a senha em /configuracoes (grupo SERPRO).',
       })
     }
 
     const contrato = await (prisma as any).contrato.findUnique({ where: { id: contratoId } })
-    if (!contrato) throw new TRPCError({ code: 'NOT_FOUND', message: 'Contrato nao encontrado' })
+    if (!contrato) throw new TRPCError({ code: 'NOT_FOUND', message: 'Contrato não encontrado' })
 
     // 1. Garantir que o PDF esta gerado
     if (!contrato.pdfUrl) {

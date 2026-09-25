@@ -439,8 +439,8 @@ export default function CrmPage() {
       // Confirmacao ao mover para Declinio
       if (isDecl) {
         const ok = await alerts.confirm({
-          title: 'Mover para Declinio',
-          text: `Esta oportunidade ficara em Declinio por ${declinioDias} dias e sera arquivada automaticamente apos este periodo.`,
+          title: 'Mover para Declínio',
+          text: `Esta oportunidade ficará em Declínio por ${declinioDias} dias e será arquivada automaticamente após este período.`,
           confirmText: 'Confirmar',
           icon: 'warning',
         })
@@ -452,7 +452,7 @@ export default function CrmPage() {
         const result = await (trpc.crm as any).moverEtapa.mutate({ id: cardId, etapaId: targetEtapaId }) as { orcamentoCriado?: { id: string; numero: number } | null }
         await fetchAll(true)
         if (result.orcamentoCriado) {
-          alerts.success('Orcamento criado', `Orcamento #${result.orcamentoCriado.numero} gerado automaticamente`)
+          alerts.success('Orçamento criado', `Orçamento #${result.orcamentoCriado.numero} gerado automaticamente`)
         }
       } catch {
         fetchAll(true)
@@ -693,7 +693,7 @@ export default function CrmPage() {
   }
 
   const handleCreate = async () => {
-    if (!form.titulo.trim()) { alerts.warning('Campo obrigatorio', 'Informe o titulo da oportunidade'); return }
+    if (!form.titulo.trim()) { alerts.warning('Campo obrigatório', 'Informe o título da oportunidade'); return }
 
     // Verificar se cliente ja existe
     try {
@@ -701,8 +701,8 @@ export default function CrmPage() {
       const check = await (trpc.crm as any).checkCliente.query({ cpfCnpj: form.cpfCnpj.trim() || undefined, razaoSocial: nomeCheck || undefined }) as { exists: boolean; cliente?: { id: string; razaoSocial: string; documento: string; situacao: string; isLead: boolean } }
       if (check.exists && check.cliente) {
         const ok = await alerts.confirm({
-          title: 'Cliente ja cadastrado',
-          text: `"${check.cliente.razaoSocial}" (${check.cliente.documento || 'sem documento'}) ja esta cadastrado com situacao "${check.cliente.situacao}". Deseja vincular esta oportunidade ao cliente existente?`,
+          title: 'Cliente já cadastrado',
+          text: `"${check.cliente.razaoSocial}" (${check.cliente.documento || 'sem documento'}) já está cadastrado com situação "${check.cliente.situacao}". Deseja vincular esta oportunidade ao cliente existente?`,
           confirmText: 'Sim, vincular',
           icon: 'info',
         })
@@ -781,7 +781,7 @@ export default function CrmPage() {
       }
       // Notificar se orcamento foi criado automaticamente
       if (result.orcamentoCriado) {
-        alerts.success('Orcamento criado', `Orcamento #${result.orcamentoCriado.numero} gerado automaticamente`)
+        alerts.success('Orçamento criado', `Orçamento #${result.orcamentoCriado.numero} gerado automaticamente`)
       }
     } catch {
       alerts.error('Erro', 'Falha ao mover oportunidade')
@@ -882,7 +882,7 @@ export default function CrmPage() {
     if (!ok) return
     try {
       await (trpc.crm as any).delete.mutate({ id })
-      alerts.success('Oportunidade excluida')
+      alerts.success('Oportunidade excluída')
       setDetailOpen(false)
       fetchAll()
     } catch {
@@ -1175,13 +1175,13 @@ export default function CrmPage() {
                 <TrendingUp className="h-4 w-4 mr-2" /> Funil de Vendas
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push('/crm/relatorios?tab=desempenho')}>
-                <Target className="h-4 w-4 mr-2" /> Desempenho por Responsavel
+                <Target className="h-4 w-4 mr-2" /> Desempenho por Responsável
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push('/crm/relatorios?tab=origem')}>
                 <ArrowRight className="h-4 w-4 mr-2" /> Oportunidades por Origem
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push('/crm/relatorios?tab=tempo')}>
-                <Clock className="h-4 w-4 mr-2" /> Tempo Medio por Etapa
+                <Clock className="h-4 w-4 mr-2" /> Tempo Médio por Etapa
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -1212,7 +1212,7 @@ export default function CrmPage() {
             <Table>
               <TableHeader>
                 <TableRow className="whitespace-nowrap">
-                  <TableHead>Titulo</TableHead>
+                  <TableHead>Título</TableHead>
                   <TableHead className="w-[140px]">Etapa</TableHead>
                   <TableHead className="hidden md:table-cell w-[180px]">Cliente</TableHead>
                   <TableHead className="hidden lg:table-cell w-[100px]">Criado</TableHead>
@@ -1337,7 +1337,7 @@ export default function CrmPage() {
             {/* Titulo */}
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Oportunidade *</label>
-              <Input value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} placeholder="Titulo da oportunidade" className="h-9 text-sm" />
+              <Input value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} placeholder="Título da oportunidade" className="h-9 text-sm" />
             </div>
             {/* CPF/CNPJ + Empresa/Cliente — CNPJ válido dispara auto-complete da razão via Receita */}
             <div className="grid grid-cols-12 gap-3">
@@ -1533,7 +1533,7 @@ export default function CrmPage() {
                   { key: 'tarefas' as const, label: `Tarefas (${tarefasCrm.length})`, icon: CheckSquare },
                   { key: 'mensagens' as const, label: `Anotações (${detail.mensagens.length})`, icon: MessageSquare },
                   { key: 'arquivos' as const, label: `Arquivos (${detail.arquivos.length})`, icon: Paperclip },
-                  { key: 'historico' as const, label: 'Historico', icon: History },
+                  { key: 'historico' as const, label: 'Histórico', icon: History },
                 ]).map(tab => (
                   <button
                     key={tab.key}
@@ -1827,13 +1827,13 @@ export default function CrmPage() {
       <Dialog open={configModal} onOpenChange={setConfigModal}>
         <DialogContent className="max-w-[400px]">
           <DialogHeaderIcon icon={Settings2} color="slate">
-            <DialogTitle className="text-[15px]">Configuracoes do CRM</DialogTitle>
+            <DialogTitle className="text-[15px]">Configurações do CRM</DialogTitle>
             <DialogDescription className="text-[11px]">Ajuste o comportamento do pipeline</DialogDescription>
           </DialogHeaderIcon>
           <DialogBody className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Dias em Declinio antes de arquivar</label>
-              <p className="text-[11px] text-muted-foreground mb-2">Oportunidades movidas para Declinio serao arquivadas automaticamente apos este periodo.</p>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Dias em Declínio antes de arquivar</label>
+              <p className="text-[11px] text-muted-foreground mb-2">Oportunidades movidas para Declínio serão arquivadas automaticamente após este período.</p>
               <div className="flex items-center gap-2">
                 <Input
                   type="number"
@@ -1851,10 +1851,10 @@ export default function CrmPage() {
             <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white" onClick={async () => {
               try {
                 await (trpc.crm as any).saveConfig.mutate({ key: 'declinio_dias', value: String(declinioDias) })
-                alerts.success('Salvo', 'Configuracao atualizada')
+                alerts.success('Salvo', 'Configuração atualizada')
                 setConfigModal(false)
               } catch {
-                alerts.error('Erro', 'Falha ao salvar configuracao')
+                alerts.error('Erro', 'Falha ao salvar configuração')
               }
             }}>
               Salvar
@@ -2693,13 +2693,13 @@ function SlaIndicator({ op, etapas, declinioDias = 30 }: { op: Oportunidade; eta
     const restantes = Math.max(0, declinioDias - dias)
     if (restantes === 0) {
       return (
-        <span className={cn('text-[10px] font-medium flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-red-50 dark:bg-red-900/20', TEXT.red)} title="Arquivamento automatico iminente">
+        <span className={cn('text-[10px] font-medium flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-red-50 dark:bg-red-900/20', TEXT.red)} title="Arquivamento automático iminente">
           <Archive className="h-3 w-3 animate-pulse" /> Expirando
         </span>
       )
     }
     return (
-      <span className={cn('text-[10px] font-medium flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/20', TEXT.amber)} title={`Arquivamento automatico em ${restantes} dia(s)`}>
+      <span className={cn('text-[10px] font-medium flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/20', TEXT.amber)} title={`Arquivamento automático em ${restantes} dia(s)`}>
         <Archive className="h-3 w-3" /> {restantes}d
       </span>
     )

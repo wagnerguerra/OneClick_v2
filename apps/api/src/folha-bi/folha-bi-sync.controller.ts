@@ -38,7 +38,7 @@ export class FolhaBiSyncController {
       // sem sessao valida -> cai no 401 abaixo (getSession pode lancar em vez de retornar null)
     }
     if (session?.user) return { via: 'session' as const, userId: session.user.id }
-    throw new UnauthorizedException('Nao autenticado (nem token de servico nem sessao)')
+    throw new UnauthorizedException('Não autenticado (nem token de serviço nem sessão)')
   }
 
   @Post('upload')

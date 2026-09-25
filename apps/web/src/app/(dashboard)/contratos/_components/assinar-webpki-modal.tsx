@@ -291,7 +291,7 @@ function shortIssuer(issuer: string): string {
 // e mais comum em auditoria; aqui so traduzimos para o formato de transporte.
 function hexToBase64(hex: string): string {
   const clean = hex.replace(/\s+/g, '').toLowerCase()
-  if (clean.length % 2 !== 0) throw new Error(`Hash hex invalido (length=${clean.length})`)
+  if (clean.length % 2 !== 0) throw new Error(`Hash hex inválido (length=${clean.length})`)
   const bytes = new Uint8Array(clean.length / 2)
   for (let i = 0; i < clean.length; i += 2) {
     bytes[i / 2] = parseInt(clean.slice(i, i + 2), 16)

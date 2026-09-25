@@ -399,7 +399,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
         try {
           await salvarServicosRef.current?.()
         } catch (e) {
-          await alerts.error('Servicos nao salvos', (e as Error).message || 'O cadastro foi salvo, mas os servicos contratados nao.')
+          await alerts.error('Serviços não salvos', (e as Error).message || 'O cadastro foi salvo, mas os serviços contratados não.')
           return
         }
         await alerts.success('Cliente atualizado', 'Os dados foram salvos com sucesso.')
@@ -1033,7 +1033,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                         )}
                         {PROGRESS_FIELDS.filter(f => { const v = watchedValues[f]; return !v || String(v).trim() === '' }).map(f => {
                           const FIELD_TAB_MAP: Record<string, { tab: string; label: string }> = {
-                            razaoSocial: { tab: 'detalhes', label: 'Razao Social' },
+                            razaoSocial: { tab: 'detalhes', label: 'Razão Social' },
                             documento: { tab: 'detalhes', label: 'Documento' },
                             nomeFantasia: { tab: 'detalhes', label: 'Nome Fantasia' },
                             tipoCliente: { tab: 'detalhes', label: 'Tipo Cliente' },
@@ -1044,12 +1044,12 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                             bairro: { tab: 'detalhes', label: 'Bairro' },
                             cidade: { tab: 'detalhes', label: 'Cidade' },
                             uf: { tab: 'detalhes', label: 'UF' },
-                            situacao: { tab: 'comercial', label: 'Situacao' },
+                            situacao: { tab: 'comercial', label: 'Situação' },
                             status: { tab: 'comercial', label: 'Status' },
                             grupo: { tab: 'comercial', label: 'Grupo' },
                             origem: { tab: 'comercial', label: 'Origem' },
-                            tributacao: { tab: 'fiscal', label: 'Tributacao' },
-                            areasContratadas: { tab: 'servicos', label: 'Areas Contratadas' },
+                            tributacao: { tab: 'fiscal', label: 'Tributação' },
+                            areasContratadas: { tab: 'servicos', label: 'Áreas Contratadas' },
                           }
                           const info = FIELD_TAB_MAP[f] || { tab: 'detalhes', label: f }
                           return (
@@ -1486,9 +1486,9 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
         <Dialog open={!!cnpjCard} onOpenChange={(open) => { if (!open) setCnpjCard(null) }}>
           <DialogContent className="max-w-[700px] p-0 gap-0">
             <DialogHeaderIcon icon={FileText} color="emerald">
-              <DialogTitle className="text-[15px]">Cartao CNPJ (Consulta)</DialogTitle>
+              <DialogTitle className="text-[15px]">Cartão CNPJ (Consulta)</DialogTitle>
               <DialogDescription className="text-[11px]">
-                Comprovante de inscricao e situacao cadastral — Receita Federal | Fonte: {cnpjCard.fonte === 'serpro' ? 'SERPRO' : 'BrasilAPI'}
+                Comprovante de inscrição e situação cadastral — Receita Federal | Fonte: {cnpjCard.fonte === 'serpro' ? 'SERPRO' : 'BrasilAPI'}
               </DialogDescription>
             </DialogHeaderIcon>
             <DialogBody>
@@ -1507,7 +1507,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                     <table border="0" width="100%" style="line-height: 9pt;">
                       <tbody><tr>
                         <td valign="middle" align="left" width="60" height="60">
-                          <img width="60" height="60" src="/brasao2.png" alt="Brasao" border="0" />
+                          <img width="60" height="60" src="/brasao2.png" alt="Brasão" border="0" />
                         </td>
                         <td align="center">
                           <p style="margin:0cm; margin-bottom:0pt;">&nbsp;</p>
@@ -1738,11 +1738,11 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
             </DialogBody>
             <DialogFooter className="sm:justify-between">
               <a href="https://solucoes.receita.fazenda.gov.br/servicos/cnpjreva/cnpjreva_solicitacao.asp" target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:underline flex items-center gap-1">
-                <ExternalLink className="h-3 w-3" /> Abrir cartao oficial
+                <ExternalLink className="h-3 w-3" /> Abrir cartão oficial
               </a>
               <div className="flex gap-2">
                 <Button type="button" variant="success" size="sm" className="gap-1" onClick={() => { buscarCnpj(); setCnpjCard(null) }}>
-                  <CheckCircle2 className="h-4 w-4" /> Completar no formulario
+                  <CheckCircle2 className="h-4 w-4" /> Completar no formulário
                 </Button>
                 <Button type="button" variant="outline" size="sm" onClick={() => setCnpjCard(null)}>
                   Fechar
@@ -2075,7 +2075,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
         })
       }
     } catch (e) {
-      alerts.error('Erro', mensagemErro(e, 'Nao foi possivel carregar dados para os graficos.'))
+      alerts.error('Erro', mensagemErro(e, 'Não foi possível carregar dados para os gráficos.'))
     } finally { setChartLoading(false) }
   }
 
@@ -2121,7 +2121,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
       setFiles(freshData as typeof files)
       setFilesLoaded(true)
     } catch { setFilesLoaded(true) }
-    if (uploaded > 0) alerts.success('Upload concluido', `${uploaded} arquivo(s) enviado(s) com sucesso.`)
+    if (uploaded > 0) alerts.success('Upload concluído', `${uploaded} arquivo(s) enviado(s) com sucesso.`)
   }
 
   function handleFileClick() {
@@ -2185,18 +2185,18 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
         <div className="p-5 grid gap-4 sm:grid-cols-3">
           <div className="flex flex-col items-center text-center p-5 rounded border border-dashed border-border/60">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted mb-3"><FileText className="h-6 w-6 text-muted-foreground" /></div>
-            <h4 className="font-semibold text-xs mb-1">Parametros</h4>
-            <p className="text-[10px] text-muted-foreground mb-3">Parametros do contrato para acompanhamento no grafico.</p>
+            <h4 className="font-semibold text-xs mb-1">Parâmetros</h4>
+            <p className="text-[10px] text-muted-foreground mb-3">Parâmetros do contrato para acompanhamento no gráfico.</p>
             <div className="flex flex-col gap-2 w-full">
-              <Button type="button" size="sm" onClick={() => setShowParamModal(true)} style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }} className="w-full">→ Atualizar Parametros</Button>
+              <Button type="button" size="sm" onClick={() => setShowParamModal(true)} style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }} className="w-full">→ Atualizar Parâmetros</Button>
               <Button type="button" variant="outline" size="sm" onClick={() => setShowErpModal(true)} className="w-full"><ExternalLink className="h-3 w-3" /> Verificar no ERP</Button>
             </div>
           </div>
           <div className="flex flex-col items-center text-center p-5 rounded border border-dashed border-border/60">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted mb-3"><FileBarChart className="h-6 w-6 text-muted-foreground" /></div>
-            <h4 className="font-semibold text-xs mb-1">Graficos</h4>
+            <h4 className="font-semibold text-xs mb-1">Gráficos</h4>
             <p className="text-[10px] text-muted-foreground mb-3">Indicadores do cliente (Contrato x ERP).</p>
-            <Button type="button" variant="outline" size="sm" onClick={openChartModal}>→ Abrir Graficos</Button>
+            <Button type="button" variant="outline" size="sm" onClick={openChartModal}>→ Abrir Gráficos</Button>
           </div>
           <div className="flex flex-col items-center text-center p-5 rounded border border-dashed border-border/60">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted mb-3"><File className="h-6 w-6 text-muted-foreground" /></div>

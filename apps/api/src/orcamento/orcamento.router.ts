@@ -208,7 +208,7 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
         return orcamentoService.changeStatus(input.id, input.status, ctx.userId, { notificarCliente: input.notificarCliente })
       }),
 
-    enviar: writeSubProcedure(MODULE, 'acao_enviar', 'Enviar orcamentos')
+    enviar: writeSubProcedure(MODULE, 'acao_enviar', 'Enviar orçamentos')
       .input(z.object({
         id: z.string(),
         destinatarios: z.array(z.string()).optional(),
@@ -358,11 +358,11 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ clienteId: z.string(), page: z.coerce.number().min(1).default(1), limit: z.coerce.number().min(1).max(100).default(20) }))
       .query(({ input }) => orcamentoService.listOrcamentosDoClientePaginado(input.clienteId, input.page, input.limit)),
 
-    trocarResponsavel: writeSubProcedure(MODULE, 'change_responsavel', 'Alterar responsavel pelos servicos')
+    trocarResponsavel: writeSubProcedure(MODULE, 'change_responsavel', 'Alterar responsável pelos serviços')
       .input(z.object({ id: z.string(), responsavelId: z.string().nullable() }))
       .mutation(({ input, ctx }) => orcamentoService.trocarResponsavel(input.id, input.responsavelId, ctx.userId)),
 
-    trocarSolicitante: writeSubProcedure(MODULE, 'change_solicitante', 'Alterar solicitante do orcamento')
+    trocarSolicitante: writeSubProcedure(MODULE, 'change_solicitante', 'Alterar solicitante do orçamento')
       .input(z.object({ id: z.string(), solicitanteId: z.string().nullable() }))
       .mutation(({ input, ctx }) => orcamentoService.trocarSolicitante(input.id, input.solicitanteId, ctx.userId)),
 
@@ -439,19 +439,19 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .mutation(({ input }) => orcamentoService.registrarDecisao(input.token, input)),
 
     // ── Itens ──────────────────────────────────────────────
-    addItem: writeSubProcedure(MODULE, 'manage_itens', 'Incluir itens em orcamentos')
+    addItem: writeSubProcedure(MODULE, 'manage_itens', 'Incluir itens em orçamentos')
       .input(createOrcamentoItemSchema)
       .mutation(({ input, ctx }) => orcamentoService.addItem(input, ctx)),
 
-    updateItem: writeSubProcedure(MODULE, 'manage_itens', 'Editar itens de orcamentos')
+    updateItem: writeSubProcedure(MODULE, 'manage_itens', 'Editar itens de orçamentos')
       .input(z.object({ id: z.string(), data: updateOrcamentoItemSchema }))
       .mutation(({ input, ctx }) => orcamentoService.updateItem(input.id, input.data, ctx)),
 
-    removeItem: deleteSubProcedure(MODULE, 'manage_itens', 'Excluir itens de orcamentos')
+    removeItem: deleteSubProcedure(MODULE, 'manage_itens', 'Excluir itens de orçamentos')
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => orcamentoService.removeItem(input.id)),
 
-    aplicarGrupo: writeSubProcedure(MODULE, 'manage_itens', 'Incluir itens em orcamentos')
+    aplicarGrupo: writeSubProcedure(MODULE, 'manage_itens', 'Incluir itens em orçamentos')
       .input(z.object({ orcamentoId: z.string(), grupoId: z.string() }))
       .mutation(({ input }) => orcamentoService.aplicarGrupo(input)),
 

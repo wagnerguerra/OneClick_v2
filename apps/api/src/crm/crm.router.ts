@@ -168,10 +168,10 @@ export function createCrmRouter(crmService: CrmService, importComercialService?:
     // ── Importacao do legado (v1) ─────────────────────────
     importarLegado: writeProcedure(MODULE)
       .mutation(() => {
-        if (!importComercialService) throw new Error('Servico de importacao nao disponivel')
+        if (!importComercialService) throw new Error('Serviço de importação não disponível')
         // Disparar em background — nao aguardar conclusao
         importComercialService.importarTudo().catch(e => console.error('[IMPORT] Erro:', e.message))
-        return { ok: true, message: 'Importacao iniciada em background' }
+        return { ok: true, message: 'Importação iniciada em background' }
       }),
 
     getImportProgress: readProcedure(MODULE)

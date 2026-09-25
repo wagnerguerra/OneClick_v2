@@ -1370,7 +1370,7 @@ export default function OrcamentosPage() {
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
             <Button size="sm" variant="success" className="gap-1.5" onClick={handleCreate} disabled={creating || !form.clienteId}>
               {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              Criar Orcamento
+              Criar Orçamento
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1740,7 +1740,7 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
           {(orc.solicitante || orc.responsavel) && (
             <div className="flex items-center -space-x-1.5">
               {orc.solicitante && <UserChip user={orc.solicitante} role="Solicitante" />}
-              {orc.responsavel && <UserChip user={orc.responsavel} role="Responsavel" />}
+              {orc.responsavel && <UserChip user={orc.responsavel} role="Responsável" />}
             </div>
           )}
           <PrazoBadge orc={orc} />
@@ -1885,7 +1885,7 @@ function PessoasCell({ solicitante, responsavel }: { solicitante?: UserRef | nul
   )
 }
 
-function UserChip({ user, role }: { user: UserRef; role: 'Solicitante' | 'Responsavel' }) {
+function UserChip({ user, role }: { user: UserRef; role: 'Solicitante' | 'Responsável' }) {
   const initials = (user.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
   const chip = user.image ? (
     <img src={resolveAssetUrl(user.image)} alt={user.name} className="h-6 w-6 rounded-full object-cover shrink-0 border-2 border-background shadow-sm" />

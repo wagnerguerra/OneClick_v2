@@ -107,7 +107,7 @@ export function ParametrosContratoModal({ clienteId, open, onOpenChange, subtitu
         ? `Média dos últimos meses com movimento: ${meses.join(', ')}.`
         : `Sem movimento no período consultado (${result.periodo.datai} a ${result.periodo.dataf}) — parâmetros vieram zerados.`)
     } catch (e) {
-      alerts.error('Erro ao obter parametros', mensagemErro(e, 'Nao foi possivel consultar o SCI.'))
+      alerts.error('Erro ao obter parâmetros', mensagemErro(e, 'Não foi possível consultar o SCI.'))
     } finally { setBuscando(false) }
   }
 
@@ -128,11 +128,11 @@ export function ParametrosContratoModal({ clienteId, open, onOpenChange, subtitu
         diasAlertaRenovacao: params.diasAlertaRenovacao !== '' ? Number(params.diasAlertaRenovacao) : null,
         gestaoIgnorar: params.gestaoIgnorar,
       })
-      await alerts.success('Parametros salvos', 'Os parametros do contrato foram atualizados.')
+      await alerts.success('Parâmetros salvos', 'Os parâmetros do contrato foram atualizados.')
       onOpenChange(false)
       onSaved?.()
     } catch (e) {
-      alerts.error('Erro', mensagemErro(e, 'Nao foi possivel salvar.'))
+      alerts.error('Erro', mensagemErro(e, 'Não foi possível salvar.'))
     } finally { setSaving(false) }
   }
 
@@ -201,7 +201,7 @@ export function ParametrosContratoModal({ clienteId, open, onOpenChange, subtitu
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Lancamentos</Label>
+                  <Label>Lançamentos</Label>
                   <Input type="number" placeholder="0" value={params.lancamentos || ''} onChange={(e) => setParams(p => ({ ...p, lancamentos: Number(e.target.value) || 0 }))} />
                 </div>
                 <div className="space-y-1.5">
@@ -217,7 +217,7 @@ export function ParametrosContratoModal({ clienteId, open, onOpenChange, subtitu
                   <Input type="number" placeholder="0" value={params.nfEntrada || ''} onChange={(e) => setParams(p => ({ ...p, nfEntrada: Number(e.target.value) || 0 }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>NF Saida</Label>
+                  <Label>NF Saída</Label>
                   <Input type="number" placeholder="0" value={params.nfSaida || ''} onChange={(e) => setParams(p => ({ ...p, nfSaida: Number(e.target.value) || 0 }))} />
                 </div>
                 <div className="space-y-1.5">
@@ -229,7 +229,7 @@ export function ParametrosContratoModal({ clienteId, open, onOpenChange, subtitu
                   <Input type="number" placeholder="0" value={params.nfTomado || ''} onChange={(e) => setParams(p => ({ ...p, nfTomado: Number(e.target.value) || 0 }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Funcionarios</Label>
+                  <Label>Funcionários</Label>
                   <Input type="number" placeholder="0" value={params.funcionarios || ''} onChange={(e) => setParams(p => ({ ...p, funcionarios: Number(e.target.value) || 0 }))} />
                 </div>
               </div>

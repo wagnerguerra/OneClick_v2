@@ -1034,7 +1034,7 @@ export default function ServicosPage() {
                   todo dia, e estava por ultimo, depois de alternador de visao,
                   Execucoes, Grupos e Assistente. */}
               <Button variant="success" size="sm" onClick={openCreateServico} className="gap-1.5">
-                <Plus className="h-4 w-4" />Novo Servico
+                <Plus className="h-4 w-4" />Novo Serviço
               </Button>
               <div className="flex items-center border rounded-[2px] overflow-hidden">
                 <button type="button" className={cn('p-1.5 transition-colors', viewMode === 'tabela' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted')} onClick={() => { setViewMode('tabela'); localStorage.setItem('servicos-view-mode', 'tabela') }} title="Tabela">
@@ -1045,7 +1045,7 @@ export default function ServicosPage() {
                 </button>
               </div>
               <Button variant="outline" size="sm" onClick={() => { setView('execucoes'); setSearch(''); setPage(1) }} className="gap-1.5">
-                <Play className="h-4 w-4" />Execucoes
+                <Play className="h-4 w-4" />Execuções
               </Button>
               <Button variant="outline" size="sm" onClick={() => router.push('/servicos/grupos')} className="gap-1.5">
                 <Layers className="h-4 w-4" />Grupos

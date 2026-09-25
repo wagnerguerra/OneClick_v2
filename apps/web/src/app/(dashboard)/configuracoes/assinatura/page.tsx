@@ -113,7 +113,7 @@ export default function AssinaturaPage() {
   async function handleCancel() {
     const confirmed = await alerts.confirm({
       title: 'Cancelar assinatura',
-      text: 'Sua assinatura continuara ativa ate o final do periodo atual. Deseja continuar?',
+      text: 'Sua assinatura continuará ativa até o final do período atual. Deseja continuar?',
       confirmText: 'Cancelar assinatura',
     })
     if (!confirmed) return
@@ -121,7 +121,7 @@ export default function AssinaturaPage() {
     setActionLoading('cancel')
     try {
       await trpc.billing.cancelSubscription.mutate()
-      alerts.success('Assinatura sera cancelada ao final do periodo.')
+      alerts.success('Assinatura será cancelada ao final do período.')
       await loadData()
     } catch (err: any) {
       alerts.error(err.message || 'Erro ao cancelar')
@@ -246,7 +246,7 @@ export default function AssinaturaPage() {
 
                 {/* Periodo */}
                 <div className="text-sm text-muted-foreground">
-                  Periodo atual: {formatDate(subscription.currentPeriodStart)} a {formatDate(subscription.currentPeriodEnd)}
+                  Período atual: {formatDate(subscription.currentPeriodStart)} a {formatDate(subscription.currentPeriodEnd)}
                 </div>
               </div>
 
@@ -439,9 +439,9 @@ export default function AssinaturaPage() {
         <Card>
           <div className="p-12 text-center">
             <CreditCard className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground">Nenhum plano disponivel</h3>
+            <h3 className="text-lg font-medium text-foreground">Nenhum plano disponível</h3>
             <p className="text-sm text-muted-foreground mt-2">
-              Os planos de assinatura ainda nao foram configurados.
+              Os planos de assinatura ainda não foram configurados.
             </p>
           </div>
         </Card>

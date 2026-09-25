@@ -35,11 +35,11 @@ const TABS = [
 type TabKey = typeof TABS[number]['key']
 
 const PERIODOS = [
-  { value: '30', label: 'Ultimos 30 dias' },
-  { value: '90', label: 'Ultimos 90 dias' },
-  { value: '180', label: 'Ultimos 180 dias' },
-  { value: '365', label: 'Ultimo ano' },
-  { value: 'all', label: 'Todo o periodo' },
+  { value: '30', label: 'Últimos 30 dias' },
+  { value: '90', label: 'Últimos 90 dias' },
+  { value: '180', label: 'Últimos 180 dias' },
+  { value: '365', label: 'Último ano' },
+  { value: 'all', label: 'Todo o período' },
 ]
 
 const PIE_COLORS = [
@@ -82,7 +82,7 @@ export default function CrmRelatoriosPage() {
           </Select>
           <BackButton href="/crm" />
       </>}>
-        <h1 className="truncate">Relatorios do CRM</h1>
+        <h1 className="truncate">Relatórios do CRM</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
           <span className="text-muted-foreground/50">›</span>
@@ -155,7 +155,7 @@ function TabFunil({ dias }: { dias?: number }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard label="Total de Oportunidades" value={String(data.totalOportunidades)} />
         <KpiCard label="Valor Total" value={formatCurrency(data.valorTotal)} />
-        <KpiCard label="Taxa de Conversao Geral" value={`${data.taxaGeral}%`} />
+        <KpiCard label="Taxa de Conversão Geral" value={`${data.taxaGeral}%`} />
       </div>
 
       <div className="grid grid-cols-12 gap-4">
@@ -216,7 +216,7 @@ function TabFunil({ dias }: { dias?: number }) {
       {/* Conversion Rates */}
       {data.conversoes.length > 0 && (
         <Card className="p-4">
-          <h3 className="text-[13px] font-semibold text-foreground mb-3">Taxas de Conversao entre Etapas</h3>
+          <h3 className="text-[13px] font-semibold text-foreground mb-3">Taxas de Conversão entre Etapas</h3>
           <div className="flex items-center gap-2 flex-wrap">
             {data.conversoes.map((c: any, idx: number) => (
               <div key={idx} className="flex items-center gap-1.5">
@@ -284,17 +284,17 @@ function TabDesempenho({ dias }: { dias?: number }) {
       {/* Table */}
       <Card className="overflow-hidden">
         <div className="px-4 py-3 border-b border-border">
-          <h3 className="text-[13px] font-semibold text-foreground">Detalhamento por Responsavel</h3>
+          <h3 className="text-[13px] font-semibold text-foreground">Detalhamento por Responsável</h3>
         </div>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="text-xs">Responsavel</TableHead>
+              <TableHead className="text-xs">Responsável</TableHead>
               <TableHead className="text-xs text-center">Total</TableHead>
               <TableHead className="text-xs text-center">Ganhos</TableHead>
               <TableHead className="text-xs text-center">Perdidos</TableHead>
               <TableHead className="text-xs text-center">Em Aberto</TableHead>
-              <TableHead className="text-xs text-center">Taxa de Conversao</TableHead>
+              <TableHead className="text-xs text-center">Taxa de Conversão</TableHead>
               <TableHead className="text-xs text-right">Valor Total</TableHead>
               <TableHead className="text-xs text-right">Valor Ganho</TableHead>
             </TableRow>
@@ -367,7 +367,7 @@ function TabOrigem({ dias }: { dias?: number }) {
       <div className="grid grid-cols-12 gap-4">
         {/* Donut Chart */}
         <Card className="col-span-5 p-4">
-          <h3 className="text-[13px] font-semibold text-foreground mb-4">Distribuicao por Origem</h3>
+          <h3 className="text-[13px] font-semibold text-foreground mb-4">Distribuição por Origem</h3>
           <div className="h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -426,7 +426,7 @@ function TabOrigem({ dias }: { dias?: number }) {
               <TableHead className="text-xs text-center">% do Total</TableHead>
               <TableHead className="text-xs text-center">Ganhos</TableHead>
               <TableHead className="text-xs text-center">Perdidos</TableHead>
-              <TableHead className="text-xs text-center">Taxa de Conversao</TableHead>
+              <TableHead className="text-xs text-center">Taxa de Conversão</TableHead>
               <TableHead className="text-xs text-right">Valor Total</TableHead>
             </TableRow>
           </TableHeader>
@@ -492,7 +492,7 @@ function TabTempoMedio() {
     <div className="space-y-4">
       {/* Chart */}
       <Card className="p-4">
-        <h3 className="text-[13px] font-semibold text-foreground mb-4">Tempo Medio em Cada Etapa (dias)</h3>
+        <h3 className="text-[13px] font-semibold text-foreground mb-4">Tempo Médio em Cada Etapa (dias)</h3>
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>

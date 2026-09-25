@@ -1028,7 +1028,7 @@ function ClientesVinculados({ userId }: { userId: string }) {
       })
       setImportResult(result)
       if (!dryRun && result.vinculados > 0) fetchData()
-      if (!dryRun) await alerts.success('Importacao concluida', `${result.vinculados} vinculo(s) importado(s).`)
+      if (!dryRun) await alerts.success('Importação concluída', `${result.vinculados} vínculo(s) importado(s).`)
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
     } finally { setImporting(false) }
@@ -1041,7 +1041,7 @@ function ClientesVinculados({ userId }: { userId: string }) {
         <div className="flex items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => handleImportOneClick(true)} disabled={importing} className="gap-1.5 text-xs">
             {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ChevronDown className="h-3.5 w-3.5" />}
-            Previa OneClick
+            Prévia OneClick
           </Button>
           <Button type="button" variant="success" size="sm" onClick={() => handleImportOneClick(false)} disabled={importing} className="gap-1.5 text-xs">
             {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -1050,14 +1050,14 @@ function ClientesVinculados({ userId }: { userId: string }) {
         </div>
         <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
           <Checkbox checked={onlyMyArea} onCheckedChange={v => setOnlyMyArea(v === true)} />
-          Somente a area deste usuario
+          Somente a área deste usuário
         </label>
       </div>
 
       {importResult && (
         <div className={cn('rounded-lg px-4 py-3 text-xs', importResult.dryRun ? BADGE.sky : BADGE.emerald)}>
-          <span className="font-semibold">{importResult.dryRun ? 'Previa:' : 'Resultado:'}</span>{' '}
-          {importResult.totalLinhasOneClick} no OneClick | {importResult.vinculados} vinculo(s) {importResult.dryRun ? 'encontrado(s)' : 'importado(s)'} | {importResult.ignoradosSemCliente} sem cliente local
+          <span className="font-semibold">{importResult.dryRun ? 'Prévia:' : 'Resultado:'}</span>{' '}
+          {importResult.totalLinhasOneClick} no OneClick | {importResult.vinculados} vínculo(s) {importResult.dryRun ? 'encontrado(s)' : 'importado(s)'} | {importResult.ignoradosSemCliente} sem cliente local
         </div>
       )}
 
@@ -1065,7 +1065,7 @@ function ClientesVinculados({ userId }: { userId: string }) {
       {data.length > 0 && (
         <div className="flex items-center gap-3">
           <Input
-            placeholder="Buscar cliente, CNPJ ou area..."
+            placeholder="Buscar cliente, CNPJ ou área..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="h-8 text-xs max-w-xs"
@@ -1083,7 +1083,7 @@ function ClientesVinculados({ userId }: { userId: string }) {
         <div className="text-center py-6 text-muted-foreground">
           <Handshake className="h-8 w-8 mx-auto mb-2 opacity-40" />
           <p className="text-sm">Nenhum cliente vinculado.</p>
-          <p className="text-xs mt-1">Use "Importar Carteira" ou vincule na aba Servicos do cliente.</p>
+          <p className="text-xs mt-1">Use "Importar Carteira" ou vincule na aba Serviços do cliente.</p>
         </div>
       ) : (
         <>
@@ -1093,8 +1093,8 @@ function ClientesVinculados({ userId }: { userId: string }) {
                 <tr className="bg-muted/30 text-xs text-muted-foreground">
                   <th className="text-left px-3 py-2 font-medium">Cliente</th>
                   <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">CNPJ/CPF</th>
-                  <th className="text-left px-3 py-2 font-medium">Area</th>
-                  <th className="text-left px-3 py-2 font-medium">Funcao</th>
+                  <th className="text-left px-3 py-2 font-medium">Área</th>
+                  <th className="text-left px-3 py-2 font-medium">Função</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
@@ -1130,7 +1130,7 @@ function ClientesVinculados({ userId }: { userId: string }) {
           {totalPages > 1 && (
             <div className="flex items-center justify-between">
               <span className="text-[11px] text-muted-foreground">
-                Pag. {page} de {totalPages}
+                Pág. {page} de {totalPages}
               </span>
               <div className="flex items-center gap-1">
                 <Button type="button" variant="outline" size="sm" className="h-7 text-xs px-2" disabled={page === 1} onClick={() => setPage(1)}>{'<<'}</Button>

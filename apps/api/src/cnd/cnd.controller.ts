@@ -9,7 +9,7 @@ export class CndController {
   @Get(':id/pdf')
   async visualizarPdf(@Param('id') id: string, @Res() res: Response) {
     const pdfBase64 = await this.cndService.getPdf(id)
-    if (!pdfBase64) throw new NotFoundException('PDF nao disponivel para esta consulta.')
+    if (!pdfBase64) throw new NotFoundException('PDF não disponível para esta consulta.')
 
     const pdfBuffer = Buffer.from(pdfBase64, 'base64')
     res.setHeader('Content-Type', 'application/pdf')
@@ -22,7 +22,7 @@ export class CndController {
   async downloadPdf(@Param('id') id: string, @Res() res: Response) {
     const record = await this.cndService.getById(id)
     const pdfBase64 = await this.cndService.getPdf(id)
-    if (!pdfBase64) throw new NotFoundException('PDF nao disponivel para esta consulta.')
+    if (!pdfBase64) throw new NotFoundException('PDF não disponível para esta consulta.')
 
     const pdfBuffer = Buffer.from(pdfBase64, 'base64')
     const filename = `cnd_${record.documento}_${new Date().toISOString().slice(0, 10)}.pdf`

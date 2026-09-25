@@ -131,7 +131,7 @@ export class PortalArquivosService {
         where: { id: pastaId, clienteId: vinculo.clienteId },
         select: { id: true },
       })
-      if (!dona) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pasta nao encontrada.' })
+      if (!dona) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pasta não encontrada.' })
     }
 
     const [pastas, arquivos, caminho] = await Promise.all([
@@ -193,14 +193,14 @@ export class PortalArquivosService {
     }
     const nome = input.nome.trim()
     if (nome.length < 1) {
-      throw new TRPCError({ code: 'BAD_REQUEST', message: 'De um nome a pasta.' })
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Dê um nome à pasta.' })
     }
     if (input.paiId) {
       const pai = await prisma.portalPasta.findFirst({
         where: { id: input.paiId, clienteId: vinculo.clienteId },
         select: { id: true },
       })
-      if (!pai) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pasta nao encontrada.' })
+      if (!pai) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pasta não encontrada.' })
     }
 
     const existente = await prisma.portalPasta.findFirst({
@@ -208,7 +208,7 @@ export class PortalArquivosService {
       select: { id: true },
     })
     if (existente) {
-      throw new TRPCError({ code: 'CONFLICT', message: `Ja existe uma pasta "${nome}" aqui.` })
+      throw new TRPCError({ code: 'CONFLICT', message: `Já existe uma pasta "${nome}" aqui.` })
     }
 
     return prisma.portalPasta.create({
@@ -238,11 +238,11 @@ export class PortalArquivosService {
       where: { id: pastaId, clienteId: vinculo.clienteId },
       select: { id: true, _count: { select: { filhas: true, arquivos: true } } },
     })
-    if (!pasta) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pasta nao encontrada.' })
+    if (!pasta) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pasta não encontrada.' })
     if (pasta._count.filhas + pasta._count.arquivos > 0) {
       throw new TRPCError({
         code: 'BAD_REQUEST',
-        message: 'A pasta nao esta vazia. Mova ou apague o que esta dentro antes.',
+        message: 'A pasta não está vazia. Mova ou apague o que está dentro antes.',
       })
     }
     await prisma.portalPasta.delete({ where: { id: pasta.id } })
@@ -385,7 +385,7 @@ export class PortalArquivosService {
         where: { id: input.pastaId, clienteId: vinculo.clienteId },
         select: { id: true },
       })
-      if (!pasta) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pasta nao encontrada.' })
+      if (!pasta) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pasta não encontrada.' })
     }
 
     // Solicitação só é aceita se for DESTE cliente e ainda estiver aberta.

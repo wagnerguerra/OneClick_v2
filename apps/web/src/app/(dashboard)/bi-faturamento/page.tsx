@@ -33,9 +33,9 @@ interface TabItem {
 }
 
 const TABS: TabItem[] = [
-  { key: 'visao-geral', label: 'Visao Geral', icon: Eye },
+  { key: 'visao-geral', label: 'Visão Geral', icon: Eye },
   { key: 'matriz', label: 'Matriz de Resultados', icon: Table2 },
-  { key: 'analise', label: 'Analise', icon: PieChart },
+  { key: 'analise', label: 'Análise', icon: PieChart },
   { key: 'gerenciar', label: 'Gerenciar Contas', icon: Settings2 },
 ]
 
@@ -139,9 +139,9 @@ export default function BiFaturamentoPage() {
       const result = await trpc.bi.linkPublico.mutate({ clienteId })
       const url = (result as { url: string }).url
       await navigator.clipboard.writeText(url)
-      alerts.success('Link copiado!', 'O link publico foi copiado para a area de transferencia.')
+      alerts.success('Link copiado!', 'O link público foi copiado para a área de transferência.')
     } catch (e) {
-      alerts.error('Erro', (e as Error).message || 'Nao foi possivel gerar o link.')
+      alerts.error('Erro', (e as Error).message || 'Não foi possível gerar o link.')
     } finally {
       setGeneratingLink(false)
     }
@@ -165,7 +165,7 @@ export default function BiFaturamentoPage() {
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
             <p className="text-sm text-muted-foreground">
-              Analise financeira e indicadores de desempenho
+              Análise financeira e indicadores de desempenho
             </p>
         </div>
       </PageHeaderBar>
