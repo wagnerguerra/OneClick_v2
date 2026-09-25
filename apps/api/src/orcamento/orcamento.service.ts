@@ -5,7 +5,7 @@ import {
   MOTIVO_GERAL_BLOQUEADO, MOTIVO_ITEM_BLOQUEADO,
 } from './desconto-exclusivo'
 import { idsDeEmpresasInativas, semEmpresaInativa } from '../common/empresa-inativa'
-import { filtroDeData, filtroDeDiasOuJanela, type Janela } from '../common/periodo-br'
+import { filtroDeData, filtroDeDiasOuJanela, mesBr, mesesDaJanela, type Janela } from '../common/periodo-br'
 import { contratosDeOrcamento } from './contratos-de-orcamento'
 import { carteiraRecorrente } from '../contrato/carteira-gestao'
 import type { CreateOrcamentoInput, UpdateOrcamentoInput, ListOrcamentoInput, CreateOrcamentoItemInput, UpdateOrcamentoItemInput } from '@saas/types'
@@ -4570,9 +4570,12 @@ export class OrcamentoService {
 
   // ── Estatisticas ──────────────────────────────────────────
 
-  async getStats(empresaId?: string) {
+  async getStats(empresaId?: string, janela?: Janela) {
     const where: any = { arquivado: false }
     if (empresaId) where.empresaId = empresaId
+    // /comercial: orçamentos CRIADOS no período, pela situação atual.
+    const criadoEm = janela ? filtroDeData(janela) : undefined
+    if (criadoEm) where.createdAt = criadoEm
 
     const [total, porStatus, valorTotal] = await Promise.all([
       prisma.orcamento.count({ where }),
@@ -4589,7 +4592,7 @@ export class OrcamentoService {
    * (gestor+) — se o user não for privilegiado, retorna { permitido: false }
    * e o widget mostra empty state com mensagem.
    */
-  async getDashboardStats(userId: string, empresaId?: string) {
+  async getDashboardStats(userId: string, empresaId?: string, janela?: Janela) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { role: true, profile: true, isMaster: true, isEmpresaMaster: true },
@@ -4613,6 +4616,9 @@ export class OrcamentoService {
 
     const baseWhere: any = { arquivado: false }
     if (empresaId) baseWhere.empresaId = empresaId
+    // /comercial: só os orçamentos CRIADOS no período (sem período, todos).
+    const criadoEm = janela ? filtroDeData(janela) : undefined
+    if (criadoEm) baseWhere.createdAt = criadoEm
 
     const [
       aguardandoEnvio,
@@ -4907,23 +4913,26 @@ export class OrcamentoService {
       return servicos.some(it => recorrenteSet.has(it.catalogoId!))
     }
 
-    // Série dos últimos 12 meses por dtAprovado (independe do período dos cards)
-    const desde = new Date()
-    desde.setMonth(desde.getMonth() - 11)
-    desde.setDate(1)
-    desde.setHours(0, 0, 0, 0)
+    // Série mensal por dtAprovado: os meses do período (/comercial) ou, sem
+    // período com datas, os últimos 12.
+    const janela = typeof dias === 'object' ? dias : undefined
+    const meses = mesesDaJanela(janela ?? {}, new Date(), 12, 24)
+    const desde = new Date(`${meses[0]!.chave}-01T00:00:00.000-03:00`)
+    // MRR na data final do período (a carteira daquele dia, honorário de hoje).
+    const agora = new Date()
+    const refCarteira = janela?.lte && janela.lte < agora ? janela.lte : undefined
 
     const orcSelect = { totalGeral: true, tipo: true, dtAprovado: true, itens: { select: { tipo: true, catalogoId: true } } } as const
     const [mrrAgg, aprovados, ult12] = await Promise.all([
       // MRR = carteira da Gestão de Contratos (a tabela `contratos` não é
       // alimentada — ver contrato/carteira-gestao.ts).
-      carteiraRecorrente(empresaId),
+      carteiraRecorrente(empresaId, refCarteira),
       prisma.orcamento.findMany({
         where: { ...emp, arquivado: false, status: { not: 'CANCELADO' }, dtAprovado: aprovadoEm ?? { not: null } },
         select: orcSelect,
       }),
       prisma.orcamento.findMany({
-        where: { ...emp, arquivado: false, status: { not: 'CANCELADO' }, dtAprovado: { gte: desde } },
+        where: { ...emp, arquivado: false, status: { not: 'CANCELADO' }, dtAprovado: { gte: desde, ...(janela?.lte ? { lte: janela.lte } : {}) } },
         select: orcSelect,
       }),
     ])
@@ -4946,18 +4955,12 @@ export class OrcamentoService {
       pctAvulso: totalValor > 0 ? Math.round((av.valor / totalValor) * 100) : 0,
     }
 
-    // Série 12 meses (valor aprovado por mês)
-    const buckets: { mes: string; recorrente: number; avulso: number }[] = []
-    for (let i = 0; i < 12; i++) {
-      const d = new Date(desde)
-      d.setMonth(desde.getMonth() + i)
-      buckets.push({ mes: `${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`, recorrente: 0, avulso: 0 })
-    }
-    const idxMes = new Map(buckets.map((b, i) => [b.mes, i]))
+    // Série mensal (valor aprovado por mês de Brasília)
+    const buckets: { mes: string; recorrente: number; avulso: number }[] = meses.map(m => ({ mes: m.rotulo, recorrente: 0, avulso: 0 }))
+    const idxMes = new Map(meses.map((m, i) => [m.chave, i]))
     for (const o of ult12) {
       if (!o.dtAprovado) continue
-      const key = `${String(o.dtAprovado.getMonth() + 1).padStart(2, '0')}-${o.dtAprovado.getFullYear()}`
-      const i = idxMes.get(key)
+      const i = idxMes.get(mesBr(o.dtAprovado))
       if (i === undefined) continue
       const v = Number(o.totalGeral)
       if (ehMensal(o.itens, o.tipo)) buckets[i]!.recorrente += v

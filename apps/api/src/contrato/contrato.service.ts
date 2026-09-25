@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
 import { carteiraRecorrente, situacaoVigencia } from './carteira-gestao'
+import { mesBr, mesesDaJanela, type Janela } from '../common/periodo-br'
 import type {
   CreateClausulaInput,
   UpdateClausulaInput,
@@ -1816,33 +1817,41 @@ export class ContratoService {
    *    passado) e SEM_VIGENCIA (sem data de fim informada);
    *  - a vencer: fim nos próximos 30/60 dias (permanentes não vencem);
    *  - evolução: clientes que ENTRARAM (data de entrada) e SAÍRAM (data de
-   *    saída) do escritório em cada um dos últimos 6 meses.
+   *    saída) do escritório em cada mês.
+   *
+   * Com `janela` (período do /comercial), tudo segue o período: a carteira é a
+   * da data final, "vencem no período" conta os contratos com fim dentro dele
+   * e a evolução mostra os meses do período. Sem ela (Painel TV), hoje, os
+   * próximos 30/60 dias e os últimos 6 meses.
    */
-  async reportComercial(empresaId?: string) {
+  async reportComercial(empresaId?: string, janela?: Janela) {
     const now = new Date()
+    const ref = janela?.lte && janela.lte < now ? janela.lte : now
     const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
     const in60 = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
-    // Inicio do mes 5 meses atras (janela de 6 meses, mes atual incluso)
-    const inicioJanela = new Date(now.getFullYear(), now.getMonth() - 5, 1)
+    const meses = mesesDaJanela(janela ?? {}, now, 6, 24)
+    const inicioJanela = new Date(`${meses[0]!.chave}-01T00:00:00.000-03:00`)
     const emp = empresaId ? { empresaId } : {}
 
     const [carteira, entradas, saidas] = await Promise.all([
-      carteiraRecorrente(empresaId),
-      prisma.cliente.findMany({ where: { ...emp, dataEntrada: { gte: inicioJanela } }, select: { dataEntrada: true } }),
-      prisma.cliente.findMany({ where: { ...emp, dataSaida: { gte: inicioJanela } }, select: { dataSaida: true } }),
+      carteiraRecorrente(empresaId, janela ? ref : undefined),
+      prisma.cliente.findMany({ where: { ...emp, dataEntrada: { gte: inicioJanela, ...(janela?.lte ? { lte: janela.lte } : {}) } }, select: { dataEntrada: true } }),
+      prisma.cliente.findMany({ where: { ...emp, dataSaida: { gte: inicioJanela, ...(janela?.lte ? { lte: janela.lte } : {}) } }, select: { dataSaida: true } }),
     ])
 
     const porStatusMap = new Map<string, { count: number; valor: number }>()
     for (const c of carteira) {
-      const st = situacaoVigencia(c, now)
+      const st = situacaoVigencia(c, ref)
       const acc = porStatusMap.get(st) ?? { count: 0, valor: 0 }
       acc.count++
       acc.valor += c.honorario
       porStatusMap.set(st, acc)
     }
 
+    // Com período: os que vencem DENTRO dele. Sem: até 60 dias, com os vencidos.
+    const vencemNoPeriodo = (d: Date) => (!janela?.gte || d >= janela.gte) && (!janela?.lte || d <= janela.lte)
     const aVencerTodos = carteira
-      .filter(c => !c.permanente && c.dataFim && c.dataFim <= in60)
+      .filter(c => !c.permanente && c.dataFim && (janela ? vencemNoPeriodo(c.dataFim) : c.dataFim <= in60))
       .sort((a, b) => a.dataFim!.getTime() - b.dataFim!.getTime())
     const aVencer = aVencerTodos.slice(0, 20).map(c => ({
       id: c.id,
@@ -1855,18 +1864,12 @@ export class ContratoService {
     const aVencer30 = aVencerTodos.filter(c => c.dataFim! >= now && c.dataFim! <= in30).length
     const aVencer60 = aVencerTodos.filter(c => c.dataFim! >= now).length
 
-    // Evolucao mensal (6 buckets): entradas x saidas de clientes
-    const buckets: Array<{ mes: string; novos: number; encerrados: number }> = []
-    const idxByKey: Record<string, number> = {}
-    const mesesLabel = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
-    for (let k = 5; k >= 0; k--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - k, 1)
-      idxByKey[`${d.getFullYear()}-${d.getMonth()}`] = buckets.length
-      buckets.push({ mes: `${mesesLabel[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`, novos: 0, encerrados: 0 })
-    }
+    // Evolucao mensal: entradas x saidas de clientes, por mes de Brasilia
+    const buckets = meses.map(m => ({ mes: m.rotulo, novos: 0, encerrados: 0 }))
+    const idxByKey = new Map(meses.map((m, i) => [m.chave, i]))
     const somar = (d: Date | null, campo: 'novos' | 'encerrados') => {
       if (!d) return
-      const idx = idxByKey[`${d.getFullYear()}-${d.getMonth()}`]
+      const idx = idxByKey.get(mesBr(d))
       const b = idx !== undefined ? buckets[idx] : undefined
       if (b) b[campo]++
     }
@@ -1885,6 +1888,8 @@ export class ContratoService {
       cancelados: 0,
       aVencer30,
       aVencer60,
+      /** Com período: contratos da carteira com fim dentro dele. */
+      vencemNoPeriodo: janela ? aVencerTodos.length : null,
       porStatus: [...porStatusMap.entries()].map(([status, v]) => ({ status, count: v.count, valor: Math.round(v.valor * 100) / 100 })),
       aVencer,
       evolucaoMensal: buckets,

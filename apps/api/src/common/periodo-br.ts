@@ -56,3 +56,31 @@ export function filtroDeDiasOuJanela(dias: number | Janela | undefined, agora: D
   if (typeof dias === 'object') return filtroDeData(dias)
   return dias ? { gte: new Date(agora.getTime() - dias * 86_400_000) } : undefined
 }
+
+/** AAAA-MM do instante no fuso de Brasília. */
+export function mesBr(d: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).format(d).slice(0, 7)
+}
+
+const ROTULO_MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+
+/**
+ * Meses (AAAA-MM, com rótulo "set/26") cobertos pela janela, para as séries
+ * mensais do /comercial. Sem início, volta `padrao` meses a partir do fim;
+ * sem fim, vai até hoje. Limitado aos `max` meses mais recentes — um período
+ * de 5 anos viraria um gráfico ilegível.
+ */
+export function mesesDaJanela(j: Janela, agora: Date = new Date(), padrao = 12, max = 24): Array<{ chave: string; rotulo: string }> {
+  const fim = mesBr(j.lte ?? agora)
+  let [ano, mes] = fim.split('-').map(Number) as [number, number]
+  const ini = j.gte ? mesBr(j.gte) : null
+  const out: Array<{ chave: string; rotulo: string }> = []
+  while (out.length < max) {
+    const chave = `${ano}-${String(mes).padStart(2, '0')}`
+    out.unshift({ chave, rotulo: `${ROTULO_MES[mes - 1]}/${String(ano).slice(2)}` })
+    if (ini ? chave <= ini : out.length >= padrao) break
+    mes--
+    if (mes === 0) { mes = 12; ano-- }
+  }
+  return out
+}

@@ -6,11 +6,10 @@ import {
   Target, TrendingUp, Percent, CircleDollarSign, FileText, AlertTriangle,
   FileCheck, Landmark, CalendarClock, RefreshCw, Loader2, BarChart3,
   Filter, Users, Inbox, Phone, MessageCircle, PhoneOff, UserX, CalendarPlus,
-  CalendarCheck, Send, FileSignature, CalendarRange, ListChecks, ExternalLink, MoreVertical, Undo2,
+  CalendarCheck, Send, FileSignature, ListChecks, ExternalLink, MoreVertical, Undo2,
 } from 'lucide-react'
 import {
   Button, Card, Badge, Input,
-  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
@@ -34,36 +33,16 @@ import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
 
 // ── Período ──────────────────────────────────────────────────
-// Até 25/09/2026 o painel só tinha janelas fixas (30/60/90 dias). Agora são
-// data inicial e final (inclusivas, no fuso de Brasília — o backend converte);
-// os atalhos só preenchem as duas datas. Data vazia = aberta daquele lado.
+// Data inicial e final (inclusivas, no fuso de Brasília — o backend converte),
+// e elas valem para TODAS as abas. Começa no mês corrente. Data vazia = aberta
+// daquele lado. (Os atalhos "este mês", "últimos 30 dias"... saíram em
+// 25/09/2026, a pedido do Wagner.)
 
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-function atalho(chave: string, hoje = new Date()): { de: string; ate: string } {
-  const y = hoje.getFullYear()
-  const m = hoje.getMonth()
-  const menos = (dias: number) => { const d = new Date(hoje); d.setDate(d.getDate() - dias + 1); return d }
-  switch (chave) {
-    case 'mes-passado': return { de: iso(new Date(y, m - 1, 1)), ate: iso(new Date(y, m, 0)) }
-    case '7': return { de: iso(menos(7)), ate: iso(hoje) }
-    case '30': return { de: iso(menos(30)), ate: iso(hoje) }
-    case '90': return { de: iso(menos(90)), ate: iso(hoje) }
-    case 'ano': return { de: iso(new Date(y, 0, 1)), ate: iso(hoje) }
-    case 'tudo': return { de: '', ate: '' }
-    default: return { de: iso(new Date(y, m, 1)), ate: iso(hoje) } // este mês
-  }
+function mesCorrente(hoje = new Date()): { de: string; ate: string } {
+  return { de: iso(new Date(hoje.getFullYear(), hoje.getMonth(), 1)), ate: iso(hoje) }
 }
-
-const ATALHOS = [
-  { value: 'mes', label: 'Este mês' },
-  { value: 'mes-passado', label: 'Mês passado' },
-  { value: '7', label: 'Últimos 7 dias' },
-  { value: '30', label: 'Últimos 30 dias' },
-  { value: '90', label: 'Últimos 90 dias' },
-  { value: 'ano', label: 'Este ano' },
-  { value: 'tudo', label: 'Todo o período' },
-]
 
 // ── Abas ─────────────────────────────────────────────────────
 // Em 25/09/2026 o painel virou abas: numa página só, os 19 cartões e os seis
@@ -183,7 +162,7 @@ export default function ComercialPage() {
     try { localStorage.setItem(CHAVE_ABA, v) } catch { /* ignora */ }
   }
 
-  const inicial = useMemo(() => atalho('mes'), [])
+  const inicial = useMemo(() => mesCorrente(), [])
   const [de, setDe] = useState(inicial.de)
   const [ate, setAte] = useState(inicial.ate)
   const [data, setData] = useState<PainelData | null>(null)
@@ -208,12 +187,12 @@ export default function ComercialPage() {
         safe((trpc.crm as any).getStats.query()),
         safe((trpc.crm as any).reportFunil.query(periodo)),
         safe((trpc.crm as any).reportDesempenho.query(periodo)),
-        safe((trpc.orcamento as any).getStats.query()),
-        safe((trpc.orcamento as any).getDashboardStats.query()),
-        safe((trpc.contrato as any).reportComercial.query()),
+        safe((trpc.orcamento as any).getStats.query(periodo)),
+        safe((trpc.orcamento as any).getDashboardStats.query(periodo)),
+        safe((trpc.contrato as any).reportComercial.query(periodo)),
         safe((trpc.orcamento as any).reportMrrAvulso.query(periodo)),
         safe((trpc.crm as any).indicadoresComerciais.query(periodo) as Promise<IndicadoresFunil>),
-        safe((trpc.crm as any).reportFunil.query({ apenasAtivos: true })),
+        safe((trpc.crm as any).reportFunil.query({ ...periodo, apenasAtivos: true })),
         safe((trpc.orcamento as any).reportFunilComercial.query(periodo)),
       ])
       if (!crmStats && !crmFunil && !orcStats && !contratos) setErro(true)
@@ -240,10 +219,10 @@ export default function ComercialPage() {
 
   // ── KPIs derivados ──────────────────────────────────────────
   const funilEtapas: any[] = data?.crmFunil?.etapas ?? []
-  // Oportunidades ativas / valor em pipeline = o funil de HOJE: cards ativos,
-  // fora das etapas de ganho, perda e Declínio (identificada pelo nome, a
-  // mesma regra do CRM). Antes contava os cards CRIADOS no período, inclusive
-  // arquivados — o número repetia "Leads recebidos".
+  // Oportunidades ativas / valor em pipeline = cards CRIADOS no período que
+  // seguem no funil: ativos e fora das etapas de ganho, perda e Declínio
+  // (identificada pelo nome, a mesma regra do CRM). Difere de "Leads
+  // recebidos" por tirar os arquivados, os em Declínio e os ganhos.
   const crmAtivas = ((data?.crmPipeline?.etapas ?? []) as any[])
     .filter((e) => !e.ehGanho && !e.ehPerda && !/decl/i.test(e.nome ?? ''))
   const oportunidadesAtivas = crmAtivas.reduce((s, e) => s + (e.count ?? 0), 0)
@@ -268,7 +247,7 @@ export default function ComercialPage() {
   const ct = data?.contratos
   const mrr = ct?.mrr ?? 0
   const vigentes = ct?.vigentes ?? 0
-  const aVencer30 = ct?.aVencer30 ?? 0
+  const vencemNoPeriodo = ct?.vencemNoPeriodo ?? ct?.aVencer30 ?? 0
 
   // ── Receita recorrente vs. avulsa (vendas aprovadas no período) ──
   const mrrAvulso = data?.mrrAvulso
@@ -297,17 +276,6 @@ export default function ComercialPage() {
       <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
           {refreshing && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
           <div className="flex flex-wrap items-center gap-1.5">
-            <Select value="" onValueChange={(v) => { const p = atalho(v); setDe(p.de); setAte(p.ate) }}>
-              <SelectTrigger className="w-[40px] sm:w-[130px] h-8 text-xs" title="Atalhos de período">
-                <CalendarRange className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <span className="hidden sm:inline"><SelectValue placeholder="Atalhos" /></span>
-              </SelectTrigger>
-              <SelectContent>
-                {ATALHOS.map((p) => (
-                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             <Input type="date" aria-label="Data inicial" value={de} max={ate || undefined}
               onChange={(e) => setDe(e.target.value)}
               className={cn('h-8 w-[136px] text-xs', invertido && 'border-destructive')} />
@@ -384,7 +352,7 @@ export default function ComercialPage() {
                   <Target className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> CRM — Pipeline
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <KpiFunil icon={Target} label="Oportunidades ativas" ajuda={AJUDA.oportunidadesAtivas} value={oportunidadesAtivas} color="#818cf8" sub="funil de hoje" />
+                  <KpiFunil icon={Target} label="Oportunidades ativas" ajuda={AJUDA.oportunidadesAtivas} value={oportunidadesAtivas} color="#818cf8" sub="criadas no período, ainda no funil" />
                   <KpiFunil icon={TrendingUp} label="Valor em pipeline" ajuda={AJUDA.valorPipeline} value={formatCompact(pipelineValor)} color="#34d399" sub={formatCurrency(pipelineValor)} />
                   <KpiFunil icon={Percent} label="Taxa de conversão" ajuda={AJUDA.taxaConversao} value={`${taxaConversao}%`} color={MODULE_COLOR} />
                 </div>
@@ -481,7 +449,7 @@ export default function ComercialPage() {
                 </Card>
 
                 <Card className="lg:col-span-5 p-4">
-                  <h3 className="text-[13px] font-semibold text-foreground mb-4 flex items-center gap-1.5">Orçamentos por status <span className="font-normal text-muted-foreground">· situação atual</span> <Ajuda texto={AJUDA.orcPorStatus} /></h3>
+                  <h3 className="text-[13px] font-semibold text-foreground mb-4 flex items-center gap-1.5">Orçamentos por status <span className="font-normal text-muted-foreground">· criados no período</span> <Ajuda texto={AJUDA.orcPorStatus} /></h3>
                   <div className="h-[280px]">
                     {orcPie.length ? (
                       <ResponsiveContainer width="100%" height="100%">
@@ -532,7 +500,7 @@ export default function ComercialPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <KpiFunil icon={FileCheck} label="Clientes na carteira" ajuda={AJUDA.clientesCarteira} value={vigentes} color="#34d399" />
                   <KpiFunil icon={Landmark} label="MRR (receita recorrente)" ajuda={AJUDA.mrr} value={formatCompact(mrr)} color={MODULE_COLOR} sub={formatCurrency(mrr)} />
-                  <KpiFunil icon={CalendarClock} label="A vencer (30 dias)" ajuda={AJUDA.aVencer} value={aVencer30} color="#fbbf24" sub={`${ct?.aVencer60 ?? 0} em até 60 dias`} />
+                  <KpiFunil icon={CalendarClock} label="Vencem no período" ajuda={AJUDA.aVencer} value={vencemNoPeriodo} color="#fbbf24" />
                 </div>
               </div>
 
@@ -556,7 +524,7 @@ export default function ComercialPage() {
                 </Card>
 
                 <Card className="lg:col-span-7 p-4">
-                  <h3 className="text-[13px] font-semibold text-foreground mb-4 flex items-center gap-1.5">Clientes — entradas × saídas (6 meses) <Ajuda texto={AJUDA.entradasSaidas} /></h3>
+                  <h3 className="text-[13px] font-semibold text-foreground mb-4 flex items-center gap-1.5">Clientes — entradas × saídas por mês <Ajuda texto={AJUDA.entradasSaidas} /></h3>
                   <div className="h-[280px]">
                     {ctEvolucao.length ? (
                       <ResponsiveContainer width="100%" height="100%">
@@ -580,7 +548,7 @@ export default function ComercialPage() {
                 <Card className="overflow-hidden">
                   <div className="px-4 py-3 border-b border-border flex items-center gap-2">
                     <CalendarClock className="h-4 w-4" style={{ color: MODULE_COLOR }} />
-                    <h3 className="text-[13px] font-semibold text-foreground">Contratos a vencer (próximos 60 dias)</h3>
+                    <h3 className="text-[13px] font-semibold text-foreground">Contratos que vencem no período</h3>
                     <Ajuda texto={AJUDA.tabelaAVencer} />
                   </div>
                   <Table>

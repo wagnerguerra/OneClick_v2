@@ -36,13 +36,28 @@ export function situacaoVigencia(i: { permanente: boolean; dataFim: Date | null 
   return i.dataFim >= agora ? 'VIGENTE' : 'VENCIDO'
 }
 
-export async function carteiraRecorrente(empresaId?: string | null): Promise<ItemCarteira[]> {
+/**
+ * `naData`: a carteira como estava naquele dia — clientes que já tinham entrado
+ * (data de entrada até a data, ou sem data) e ainda não tinham saído (não
+ * inativos, ou inativos com saída depois da data). O honorário é o de HOJE: a
+ * Gestão de Contratos não guarda histórico de valor. Sem `naData`, a carteira
+ * atual.
+ */
+export async function carteiraRecorrente(empresaId?: string | null, naData?: Date): Promise<ItemCarteira[]> {
+  const cliente = naData
+    ? {
+        AND: [
+          { OR: [{ status: { not: 'INATIVO' as const } }, { dataSaida: { gt: naData } }] },
+          { OR: [{ dataEntrada: null }, { dataEntrada: { lte: naData } }] },
+        ],
+      }
+    : { status: { not: 'INATIVO' as const } }
   const rows = await prisma.clienteContratoParam.findMany({
     where: {
       honorario: { gt: 0 },
       gestaoIgnorar: false,
       ...(empresaId ? { empresaId } : {}),
-      cliente: { status: { not: 'INATIVO' } },
+      cliente,
     },
     select: {
       id: true, clienteId: true, honorario: true, numero: true, dataInicio: true, dataFim: true,

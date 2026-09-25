@@ -160,7 +160,7 @@ function MrrReport({ mrr }: { mrr: MrrData }) {
     <div className="flex flex-col gap-4">
       {/* KPIs da carteira recorrente */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard icon={Landmark} label="MRR atual" ajuda={AJUDA.mrrAtual} value={formatCompact(mrr.mrrAtual)} sub={formatCurrency(mrr.mrrAtual)} cor={COR_RECORRENTE} />
+        <KpiCard icon={Landmark} label="MRR na data final" ajuda={AJUDA.mrrAtual} value={formatCompact(mrr.mrrAtual)} sub={formatCurrency(mrr.mrrAtual)} cor={COR_RECORRENTE} />
         <KpiCard icon={Repeat} label="Receita anualizada" ajuda={AJUDA.receitaAnualizada} value={formatCompact(mrr.mrrAnualizado)} sub="MRR × 12" cor="#34d399" />
         <KpiCard icon={Users2} label="Contratos recorrentes" ajuda={AJUDA.contratosRecorrentes} value={String(mrr.contratosRecorrentes)} sub="na Gestão de Contratos" cor="#818cf8" />
         <KpiCard icon={Zap} label="Ticket médio MRR" ajuda={AJUDA.ticketMedioMrr} value={formatCompact(mrr.ticketMedioMrr)} sub="por contrato/mês" cor={MODULE_COLOR} />
@@ -198,9 +198,9 @@ function MrrReport({ mrr }: { mrr: MrrData }) {
         )}
       </Card>
 
-      {/* Série 12 meses */}
+      {/* Série mensal do período */}
       <Card className="p-5">
-        <h3 className="text-sm font-semibold mb-1 flex items-center gap-1.5">Vendas aprovadas — recorrente × avulso (12 meses) <Ajuda texto={AJUDA.serie12m} /></h3>
+        <h3 className="text-sm font-semibold mb-1 flex items-center gap-1.5">Vendas aprovadas — recorrente × avulso por mês <Ajuda texto={AJUDA.serie12m} /></h3>
         <p className="text-[11px] text-muted-foreground mb-4">Valor aprovado por mês (por data de aprovação), classificado pela natureza do serviço.</p>
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">

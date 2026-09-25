@@ -702,10 +702,12 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
 
     // ── Estatisticas ───────────────────────────────────────
     getStats: readProcedure(MODULE)
-      .query(({ ctx }) => orcamentoService.getStats(ctx.empresaId)),
+      .input(periodoSchema.optional())
+      .query(({ input, ctx }) => orcamentoService.getStats(ctx.empresaId, input?.de || input?.ate ? janelaDoPeriodo(input) : undefined)),
 
     // Stats compactas pro widget do dashboard — inclui checagem de cargo gestor+
     getDashboardStats: readProcedure(MODULE)
-      .query(({ ctx }) => orcamentoService.getDashboardStats(ctx.userId, ctx.empresaId)),
+      .input(periodoSchema.optional())
+      .query(({ input, ctx }) => orcamentoService.getDashboardStats(ctx.userId, ctx.empresaId, input?.de || input?.ate ? janelaDoPeriodo(input) : undefined)),
   })
 }

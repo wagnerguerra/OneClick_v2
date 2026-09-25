@@ -1,4 +1,4 @@
-import { filtroDeData, janelaDoPeriodo } from './periodo-br'
+import { filtroDeData, janelaDoPeriodo, mesesDaJanela } from './periodo-br'
 
 describe('janelaDoPeriodo', () => {
   const agora = new Date('2026-09-25T15:00:00.000Z')
@@ -24,5 +24,35 @@ describe('janelaDoPeriodo', () => {
   it('sem período: sem filtro', () => {
     expect(filtroDeData(janelaDoPeriodo(undefined))).toBeUndefined()
     expect(filtroDeData(janelaDoPeriodo({}))).toBeUndefined()
+  })
+})
+
+describe('mesesDaJanela', () => {
+  const agora = new Date('2026-09-25T15:00:00.000Z')
+
+  it('os meses do período, inclusive as pontas', () => {
+    const m = mesesDaJanela(janelaDoPeriodo({ de: '2026-07-15', ate: '2026-09-25' }), agora)
+    expect(m.map(x => x.chave)).toEqual(['2026-07', '2026-08', '2026-09'])
+    expect(m[0]!.rotulo).toBe('jul/26')
+  })
+
+  it('atravessa a virada do ano', () => {
+    const m = mesesDaJanela(janelaDoPeriodo({ de: '2025-11-01', ate: '2026-02-10' }), agora)
+    expect(m.map(x => x.chave)).toEqual(['2025-11', '2025-12', '2026-01', '2026-02'])
+  })
+
+  it('sem início: padrão de meses até o fim', () => {
+    expect(mesesDaJanela({}, agora, 6).map(x => x.chave)).toEqual(['2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09'])
+  })
+
+  it('limita aos mais recentes', () => {
+    const m = mesesDaJanela(janelaDoPeriodo({ de: '2020-01-01', ate: '2026-09-25' }), agora, 12, 24)
+    expect(m).toHaveLength(24)
+    expect(m[23]!.chave).toBe('2026-09')
+  })
+
+  it('o fim é o mês de Brasília, não o de UTC', () => {
+    // 01/10 00:30 UTC ainda é 30/09 em Brasília.
+    expect(mesesDaJanela({ lte: new Date('2026-10-01T00:30:00Z') }, agora, 1).map(x => x.chave)).toEqual(['2026-09'])
   })
 })
