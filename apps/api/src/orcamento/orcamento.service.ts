@@ -5,7 +5,7 @@ import {
   MOTIVO_GERAL_BLOQUEADO, MOTIVO_ITEM_BLOQUEADO,
 } from './desconto-exclusivo'
 import { idsDeEmpresasInativas, semEmpresaInativa } from '../common/empresa-inativa'
-import { filtroDeData, type Janela } from '../common/periodo-br'
+import { filtroDeData, filtroDeDiasOuJanela, type Janela } from '../common/periodo-br'
 import type { CreateOrcamentoInput, UpdateOrcamentoInput, ListOrcamentoInput, CreateOrcamentoItemInput, UpdateOrcamentoItemInput } from '@saas/types'
 import { filtroDeBusca, escopoDeEmpresa, consolidar } from './orcamento-busca-cliente'
 import { ORCAMENTO_ALLOWED_TRANSITIONS, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_ORDER, isOrcamentoTransitionAllowed, limparCnpj, resolveOrcamentoScope } from '@saas/types'
@@ -4821,16 +4821,17 @@ export class OrcamentoService {
    * conversão entre estágios consecutivos. Filtra por createdAt nos últimos
    * `dias` (ou todo o período se não informado).
    */
-  async reportFunilComercial(empresaId?: string, dias?: number) {
-    const cutoff = dias ? new Date(Date.now() - dias * 86400000) : undefined
+  async reportFunilComercial(empresaId?: string, dias?: number | Janela) {
+    // Janela explícita (data inicial/final do /comercial) ou os últimos N dias.
+    const quando = filtroDeDiasOuJanela(dias)
     const emp: Prisma.OrcamentoWhereInput = empresaId ? { empresaId } : {}
-    const desdeCreated = cutoff ? { createdAt: { gte: cutoff } } : {}
+    const desdeCreated = quando ? { createdAt: quando } : {}
 
     const [leads, oportunidades, orcEnviados, orcAprovados, contratos] = await Promise.all([
       prisma.leadSessao.count({ where: { ...(empresaId ? { empresaId } : {}), ...desdeCreated } }),
       prisma.oportunidade.count({ where: { ...(empresaId ? { empresaId } : {}), ...desdeCreated } }),
-      prisma.orcamento.count({ where: { ...emp, arquivado: false, dtEnviado: cutoff ? { gte: cutoff } : { not: null } } }),
-      prisma.orcamento.count({ where: { ...emp, arquivado: false, dtAprovado: cutoff ? { gte: cutoff } : { not: null } } }),
+      prisma.orcamento.count({ where: { ...emp, arquivado: false, dtEnviado: quando ?? { not: null } } }),
+      prisma.orcamento.count({ where: { ...emp, arquivado: false, dtAprovado: quando ?? { not: null } } }),
       prisma.contrato.count({ where: { ...(empresaId ? { empresaId } : {}), ...desdeCreated, status: { not: 'RASCUNHO' } } }),
     ])
 
@@ -4844,7 +4845,7 @@ export class OrcamentoService {
       stage('Orçamentos aprovados', orcAprovados, orcEnviados),
       stage('Contratos efetivados', contratos, orcAprovados),
     ]
-    return { funil, dias: dias ?? null }
+    return { funil, dias: typeof dias === 'number' ? dias : null }
   }
 
   /**
@@ -4979,25 +4980,26 @@ export class OrcamentoService {
    * taxa de aprovação, contratos efetivados e MRR gerado. Ordenado por valor
    * aprovado. Sem responsável agregado em "Sem responsável".
    */
-  async reportRankingVendedores(empresaId?: string, dias?: number) {
+  async reportRankingVendedores(empresaId?: string, dias?: number | Janela) {
     const emp: Prisma.OrcamentoWhereInput = empresaId ? { empresaId } : {}
-    const cutoff = dias ? new Date(Date.now() - dias * 86400000) : undefined
+    // Janela explícita (data inicial/final do /comercial) ou os últimos N dias.
+    const quando = filtroDeDiasOuJanela(dias)
 
     const [enviadosGrp, aprovadosGrp, contratosGrp] = await Promise.all([
       prisma.orcamento.groupBy({
         by: ['responsavelId'],
-        where: { ...emp, arquivado: false, dtEnviado: cutoff ? { gte: cutoff } : { not: null } },
+        where: { ...emp, arquivado: false, dtEnviado: quando ?? { not: null } },
         _count: { _all: true },
       }),
       prisma.orcamento.groupBy({
         by: ['responsavelId'],
-        where: { ...emp, arquivado: false, dtAprovado: cutoff ? { gte: cutoff } : { not: null } },
+        where: { ...emp, arquivado: false, dtAprovado: quando ?? { not: null } },
         _count: { _all: true },
         _sum: { totalGeral: true },
       }),
       prisma.contrato.groupBy({
         by: ['responsavelId'],
-        where: { ...(empresaId ? { empresaId } : {}), status: { notIn: ['RASCUNHO', 'CANCELADO'] }, ...(cutoff ? { createdAt: { gte: cutoff } } : {}) },
+        where: { ...(empresaId ? { empresaId } : {}), status: { notIn: ['RASCUNHO', 'CANCELADO'] }, ...(quando ? { createdAt: quando } : {}) },
         _count: { _all: true },
         _sum: { honorarioMensal: true },
       }),
@@ -5053,7 +5055,7 @@ export class OrcamentoService {
       mrr: t.mrr + r.mrr,
     }), { enviados: 0, aprovados: 0, valorAprovado: 0, contratos: 0, mrr: 0 })
 
-    return { ranking, totais, dias: dias ?? null }
+    return { ranking, totais, dias: typeof dias === 'number' ? dias : null }
   }
 
   /**
@@ -5064,12 +5066,13 @@ export class OrcamentoService {
    *   repasses (taxas+despesas) → margem de serviço %.
    * - Top maiores descontos e desconto médio por vendedor.
    */
-  async reportDescontosMargem(empresaId?: string, dias?: number) {
+  async reportDescontosMargem(empresaId?: string, dias?: number | Janela) {
     const emp: Prisma.OrcamentoWhereInput = empresaId ? { empresaId } : {}
-    const cutoff = dias ? new Date(Date.now() - dias * 86400000) : undefined
+    // Janela explícita (data inicial/final do /comercial) ou os últimos N dias.
+    const quando = filtroDeDiasOuJanela(dias)
 
     const rows = await prisma.orcamento.findMany({
-      where: { ...emp, arquivado: false, dtAprovado: cutoff ? { gte: cutoff } : { not: null } },
+      where: { ...emp, arquivado: false, dtAprovado: quando ?? { not: null } },
       select: {
         id: true, numero: true, clienteId: true, responsavelId: true,
         totalServicos: true, totalTaxas: true, totalDespesas: true,
@@ -5166,7 +5169,7 @@ export class OrcamentoService {
       faixas,
       topDescontos,
       porVendedor,
-      dias: dias ?? null,
+      dias: typeof dias === 'number' ? dias : null,
     }
   }
 

@@ -4,7 +4,12 @@ import { prisma } from '@saas/db'
 import { router, readProcedure, writeProcedure, deleteProcedure, publicProcedure, writeSubProcedure, deleteSubProcedure, protectedProcedure } from '../trpc/trpc.service'
 import { createOrcamentoSchema, updateOrcamentoSchema, listOrcamentoSchema, createOrcamentoItemSchema, updateOrcamentoItemSchema, resolveOrcamentoScope, ORCAMENTO_SCOPE_DEFAULT, type OrcamentoScope } from '@saas/types'
 import { OrcamentoService } from './orcamento.service'
-import { janelaDoPeriodo, periodoSchema } from '../common/periodo-br'
+import { janelaDoPeriodo, periodoSchema, type Periodo } from '../common/periodo-br'
+
+/** `de`/`ate` (painel /comercial) vencem `dias` (demais telas). */
+function periodoOuDias(p?: Periodo) {
+  return p?.de || p?.ate ? janelaDoPeriodo(p) : p?.dias
+}
 
 const MODULE = 'orcamentos'
 
@@ -562,8 +567,8 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .query(({ input, ctx }) => orcamentoService.reportIndicadores(ctx.empresaId, input.dataInicio, input.dataFim)),
 
     reportFunilComercial: readProcedure(MODULE)
-      .input(z.object({ dias: z.number().optional() }).optional())
-      .query(({ input, ctx }) => orcamentoService.reportFunilComercial(ctx.empresaId, input?.dias)),
+      .input(periodoSchema.optional())
+      .query(({ input, ctx }) => orcamentoService.reportFunilComercial(ctx.empresaId, periodoOuDias(input))),
 
     /**
      * "Contrato fechado" informado no Painel Comercial — alimenta o indicador
@@ -580,15 +585,15 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
     reportMrrAvulso: readProcedure(MODULE)
       .input(periodoSchema.optional())
       // `de`/`ate` (painel /comercial) vencem `dias` (relatórios).
-      .query(({ input, ctx }) => orcamentoService.reportMrrAvulso(ctx.empresaId, input?.de || input?.ate ? janelaDoPeriodo(input) : input?.dias)),
+      .query(({ input, ctx }) => orcamentoService.reportMrrAvulso(ctx.empresaId, periodoOuDias(input))),
 
     reportRankingVendedores: readProcedure(MODULE)
-      .input(z.object({ dias: z.number().optional() }).optional())
-      .query(({ input, ctx }) => orcamentoService.reportRankingVendedores(ctx.empresaId, input?.dias)),
+      .input(periodoSchema.optional())
+      .query(({ input, ctx }) => orcamentoService.reportRankingVendedores(ctx.empresaId, periodoOuDias(input))),
 
     reportDescontosMargem: readProcedure(MODULE)
-      .input(z.object({ dias: z.number().optional() }).optional())
-      .query(({ input, ctx }) => orcamentoService.reportDescontosMargem(ctx.empresaId, input?.dias)),
+      .input(periodoSchema.optional())
+      .query(({ input, ctx }) => orcamentoService.reportDescontosMargem(ctx.empresaId, periodoOuDias(input))),
 
     reportAtrasados: readProcedure(MODULE)
       .query(({ ctx }) => orcamentoService.reportAtrasados(ctx.empresaId)),

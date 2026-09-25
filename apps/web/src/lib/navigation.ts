@@ -166,7 +166,6 @@ export const navigation: NavGroup[] = [
           { label: 'Pesquisa de Satisfação', href: '/orcamentos/relatorios?tab=satisfacao', icon: Star },
         ],
       },
-      { label: 'Relatórios Comerciais', href: '/comercial/relatorios', icon: FileBarChart },
     ],
   },
   {

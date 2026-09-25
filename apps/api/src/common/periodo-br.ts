@@ -47,3 +47,12 @@ export function janelaDoPeriodo(p: Periodo | undefined, agora: Date = new Date()
 export function filtroDeData(j: Janela): { gte?: Date; lte?: Date } | undefined {
   return j.gte || j.lte ? { ...j } : undefined
 }
+
+/**
+ * Filtro Prisma de data para os métodos que recebem `dias` (últimos N dias) OU
+ * a janela já resolvida de um período com datas.
+ */
+export function filtroDeDiasOuJanela(dias: number | Janela | undefined, agora: Date = new Date()): { gte?: Date; lte?: Date } | undefined {
+  if (typeof dias === 'object') return filtroDeData(dias)
+  return dias ? { gte: new Date(agora.getTime() - dias * 86_400_000) } : undefined
+}

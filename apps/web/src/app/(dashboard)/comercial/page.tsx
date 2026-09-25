@@ -1,19 +1,18 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo, type ElementType } from 'react'
-import { useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import {
   Target, TrendingUp, Percent, CircleDollarSign, FileText, AlertTriangle,
   FileCheck, Landmark, CalendarClock, RefreshCw, Loader2, BarChart3,
-  ChevronDown, Filter, Users, Inbox, Phone, MessageCircle, PhoneOff, UserX, CalendarPlus,
+  Filter, Users, Inbox, Phone, MessageCircle, PhoneOff, UserX, CalendarPlus,
   CalendarCheck, Send, FileSignature, CalendarRange, ListChecks, ExternalLink, MoreVertical, Undo2,
 } from 'lucide-react'
 import {
   Button, Card, Badge, Input,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
-  Tabs, TabsTrigger, TabsContent, SlidingTabsList,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { alerts } from '@/lib/alerts'
@@ -24,6 +23,7 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { BADGE, STRONG, TEXT } from '@/lib/color-styles'
 import { UserAvatar } from '@/components/ui/user-avatar'
+import { RelatorioComercial, type TipoRelatorioComercial } from './_components/relatorios-comerciais'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -66,12 +66,19 @@ const ATALHOS = [
 
 // ── Abas ─────────────────────────────────────────────────────
 // Em 25/09/2026 o painel virou abas: numa página só, os 19 cartões e os seis
-// gráficos disputavam a largura e os KPIs do pipeline ficavam espremidos.
+// gráficos disputavam a largura e os KPIs do pipeline ficavam espremidos. No
+// mesmo dia os relatórios comerciais (antes atrás do botão "Relatórios", em
+// /comercial/relatorios) entraram como abas, seguindo o mesmo período.
 const ABAS = [
   { v: 'funil', Icon: Phone, label: 'Funil comercial' },
   { v: 'pipeline', Icon: Target, label: 'Pipeline & Orçamentos' },
   { v: 'contratos', Icon: FileCheck, label: 'Contratos' },
+  { v: 'funil-unificado', Icon: Filter, label: 'Funil unificado' },
+  { v: 'mrr', Icon: Landmark, label: 'MRR recorrente vs. avulso' },
+  { v: 'vendedores', Icon: Users, label: 'Ranking de vendedores' },
+  { v: 'descontos', Icon: Percent, label: 'Descontos & margem' },
 ] as const
+const ABAS_RELATORIO: ReadonlyArray<string> = ['funil-unificado', 'mrr', 'vendedores', 'descontos']
 type Aba = (typeof ABAS)[number]['v']
 const CHAVE_ABA = 'comercial:aba'
 
@@ -150,15 +157,20 @@ interface PainelData {
 }
 
 export default function ComercialPage() {
-  const router = useRouter()
-  // A aba aberta é conveniência de quem está vendo: lembrada neste navegador.
+  // Aba: `?aba=` na URL (links e a rota antiga /comercial/relatorios) vence;
+  // sem ela, a última aberta neste navegador (conveniência de quem vê).
+  const searchParams = useSearchParams()
+  const abaUrl = searchParams.get('aba')
   const [aba, setAba] = useState<Aba>('funil')
   useEffect(() => {
+    if (ABAS.some((a) => a.v === abaUrl)) { setAba(abaUrl as Aba); return }
     try {
       const salva = localStorage.getItem(CHAVE_ABA)
       if (ABAS.some((a) => a.v === salva)) setAba(salva as Aba)
     } catch { /* storage indisponível: fica na primeira aba */ }
-  }, [])
+  }, [abaUrl])
+  // Recarga dos relatórios: sobe no botão atualizar e no auto-refresh.
+  const [versao, setVersao] = useState(0)
   const trocarAba = (v: string) => {
     setAba(v as Aba)
     try { localStorage.setItem(CHAVE_ABA, v) } catch { /* ignora */ }
@@ -213,7 +225,7 @@ export default function ComercialPage() {
   // Auto-refresh leve (quadro de parede) — a cada 60s, sem spinner full.
   useEffect(() => {
     if (invertido) return
-    const id = setInterval(() => { load() }, 60_000)
+    const id = setInterval(() => { load(); setVersao((v) => v + 1) }, 60_000)
     return () => clearInterval(id)
   }, [load, invertido])
 
@@ -288,39 +300,10 @@ export default function ComercialPage() {
               onChange={(e) => setAte(e.target.value)}
               className={cn('h-8 w-[136px] text-xs', invertido && 'border-destructive')} />
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 text-xs">
-                <BarChart3 className="h-4 w-4" />
-                Relatórios
-                <ChevronDown className="h-3.5 w-3.5 opacity-60" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Relatórios comerciais</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push('/comercial/relatorios?tab=funil')}>
-                <Filter className="h-4 w-4" />
-                Funil unificado
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push('/comercial/relatorios?tab=mrr')}>
-                <Landmark className="h-4 w-4" />
-                MRR recorrente vs. avulso
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push('/comercial/relatorios?tab=vendedores')}>
-                <Users className="h-4 w-4" />
-                Ranking de vendedores
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push('/comercial/relatorios?tab=descontos')}>
-                <Percent className="h-4 w-4" />
-                Descontos & margem
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
           <Button
             variant="outline"
             size="icon-sm"
-            onClick={() => load()}
+            onClick={() => { load(); setVersao((v) => v + 1) }}
             title="Atualizar agora"
           >
             <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
@@ -352,34 +335,34 @@ export default function ComercialPage() {
             <p className={cn('text-xs', TEXT.rose)}>A data inicial está depois da final — ajuste o período.</p>
           )}
 
-          <Tabs value={aba} onValueChange={trocarAba}>
-            <SlidingTabsList
-              activeValue={aba}
-              indicatorInsetY={4}
-              className="!shadow-sm !border !border-border gap-1 !p-1 !bg-muted/40 !rounded-full w-fit max-w-full overflow-x-auto scrollbar-none items-center"
-              indicatorClassName="!bg-background !shadow-md"
-            >
-              {ABAS.map(({ v, Icon, label }) => (
-                <TabsTrigger
-                  key={v}
-                  value={v}
-                  className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-2 !text-xs !font-semibold !text-foreground/60 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-foreground gap-1.5 leading-none !items-center whitespace-nowrap"
-                >
-                  <Icon className="h-3.5 w-3.5" style={aba === v ? { color: MODULE_COLOR } : undefined} /> {label}
-                </TabsTrigger>
-              ))}
-            </SlidingTabsList>
+          {/* Abas sublinhadas — o mesmo padrão das abas do CRM e dos relatórios. */}
+          <div className="flex gap-1 border-b border-border/40 overflow-x-auto scrollbar-none">
+            {ABAS.map(({ v, Icon, label }) => {
+              const ativa = aba === v
+              return (
+                <button key={v} type="button" onClick={() => trocarAba(v)}
+                  className={cn('flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors whitespace-nowrap',
+                    ativa ? 'text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground')}
+                  style={ativa ? { borderBottomColor: MODULE_COLOR } : undefined}>
+                  <Icon className="h-3.5 w-3.5" /> {label}
+                </button>
+              )
+            })}
+          </div>
 
             {/* ── Aba Funil: Qualificação + Fechamento, e por pessoa ── */}
-            <TabsContent value="funil" className="mt-4 flex flex-col gap-5">
+            {aba === 'funil' && (
+            <div className="flex flex-col gap-5">
               {/* ── Funil comercial: Qualificação + Fechamento ── */}
               {data?.funil
                 ? <FunilComercial funil={data.funil} periodo={periodo} onChanged={load} />
                 : <p className="text-sm text-muted-foreground py-10 text-center">Sem acesso ao CRM ou sem dados no período.</p>}
-            </TabsContent>
+            </div>
+            )}
 
             {/* ── Aba Pipeline & Orçamentos ── */}
-            <TabsContent value="pipeline" className="mt-4 flex flex-col gap-5">
+            {aba === 'pipeline' && (
+            <div className="flex flex-col gap-5">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
                   <Target className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> CRM — Pipeline
@@ -443,7 +426,7 @@ export default function ComercialPage() {
                           </div>
                         </div>
                         <button
-                          onClick={() => router.push('/comercial/relatorios?tab=mrr')}
+                          onClick={() => trocarAba('mrr')}
                           className="self-start text-[11px] font-medium hover:underline"
                           style={{ color: MODULE_COLOR }}
                         >
@@ -519,10 +502,12 @@ export default function ComercialPage() {
                 </Card>
               ) : null}
 
-            </TabsContent>
+            </div>
+            )}
 
             {/* ── Aba Contratos ── */}
-            <TabsContent value="contratos" className="mt-4 flex flex-col gap-5">
+            {aba === 'contratos' && (
+            <div className="flex flex-col gap-5">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
                   <FileCheck className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Contratos — Carteira
@@ -620,8 +605,13 @@ export default function ComercialPage() {
                   </Table>
                 </Card>
               ) : null}
-            </TabsContent>
-          </Tabs>
+            </div>
+            )}
+
+            {/* ── Abas de relatório (antes em /comercial/relatorios) ── */}
+            {ABAS_RELATORIO.includes(aba) && (
+              <RelatorioComercial tipo={aba as TipoRelatorioComercial} periodo={periodo} versao={versao} />
+            )}
 
         </>
       )}
