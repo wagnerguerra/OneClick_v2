@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo, type ElementType } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Target, TrendingUp, Percent, CircleDollarSign, FileText, AlertTriangle,
@@ -558,30 +558,33 @@ function FunilComercial({ funil }: { funil: IndicadoresFunil }) {
   const pessoas = funil.pessoas
   return (
     <>
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-        <div className="xl:col-span-8">
+      {/* Uma linha só: 6 cartões de Qualificação + 3 de Fechamento, todos da
+          mesma largura (6fr/3fr). Abaixo de lg os dois grupos empilham. */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,6fr)_minmax(0,3fr)] gap-3">
+        <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
             <Phone className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Funil — Qualificação
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <StatCard icon={Inbox} label="Leads recebidos" value={t.leadsRecebidos} color="#818cf8" />
-            <StatCard icon={Phone} label="Qualif. por ligação" value={t.qualifLigacao} color="#34d399" />
-            <StatCard icon={MessageCircle} label="Qualif. por WhatsApp" value={t.qualifWhatsapp} color="#10b981"
-              sub={t.qualifOutros > 0 ? `+${t.qualifOutros} por outros canais` : undefined} />
-            <StatCard icon={PhoneOff} label="Sem resposta" value={t.semResposta} color="#fbbf24" />
-            <StatCard icon={UserX} label="Desqualificados" value={t.desqualificados} color="#f87171" />
-            <StatCard icon={CalendarPlus} label="Reuniões agendadas" value={t.reunioesAgendadas} color="#60a5fa" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <KpiFunil icon={Inbox} label="Leads recebidos" value={t.leadsRecebidos} color="#818cf8" />
+            <KpiFunil icon={Phone} label="Qualif. por ligação" value={t.qualifLigacao} color="#34d399" />
+            <KpiFunil icon={MessageCircle} label="Qualif. por WhatsApp" value={t.qualifWhatsapp} color="#10b981"
+              sub={t.qualifOutros > 0 ? `+${t.qualifOutros} outros canais` : undefined} />
+            <KpiFunil icon={PhoneOff} label="Sem resposta" value={t.semResposta} color="#fbbf24" />
+            <KpiFunil icon={UserX} label="Desqualificados" value={t.desqualificados} color="#f87171" />
+            <KpiFunil icon={CalendarPlus} label="Reuniões agendadas" value={t.reunioesAgendadas} color="#60a5fa" />
           </div>
         </div>
-        <div className="xl:col-span-4">
+        <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
             <FileSignature className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Funil — Fechamento
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-1 gap-3">
-            <StatCard icon={CalendarCheck} label="Reuniões realizadas" value={t.reunioesRealizadas} color="#60a5fa" />
-            <StatCard icon={Send} label="Propostas enviadas" value={t.propostasEnviadas} color="#a78bfa" />
-            <StatCard icon={FileSignature} label="Contratos assinados" value={t.contratosAssinados} color={MODULE_COLOR}
-              sub={funil.servicosDeEntrada === 0 ? 'nenhum serviço marcado como entrada de cliente' : undefined} />
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <KpiFunil icon={CalendarCheck} label="Reuniões realizadas" value={t.reunioesRealizadas} color="#60a5fa" />
+            <KpiFunil icon={Send} label="Propostas enviadas" value={t.propostasEnviadas} color="#a78bfa" />
+            <KpiFunil icon={FileSignature} label="Contratos assinados" value={t.contratosAssinados} color={MODULE_COLOR}
+              sub={funil.servicosDeEntrada === 0 ? 'sem serviço de entrada' : undefined}
+              title={funil.servicosDeEntrada === 0 ? 'Nenhum serviço está marcado como entrada de novo cliente (cadastro do serviço).' : undefined} />
           </div>
         </div>
       </div>
@@ -637,6 +640,33 @@ function FunilComercial({ funil }: { funil: IndicadoresFunil }) {
         </Card>
       )}
     </>
+  )
+}
+
+/**
+ * Cartão compacto do funil. O StatCard tem o ícone num quadro de 40px ao lado
+ * do rótulo, o que não cabe em nove cartões na mesma linha num notebook
+ * 1366px: aqui o rótulo vai em cima (até duas linhas), o ícone fica pequeno
+ * no canto e o número ocupa a largura toda.
+ */
+function KpiFunil({ icon: Icon, label, value, color, sub, title }: {
+  icon: ElementType
+  label: string
+  value: number
+  color: string
+  sub?: string
+  title?: string
+}) {
+  return (
+    <Card className="relative overflow-hidden p-3" title={title ?? label}>
+      <div className="flex items-start justify-between gap-1.5">
+        <p className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground leading-tight line-clamp-2 min-h-[2lh]">{label}</p>
+        <Icon className="h-4 w-4 shrink-0" style={{ color }} />
+      </div>
+      <p className="text-xl font-bold leading-none mt-1.5 tabular-nums">{value}</p>
+      <p className="text-[10.5px] text-muted-foreground truncate mt-1 min-h-[1lh]">{sub ?? ''}</p>
+      <div className="absolute bottom-0 left-0 right-0 h-[3px]" style={{ backgroundColor: color }} />
+    </Card>
   )
 }
 
