@@ -6,7 +6,7 @@ import {
   Target, TrendingUp, Percent, CircleDollarSign, FileText, AlertTriangle,
   FileCheck, Landmark, CalendarClock, RefreshCw, Loader2, BarChart3,
   ChevronDown, Filter, Users, Inbox, Phone, MessageCircle, PhoneOff, UserX, CalendarPlus,
-  CalendarCheck, Send, FileSignature, CalendarRange, ListChecks, ExternalLink,
+  CalendarCheck, Send, FileSignature, CalendarRange, ListChecks, ExternalLink, MoreVertical, Undo2,
 } from 'lucide-react'
 import {
   Button, Card, Badge, Input,
@@ -14,14 +14,15 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
   Tabs, TabsTrigger, TabsContent, SlidingTabsList,
-  Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
+import { alerts } from '@/lib/alerts'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { cn } from '@saas/ui'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
-import { STRONG, TEXT } from '@/lib/color-styles'
+import { BADGE, STRONG, TEXT } from '@/lib/color-styles'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -99,6 +100,8 @@ interface ItemIndicador {
   orcamentoId: string | null
   orcamentoNumero: number | null
   valor: number | null
+  orcamentoStatus: string | null
+  contratoFechadoEm: string | null
   quando: string
   detalhe: string | null
   responsavel: string | null
@@ -115,9 +118,15 @@ const PIE_COLORS = [
   '#f97316', '#a78bfa', '#2dd4bf', '#f472b6', '#38bdf8',
 ]
 
+/** Cor do status do orçamento (a mesma do kanban de /orcamentos). */
+const ORC_STATUS_COR: Record<string, string> = {
+  NOVO: '#818cf8', A_ENVIAR: '#94a3b8', ENVIADO: '#3b82f6', APROVADO: '#10b981',
+  LIBERADO: '#059669', FINALIZADO: '#1e293b', ENCERRADO: '#ef4444', CANCELADO: '#9ca3af',
+}
+
 const ORC_STATUS_LABEL: Record<string, string> = {
   NOVO: 'Novo', A_ENVIAR: 'A enviar', ENVIADO: 'Enviado', APROVADO: 'Aprovado',
-  LIBERADO: 'Liberado', FINALIZADO: 'Finalizado', ENCERRADO: 'Encerrado',
+  LIBERADO: 'Liberado', FINALIZADO: 'Finalizado', ENCERRADO: 'Encerrado', CANCELADO: 'Cancelado',
 }
 const CONTRATO_STATUS_LABEL: Record<string, string> = {
   RASCUNHO: 'Rascunho', AGUARDANDO_ASSINATURA: 'Aguardando assinatura', ASSINADO: 'Assinado',
@@ -365,7 +374,7 @@ export default function ComercialPage() {
             <TabsContent value="funil" className="mt-4 flex flex-col gap-5">
               {/* ── Funil comercial: Qualificação + Fechamento ── */}
               {data?.funil
-                ? <FunilComercial funil={data.funil} periodo={periodo} />
+                ? <FunilComercial funil={data.funil} periodo={periodo} onChanged={load} />
                 : <p className="text-sm text-muted-foreground py-10 text-center">Sem acesso ao CRM ou sem dados no período.</p>}
             </TabsContent>
 
@@ -626,7 +635,12 @@ export default function ComercialPage() {
  * nos cartões e por pessoa. As regras de contagem estão no backend
  * (apps/api/src/crm/indicadores-comerciais.ts).
  */
-function FunilComercial({ funil, periodo }: { funil: IndicadoresFunil; periodo: { de?: string; ate?: string } }) {
+function FunilComercial({ funil, periodo, onChanged }: {
+  funil: IndicadoresFunil
+  periodo: { de?: string; ate?: string }
+  /** Recarrega o painel depois de marcar/desfazer um contrato fechado. */
+  onChanged: () => void
+}) {
   const t = funil.total
   const pessoas = funil.pessoas
   const [aberto, setAberto] = useState<(typeof COLUNAS_FUNIL)[number] | null>(null)
@@ -721,7 +735,7 @@ function FunilComercial({ funil, periodo }: { funil: IndicadoresFunil; periodo: 
         </Card>
       )}
 
-      <DetalheIndicadorModal coluna={aberto} periodo={periodo} onClose={() => setAberto(null)} />
+      <DetalheIndicadorModal coluna={aberto} periodo={periodo} onClose={() => setAberto(null)} onChanged={onChanged} />
     </>
   )
 }
@@ -730,23 +744,45 @@ function FunilComercial({ funil, periodo }: { funil: IndicadoresFunil; periodo: 
  * Lista por trás de um total do funil. Vem da mesma apuração do número
  * (crm.indicadorDetalhe), então a contagem da lista bate com o total clicado.
  */
-function DetalheIndicadorModal({ coluna, periodo, onClose }: {
+function DetalheIndicadorModal({ coluna, periodo, onClose, onChanged }: {
   coluna: (typeof COLUNAS_FUNIL)[number] | null
   periodo: { de?: string; ate?: string }
   onClose: () => void
+  onChanged: () => void
 }) {
   const [itens, setItens] = useState<ItemIndicador[] | null>(null)
   const [erro, setErro] = useState<string | null>(null)
+  const [recarga, setRecarga] = useState(0)
+  // Orçamento cuja marca de contrato fechado está sendo informada.
+  const [fechando, setFechando] = useState<ItemIndicador | null>(null)
 
   useEffect(() => {
     if (!coluna) return
     let vivo = true
-    setItens(null); setErro(null)
+    setErro(null)
+    if (recarga === 0) setItens(null)
     ;(trpc.crm as any).indicadorDetalhe.query({ ...periodo, campo: coluna.campo })
       .then((r: ItemIndicador[]) => { if (vivo) setItens(r) })
       .catch((e: Error) => { if (vivo) setErro(e.message) })
     return () => { vivo = false }
-  }, [coluna, periodo])
+  }, [coluna, periodo, recarga])
+  useEffect(() => { if (!coluna) setRecarga(0) }, [coluna])
+
+  const depoisDeMarcar = () => { setRecarga((n) => n + 1); onChanged() }
+
+  const desfazer = async (i: ItemIndicador) => {
+    const ok = await alerts.confirm({
+      title: 'Desfazer contrato fechado?',
+      text: `O orçamento #${i.orcamentoNumero} deixa de contar como contrato fechado.`,
+      confirmText: 'Desfazer',
+      icon: 'warning',
+    })
+    if (!ok) return
+    try {
+      await (trpc.orcamento as any).marcarContratoFechado.mutate({ id: i.orcamentoId, fechadoEm: null })
+      depoisDeMarcar()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
 
   const deOrcamento = coluna?.campo === 'propostasEnviadas' || coluna?.campo === 'contratosAssinados'
   const comDetalhe = coluna?.campo === 'reunioesAgendadas' || coluna?.campo === 'reunioesRealizadas'
@@ -758,14 +794,14 @@ function DetalheIndicadorModal({ coluna, periodo, onClose }: {
 
   return (
     <Dialog open={!!coluna} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-w-[900px]">
+      <DialogContent className="max-w-[min(1280px,95vw)]">
         <DialogHeaderIcon icon={ListChecks} color="sky">
           <DialogTitle className="text-[15px]">{coluna?.rotulo}</DialogTitle>
           <DialogDescription className="text-[11px]">
             {itens ? `${itens.length} registro(s)` : 'Carregando…'} · {intervalo}
           </DialogDescription>
         </DialogHeaderIcon>
-        <DialogBody className="max-h-[65vh] overflow-y-auto nice-scrollbar p-0">
+        <DialogBody className="max-h-[72vh] overflow-y-auto nice-scrollbar p-0">
           {erro ? (
             <p className={cn('text-sm py-8 text-center', TEXT.rose)}>{erro}</p>
           ) : !itens ? (
@@ -779,11 +815,15 @@ function DetalheIndicadorModal({ coluna, periodo, onClose }: {
                   <TableHead className="text-xs w-[64px]">Card</TableHead>
                   <TableHead className="text-xs">Lead</TableHead>
                   {deOrcamento
-                    ? <TableHead className="text-xs">Orçamento</TableHead>
+                    ? <>
+                        <TableHead className="text-xs">Orçamento</TableHead>
+                        <TableHead className="text-xs">Situação</TableHead>
+                      </>
                     : <TableHead className="hidden sm:table-cell text-xs">Etapa</TableHead>}
                   {comDetalhe && <TableHead className="hidden md:table-cell text-xs">{coluna?.campo.startsWith('reunioes') ? 'Reunião' : 'Canal'}</TableHead>}
                   <TableHead className="text-xs text-center">Data</TableHead>
                   <TableHead className="hidden sm:table-cell text-xs">Responsável</TableHead>
+                  {deOrcamento && <TableHead className="text-xs w-[48px] text-right">Ações</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -799,13 +839,30 @@ function DetalheIndicadorModal({ coluna, periodo, onClose }: {
                       {i.contato && <span className="text-muted-foreground"> · {i.contato}</span>}
                     </TableCell>
                     {deOrcamento ? (
-                      <TableCell className="text-xs whitespace-nowrap">
-                        {i.orcamentoId ? (
-                          <Link href={`/orcamentos/${i.orcamentoId}`} target="_blank" className="hover:underline">
-                            #{i.orcamentoNumero}{i.valor != null && <span className="text-muted-foreground"> · {formatCurrency(i.valor)}</span>}
-                          </Link>
-                        ) : '—'}
-                      </TableCell>
+                      <>
+                        <TableCell className="text-xs whitespace-nowrap">
+                          {i.orcamentoId ? (
+                            <Link href={`/orcamentos/${i.orcamentoId}`} target="_blank" className="hover:underline">
+                              #{i.orcamentoNumero}{i.valor != null && <span className="text-muted-foreground"> · {formatCurrency(i.valor)}</span>}
+                            </Link>
+                          ) : '—'}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          <span className="flex flex-wrap items-center gap-1.5">
+                            {i.orcamentoStatus && (
+                              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: ORC_STATUS_COR[i.orcamentoStatus] ?? '#94a3b8' }} />
+                                {ORC_STATUS_LABEL[i.orcamentoStatus] ?? i.orcamentoStatus}
+                              </span>
+                            )}
+                            {i.contratoFechadoEm && (
+                              <span className={cn('inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[10px] font-medium whitespace-nowrap', BADGE.emerald)}>
+                                <FileSignature className="h-3 w-3" />Contrato fechado · {fmtData(i.contratoFechadoEm)}
+                              </span>
+                            )}
+                          </span>
+                        </TableCell>
+                      </>
                     ) : (
                       <TableCell className="hidden sm:table-cell text-xs">
                         {i.etapa ? (
@@ -818,12 +875,100 @@ function DetalheIndicadorModal({ coluna, periodo, onClose }: {
                     {comDetalhe && <TableCell className="hidden md:table-cell text-xs truncate max-w-[220px]">{i.detalhe ?? '—'}</TableCell>}
                     <TableCell className="text-xs text-center tabular-nums">{fmtData(i.quando)}</TableCell>
                     <TableCell className="hidden sm:table-cell text-xs">{i.responsavel ?? <span className="text-muted-foreground italic">—</span>}</TableCell>
+                    {deOrcamento && (
+                      <TableCell className="text-right">
+                        {i.orcamentoId && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon-sm" title="Ações"><MoreVertical className="h-4 w-4" /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setFechando(i)}>
+                                <FileSignature className="h-4 w-4" />
+                                {i.contratoFechadoEm ? 'Alterar data do contrato' : 'Marcar contrato fechado'}
+                              </DropdownMenuItem>
+                              {i.contratoFechadoEm && (
+                                <DropdownMenuItem onClick={() => desfazer(i)} className={TEXT.rose}>
+                                  <Undo2 className="h-4 w-4" />Desfazer contrato fechado
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem asChild>
+                                <Link href={`/orcamentos/${i.orcamentoId}`} target="_blank">
+                                  <ExternalLink className="h-4 w-4" />Abrir orçamento
+                                </Link>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           )}
         </DialogBody>
+      </DialogContent>
+
+      <ContratoFechadoModal item={fechando} onClose={() => setFechando(null)} onSaved={() => { setFechando(null); depoisDeMarcar() }} />
+    </Dialog>
+  )
+}
+
+/**
+ * Informa que o orçamento virou contrato, e em que dia. É a fonte mais forte
+ * do indicador "Contratos assinados": vale mesmo sem aprovação formal ou
+ * serviço de entrada (regra em apps/api/src/crm/indicadores-comerciais.ts).
+ */
+function ContratoFechadoModal({ item, onClose, onSaved }: {
+  item: ItemIndicador | null
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [data, setData] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  useEffect(() => {
+    if (!item) return
+    setData(item.contratoFechadoEm ? iso(new Date(item.contratoFechadoEm)) : iso(new Date()))
+  }, [item])
+
+  const salvar = async () => {
+    if (!item?.orcamentoId || !data) return
+    setSalvando(true)
+    try {
+      await (trpc.orcamento as any).marcarContratoFechado.mutate({ id: item.orcamentoId, fechadoEm: data })
+      alerts.success('Contrato fechado registrado', `Orçamento #${item.orcamentoNumero}`)
+      onSaved()
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  return (
+    <Dialog open={!!item} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="max-w-[440px]">
+        <DialogHeaderIcon icon={FileSignature} color="emerald">
+          <DialogTitle className="text-[15px]">Contrato fechado</DialogTitle>
+          <DialogDescription className="text-[11px]">
+            Orçamento #{item?.orcamentoNumero} · {item?.nome}
+          </DialogDescription>
+        </DialogHeaderIcon>
+        <DialogBody className="space-y-1.5">
+          <label className="text-[13px] font-semibold" htmlFor="contrato-fechado-em">Data do fechamento</label>
+          <Input id="contrato-fechado-em" type="date" className="h-9 text-sm" value={data} max={iso(new Date())}
+            onChange={(e) => setData(e.target.value)} />
+          <p className="text-[11px] text-muted-foreground">
+            O orçamento passa a contar em &quot;Contratos assinados&quot; nesta data, no painel e no funil por pessoa.
+          </p>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose} disabled={salvando}>Cancelar</Button>
+          <Button size="sm" onClick={salvar} disabled={salvando || !data}>
+            {salvando && <Loader2 className="h-4 w-4 animate-spin" />}Registrar
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

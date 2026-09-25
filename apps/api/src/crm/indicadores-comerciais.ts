@@ -17,8 +17,9 @@
  *    período; realizada = a data caiu no período e o horário já passou;
  *  - propostas enviadas: orçamentos enviados no período vindos de um card do
  *    CRM ou com serviço de entrada de novo cliente;
- *  - contratos assinados: orçamentos aprovados no período com serviço de
- *    entrada de novo cliente (Servico.entradaNovoCliente).
+ *  - contratos assinados: orçamentos marcados como "contrato fechado" no
+ *    painel (vale a data informada) ou, sem a marca, aprovados no período com
+ *    serviço de entrada de novo cliente (Servico.entradaNovoCliente).
  */
 
 /** Resultados que encerram a qualificação do lead (EM_ANDAMENTO não conta). */
@@ -66,6 +67,16 @@ export function reuniaoJaAconteceu(dia: string, horaFim: string | null, horaInic
   if (dia > hoje) return false
   const hora = horaFim || horaInicio
   return !!hora && hora <= agoraHora
+}
+
+/**
+ * Quando o orçamento virou contrato, ou `null` se não virou. A marca manual
+ * ("contrato fechado", com data) vence: é o comercial dizendo que fechou. Sem
+ * ela, vale a aprovação de um orçamento com serviço de entrada de cliente.
+ */
+export function dataDoContrato(o: { contratoFechadoEm: Date | null; dtAprovado: Date | null }, temEntrada: boolean): Date | null {
+  if (o.contratoFechadoEm) return o.contratoFechadoEm
+  return temEntrada ? o.dtAprovado : null
 }
 
 export const CAMPOS_INDICADOR = [

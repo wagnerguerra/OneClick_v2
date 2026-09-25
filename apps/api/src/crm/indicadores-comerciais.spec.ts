@@ -1,4 +1,4 @@
-import { acumular, campoDaSituacao, reuniaoJaAconteceu, situacaoDosLeads } from './indicadores-comerciais'
+import { acumular, campoDaSituacao, dataDoContrato, reuniaoJaAconteceu, situacaoDosLeads } from './indicadores-comerciais'
 
 const d = (s: string) => new Date(s)
 
@@ -30,6 +30,20 @@ describe('reuniaoJaAconteceu', () => {
     expect(reuniaoJaAconteceu('2026-09-25', '09:30', '09:00', '2026-09-25', '10:00')).toBe(true)
     expect(reuniaoJaAconteceu('2026-09-25', '11:00', '10:00', '2026-09-25', '10:30')).toBe(false)
     expect(reuniaoJaAconteceu('2026-09-25', null, null, '2026-09-25', '23:00')).toBe(false)
+  })
+})
+
+describe('dataDoContrato', () => {
+  const aprovado = d('2026-09-10T12:00:00Z')
+  const fechado = d('2026-09-20T12:00:00Z')
+  it('a marca manual vence, com ou sem serviço de entrada', () => {
+    expect(dataDoContrato({ contratoFechadoEm: fechado, dtAprovado: aprovado }, false)).toEqual(fechado)
+    expect(dataDoContrato({ contratoFechadoEm: fechado, dtAprovado: null }, true)).toEqual(fechado)
+  })
+  it('sem marca: aprovação com serviço de entrada', () => {
+    expect(dataDoContrato({ contratoFechadoEm: null, dtAprovado: aprovado }, true)).toEqual(aprovado)
+    expect(dataDoContrato({ contratoFechadoEm: null, dtAprovado: aprovado }, false)).toBeNull()
+    expect(dataDoContrato({ contratoFechadoEm: null, dtAprovado: null }, true)).toBeNull()
   })
 })
 

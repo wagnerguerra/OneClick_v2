@@ -4857,6 +4857,33 @@ export class OrcamentoService {
    * Classificação pela natureza do SERVIÇO (recorrenteMensal), não pelo campo
    * `tipo` estático — mesma regra do reportIndicadores.
    */
+  /**
+   * Marca (ou desfaz) o orçamento como contrato fechado. A data é o dia
+   * informado, ao meio-dia de Brasília — longe da virada, para o dia não
+   * escorregar em nenhum fuso. Registra no histórico do orçamento.
+   */
+  async marcarContratoFechado(id: string, fechadoEm: string | null, userId: string, empresaId?: string) {
+    const orc = await prisma.orcamento.findUnique({ where: { id }, select: { id: true, empresaId: true, numero: true } })
+    if (!orc || (empresaId && orc.empresaId !== empresaId)) return null
+    const data = fechadoEm ? new Date(`${fechadoEm}T12:00:00.000-03:00`) : null
+    const r = await prisma.orcamento.update({
+      where: { id },
+      data: { contratoFechadoEm: data, contratoFechadoPor: data ? userId : null },
+      select: { id: true, contratoFechadoEm: true },
+    })
+    await prisma.orcamentoEvento.create({
+      data: {
+        orcamentoId: id,
+        userId,
+        tipo: 'contrato_fechado',
+        descricao: data
+          ? `Contrato fechado em ${fechadoEm!.split('-').reverse().join('/')} (informado no Painel Comercial)`
+          : 'Marca de contrato fechado desfeita (Painel Comercial)',
+      },
+    }).catch(() => null)
+    return r
+  }
+
   async reportMrrAvulso(empresaId?: string, dias?: number | Janela) {
     const emp: Prisma.OrcamentoWhereInput = empresaId ? { empresaId } : {}
     // Janela explícita (data inicial/final do /comercial) ou os últimos N dias.

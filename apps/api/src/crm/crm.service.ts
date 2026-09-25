@@ -8,7 +8,7 @@ import { CnpjService } from '../cnpj/cnpj.service'
 import { dataBrKey, horaBrKey } from '../agenda/data-br.util'
 import { descricaoDaInteracao, ROTULO_INTERACAO, type TipoInteracao } from './crm-acao'
 import { filtroDeData, janelaDoPeriodo, type Janela, type Periodo } from '../common/periodo-br'
-import { acumular, campoDaSituacao, reuniaoJaAconteceu, situacaoDosLeads, type CampoIndicador, type OcorrenciaDoFunil } from './indicadores-comerciais'
+import { acumular, campoDaSituacao, dataDoContrato, reuniaoJaAconteceu, situacaoDosLeads, type CampoIndicador, type OcorrenciaDoFunil } from './indicadores-comerciais'
 
 const DEFAULT_ETAPAS = [
   { nome: 'Deal Aberto', ordem: 1, cor: '#818cf8', probabilidade: 10, ehGanho: false, ehPerda: false },
@@ -1211,7 +1211,10 @@ export class CrmService {
           })
         : [],
       orcIds.length
-        ? prisma.orcamento.findMany({ where: { id: { in: orcIds } }, select: { id: true, numero: true, clienteId: true, totalGeral: true } })
+        ? prisma.orcamento.findMany({
+            where: { id: { in: orcIds } },
+            select: { id: true, numero: true, clienteId: true, totalGeral: true, status: true, contratoFechadoEm: true },
+          })
         : [],
     ])
     const clienteIds = [...new Set(orcs.map(o => o.clienteId).filter((x): x is string => !!x))]
@@ -1240,6 +1243,8 @@ export class CrmService {
         orcamentoId: orc?.id ?? null,
         orcamentoNumero: orc?.numero ?? null,
         valor: orc ? Number(orc.totalGeral) : null,
+        orcamentoStatus: orc?.status ?? null,
+        contratoFechadoEm: orc?.contratoFechadoEm ?? null,
         quando: o.quando,
         detalhe: o.detalhe ?? null,
         responsavel: o.userId ? userMap.get(o.userId) ?? null : null,
@@ -1293,9 +1298,18 @@ export class CrmService {
         where: { ...emp, status: { not: 'CANCELADO' }, dtEnviado: quando ?? { not: null } },
         select: { id: true, dtEnviado: true, responsavelId: true, oportunidadeId: true, servicoId: true, itens: { select: { catalogoId: true } } },
       }),
+      // Candidatos a contrato: marcados como fechados OU aprovados no período.
+      // Quem decide a data (e se conta) é `dataDoContrato`, logo abaixo.
       prisma.orcamento.findMany({
-        where: { ...emp, status: { not: 'CANCELADO' }, dtAprovado: quando ?? { not: null } },
-        select: { id: true, dtAprovado: true, responsavelId: true, oportunidadeId: true, servicoId: true, itens: { select: { catalogoId: true } } },
+        where: {
+          ...emp,
+          status: { not: 'CANCELADO' },
+          OR: [{ contratoFechadoEm: quando ?? { not: null } }, { dtAprovado: quando ?? { not: null } }],
+        },
+        select: {
+          id: true, dtAprovado: true, contratoFechadoEm: true, responsavelId: true, oportunidadeId: true,
+          servicoId: true, itens: { select: { catalogoId: true } },
+        },
       }),
     ])
 
@@ -1328,8 +1342,9 @@ export class CrmService {
       }
     }
     for (const o of aprovados) {
-      if (temEntrada(o)) {
-        ocorrencias.push({ campo: 'contratosAssinados', userId: o.responsavelId, oportunidadeId: o.oportunidadeId, orcamentoId: o.id, quando: o.dtAprovado! })
+      const em = dataDoContrato(o, temEntrada(o))
+      if (em && (!janela.gte || em >= janela.gte) && (!janela.lte || em <= janela.lte)) {
+        ocorrencias.push({ campo: 'contratosAssinados', userId: o.responsavelId, oportunidadeId: o.oportunidadeId, orcamentoId: o.id, quando: em })
       }
     }
 

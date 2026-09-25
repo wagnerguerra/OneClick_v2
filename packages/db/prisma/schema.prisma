@@ -4743,6 +4743,12 @@ model Orcamento {
   dtFinalizado           DateTime?       @map("dt_finalizado")
   dtEncerrado            DateTime?       @map("dt_encerrado")
   dtCancelado            DateTime?       @map("dt_cancelado")
+  // Contrato fechado com o cliente, informado à mão no Painel Comercial (lista
+  // de propostas/contratos). É a fonte mais forte do indicador "Contratos
+  // assinados": marcado, conta nesta data mesmo sem aprovação formal ou serviço
+  // de entrada. Ver apps/api/src/crm/indicadores-comerciais.ts.
+  contratoFechadoEm      DateTime?       @map("contrato_fechado_em")
+  contratoFechadoPor     String?         @map("contrato_fechado_por")
   // Paralizacao (pausa sem mudar status)
   paralizado             Boolean         @default(false)
   paralizadoEm           DateTime?       @map("paralizado_em")

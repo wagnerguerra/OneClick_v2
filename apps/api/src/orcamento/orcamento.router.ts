@@ -565,6 +565,18 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ dias: z.number().optional() }).optional())
       .query(({ input, ctx }) => orcamentoService.reportFunilComercial(ctx.empresaId, input?.dias)),
 
+    /**
+     * "Contrato fechado" informado no Painel Comercial — alimenta o indicador
+     * Contratos assinados. `fechadoEm` nulo desfaz a marca.
+     */
+    marcarContratoFechado: writeProcedure(MODULE)
+      .input(z.object({ id: z.string(), fechadoEm: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable() }))
+      .mutation(async ({ input, ctx }) => {
+        const r = await orcamentoService.marcarContratoFechado(input.id, input.fechadoEm, ctx.userId, ctx.empresaId)
+        if (!r) throw new TRPCError({ code: 'NOT_FOUND', message: 'Orçamento não encontrado.' })
+        return r
+      }),
+
     reportMrrAvulso: readProcedure(MODULE)
       .input(periodoSchema.optional())
       // `de`/`ate` (painel /comercial) vencem `dias` (relatórios).
