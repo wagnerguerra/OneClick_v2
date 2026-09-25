@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { X, Plus, Tag, Settings2, Loader2, Pencil, Trash2, Check } from 'lucide-react'
 import {
   Button, Input,
-  Dialog, DialogContent, DialogFooter,
+  Dialog, DialogContent, DialogFooter, DialogTitle,
   cn,
 } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
@@ -169,7 +169,9 @@ function CategoriasManagerModal({
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-md">
-        <DialogHeaderIcon icon={Settings2} color="slate">Gerenciar categorias</DialogHeaderIcon>
+        <DialogHeaderIcon icon={Settings2} color="slate">
+          <DialogTitle>Gerenciar categorias</DialogTitle>
+        </DialogHeaderIcon>
         <div className="max-h-[50vh] space-y-1 overflow-y-auto nice-scrollbar py-1">
           {!cats.length ? (
             <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma categoria cadastrada.</p>

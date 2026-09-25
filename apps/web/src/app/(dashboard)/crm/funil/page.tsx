@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sparkles, Loader2, Save, Copy, ExternalLink, Flame, Thermometer, Snowflake, Plus, Trash2, Megaphone, MessageSquare } from 'lucide-react'
-import { Button, Card, Input, Label, Switch, Badge, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn, Dialog, DialogContent } from '@saas/ui'
+import { Button, Card, Input, Label, Switch, Badge, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn, Dialog, DialogContent, DialogTitle } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BADGE, DOT } from '@/lib/color-styles'
@@ -407,7 +407,9 @@ export default function CrmFunilPage() {
 
       <Dialog open={conversaOpen} onOpenChange={(o) => { if (!o) { setConversaOpen(false); setConversa(null) } }}>
         <DialogContent className="max-w-lg">
-          <DialogHeaderIcon icon={MessageSquare} color="violet">Conversa do atendimento</DialogHeaderIcon>
+          <DialogHeaderIcon icon={MessageSquare} color="violet">
+            <DialogTitle>Conversa do atendimento</DialogTitle>
+          </DialogHeaderIcon>
           <div className="max-h-[60vh] space-y-3 overflow-y-auto chat-scrollbar rounded-2xl bg-muted/20 px-2 py-3">
             {conversaLoading ? (
               <div className="py-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></div>
