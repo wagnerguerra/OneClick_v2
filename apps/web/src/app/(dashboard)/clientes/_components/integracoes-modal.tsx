@@ -475,7 +475,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
     <Dialog open={open} onOpenChange={(o) => { if (!o && canClose) resetAndClose() }}>
       <DialogContent className="max-w-[760px]">
         {/* Header */}
-        <DialogHeaderIcon icon={Database} color="emerald">
+        <DialogHeaderIcon icon={Database} color="violet">
           <DialogTitle>{flowTitle || 'Integrações'}</DialogTitle>
           <DialogDescription>
             {flowTitle ? 'Configure as opções e inicie o processamento' : 'Importações e atualizações para clientes'}

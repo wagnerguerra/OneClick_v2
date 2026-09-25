@@ -217,8 +217,7 @@ export default function RelatoriosClientesPage() {
           return (
             <button key={t.id} type="button" onClick={() => setTab(t.id)}
               className={cn('inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
-                active ? 'border-current' : 'border-transparent text-muted-foreground hover:text-foreground')}
-              style={active ? { color: PRIMARY, borderColor: PRIMARY } : undefined}>
+                active ? 'text-primary-on-surface border-current' : 'border-transparent text-muted-foreground hover:text-foreground')}>
               <Icon className="h-4 w-4" /> {t.label}
             </button>
           )
@@ -322,9 +321,10 @@ export default function RelatoriosClientesPage() {
                   const active = areaSel.has(a.areaId)
                   return (
                     <button key={a.areaId} type="button" onClick={() => { const n = new Set(areaSel); if (n.has(a.areaId)) n.delete(a.areaId); else n.add(a.areaId); setAreaSel(n) }}
-                      className={cn('text-left rounded-lg border p-3 transition-colors', active ? 'text-white' : 'bg-card border-border hover:bg-muted/40')}
-                      style={active ? { backgroundColor: PRIMARY, borderColor: PRIMARY } : undefined}>
-                      <p className={cn('text-[10px] uppercase tracking-wider truncate', active ? 'text-white/80' : 'text-muted-foreground')}>{a.areaNome}</p>
+                      // Selecionado = fundo do botão soft (--btn-soft-bg); o texto segue o do card normal.
+                      className={cn('text-left rounded-lg border p-3 transition-colors',
+                        active ? 'bg-[color:var(--btn-soft-bg)] border-primary-on-surface/40' : 'bg-card border-border hover:bg-muted/40')}>
+                      <p className="text-[10px] uppercase tracking-wider truncate text-muted-foreground">{a.areaNome}</p>
                       <p className="text-xl font-bold tabular-nums">{a.total}</p>
                     </button>
                   )
