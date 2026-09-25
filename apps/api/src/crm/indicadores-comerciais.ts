@@ -37,6 +37,8 @@ export interface SituacaoDoLead {
   /** Canal da interação decisiva (LIGACAO, WHATSAPP...). */
   canal: string
   userId: string | null
+  /** Quando foi a interação decisiva. */
+  dataHora: Date
 }
 
 /** Última interação decisiva de cada lead (as interações já vêm do período). */
@@ -49,7 +51,7 @@ export function situacaoDosLeads(interacoes: InteracaoComResultado[]): Map<strin
   }
   const mapa = new Map<string, SituacaoDoLead>()
   for (const [id, i] of ultima) {
-    mapa.set(id, { resultado: i.resultado as SituacaoDoLead['resultado'], canal: i.tipo, userId: i.userId })
+    mapa.set(id, { resultado: i.resultado as SituacaoDoLead['resultado'], canal: i.tipo, userId: i.userId, dataHora: i.dataHora })
   }
   return mapa
 }
@@ -72,6 +74,20 @@ export const CAMPOS_INDICADOR = [
 ] as const
 export type CampoIndicador = (typeof CAMPOS_INDICADOR)[number]
 export type Totais = Record<CampoIndicador, number>
+
+/**
+ * Um item contado no funil, com a origem — é o que a lista do clique mostra.
+ * `oportunidadeId` nulo só em proposta/contrato de orçamento sem card.
+ */
+export interface OcorrenciaDoFunil {
+  campo: CampoIndicador
+  userId: string | null
+  oportunidadeId: string | null
+  orcamentoId?: string
+  quando: Date
+  /** Canal da qualificação ou título da reunião. */
+  detalhe?: string | null
+}
 
 export function totaisZerados(): Totais {
   return Object.fromEntries(CAMPOS_INDICADOR.map(c => [c, 0])) as Totais

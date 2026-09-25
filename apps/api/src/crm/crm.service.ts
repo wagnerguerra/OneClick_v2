@@ -6,9 +6,9 @@ import { CrmEventsService } from './crm-events.service'
 import { NotificationService } from '../notification/notification.service'
 import { CnpjService } from '../cnpj/cnpj.service'
 import { dataBrKey, horaBrKey } from '../agenda/data-br.util'
-import { descricaoDaInteracao, type TipoInteracao } from './crm-acao'
+import { descricaoDaInteracao, ROTULO_INTERACAO, type TipoInteracao } from './crm-acao'
 import { filtroDeData, janelaDoPeriodo, type Janela, type Periodo } from '../common/periodo-br'
-import { acumular, campoDaSituacao, reuniaoJaAconteceu, situacaoDosLeads, type CampoIndicador } from './indicadores-comerciais'
+import { acumular, campoDaSituacao, reuniaoJaAconteceu, situacaoDosLeads, type CampoIndicador, type OcorrenciaDoFunil } from './indicadores-comerciais'
 
 const DEFAULT_ETAPAS = [
   { nome: 'Deal Aberto', ordem: 1, cor: '#818cf8', probabilidade: 10, ehGanho: false, ehPerda: false },
@@ -1163,80 +1163,7 @@ export class CrmService {
    *  - propostas e contratos → responsável do orçamento.
    */
   async indicadoresComerciais(empresaId: string | undefined, periodo: Periodo) {
-    const janela = janelaDoPeriodo(periodo)
-    const quando = filtroDeData(janela)
-    const emp = empresaId ? { empresaId } : {}
-    // Dias-calendário do período, para a data (sem hora) do evento da agenda.
-    const diaDe = janela.gte ? dataBrKey(janela.gte) : null
-    const diaAte = janela.lte ? dataBrKey(janela.lte) : null
-    const agora = new Date()
-    const hoje = dataBrKey(agora)
-    const agoraHora = horaBrKey(agora)
-
-    const eventoDoCrm = { OR: [{ oportunidadeId: { not: null } }, { oportunidadesVinc: { some: {} } }] }
-    const diaDoEvento = diaDe || diaAte
-      ? { data: { ...(diaDe ? { gte: new Date(`${diaDe}T00:00:00.000Z`) } : {}), ...(diaAte ? { lte: new Date(`${diaAte}T00:00:00.000Z`) } : {}) } }
-      : {}
-
-    const [leads, interacoes, eventos, entradas, enviados, aprovados] = await Promise.all([
-      prisma.oportunidade.findMany({
-        where: { ...emp, ...(quando ? { createdAt: quando } : {}) },
-        select: { responsavelId: true },
-      }),
-      prisma.oportunidadeInteracao.findMany({
-        where: { ...(quando ? { dataHora: quando } : {}), oportunidade: emp },
-        select: { oportunidadeId: true, tipo: true, resultado: true, dataHora: true, userId: true },
-      }),
-      prisma.agendaEvento.findMany({
-        where: {
-          ...emp,
-          isActive: true,
-          AND: [eventoDoCrm, { OR: [quando ? { createdAt: quando } : {}, diaDoEvento] }],
-        },
-        select: {
-          createdAt: true, data: true, horaInicio: true, horaFim: true, criadorId: true,
-          oportunidade: { select: { responsavelId: true } },
-          oportunidadesVinc: { select: { oportunidade: { select: { responsavelId: true } } }, orderBy: { ordem: 'asc' }, take: 1 },
-        },
-      }),
-      prisma.servico.findMany({
-        where: { entradaNovoCliente: true, ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}) },
-        select: { id: true },
-      }),
-      prisma.orcamento.findMany({
-        where: { ...emp, status: { not: 'CANCELADO' }, dtEnviado: quando ?? { not: null } },
-        select: { responsavelId: true, oportunidadeId: true, servicoId: true, itens: { select: { catalogoId: true } } },
-      }),
-      prisma.orcamento.findMany({
-        where: { ...emp, status: { not: 'CANCELADO' }, dtAprovado: quando ?? { not: null } },
-        select: { responsavelId: true, servicoId: true, itens: { select: { catalogoId: true } } },
-      }),
-    ])
-
-    const entrada = new Set(entradas.map(s => s.id))
-    const temEntrada = (o: { servicoId: string | null; itens: Array<{ catalogoId: string | null }> }) =>
-      (!!o.servicoId && entrada.has(o.servicoId)) || o.itens.some(i => !!i.catalogoId && entrada.has(i.catalogoId))
-
-    const ocorrencias: Array<{ campo: CampoIndicador; userId: string | null }> = []
-    for (const l of leads) ocorrencias.push({ campo: 'leadsRecebidos', userId: l.responsavelId })
-    for (const s of situacaoDosLeads(interacoes).values()) ocorrencias.push({ campo: campoDaSituacao(s), userId: s.userId })
-    for (const e of eventos) {
-      const criadoNoPeriodo = (!janela.gte || e.createdAt >= janela.gte) && (!janela.lte || e.createdAt <= janela.lte)
-      if (criadoNoPeriodo) ocorrencias.push({ campo: 'reunioesAgendadas', userId: e.criadorId })
-      const dia = e.data.toISOString().slice(0, 10)
-      const noPeriodo = (!diaDe || dia >= diaDe) && (!diaAte || dia <= diaAte)
-      if (noPeriodo && reuniaoJaAconteceu(dia, e.horaFim, e.horaInicio, hoje, agoraHora)) {
-        const responsavel = e.oportunidade?.responsavelId ?? e.oportunidadesVinc[0]?.oportunidade.responsavelId ?? null
-        ocorrencias.push({ campo: 'reunioesRealizadas', userId: responsavel ?? e.criadorId })
-      }
-    }
-    for (const o of enviados) {
-      if (o.oportunidadeId || temEntrada(o)) ocorrencias.push({ campo: 'propostasEnviadas', userId: o.responsavelId })
-    }
-    for (const o of aprovados) {
-      if (temEntrada(o)) ocorrencias.push({ campo: 'contratosAssinados', userId: o.responsavelId })
-    }
-
+    const { ocorrencias, diaDe, diaAte, servicosDeEntrada } = await this.ocorrenciasDoFunil(empresaId, periodo)
     const { total, porPessoa } = acumular(ocorrencias)
     const ids = [...porPessoa.keys()].filter(Boolean)
     const usuarios = ids.length
@@ -1258,8 +1185,155 @@ export class CrmService {
       total,
       pessoas,
       /** Para o painel avisar quando nenhum serviço está marcado como de entrada. */
-      servicosDeEntrada: entrada.size,
+      servicosDeEntrada,
     }
+  }
+
+  /**
+   * O que está por trás de um número do funil — a lista que abre ao clicar no
+   * total (ou na célula de uma pessoa, com `userId`; '' = sem responsável).
+   * Sai da MESMA apuração do `indicadoresComerciais`, para a lista nunca
+   * divergir do número clicado.
+   */
+  async detalheIndicador(empresaId: string | undefined, periodo: Periodo, campo: CampoIndicador, userId?: string) {
+    const { ocorrencias } = await this.ocorrenciasDoFunil(empresaId, periodo)
+    const itens = ocorrencias
+      .filter(o => o.campo === campo && (userId === undefined || (o.userId ?? '') === userId))
+      .sort((a, b) => b.quando.getTime() - a.quando.getTime())
+
+    const opIds = [...new Set(itens.map(o => o.oportunidadeId).filter((x): x is string => !!x))]
+    const orcIds = [...new Set(itens.map(o => o.orcamentoId).filter((x): x is string => !!x))]
+    const [ops, orcs] = await Promise.all([
+      opIds.length
+        ? prisma.oportunidade.findMany({
+            where: { id: { in: opIds } },
+            select: { id: true, numero: true, titulo: true, razaoSocial: true, contatoNome: true, etapa: { select: { nome: true, cor: true } } },
+          })
+        : [],
+      orcIds.length
+        ? prisma.orcamento.findMany({ where: { id: { in: orcIds } }, select: { id: true, numero: true, clienteId: true, totalGeral: true } })
+        : [],
+    ])
+    const clienteIds = [...new Set(orcs.map(o => o.clienteId).filter((x): x is string => !!x))]
+    const userIds = [...new Set(itens.map(o => o.userId).filter((x): x is string => !!x))]
+    const [clientes, usuarios] = await Promise.all([
+      clienteIds.length ? prisma.cliente.findMany({ where: { id: { in: clienteIds } }, select: { id: true, razaoSocial: true } }) : [],
+      userIds.length ? prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } }) : [],
+    ])
+    const opMap = new Map(ops.map(o => [o.id, o]))
+    const orcMap = new Map(orcs.map(o => [o.id, o]))
+    const cliMap = new Map(clientes.map(c => [c.id, c.razaoSocial]))
+    const userMap = new Map(usuarios.map(u => [u.id, u.name]))
+
+    return itens.map((o, idx) => {
+      const op = o.oportunidadeId ? opMap.get(o.oportunidadeId) : undefined
+      const orc = o.orcamentoId ? orcMap.get(o.orcamentoId) : undefined
+      return {
+        chave: `${idx}-${o.oportunidadeId ?? ''}-${o.orcamentoId ?? ''}`,
+        oportunidadeId: op?.id ?? null,
+        numero: op?.numero ?? null,
+        // Orçamento de serviço de entrada nem sempre nasceu de um card: aí o
+        // "lead" é o cliente do orçamento.
+        nome: op ? (op.razaoSocial || op.titulo) : (orc?.clienteId ? cliMap.get(orc.clienteId) ?? null : null) ?? 'Sem cliente',
+        contato: op?.contatoNome ?? null,
+        etapa: op?.etapa ?? null,
+        orcamentoId: orc?.id ?? null,
+        orcamentoNumero: orc?.numero ?? null,
+        valor: orc ? Number(orc.totalGeral) : null,
+        quando: o.quando,
+        detalhe: o.detalhe ?? null,
+        responsavel: o.userId ? userMap.get(o.userId) ?? null : null,
+      }
+    })
+  }
+
+  /** Apuração do funil: uma ocorrência por número contado, com a origem dele. */
+  private async ocorrenciasDoFunil(empresaId: string | undefined, periodo: Periodo) {
+    const janela = janelaDoPeriodo(periodo)
+    const quando = filtroDeData(janela)
+    const emp = empresaId ? { empresaId } : {}
+    // Dias-calendário do período, para a data (sem hora) do evento da agenda.
+    const diaDe = janela.gte ? dataBrKey(janela.gte) : null
+    const diaAte = janela.lte ? dataBrKey(janela.lte) : null
+    const agora = new Date()
+    const hoje = dataBrKey(agora)
+    const agoraHora = horaBrKey(agora)
+
+    const eventoDoCrm = { OR: [{ oportunidadeId: { not: null } }, { oportunidadesVinc: { some: {} } }] }
+    const diaDoEvento = diaDe || diaAte
+      ? { data: { ...(diaDe ? { gte: new Date(`${diaDe}T00:00:00.000Z`) } : {}), ...(diaAte ? { lte: new Date(`${diaAte}T00:00:00.000Z`) } : {}) } }
+      : {}
+
+    const [leads, interacoes, eventos, entradas, enviados, aprovados] = await Promise.all([
+      prisma.oportunidade.findMany({
+        where: { ...emp, ...(quando ? { createdAt: quando } : {}) },
+        select: { id: true, responsavelId: true, createdAt: true },
+      }),
+      prisma.oportunidadeInteracao.findMany({
+        where: { ...(quando ? { dataHora: quando } : {}), oportunidade: emp },
+        select: { oportunidadeId: true, tipo: true, resultado: true, dataHora: true, userId: true },
+      }),
+      prisma.agendaEvento.findMany({
+        where: {
+          ...emp,
+          isActive: true,
+          AND: [eventoDoCrm, { OR: [quando ? { createdAt: quando } : {}, diaDoEvento] }],
+        },
+        select: {
+          titulo: true, createdAt: true, data: true, horaInicio: true, horaFim: true, criadorId: true, oportunidadeId: true,
+          oportunidade: { select: { responsavelId: true } },
+          oportunidadesVinc: { select: { oportunidadeId: true, oportunidade: { select: { responsavelId: true } } }, orderBy: { ordem: 'asc' }, take: 1 },
+        },
+      }),
+      prisma.servico.findMany({
+        where: { entradaNovoCliente: true, ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}) },
+        select: { id: true },
+      }),
+      prisma.orcamento.findMany({
+        where: { ...emp, status: { not: 'CANCELADO' }, dtEnviado: quando ?? { not: null } },
+        select: { id: true, dtEnviado: true, responsavelId: true, oportunidadeId: true, servicoId: true, itens: { select: { catalogoId: true } } },
+      }),
+      prisma.orcamento.findMany({
+        where: { ...emp, status: { not: 'CANCELADO' }, dtAprovado: quando ?? { not: null } },
+        select: { id: true, dtAprovado: true, responsavelId: true, oportunidadeId: true, servicoId: true, itens: { select: { catalogoId: true } } },
+      }),
+    ])
+
+    const entrada = new Set(entradas.map(s => s.id))
+    const temEntrada = (o: { servicoId: string | null; itens: Array<{ catalogoId: string | null }> }) =>
+      (!!o.servicoId && entrada.has(o.servicoId)) || o.itens.some(i => !!i.catalogoId && entrada.has(i.catalogoId))
+
+    const ocorrencias: OcorrenciaDoFunil[] = []
+    for (const l of leads) ocorrencias.push({ campo: 'leadsRecebidos', userId: l.responsavelId, oportunidadeId: l.id, quando: l.createdAt })
+    for (const [opId, s] of situacaoDosLeads(interacoes)) {
+      ocorrencias.push({ campo: campoDaSituacao(s), userId: s.userId, oportunidadeId: opId, quando: s.dataHora, detalhe: ROTULO_INTERACAO[s.canal as TipoInteracao] ?? s.canal })
+    }
+    for (const e of eventos) {
+      const opId = e.oportunidadeId ?? e.oportunidadesVinc[0]?.oportunidadeId ?? null
+      const criadoNoPeriodo = (!janela.gte || e.createdAt >= janela.gte) && (!janela.lte || e.createdAt <= janela.lte)
+      if (criadoNoPeriodo) ocorrencias.push({ campo: 'reunioesAgendadas', userId: e.criadorId, oportunidadeId: opId, quando: e.createdAt, detalhe: e.titulo })
+      const dia = e.data.toISOString().slice(0, 10)
+      const noPeriodo = (!diaDe || dia >= diaDe) && (!diaAte || dia <= diaAte)
+      if (noPeriodo && reuniaoJaAconteceu(dia, e.horaFim, e.horaInicio, hoje, agoraHora)) {
+        const responsavel = e.oportunidade?.responsavelId ?? e.oportunidadesVinc[0]?.oportunidade.responsavelId ?? null
+        ocorrencias.push({
+          campo: 'reunioesRealizadas', userId: responsavel ?? e.criadorId, oportunidadeId: opId,
+          quando: new Date(`${dia}T${e.horaInicio || '12:00'}:00-03:00`), detalhe: e.titulo,
+        })
+      }
+    }
+    for (const o of enviados) {
+      if (o.oportunidadeId || temEntrada(o)) {
+        ocorrencias.push({ campo: 'propostasEnviadas', userId: o.responsavelId, oportunidadeId: o.oportunidadeId, orcamentoId: o.id, quando: o.dtEnviado! })
+      }
+    }
+    for (const o of aprovados) {
+      if (temEntrada(o)) {
+        ocorrencias.push({ campo: 'contratosAssinados', userId: o.responsavelId, oportunidadeId: o.oportunidadeId, orcamentoId: o.id, quando: o.dtAprovado! })
+      }
+    }
+
+    return { ocorrencias, diaDe, diaAte, servicosDeEntrada: entrada.size }
   }
 
   async reportOrigem(empresaId?: string, dias?: number) {

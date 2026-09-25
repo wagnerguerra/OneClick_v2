@@ -6,14 +6,16 @@ import {
   Target, TrendingUp, Percent, CircleDollarSign, FileText, AlertTriangle,
   FileCheck, Landmark, CalendarClock, RefreshCw, Loader2, BarChart3,
   ChevronDown, Filter, Users, Inbox, Phone, MessageCircle, PhoneOff, UserX, CalendarPlus,
-  CalendarCheck, Send, FileSignature, CalendarRange,
+  CalendarCheck, Send, FileSignature, CalendarRange, ListChecks, ExternalLink,
 } from 'lucide-react'
 import {
   Button, Card, Badge, Input,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
+  Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription,
 } from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { cn } from '@saas/ui'
 import { StatCard } from '@/components/stat-card'
 import Link from 'next/link'
@@ -75,6 +77,22 @@ const COLUNAS_FUNIL = [
 ] as const
 type CampoFunil = (typeof COLUNAS_FUNIL)[number]['campo'] | 'qualifOutros'
 type TotaisFunil = Record<CampoFunil, number>
+/** Linha da lista que abre ao clicar num total (crm.indicadorDetalhe). */
+interface ItemIndicador {
+  chave: string
+  oportunidadeId: string | null
+  numero: number | null
+  nome: string
+  contato: string | null
+  etapa: { nome: string; cor: string } | null
+  orcamentoId: string | null
+  orcamentoNumero: number | null
+  valor: number | null
+  quando: string
+  detalhe: string | null
+  responsavel: string | null
+}
+
 interface IndicadoresFunil {
   total: TotaisFunil
   pessoas: Array<TotaisFunil & { userId: string | null; nome: string; image: string | null }>
@@ -302,7 +320,7 @@ export default function ComercialPage() {
           )}
 
           {/* ── Funil comercial: Qualificação + Fechamento ── */}
-          {data?.funil && <FunilComercial funil={data.funil} />}
+          {data?.funil && <FunilComercial funil={data.funil} periodo={periodo} />}
 
           {/* ── KPIs ───────────────────────────────────────── */}
           <div>
@@ -553,9 +571,10 @@ export default function ComercialPage() {
  * nos cartões e por pessoa. As regras de contagem estão no backend
  * (apps/api/src/crm/indicadores-comerciais.ts).
  */
-function FunilComercial({ funil }: { funil: IndicadoresFunil }) {
+function FunilComercial({ funil, periodo }: { funil: IndicadoresFunil; periodo: { de?: string; ate?: string } }) {
   const t = funil.total
   const pessoas = funil.pessoas
+  const [aberto, setAberto] = useState<(typeof COLUNAS_FUNIL)[number] | null>(null)
   return (
     <>
       {/* Uma linha só: 6 cartões de Qualificação + 3 de Fechamento, todos da
@@ -629,8 +648,15 @@ function FunilComercial({ funil }: { funil: IndicadoresFunil }) {
                   <TableCell className="text-xs">Total</TableCell>
                   {COLUNAS_FUNIL.map((c) => (
                     <TableCell key={c.campo}
-                      className={cn('text-xs text-center tabular-nums', c.campo === 'reunioesRealizadas' && 'border-l border-border')}>
-                      {t[c.campo]}
+                      className={cn('text-xs text-center tabular-nums p-1', c.campo === 'reunioesRealizadas' && 'border-l border-border')}>
+                      {t[c.campo] > 0 ? (
+                        <button type="button" onClick={() => setAberto(c)}
+                          title={`Ver ${c.rotulo.toLowerCase()}`}
+                          className="min-w-8 rounded px-2 py-1 underline decoration-dotted underline-offset-4 hover:bg-background hover:no-underline transition-colors"
+                          style={{ color: MODULE_COLOR }}>
+                          {t[c.campo]}
+                        </button>
+                      ) : t[c.campo]}
                     </TableCell>
                   ))}
                 </TableRow>
@@ -639,7 +665,112 @@ function FunilComercial({ funil }: { funil: IndicadoresFunil }) {
           </div>
         </Card>
       )}
+
+      <DetalheIndicadorModal coluna={aberto} periodo={periodo} onClose={() => setAberto(null)} />
     </>
+  )
+}
+
+/**
+ * Lista por trás de um total do funil. Vem da mesma apuração do número
+ * (crm.indicadorDetalhe), então a contagem da lista bate com o total clicado.
+ */
+function DetalheIndicadorModal({ coluna, periodo, onClose }: {
+  coluna: (typeof COLUNAS_FUNIL)[number] | null
+  periodo: { de?: string; ate?: string }
+  onClose: () => void
+}) {
+  const [itens, setItens] = useState<ItemIndicador[] | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!coluna) return
+    let vivo = true
+    setItens(null); setErro(null)
+    ;(trpc.crm as any).indicadorDetalhe.query({ ...periodo, campo: coluna.campo })
+      .then((r: ItemIndicador[]) => { if (vivo) setItens(r) })
+      .catch((e: Error) => { if (vivo) setErro(e.message) })
+    return () => { vivo = false }
+  }, [coluna, periodo])
+
+  const deOrcamento = coluna?.campo === 'propostasEnviadas' || coluna?.campo === 'contratosAssinados'
+  const comDetalhe = coluna?.campo === 'reunioesAgendadas' || coluna?.campo === 'reunioesRealizadas'
+    || coluna?.campo === 'semResposta' || coluna?.campo === 'desqualificados'
+  const fmtData = (d: string) => new Date(d).toLocaleDateString('pt-BR')
+  const intervalo = periodo.de || periodo.ate
+    ? `${periodo.de ? fmtData(`${periodo.de}T12:00:00`) : 'início'} a ${periodo.ate ? fmtData(`${periodo.ate}T12:00:00`) : 'hoje'}`
+    : 'todo o período'
+
+  return (
+    <Dialog open={!!coluna} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="max-w-[900px]">
+        <DialogHeaderIcon icon={ListChecks} color="sky">
+          <DialogTitle className="text-[15px]">{coluna?.rotulo}</DialogTitle>
+          <DialogDescription className="text-[11px]">
+            {itens ? `${itens.length} registro(s)` : 'Carregando…'} · {intervalo}
+          </DialogDescription>
+        </DialogHeaderIcon>
+        <DialogBody className="max-h-[65vh] overflow-y-auto nice-scrollbar p-0">
+          {erro ? (
+            <p className={cn('text-sm py-8 text-center', TEXT.rose)}>{erro}</p>
+          ) : !itens ? (
+            <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          ) : itens.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">Nada no período.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs w-[64px]">Card</TableHead>
+                  <TableHead className="text-xs">Lead</TableHead>
+                  {deOrcamento
+                    ? <TableHead className="text-xs">Orçamento</TableHead>
+                    : <TableHead className="hidden sm:table-cell text-xs">Etapa</TableHead>}
+                  {comDetalhe && <TableHead className="hidden md:table-cell text-xs">{coluna?.campo.startsWith('reunioes') ? 'Reunião' : 'Canal'}</TableHead>}
+                  <TableHead className="text-xs text-center">Data</TableHead>
+                  <TableHead className="hidden sm:table-cell text-xs">Responsável</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {itens.map((i) => (
+                  <TableRow key={i.chave}>
+                    <TableCell className="text-xs tabular-nums text-muted-foreground">{i.numero != null ? `#${i.numero}` : '—'}</TableCell>
+                    <TableCell className="text-xs">
+                      {i.oportunidadeId ? (
+                        <Link href={`/crm?op=${i.oportunidadeId}`} target="_blank" className="inline-flex items-center gap-1 font-medium hover:underline">
+                          {i.nome}<ExternalLink className="h-3 w-3 opacity-50" />
+                        </Link>
+                      ) : <span className="font-medium">{i.nome}</span>}
+                      {i.contato && <span className="text-muted-foreground"> · {i.contato}</span>}
+                    </TableCell>
+                    {deOrcamento ? (
+                      <TableCell className="text-xs whitespace-nowrap">
+                        {i.orcamentoId ? (
+                          <Link href={`/orcamentos/${i.orcamentoId}`} target="_blank" className="hover:underline">
+                            #{i.orcamentoNumero}{i.valor != null && <span className="text-muted-foreground"> · {formatCurrency(i.valor)}</span>}
+                          </Link>
+                        ) : '—'}
+                      </TableCell>
+                    ) : (
+                      <TableCell className="hidden sm:table-cell text-xs">
+                        {i.etapa ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: i.etapa.cor }} />{i.etapa.nome}
+                          </span>
+                        ) : '—'}
+                      </TableCell>
+                    )}
+                    {comDetalhe && <TableCell className="hidden md:table-cell text-xs truncate max-w-[220px]">{i.detalhe ?? '—'}</TableCell>}
+                    <TableCell className="text-xs text-center tabular-nums">{fmtData(i.quando)}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-xs">{i.responsavel ?? <span className="text-muted-foreground italic">—</span>}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
   )
 }
 

@@ -10,16 +10,16 @@ describe('situacaoDosLeads', () => {
       { oportunidadeId: 'a', tipo: 'EMAIL', resultado: 'EM_ANDAMENTO', dataHora: d('2026-09-04T12:00:00Z'), userId: 'thay' },
       { oportunidadeId: 'b', tipo: 'LIGACAO', resultado: null, dataHora: d('2026-09-02T12:00:00Z'), userId: 'thay' },
     ])
-    expect(m.get('a')).toEqual({ resultado: 'QUALIFICADO', canal: 'WHATSAPP', userId: 'thay' })
+    expect(m.get('a')).toEqual({ resultado: 'QUALIFICADO', canal: 'WHATSAPP', userId: 'thay', dataHora: d('2026-09-03T12:00:00Z') })
     expect(m.has('b')).toBe(false)
   })
 
   it('mapeia para o campo do painel', () => {
-    expect(campoDaSituacao({ resultado: 'QUALIFICADO', canal: 'LIGACAO', userId: null })).toBe('qualifLigacao')
-    expect(campoDaSituacao({ resultado: 'QUALIFICADO', canal: 'WHATSAPP', userId: null })).toBe('qualifWhatsapp')
-    expect(campoDaSituacao({ resultado: 'QUALIFICADO', canal: 'REUNIAO', userId: null })).toBe('qualifOutros')
-    expect(campoDaSituacao({ resultado: 'SEM_RESPOSTA', canal: 'LIGACAO', userId: null })).toBe('semResposta')
-    expect(campoDaSituacao({ resultado: 'DESQUALIFICADO', canal: 'LIGACAO', userId: null })).toBe('desqualificados')
+    expect(campoDaSituacao({ resultado: 'QUALIFICADO', canal: 'LIGACAO', userId: null, dataHora: d('2026-09-01T12:00:00Z') })).toBe('qualifLigacao')
+    expect(campoDaSituacao({ resultado: 'QUALIFICADO', canal: 'WHATSAPP', userId: null, dataHora: d('2026-09-01T12:00:00Z') })).toBe('qualifWhatsapp')
+    expect(campoDaSituacao({ resultado: 'QUALIFICADO', canal: 'REUNIAO', userId: null, dataHora: d('2026-09-01T12:00:00Z') })).toBe('qualifOutros')
+    expect(campoDaSituacao({ resultado: 'SEM_RESPOSTA', canal: 'LIGACAO', userId: null, dataHora: d('2026-09-01T12:00:00Z') })).toBe('semResposta')
+    expect(campoDaSituacao({ resultado: 'DESQUALIFICADO', canal: 'LIGACAO', userId: null, dataHora: d('2026-09-01T12:00:00Z') })).toBe('desqualificados')
   })
 })
 

@@ -7,6 +7,7 @@ import { ImportComercialService } from './import-comercial.service'
 import type { AgendaTarefaService } from '../agenda/agenda-tarefa.service'
 import { interacaoSchema, lembreteAcaoSchema, lembretesDaAcao, tituloDaAcao } from './crm-acao'
 import { janelaDoPeriodo, periodoSchema, type Periodo } from '../common/periodo-br'
+import { CAMPOS_INDICADOR } from './indicadores-comerciais'
 
 const MODULE = 'crm'
 
@@ -311,6 +312,18 @@ export function createCrmRouter(crmService: CrmService, tarefaService: AgendaTar
     indicadoresComerciais: readProcedure(MODULE)
       .input(periodoSchema)
       .query(({ input, ctx }) => crmService.indicadoresComerciais(ctx.empresaId, input)),
+
+    /** Lista por trás de um número do funil (clique no total ou na pessoa). */
+    indicadorDetalhe: readProcedure(MODULE)
+      .input(periodoSchema.extend({
+        campo: z.enum(CAMPOS_INDICADOR),
+        /** Omitido = todos; '' = sem responsável. */
+        userId: z.string().optional(),
+      }))
+      .query(({ input, ctx }) => {
+        const { campo, userId, ...periodo } = input
+        return crmService.detalheIndicador(ctx.empresaId, periodo, campo, userId)
+      }),
 
     reportOrigem: readProcedure(MODULE)
       .input(z.object({ dias: z.number().optional() }))
