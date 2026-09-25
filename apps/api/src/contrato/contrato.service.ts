@@ -1818,7 +1818,8 @@ export class ContratoService {
     // Inicio do mes 5 meses atras (janela de 6 meses, mes atual incluso)
     const inicioJanela = new Date(now.getFullYear(), now.getMonth() - 5, 1)
 
-    const [mrrAgg, porStatusRaw, aVencerRows, criados, encerrados] = await Promise.all([
+    const ativos = { ...baseWhere, status: { in: ['VIGENTE', 'ASSINADO'] } }
+    const [mrrAgg, porStatusRaw, aVencerRows, criados, encerrados, qtd30, qtd60] = await Promise.all([
       // MRR = honorario mensal somado da carteira ativa (VIGENTE + ASSINADO)
       (prisma as any).contrato.aggregate({
         where: { ...baseWhere, status: { in: ['VIGENTE', 'ASSINADO'] } },
@@ -1855,6 +1856,11 @@ export class ContratoService {
         where: { ...baseWhere, encerradoEm: { not: null, gte: inicioJanela } },
         select: { encerradoEm: true },
       }),
+      // Contagens à parte: a lista acima para em 20 e traz também os já
+      // vencidos (dataFim no passado) — contar por ela limitava o cartão a 20
+      // e somava contrato vencido como "a vencer".
+      (prisma as any).contrato.count({ where: { ...ativos, dataFim: { gte: now, lte: in30 } } }),
+      (prisma as any).contrato.count({ where: { ...ativos, dataFim: { gte: now, lte: in60 } } }),
     ])
 
     // Contagem por status -> mapa
@@ -1874,8 +1880,8 @@ export class ContratoService {
       honorarioMensal: Number(c.honorarioMensal ?? 0),
       diasRestantes: c.dataFim ? Math.ceil((new Date(c.dataFim).getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) : null,
     }))
-    const aVencer30 = aVencer.filter((c) => c.dataFim && new Date(c.dataFim) <= in30).length
-    const aVencer60 = aVencer.length
+    const aVencer30 = qtd30 as number
+    const aVencer60 = qtd60 as number
 
     // Evolucao mensal (6 buckets)
     const buckets: Array<{ mes: string; novos: number; encerrados: number }> = []

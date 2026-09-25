@@ -301,8 +301,8 @@ export function createCrmRouter(crmService: CrmService, tarefaService: AgendaTar
     // ── Relatorios ────────────────────────────────────────
     // `de`/`ate` (painel /comercial) vencem `dias` (demais telas).
     reportFunil: readProcedure(MODULE)
-      .input(periodoSchema)
-      .query(({ input, ctx }) => crmService.reportFunil(ctx.empresaId, periodoOuDias(input))),
+      .input(periodoSchema.extend({ apenasAtivos: z.boolean().optional() }))
+      .query(({ input, ctx }) => crmService.reportFunil(ctx.empresaId, periodoOuDias(input), undefined, { apenasAtivos: input.apenasAtivos })),
 
     reportDesempenho: readProcedure(MODULE)
       .input(periodoSchema)

@@ -6,6 +6,7 @@ import {
 } from './desconto-exclusivo'
 import { idsDeEmpresasInativas, semEmpresaInativa } from '../common/empresa-inativa'
 import { filtroDeData, filtroDeDiasOuJanela, type Janela } from '../common/periodo-br'
+import { contratosDeOrcamento } from './contratos-de-orcamento'
 import type { CreateOrcamentoInput, UpdateOrcamentoInput, ListOrcamentoInput, CreateOrcamentoItemInput, UpdateOrcamentoItemInput } from '@saas/types'
 import { filtroDeBusca, escopoDeEmpresa, consolidar } from './orcamento-busca-cliente'
 import { ORCAMENTO_ALLOWED_TRANSITIONS, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_ORDER, isOrcamentoTransitionAllowed, limparCnpj, resolveOrcamentoScope } from '@saas/types'
@@ -4830,9 +4831,11 @@ export class OrcamentoService {
     const [leads, oportunidades, orcEnviados, orcAprovados, contratos] = await Promise.all([
       prisma.leadSessao.count({ where: { ...(empresaId ? { empresaId } : {}), ...desdeCreated } }),
       prisma.oportunidade.count({ where: { ...(empresaId ? { empresaId } : {}), ...desdeCreated } }),
-      prisma.orcamento.count({ where: { ...emp, arquivado: false, dtEnviado: quando ?? { not: null } } }),
-      prisma.orcamento.count({ where: { ...emp, arquivado: false, dtAprovado: quando ?? { not: null } } }),
-      prisma.contrato.count({ where: { ...(empresaId ? { empresaId } : {}), ...desdeCreated, status: { not: 'RASCUNHO' } } }),
+      prisma.orcamento.count({ where: { ...emp, arquivado: false, status: { not: 'CANCELADO' }, dtEnviado: quando ?? { not: null } } }),
+      prisma.orcamento.count({ where: { ...emp, arquivado: false, status: { not: 'CANCELADO' }, dtAprovado: quando ?? { not: null } } }),
+      // Contrato = orçamento que virou contrato (fonte única, a mesma do funil
+      // do painel). A tabela `contratos` não é alimentada pelo comercial.
+      contratosDeOrcamento(empresaId, quando).then(c => c.length),
     ])
 
     const stage = (label: string, count: number, prev: number | null) => ({
@@ -4917,11 +4920,11 @@ export class OrcamentoService {
         _count: { _all: true },
       }),
       prisma.orcamento.findMany({
-        where: { ...emp, arquivado: false, dtAprovado: aprovadoEm ?? { not: null } },
+        where: { ...emp, arquivado: false, status: { not: 'CANCELADO' }, dtAprovado: aprovadoEm ?? { not: null } },
         select: orcSelect,
       }),
       prisma.orcamento.findMany({
-        where: { ...emp, arquivado: false, dtAprovado: { gte: desde } },
+        where: { ...emp, arquivado: false, status: { not: 'CANCELADO' }, dtAprovado: { gte: desde } },
         select: orcSelect,
       }),
     ])
@@ -4985,15 +4988,15 @@ export class OrcamentoService {
     // Janela explícita (data inicial/final do /comercial) ou os últimos N dias.
     const quando = filtroDeDiasOuJanela(dias)
 
-    const [enviadosGrp, aprovadosGrp, contratosGrp] = await Promise.all([
+    const [enviadosGrp, aprovadosGrp, contratosGrp, contratosOrc] = await Promise.all([
       prisma.orcamento.groupBy({
         by: ['responsavelId'],
-        where: { ...emp, arquivado: false, dtEnviado: quando ?? { not: null } },
+        where: { ...emp, arquivado: false, status: { not: 'CANCELADO' }, dtEnviado: quando ?? { not: null } },
         _count: { _all: true },
       }),
       prisma.orcamento.groupBy({
         by: ['responsavelId'],
-        where: { ...emp, arquivado: false, dtAprovado: quando ?? { not: null } },
+        where: { ...emp, arquivado: false, status: { not: 'CANCELADO' }, dtAprovado: quando ?? { not: null } },
         _count: { _all: true },
         _sum: { totalGeral: true },
       }),
@@ -5003,6 +5006,7 @@ export class OrcamentoService {
         _count: { _all: true },
         _sum: { honorarioMensal: true },
       }),
+      contratosDeOrcamento(empresaId, quando),
     ])
 
     type Acc = { enviados: number; aprovados: number; valorAprovado: number; contratos: number; mrr: number }
@@ -5018,11 +5022,10 @@ export class OrcamentoService {
       a.aprovados += g._count._all
       a.valorAprovado += Number(g._sum.totalGeral ?? 0)
     }
-    for (const g of contratosGrp) {
-      const a = get(g.responsavelId)
-      a.contratos += g._count._all
-      a.mrr += Number(g._sum.honorarioMensal ?? 0)
-    }
+    // Contratos: os que vieram de orçamento (fonte única do painel). O MRR
+    // continua lendo o honorário da tabela `contratos`.
+    for (const c of contratosOrc) get(c.responsavelId).contratos++
+    for (const g of contratosGrp) get(g.responsavelId).mrr += Number(g._sum.honorarioMensal ?? 0)
 
     // Resolve nomes dos responsáveis
     const ids = [...mapa.keys()].filter((k): k is string => !!k)
@@ -5072,7 +5075,7 @@ export class OrcamentoService {
     const quando = filtroDeDiasOuJanela(dias)
 
     const rows = await prisma.orcamento.findMany({
-      where: { ...emp, arquivado: false, dtAprovado: quando ?? { not: null } },
+      where: { ...emp, arquivado: false, status: { not: 'CANCELADO' }, dtAprovado: quando ?? { not: null } },
       select: {
         id: true, numero: true, clienteId: true, responsavelId: true,
         totalServicos: true, totalTaxas: true, totalDespesas: true,

@@ -148,6 +148,10 @@ const formatCompact = (v: number) =>
 interface PainelData {
   crmStats: any
   crmFunil: any
+  /** Pipeline atual (cards no funil hoje), sem o recorte do período. */
+  crmPipeline: any
+  /** Enviados e aprovados no período — base da taxa de aprovação. */
+  orcFunil: any
   crmDesempenho: any[]
   orcStats: any
   orcDash: any
@@ -197,7 +201,7 @@ export default function ComercialPage() {
     // os demais continuam carregando.
     const safe = <T,>(p: Promise<T>): Promise<T | null> => p.then((r) => r).catch(() => null)
     try {
-      const [crmStats, crmFunil, crmDesempenho, orcStats, orcDash, contratos, mrrAvulso, funil] = await Promise.all([
+      const [crmStats, crmFunil, crmDesempenho, orcStats, orcDash, contratos, mrrAvulso, funil, crmPipeline, orcFunil] = await Promise.all([
         safe((trpc.crm as any).getStats.query()),
         safe((trpc.crm as any).reportFunil.query(periodo)),
         safe((trpc.crm as any).reportDesempenho.query(periodo)),
@@ -206,12 +210,14 @@ export default function ComercialPage() {
         safe((trpc.contrato as any).reportComercial.query()),
         safe((trpc.orcamento as any).reportMrrAvulso.query(periodo)),
         safe((trpc.crm as any).indicadoresComerciais.query(periodo) as Promise<IndicadoresFunil>),
+        safe((trpc.crm as any).reportFunil.query({ apenasAtivos: true })),
+        safe((trpc.orcamento as any).reportFunilComercial.query(periodo)),
       ])
       if (!crmStats && !crmFunil && !orcStats && !contratos) setErro(true)
       setData({
         crmStats, crmFunil,
         crmDesempenho: Array.isArray(crmDesempenho) ? crmDesempenho : [],
-        orcStats, orcDash, contratos, mrrAvulso, funil,
+        orcStats, orcDash, contratos, mrrAvulso, funil, crmPipeline, orcFunil,
       })
     } finally {
       firstLoad.current = false
@@ -231,17 +237,24 @@ export default function ComercialPage() {
 
   // ── KPIs derivados ──────────────────────────────────────────
   const funilEtapas: any[] = data?.crmFunil?.etapas ?? []
-  const crmAtivas = funilEtapas.filter((e) => !e.ehGanho && !e.ehPerda)
+  // Oportunidades ativas / valor em pipeline = o funil de HOJE: cards ativos,
+  // fora das etapas de ganho, perda e Declínio (identificada pelo nome, a
+  // mesma regra do CRM). Antes contava os cards CRIADOS no período, inclusive
+  // arquivados — o número repetia "Leads recebidos".
+  const crmAtivas = ((data?.crmPipeline?.etapas ?? []) as any[])
+    .filter((e) => !e.ehGanho && !e.ehPerda && !/decl/i.test(e.nome ?? ''))
   const oportunidadesAtivas = crmAtivas.reduce((s, e) => s + (e.count ?? 0), 0)
   const pipelineValor = crmAtivas.reduce((s, e) => s + (e.valor ?? 0), 0)
   const taxaConversao = data?.crmFunil?.taxaGeral ?? 0
 
   const orcPorStatus: any[] = data?.orcStats?.porStatus ?? []
-  const orcTotal = data?.orcStats?.total ?? 0
-  const orcAprovados = orcPorStatus
-    .filter((s) => ['APROVADO', 'LIBERADO', 'FINALIZADO'].includes(s.status))
-    .reduce((acc, s) => acc + (s._count ?? 0), 0)
-  const taxaAprovacao = orcTotal > 0 ? Math.round((orcAprovados / orcTotal) * 100) : 0
+  // Taxa de aprovação no PERÍODO: aprovados ÷ enviados (cancelados fora). Antes
+  // era de todos os tempos, contava só APROVADO/LIBERADO/FINALIZADO (o que foi
+  // aprovado e depois encerrado sumia) e dividia por tudo, inclusive rascunho.
+  const estagiosOrc: Array<{ label: string; count: number }> = data?.orcFunil?.funil ?? []
+  const orcEnviadosPeriodo = estagiosOrc.find((e) => e.label === 'Orçamentos enviados')?.count ?? 0
+  const orcAprovadosPeriodo = estagiosOrc.find((e) => e.label === 'Orçamentos aprovados')?.count ?? 0
+  const taxaAprovacao = orcEnviadosPeriodo > 0 ? Math.round((orcAprovadosPeriodo / orcEnviadosPeriodo) * 100) : 0
   const orcDash = data?.orcDash
   const orcEmAberto = orcDash?.permitido
     ? (orcDash.aguardandoEnvio ?? 0) + (orcDash.aguardandoAprovacao ?? 0)
@@ -368,7 +381,7 @@ export default function ComercialPage() {
                   <Target className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> CRM — Pipeline
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <KpiFunil icon={Target} label="Oportunidades ativas" value={oportunidadesAtivas} color="#818cf8" />
+                  <KpiFunil icon={Target} label="Oportunidades ativas" value={oportunidadesAtivas} color="#818cf8" sub="funil de hoje" />
                   <KpiFunil icon={TrendingUp} label="Valor em pipeline" value={formatCompact(pipelineValor)} color="#34d399" sub={formatCurrency(pipelineValor)} />
                   <KpiFunil icon={Percent} label="Taxa de conversão" value={`${taxaConversao}%`} color={MODULE_COLOR} />
                 </div>
@@ -381,7 +394,8 @@ export default function ComercialPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <KpiFunil icon={FileText} label="Em aberto" value={orcEmAberto} color="#60a5fa" />
                   <KpiFunil icon={CircleDollarSign} label="Valor pendente" value={formatCompact(orcValorPendente)} color="#34d399" sub={orcDash?.permitido ? formatCurrency(orcValorPendente) : 'sem acesso a valores'} />
-                  <KpiFunil icon={Percent} label="Taxa de aprovação" value={`${taxaAprovacao}%`} color="#a78bfa" />
+                  <KpiFunil icon={Percent} label="Taxa de aprovação" value={`${taxaAprovacao}%`} color="#a78bfa"
+                    sub={`${orcAprovadosPeriodo} aprov. ÷ ${orcEnviadosPeriodo} env. no período`} />
                   <KpiFunil icon={AlertTriangle} label="Atrasados" value={orcAtrasados} color="#f97316" />
                 </div>
                 </div>
@@ -464,7 +478,7 @@ export default function ComercialPage() {
                 </Card>
 
                 <Card className="lg:col-span-5 p-4">
-                  <h3 className="text-[13px] font-semibold text-foreground mb-4">Orçamentos por status</h3>
+                  <h3 className="text-[13px] font-semibold text-foreground mb-4">Orçamentos por status <span className="font-normal text-muted-foreground">· situação atual, todos os períodos</span></h3>
                   <div className="h-[280px]">
                     {orcPie.length ? (
                       <ResponsiveContainer width="100%" height="100%">
