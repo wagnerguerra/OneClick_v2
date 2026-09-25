@@ -13,6 +13,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
+  Tabs, TabsTrigger, TabsContent, SlidingTabsList,
   Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -61,6 +62,17 @@ const ATALHOS = [
   { value: 'ano', label: 'Este ano' },
   { value: 'tudo', label: 'Todo o período' },
 ]
+
+// ── Abas ─────────────────────────────────────────────────────
+// Em 25/09/2026 o painel virou abas: numa página só, os 19 cartões e os seis
+// gráficos disputavam a largura e os KPIs do pipeline ficavam espremidos.
+const ABAS = [
+  { v: 'funil', Icon: Phone, label: 'Funil comercial' },
+  { v: 'pipeline', Icon: Target, label: 'Pipeline & Orçamentos' },
+  { v: 'contratos', Icon: FileCheck, label: 'Contratos' },
+] as const
+type Aba = (typeof ABAS)[number]['v']
+const CHAVE_ABA = 'comercial:aba'
 
 /** Colunas da tabela por pessoa, na ordem da planilha do comercial. */
 const COLUNAS_FUNIL = [
@@ -130,6 +142,19 @@ interface PainelData {
 
 export default function ComercialPage() {
   const router = useRouter()
+  // A aba aberta é conveniência de quem está vendo: lembrada neste navegador.
+  const [aba, setAba] = useState<Aba>('funil')
+  useEffect(() => {
+    try {
+      const salva = localStorage.getItem(CHAVE_ABA)
+      if (ABAS.some((a) => a.v === salva)) setAba(salva as Aba)
+    } catch { /* storage indisponível: fica na primeira aba */ }
+  }, [])
+  const trocarAba = (v: string) => {
+    setAba(v as Aba)
+    try { localStorage.setItem(CHAVE_ABA, v) } catch { /* ignora */ }
+  }
+
   const inicial = useMemo(() => atalho('mes'), [])
   const [de, setDe] = useState(inicial.de)
   const [ate, setAte] = useState(inicial.ate)
@@ -318,252 +343,277 @@ export default function ComercialPage() {
             <p className={cn('text-xs', TEXT.rose)}>A data inicial está depois da final — ajuste o período.</p>
           )}
 
-          {/* ── Funil comercial: Qualificação + Fechamento ── */}
-          {data?.funil && <FunilComercial funil={data.funil} periodo={periodo} />}
+          <Tabs value={aba} onValueChange={trocarAba}>
+            <SlidingTabsList
+              activeValue={aba}
+              indicatorInsetY={4}
+              className="!shadow-sm !border !border-border gap-1 !p-1 !bg-muted/40 !rounded-full w-fit max-w-full overflow-x-auto scrollbar-none items-center"
+              indicatorClassName="!bg-background !shadow-md"
+            >
+              {ABAS.map(({ v, Icon, label }) => (
+                <TabsTrigger
+                  key={v}
+                  value={v}
+                  className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-2 !text-xs !font-semibold !text-foreground/60 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-foreground gap-1.5 leading-none !items-center whitespace-nowrap"
+                >
+                  <Icon className="h-3.5 w-3.5" style={aba === v ? { color: MODULE_COLOR } : undefined} /> {label}
+                </TabsTrigger>
+              ))}
+            </SlidingTabsList>
 
-          {/* ── KPIs: CRM (3) + Orçamentos (4) + Contratos (3) numa linha só a
-              partir de 2xl, cada cartão com a mesma largura (3fr/4fr/3fr).
-              Abaixo disso não cabe: "R$ 283,3 mil" ao lado do ícone precisa de
-              ~150px e, a 1366px, dez cartões dão ~115px cada — então os três
-              grupos empilham, cada um na sua linha. */}
-          <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,3fr)_minmax(0,4fr)_minmax(0,3fr)] gap-3">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-                <Target className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> CRM — Pipeline
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <KpiFunil icon={Target} label="Oportunidades ativas" value={oportunidadesAtivas} color="#818cf8" />
-                <KpiFunil icon={TrendingUp} label="Valor em pipeline" value={formatCompact(pipelineValor)} color="#34d399" sub={formatCurrency(pipelineValor)} />
-                <KpiFunil icon={Percent} label="Taxa de conversão" value={`${taxaConversao}%`} color={MODULE_COLOR} />
+            {/* ── Aba Funil: Qualificação + Fechamento, e por pessoa ── */}
+            <TabsContent value="funil" className="mt-4 flex flex-col gap-5">
+              {/* ── Funil comercial: Qualificação + Fechamento ── */}
+              {data?.funil
+                ? <FunilComercial funil={data.funil} periodo={periodo} />
+                : <p className="text-sm text-muted-foreground py-10 text-center">Sem acesso ao CRM ou sem dados no período.</p>}
+            </TabsContent>
+
+            {/* ── Aba Pipeline & Orçamentos ── */}
+            <TabsContent value="pipeline" className="mt-4 flex flex-col gap-5">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <Target className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> CRM — Pipeline
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <KpiFunil icon={Target} label="Oportunidades ativas" value={oportunidadesAtivas} color="#818cf8" />
+                  <KpiFunil icon={TrendingUp} label="Valor em pipeline" value={formatCompact(pipelineValor)} color="#34d399" sub={formatCurrency(pipelineValor)} />
+                  <KpiFunil icon={Percent} label="Taxa de conversão" value={`${taxaConversao}%`} color={MODULE_COLOR} />
+                </div>
               </div>
-            </div>
 
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-                <CircleDollarSign className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Orçamentos
-              </p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <KpiFunil icon={FileText} label="Em aberto" value={orcEmAberto} color="#60a5fa" />
-                <KpiFunil icon={CircleDollarSign} label="Valor pendente" value={formatCompact(orcValorPendente)} color="#34d399" sub={orcDash?.permitido ? formatCurrency(orcValorPendente) : 'sem acesso a valores'} />
-                <KpiFunil icon={Percent} label="Taxa de aprovação" value={`${taxaAprovacao}%`} color="#a78bfa" />
-                <KpiFunil icon={AlertTriangle} label="Atrasados" value={orcAtrasados} color="#f97316" />
-              </div>
-            </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <CircleDollarSign className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Orçamentos
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <KpiFunil icon={FileText} label="Em aberto" value={orcEmAberto} color="#60a5fa" />
+                  <KpiFunil icon={CircleDollarSign} label="Valor pendente" value={formatCompact(orcValorPendente)} color="#34d399" sub={orcDash?.permitido ? formatCurrency(orcValorPendente) : 'sem acesso a valores'} />
+                  <KpiFunil icon={Percent} label="Taxa de aprovação" value={`${taxaAprovacao}%`} color="#a78bfa" />
+                  <KpiFunil icon={AlertTriangle} label="Atrasados" value={orcAtrasados} color="#f97316" />
+                </div>
+                </div>
 
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-                <FileCheck className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Contratos — Carteira
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <KpiFunil icon={FileCheck} label="Contratos vigentes" value={vigentes} color="#34d399" />
-                <KpiFunil icon={Landmark} label="MRR (receita recorrente)" value={formatCompact(mrr)} color={MODULE_COLOR} sub={formatCurrency(mrr)} />
-                <KpiFunil icon={CalendarClock} label="A vencer (30 dias)" value={aVencer30} color="#fbbf24" sub={`${ct?.aVencer60 ?? 0} em até 60 dias`} />
-              </div>
-            </div>
-          </div>
-
-          {/* ── Receita recorrente vs. avulsa (vendas aprovadas no período) ── */}
-          {mrrAvulso && (
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-                <CircleDollarSign className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Receita — recorrente vs. avulsa
-              </p>
-              <Card className="p-4">
-                {recAvTotal > 0 ? (
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Mix das vendas aprovadas no período</span>
-                      <span className="font-medium tabular-nums">{formatCurrency(recAvTotal)}</span>
-                    </div>
-                    <div className="flex h-6 w-full overflow-hidden rounded">
-                      <div className="flex items-center justify-center text-[10px] font-semibold text-white transition-all"
-                        style={{ width: `${recPct}%`, backgroundColor: '#34d399' }}>
-                        {recPct >= 10 ? `${recPct}%` : ''}
-                      </div>
-                      <div className="flex items-center justify-center text-[10px] font-semibold text-white transition-all"
-                        style={{ width: `${avPct}%`, backgroundColor: '#fbbf24' }}>
-                        {avPct >= 10 ? `${avPct}%` : ''}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-lg border border-border p-3">
-                        <div className="flex items-center gap-1.5 text-xs font-medium">
-                          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> Recorrente (entra como MRR)
+              {/* ── Receita recorrente vs. avulsa (vendas aprovadas no período) ── */}
+              {mrrAvulso && (
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <CircleDollarSign className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Receita — recorrente vs. avulsa
+                  </p>
+                  <Card className="p-4">
+                    {recAvTotal > 0 ? (
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Mix das vendas aprovadas no período</span>
+                          <span className="font-medium tabular-nums">{formatCurrency(recAvTotal)}</span>
                         </div>
-                        <p className="text-lg font-semibold tabular-nums mt-1">{formatCurrency(recValor)}</p>
-                        <p className="text-[11px] text-muted-foreground">{recPeriodo?.recorrente?.count ?? 0} orçamento(s)</p>
-                      </div>
-                      <div className="rounded-lg border border-border p-3">
-                        <div className="flex items-center gap-1.5 text-xs font-medium">
-                          <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Avulso (pontual)
+                        <div className="flex h-6 w-full overflow-hidden rounded">
+                          <div className="flex items-center justify-center text-[10px] font-semibold text-white transition-all"
+                            style={{ width: `${recPct}%`, backgroundColor: '#34d399' }}>
+                            {recPct >= 10 ? `${recPct}%` : ''}
+                          </div>
+                          <div className="flex items-center justify-center text-[10px] font-semibold text-white transition-all"
+                            style={{ width: `${avPct}%`, backgroundColor: '#fbbf24' }}>
+                            {avPct >= 10 ? `${avPct}%` : ''}
+                          </div>
                         </div>
-                        <p className="text-lg font-semibold tabular-nums mt-1">{formatCurrency(avValor)}</p>
-                        <p className="text-[11px] text-muted-foreground">{recPeriodo?.avulso?.count ?? 0} orçamento(s)</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => router.push('/comercial/relatorios?tab=mrr')}
-                      className="self-start text-[11px] font-medium hover:underline"
-                      style={{ color: MODULE_COLOR }}
-                    >
-                      Ver relatório completo de MRR →
-                    </button>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground py-4 text-center">Nenhum orçamento aprovado no período.</p>
-                )}
-              </Card>
-            </div>
-          )}
-
-          {/* ── Graficos linha 1: Funil CRM + Orcamentos por status ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <Card className="lg:col-span-7 p-4">
-              <h3 className="text-[13px] font-semibold text-foreground mb-4">Funil de vendas (CRM)</h3>
-              <div className="h-[280px]">
-                {funilChart.length ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={funilChart} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                      <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
-                      <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-                      <Tooltip content={<ChartTooltip format={(v: number, n?: string) => (n === 'Valor' ? formatCurrency(v) : v)} />} cursor={{ fill: CHART_CURSOR_FILL }} />
-                      <Bar dataKey="count" name="Quantidade" radius={[4, 4, 0, 0]}>
-                        {funilChart.map((e: any) => (
-                          <Cell key={e.etapaId} fill={e.cor || MODULE_COLOR} opacity={0.85} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : <EmptyMini />}
-              </div>
-            </Card>
-
-            <Card className="lg:col-span-5 p-4">
-              <h3 className="text-[13px] font-semibold text-foreground mb-4">Orçamentos por status</h3>
-              <div className="h-[280px]">
-                {orcPie.length ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={orcPie} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={2} dataKey="value">
-                        {orcPie.map((e, i) => <Cell key={i} fill={e.fill} />)}
-                      </Pie>
-                      <Tooltip content={<ChartTooltip format={(v: number) => `${v} orçamento(s)`} />} />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : <EmptyMini />}
-              </div>
-            </Card>
-          </div>
-
-          {/* ── Graficos linha 2: Contratos por status + evolucao ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <Card className="lg:col-span-5 p-4">
-              <h3 className="text-[13px] font-semibold text-foreground mb-4">Contratos por status</h3>
-              <div className="h-[280px]">
-                {ctPie.length ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={ctPie} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={2} dataKey="value">
-                        {ctPie.map((e, i) => <Cell key={i} fill={e.fill} />)}
-                      </Pie>
-                      <Tooltip content={<ChartTooltip format={(v: number) => `${v} contrato(s)`} />} />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : <EmptyMini />}
-              </div>
-            </Card>
-
-            <Card className="lg:col-span-7 p-4">
-              <h3 className="text-[13px] font-semibold text-foreground mb-4">Contratos — novos × encerrados (6 meses)</h3>
-              <div className="h-[280px]">
-                {ctEvolucao.length ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={ctEvolucao} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                      <XAxis dataKey="mes" tick={{ fontSize: 10 }} />
-                      <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-                      <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Bar dataKey="novos" name="Novos" fill="#34d399" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="encerrados" name="Encerrados" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : <EmptyMini />}
-              </div>
-            </Card>
-          </div>
-
-          {/* ── Desempenho por responsavel (CRM) ── */}
-          {data?.crmDesempenho.length ? (
-            <Card className="p-4">
-              <h3 className="text-[13px] font-semibold text-foreground mb-4">Desempenho por responsável (CRM)</h3>
-              <div className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data.crmDesempenho} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                    <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-                    <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Bar dataKey="ganhos" name="Ganhos" fill="#10b981" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="perdidos" name="Perdidos" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="total" name="Total" fill={MODULE_COLOR} opacity={0.4} radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
-          ) : null}
-
-          {/* ── Contratos a vencer ── */}
-          {aVencer.length ? (
-            <Card className="overflow-hidden">
-              <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-                <CalendarClock className="h-4 w-4" style={{ color: MODULE_COLOR }} />
-                <h3 className="text-[13px] font-semibold text-foreground">Contratos a vencer (próximos 60 dias)</h3>
-              </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="hidden sm:table-cell text-xs">Contrato</TableHead>
-                    <TableHead className="text-xs">Cliente</TableHead>
-                    <TableHead className="hidden md:table-cell text-xs text-center">Vence em</TableHead>
-                    <TableHead className="text-xs text-center">Dias restantes</TableHead>
-                    <TableHead className="text-xs text-right">Honorário mensal</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {aVencer.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell className="hidden sm:table-cell text-xs font-medium">#{c.numero}</TableCell>
-                      <TableCell className="text-xs">{c.cliente}</TableCell>
-                      <TableCell className="hidden md:table-cell text-xs text-center">
-                        {c.dataFim ? new Date(c.dataFim).toLocaleDateString('pt-BR') : '—'}
-                      </TableCell>
-                      <TableCell className="text-xs text-center">
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'text-[10px]',
-                            c.diasRestantes != null && c.diasRestantes <= 15
-                              ? STRONG.red
-                              : c.diasRestantes != null && c.diasRestantes <= 30
-                                ? STRONG.amber
-                                : STRONG.blue,
-                          )}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="rounded-lg border border-border p-3">
+                            <div className="flex items-center gap-1.5 text-xs font-medium">
+                              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> Recorrente (entra como MRR)
+                            </div>
+                            <p className="text-lg font-semibold tabular-nums mt-1">{formatCurrency(recValor)}</p>
+                            <p className="text-[11px] text-muted-foreground">{recPeriodo?.recorrente?.count ?? 0} orçamento(s)</p>
+                          </div>
+                          <div className="rounded-lg border border-border p-3">
+                            <div className="flex items-center gap-1.5 text-xs font-medium">
+                              <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Avulso (pontual)
+                            </div>
+                            <p className="text-lg font-semibold tabular-nums mt-1">{formatCurrency(avValor)}</p>
+                            <p className="text-[11px] text-muted-foreground">{recPeriodo?.avulso?.count ?? 0} orçamento(s)</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => router.push('/comercial/relatorios?tab=mrr')}
+                          className="self-start text-[11px] font-medium hover:underline"
+                          style={{ color: MODULE_COLOR }}
                         >
-                          {c.diasRestantes != null ? `${c.diasRestantes} dias` : '—'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-right">{formatCurrency(c.honorarioMensal)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
-          ) : null}
+                          Ver relatório completo de MRR →
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-4 text-center">Nenhum orçamento aprovado no período.</p>
+                    )}
+                  </Card>
+                </div>
+              )}
+
+              {/* ── Graficos linha 1: Funil CRM + Orcamentos por status ── */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <Card className="lg:col-span-7 p-4">
+                  <h3 className="text-[13px] font-semibold text-foreground mb-4">Funil de vendas (CRM)</h3>
+                  <div className="h-[280px]">
+                    {funilChart.length ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={funilChart} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                          <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
+                          <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+                          <Tooltip content={<ChartTooltip format={(v: number, n?: string) => (n === 'Valor' ? formatCurrency(v) : v)} />} cursor={{ fill: CHART_CURSOR_FILL }} />
+                          <Bar dataKey="count" name="Quantidade" radius={[4, 4, 0, 0]}>
+                            {funilChart.map((e: any) => (
+                              <Cell key={e.etapaId} fill={e.cor || MODULE_COLOR} opacity={0.85} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : <EmptyMini />}
+                  </div>
+                </Card>
+
+                <Card className="lg:col-span-5 p-4">
+                  <h3 className="text-[13px] font-semibold text-foreground mb-4">Orçamentos por status</h3>
+                  <div className="h-[280px]">
+                    {orcPie.length ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={orcPie} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={2} dataKey="value">
+                            {orcPie.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                          </Pie>
+                          <Tooltip content={<ChartTooltip format={(v: number) => `${v} orçamento(s)`} />} />
+                          <Legend wrapperStyle={{ fontSize: 11 }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : <EmptyMini />}
+                  </div>
+                </Card>
+              </div>
+
+              {/* ── Desempenho por responsavel (CRM) ── */}
+              {data?.crmDesempenho.length ? (
+                <Card className="p-4">
+                  <h3 className="text-[13px] font-semibold text-foreground mb-4">Desempenho por responsável (CRM)</h3>
+                  <div className="h-[280px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={data.crmDesempenho} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                        <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
+                        <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+                        <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                        <Bar dataKey="ganhos" name="Ganhos" fill="#10b981" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="perdidos" name="Perdidos" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="total" name="Total" fill={MODULE_COLOR} opacity={0.4} radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </Card>
+              ) : null}
+
+            </TabsContent>
+
+            {/* ── Aba Contratos ── */}
+            <TabsContent value="contratos" className="mt-4 flex flex-col gap-5">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <FileCheck className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Contratos — Carteira
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <KpiFunil icon={FileCheck} label="Contratos vigentes" value={vigentes} color="#34d399" />
+                  <KpiFunil icon={Landmark} label="MRR (receita recorrente)" value={formatCompact(mrr)} color={MODULE_COLOR} sub={formatCurrency(mrr)} />
+                  <KpiFunil icon={CalendarClock} label="A vencer (30 dias)" value={aVencer30} color="#fbbf24" sub={`${ct?.aVencer60 ?? 0} em até 60 dias`} />
+                </div>
+              </div>
+
+              {/* ── Graficos linha 2: Contratos por status + evolucao ── */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <Card className="lg:col-span-5 p-4">
+                  <h3 className="text-[13px] font-semibold text-foreground mb-4">Contratos por status</h3>
+                  <div className="h-[280px]">
+                    {ctPie.length ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={ctPie} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={2} dataKey="value">
+                            {ctPie.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                          </Pie>
+                          <Tooltip content={<ChartTooltip format={(v: number) => `${v} contrato(s)`} />} />
+                          <Legend wrapperStyle={{ fontSize: 11 }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : <EmptyMini />}
+                  </div>
+                </Card>
+
+                <Card className="lg:col-span-7 p-4">
+                  <h3 className="text-[13px] font-semibold text-foreground mb-4">Contratos — novos × encerrados (6 meses)</h3>
+                  <div className="h-[280px]">
+                    {ctEvolucao.length ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={ctEvolucao} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                          <XAxis dataKey="mes" tick={{ fontSize: 10 }} />
+                          <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+                          <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} />
+                          <Legend wrapperStyle={{ fontSize: 11 }} />
+                          <Bar dataKey="novos" name="Novos" fill="#34d399" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="encerrados" name="Encerrados" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : <EmptyMini />}
+                  </div>
+                </Card>
+              </div>
+
+              {/* ── Contratos a vencer ── */}
+              {aVencer.length ? (
+                <Card className="overflow-hidden">
+                  <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+                    <CalendarClock className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                    <h3 className="text-[13px] font-semibold text-foreground">Contratos a vencer (próximos 60 dias)</h3>
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="hidden sm:table-cell text-xs">Contrato</TableHead>
+                        <TableHead className="text-xs">Cliente</TableHead>
+                        <TableHead className="hidden md:table-cell text-xs text-center">Vence em</TableHead>
+                        <TableHead className="text-xs text-center">Dias restantes</TableHead>
+                        <TableHead className="text-xs text-right">Honorário mensal</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {aVencer.map((c) => (
+                        <TableRow key={c.id}>
+                          <TableCell className="hidden sm:table-cell text-xs font-medium">#{c.numero}</TableCell>
+                          <TableCell className="text-xs">{c.cliente}</TableCell>
+                          <TableCell className="hidden md:table-cell text-xs text-center">
+                            {c.dataFim ? new Date(c.dataFim).toLocaleDateString('pt-BR') : '—'}
+                          </TableCell>
+                          <TableCell className="text-xs text-center">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                'text-[10px]',
+                                c.diasRestantes != null && c.diasRestantes <= 15
+                                  ? STRONG.red
+                                  : c.diasRestantes != null && c.diasRestantes <= 30
+                                    ? STRONG.amber
+                                    : STRONG.blue,
+                              )}
+                            >
+                              {c.diasRestantes != null ? `${c.diasRestantes} dias` : '—'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs text-right">{formatCurrency(c.honorarioMensal)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Card>
+              ) : null}
+            </TabsContent>
+          </Tabs>
+
         </>
       )}
     </div>
