@@ -5,8 +5,10 @@ import { OrcamentoService } from '../orcamento/orcamento.service'
 import { CrmEventsService } from './crm-events.service'
 import { NotificationService } from '../notification/notification.service'
 import { CnpjService } from '../cnpj/cnpj.service'
-import { dataBrKey } from '../agenda/data-br.util'
+import { dataBrKey, horaBrKey } from '../agenda/data-br.util'
 import { descricaoDaInteracao, type TipoInteracao } from './crm-acao'
+import { filtroDeData, janelaDoPeriodo, type Janela, type Periodo } from '../common/periodo-br'
+import { acumular, campoDaSituacao, reuniaoJaAconteceu, situacaoDosLeads, type CampoIndicador } from './indicadores-comerciais'
 
 const DEFAULT_ETAPAS = [
   { nome: 'Deal Aberto', ordem: 1, cor: '#818cf8', probabilidade: 10, ehGanho: false, ehPerda: false },
@@ -858,12 +860,13 @@ export class CrmService {
 
   // ── Interações ────────────────────────────────────────────
 
-  async addInteracao(oportunidadeId: string, userId: string, data: { tipo: TipoInteracao; dataHora: Date; contato?: string | null; resumo: string }) {
+  async addInteracao(oportunidadeId: string, userId: string, data: { tipo: TipoInteracao; resultado: string; dataHora: Date; contato?: string | null; resumo: string }) {
     const result = await prisma.oportunidadeInteracao.create({
       data: {
         oportunidadeId,
         userId: userId || null,
         tipo: data.tipo,
+        resultado: data.resultado,
         dataHora: data.dataHora,
         contato: data.contato?.trim() || null,
         resumo: data.resumo,
@@ -880,10 +883,10 @@ export class CrmService {
     return (await this.oportunidadeNoEscopo(i.oportunidadeId, empresaId)) ? i : null
   }
 
-  async updateInteracao(id: string, userId: string, data: { tipo: TipoInteracao; dataHora: Date; contato?: string | null; resumo: string }) {
+  async updateInteracao(id: string, userId: string, data: { tipo: TipoInteracao; resultado: string; dataHora: Date; contato?: string | null; resumo: string }) {
     const result = await prisma.oportunidadeInteracao.update({
       where: { id },
-      data: { tipo: data.tipo, dataHora: data.dataHora, contato: data.contato?.trim() || null, resumo: data.resumo },
+      data: { tipo: data.tipo, resultado: data.resultado, dataHora: data.dataHora, contato: data.contato?.trim() || null, resumo: data.resumo },
     })
     await this.addEvento(result.oportunidadeId, userId, 'interacao', `Interação editada: ${descricaoDaInteracao(data.tipo, data.contato)}`)
     return result
@@ -1037,10 +1040,14 @@ export class CrmService {
 
   // ── Relatorios ─────────────────────────────────────────────
 
-  async reportFunil(empresaId?: string, dias?: number, fimRef?: Date) {
+  async reportFunil(empresaId?: string, dias?: number | Janela, fimRef?: Date) {
     const where: any = {}
     if (empresaId) where.empresaId = empresaId
-    if (dias) {
+    if (typeof dias === 'object') {
+      // Período com data inicial e final (painel /comercial).
+      const f = filtroDeData(dias)
+      if (f) where.createdAt = f
+    } else if (dias) {
       // Janela: [fimRef - dias, fimRef]. Sem fimRef o limite superior é "agora"
       // (comportamento original). fimRef habilita comparar períodos anteriores.
       const fim = fimRef ?? new Date()
@@ -1094,10 +1101,13 @@ export class CrmService {
     return { etapas: funilData, conversoes, totalOportunidades, valorTotal, taxaGeral }
   }
 
-  async reportDesempenho(empresaId?: string, dias?: number) {
+  async reportDesempenho(empresaId?: string, dias?: number | Janela) {
     const where: any = {}
     if (empresaId) where.empresaId = empresaId
-    if (dias) where.createdAt = { gte: new Date(Date.now() - dias * 86400000) }
+    if (typeof dias === 'object') {
+      const f = filtroDeData(dias)
+      if (f) where.createdAt = f
+    } else if (dias) where.createdAt = { gte: new Date(Date.now() - dias * 86400000) }
 
     const oportunidades = await prisma.oportunidade.findMany({
       where,
@@ -1137,6 +1147,119 @@ export class CrmService {
     })).sort((a, b) => b.valorGanho - a.valorGanho)
 
     return resultado
+  }
+
+  /**
+   * Indicadores do funil comercial para o /comercial — Qualificação e
+   * Fechamento, no total e por pessoa. As regras (o que conta, de onde vem, a
+   * quem se atribui) estão em indicadores-comerciais.ts.
+   *
+   * Atribuição por pessoa:
+   *  - leads recebidos → responsável do card;
+   *  - qualificação → quem registrou a interação decisiva;
+   *  - reunião agendada → quem criou o evento;
+   *  - reunião realizada → responsável do card (quem conduz o fechamento),
+   *    ou quem criou o evento, se o card não tem responsável;
+   *  - propostas e contratos → responsável do orçamento.
+   */
+  async indicadoresComerciais(empresaId: string | undefined, periodo: Periodo) {
+    const janela = janelaDoPeriodo(periodo)
+    const quando = filtroDeData(janela)
+    const emp = empresaId ? { empresaId } : {}
+    // Dias-calendário do período, para a data (sem hora) do evento da agenda.
+    const diaDe = janela.gte ? dataBrKey(janela.gte) : null
+    const diaAte = janela.lte ? dataBrKey(janela.lte) : null
+    const agora = new Date()
+    const hoje = dataBrKey(agora)
+    const agoraHora = horaBrKey(agora)
+
+    const eventoDoCrm = { OR: [{ oportunidadeId: { not: null } }, { oportunidadesVinc: { some: {} } }] }
+    const diaDoEvento = diaDe || diaAte
+      ? { data: { ...(diaDe ? { gte: new Date(`${diaDe}T00:00:00.000Z`) } : {}), ...(diaAte ? { lte: new Date(`${diaAte}T00:00:00.000Z`) } : {}) } }
+      : {}
+
+    const [leads, interacoes, eventos, entradas, enviados, aprovados] = await Promise.all([
+      prisma.oportunidade.findMany({
+        where: { ...emp, ...(quando ? { createdAt: quando } : {}) },
+        select: { responsavelId: true },
+      }),
+      prisma.oportunidadeInteracao.findMany({
+        where: { ...(quando ? { dataHora: quando } : {}), oportunidade: emp },
+        select: { oportunidadeId: true, tipo: true, resultado: true, dataHora: true, userId: true },
+      }),
+      prisma.agendaEvento.findMany({
+        where: {
+          ...emp,
+          isActive: true,
+          AND: [eventoDoCrm, { OR: [quando ? { createdAt: quando } : {}, diaDoEvento] }],
+        },
+        select: {
+          createdAt: true, data: true, horaInicio: true, horaFim: true, criadorId: true,
+          oportunidade: { select: { responsavelId: true } },
+          oportunidadesVinc: { select: { oportunidade: { select: { responsavelId: true } } }, orderBy: { ordem: 'asc' }, take: 1 },
+        },
+      }),
+      prisma.servico.findMany({
+        where: { entradaNovoCliente: true, ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}) },
+        select: { id: true },
+      }),
+      prisma.orcamento.findMany({
+        where: { ...emp, status: { not: 'CANCELADO' }, dtEnviado: quando ?? { not: null } },
+        select: { responsavelId: true, oportunidadeId: true, servicoId: true, itens: { select: { catalogoId: true } } },
+      }),
+      prisma.orcamento.findMany({
+        where: { ...emp, status: { not: 'CANCELADO' }, dtAprovado: quando ?? { not: null } },
+        select: { responsavelId: true, servicoId: true, itens: { select: { catalogoId: true } } },
+      }),
+    ])
+
+    const entrada = new Set(entradas.map(s => s.id))
+    const temEntrada = (o: { servicoId: string | null; itens: Array<{ catalogoId: string | null }> }) =>
+      (!!o.servicoId && entrada.has(o.servicoId)) || o.itens.some(i => !!i.catalogoId && entrada.has(i.catalogoId))
+
+    const ocorrencias: Array<{ campo: CampoIndicador; userId: string | null }> = []
+    for (const l of leads) ocorrencias.push({ campo: 'leadsRecebidos', userId: l.responsavelId })
+    for (const s of situacaoDosLeads(interacoes).values()) ocorrencias.push({ campo: campoDaSituacao(s), userId: s.userId })
+    for (const e of eventos) {
+      const criadoNoPeriodo = (!janela.gte || e.createdAt >= janela.gte) && (!janela.lte || e.createdAt <= janela.lte)
+      if (criadoNoPeriodo) ocorrencias.push({ campo: 'reunioesAgendadas', userId: e.criadorId })
+      const dia = e.data.toISOString().slice(0, 10)
+      const noPeriodo = (!diaDe || dia >= diaDe) && (!diaAte || dia <= diaAte)
+      if (noPeriodo && reuniaoJaAconteceu(dia, e.horaFim, e.horaInicio, hoje, agoraHora)) {
+        const responsavel = e.oportunidade?.responsavelId ?? e.oportunidadesVinc[0]?.oportunidade.responsavelId ?? null
+        ocorrencias.push({ campo: 'reunioesRealizadas', userId: responsavel ?? e.criadorId })
+      }
+    }
+    for (const o of enviados) {
+      if (o.oportunidadeId || temEntrada(o)) ocorrencias.push({ campo: 'propostasEnviadas', userId: o.responsavelId })
+    }
+    for (const o of aprovados) {
+      if (temEntrada(o)) ocorrencias.push({ campo: 'contratosAssinados', userId: o.responsavelId })
+    }
+
+    const { total, porPessoa } = acumular(ocorrencias)
+    const ids = [...porPessoa.keys()].filter(Boolean)
+    const usuarios = ids.length
+      ? await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, image: true } })
+      : []
+    const nome = new Map(usuarios.map(u => [u.id, u]))
+    const pessoas = [...porPessoa.entries()]
+      .map(([userId, t]) => ({
+        userId: userId || null,
+        nome: userId ? (nome.get(userId)?.name ?? 'Usuário removido') : 'Sem responsável',
+        image: userId ? (nome.get(userId)?.image ?? null) : null,
+        ...t,
+      }))
+      // "Sem responsável" por último; o resto em ordem alfabética.
+      .sort((a, b) => (a.userId ? 0 : 1) - (b.userId ? 0 : 1) || a.nome.localeCompare(b.nome, 'pt-BR'))
+
+    return {
+      periodo: { de: diaDe, ate: diaAte },
+      total,
+      pessoas,
+      /** Para o painel avisar quando nenhum serviço está marcado como de entrada. */
+      servicosDeEntrada: entrada.size,
+    }
   }
 
   async reportOrigem(empresaId?: string, dias?: number) {

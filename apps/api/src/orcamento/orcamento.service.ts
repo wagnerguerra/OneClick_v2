@@ -5,6 +5,7 @@ import {
   MOTIVO_GERAL_BLOQUEADO, MOTIVO_ITEM_BLOQUEADO,
 } from './desconto-exclusivo'
 import { idsDeEmpresasInativas, semEmpresaInativa } from '../common/empresa-inativa'
+import { filtroDeData, type Janela } from '../common/periodo-br'
 import type { CreateOrcamentoInput, UpdateOrcamentoInput, ListOrcamentoInput, CreateOrcamentoItemInput, UpdateOrcamentoItemInput } from '@saas/types'
 import { filtroDeBusca, escopoDeEmpresa, consolidar } from './orcamento-busca-cliente'
 import { ORCAMENTO_ALLOWED_TRANSITIONS, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_ORDER, isOrcamentoTransitionAllowed, limparCnpj, resolveOrcamentoScope } from '@saas/types'
@@ -4856,9 +4857,12 @@ export class OrcamentoService {
    * Classificação pela natureza do SERVIÇO (recorrenteMensal), não pelo campo
    * `tipo` estático — mesma regra do reportIndicadores.
    */
-  async reportMrrAvulso(empresaId?: string, dias?: number) {
+  async reportMrrAvulso(empresaId?: string, dias?: number | Janela) {
     const emp: Prisma.OrcamentoWhereInput = empresaId ? { empresaId } : {}
-    const cutoff = dias ? new Date(Date.now() - dias * 86400000) : undefined
+    // Janela explícita (data inicial/final do /comercial) ou os últimos N dias.
+    const aprovadoEm = typeof dias === 'object'
+      ? filtroDeData(dias)
+      : dias ? { gte: new Date(Date.now() - dias * 86400000) } : undefined
 
     const recorrentes = await prisma.servico.findMany({
       where: { recorrenteMensal: true, ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}) },
@@ -4885,7 +4889,7 @@ export class OrcamentoService {
         _count: { _all: true },
       }),
       prisma.orcamento.findMany({
-        where: { ...emp, arquivado: false, dtAprovado: cutoff ? { gte: cutoff } : { not: null } },
+        where: { ...emp, arquivado: false, dtAprovado: aprovadoEm ?? { not: null } },
         select: orcSelect,
       }),
       prisma.orcamento.findMany({
@@ -4937,7 +4941,7 @@ export class OrcamentoService {
       ticketMedioMrr: contratosRecorrentes > 0 ? mrrAtual / contratosRecorrentes : 0,
       periodo,
       serie12m: buckets,
-      dias: dias ?? null,
+      dias: typeof dias === 'number' ? dias : null,
     }
   }
 

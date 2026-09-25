@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Target, TrendingUp, Percent, CircleDollarSign, FileText, AlertTriangle,
   FileCheck, Landmark, CalendarClock, RefreshCw, Loader2, BarChart3,
-  ChevronDown, Filter, Users,
+  ChevronDown, Filter, Users, Inbox, Phone, MessageCircle, PhoneOff, UserX, CalendarPlus,
+  CalendarCheck, Send, FileSignature, CalendarRange,
 } from 'lucide-react'
 import {
-  Button, Card, Badge,
+  Button, Card, Badge, Input,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
@@ -18,7 +19,8 @@ import { StatCard } from '@/components/stat-card'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
-import { STRONG } from '@/lib/color-styles'
+import { STRONG, TEXT } from '@/lib/color-styles'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -27,12 +29,57 @@ import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
 
-const PERIODOS = [
+// ── Período ──────────────────────────────────────────────────
+// Até 25/09/2026 o painel só tinha janelas fixas (30/60/90 dias). Agora são
+// data inicial e final (inclusivas, no fuso de Brasília — o backend converte);
+// os atalhos só preenchem as duas datas. Data vazia = aberta daquele lado.
+
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+function atalho(chave: string, hoje = new Date()): { de: string; ate: string } {
+  const y = hoje.getFullYear()
+  const m = hoje.getMonth()
+  const menos = (dias: number) => { const d = new Date(hoje); d.setDate(d.getDate() - dias + 1); return d }
+  switch (chave) {
+    case 'mes-passado': return { de: iso(new Date(y, m - 1, 1)), ate: iso(new Date(y, m, 0)) }
+    case '7': return { de: iso(menos(7)), ate: iso(hoje) }
+    case '30': return { de: iso(menos(30)), ate: iso(hoje) }
+    case '90': return { de: iso(menos(90)), ate: iso(hoje) }
+    case 'ano': return { de: iso(new Date(y, 0, 1)), ate: iso(hoje) }
+    case 'tudo': return { de: '', ate: '' }
+    default: return { de: iso(new Date(y, m, 1)), ate: iso(hoje) } // este mês
+  }
+}
+
+const ATALHOS = [
+  { value: 'mes', label: 'Este mês' },
+  { value: 'mes-passado', label: 'Mês passado' },
+  { value: '7', label: 'Últimos 7 dias' },
   { value: '30', label: 'Últimos 30 dias' },
-  { value: '60', label: 'Últimos 60 dias' },
   { value: '90', label: 'Últimos 90 dias' },
-  { value: 'all', label: 'Todo o período' },
+  { value: 'ano', label: 'Este ano' },
+  { value: 'tudo', label: 'Todo o período' },
 ]
+
+/** Colunas da tabela por pessoa, na ordem da planilha do comercial. */
+const COLUNAS_FUNIL = [
+  { campo: 'leadsRecebidos', rotulo: 'Leads recebidos', etapa: 'q' },
+  { campo: 'qualifLigacao', rotulo: 'Qualif. por ligação', etapa: 'q' },
+  { campo: 'qualifWhatsapp', rotulo: 'Qualif. por WhatsApp', etapa: 'q' },
+  { campo: 'semResposta', rotulo: 'Sem resposta', etapa: 'q' },
+  { campo: 'desqualificados', rotulo: 'Desqualificados', etapa: 'q' },
+  { campo: 'reunioesAgendadas', rotulo: 'Reuniões agendadas', etapa: 'q' },
+  { campo: 'reunioesRealizadas', rotulo: 'Reuniões realizadas', etapa: 'f' },
+  { campo: 'propostasEnviadas', rotulo: 'Propostas enviadas', etapa: 'f' },
+  { campo: 'contratosAssinados', rotulo: 'Contratos assinados', etapa: 'f' },
+] as const
+type CampoFunil = (typeof COLUNAS_FUNIL)[number]['campo'] | 'qualifOutros'
+type TotaisFunil = Record<CampoFunil, number>
+interface IndicadoresFunil {
+  total: TotaisFunil
+  pessoas: Array<TotaisFunil & { userId: string | null; nome: string; image: string | null }>
+  servicosDeEntrada: number
+}
 
 const PIE_COLORS = [
   '#fb7185', '#818cf8', '#34d399', '#fbbf24', '#60a5fa',
@@ -61,18 +108,23 @@ interface PainelData {
   orcDash: any
   contratos: any
   mrrAvulso: any
+  funil: IndicadoresFunil | null
 }
 
 export default function ComercialPage() {
   const router = useRouter()
-  const [periodo, setPeriodo] = useState('90')
+  const inicial = useMemo(() => atalho('mes'), [])
+  const [de, setDe] = useState(inicial.de)
+  const [ate, setAte] = useState(inicial.ate)
   const [data, setData] = useState<PainelData | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [erro, setErro] = useState(false)
   const firstLoad = useRef(true)
 
-  const dias = periodo === 'all' ? undefined : Number(periodo)
+  // Uma data digitada pela metade chega vazia no input; só vale a completa.
+  const periodo = useMemo(() => ({ ...(de ? { de } : {}), ...(ate ? { ate } : {}) }), [de, ate])
+  const invertido = !!de && !!ate && de > ate
 
   const load = useCallback(async () => {
     if (firstLoad.current) setLoading(true)
@@ -82,35 +134,37 @@ export default function ComercialPage() {
     // os demais continuam carregando.
     const safe = <T,>(p: Promise<T>): Promise<T | null> => p.then((r) => r).catch(() => null)
     try {
-      const [crmStats, crmFunil, crmDesempenho, orcStats, orcDash, contratos, mrrAvulso] = await Promise.all([
+      const [crmStats, crmFunil, crmDesempenho, orcStats, orcDash, contratos, mrrAvulso, funil] = await Promise.all([
         safe((trpc.crm as any).getStats.query()),
-        safe((trpc.crm as any).reportFunil.query({ dias })),
-        safe((trpc.crm as any).reportDesempenho.query({ dias })),
+        safe((trpc.crm as any).reportFunil.query(periodo)),
+        safe((trpc.crm as any).reportDesempenho.query(periodo)),
         safe((trpc.orcamento as any).getStats.query()),
         safe((trpc.orcamento as any).getDashboardStats.query()),
         safe((trpc.contrato as any).reportComercial.query()),
-        safe((trpc.orcamento as any).reportMrrAvulso.query({ dias })),
+        safe((trpc.orcamento as any).reportMrrAvulso.query(periodo)),
+        safe((trpc.crm as any).indicadoresComerciais.query(periodo) as Promise<IndicadoresFunil>),
       ])
       if (!crmStats && !crmFunil && !orcStats && !contratos) setErro(true)
       setData({
         crmStats, crmFunil,
         crmDesempenho: Array.isArray(crmDesempenho) ? crmDesempenho : [],
-        orcStats, orcDash, contratos, mrrAvulso,
+        orcStats, orcDash, contratos, mrrAvulso, funil,
       })
     } finally {
       firstLoad.current = false
       setLoading(false)
       setRefreshing(false)
     }
-  }, [dias])
+  }, [periodo])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { if (!invertido) load() }, [load, invertido])
 
   // Auto-refresh leve (quadro de parede) — a cada 60s, sem spinner full.
   useEffect(() => {
+    if (invertido) return
     const id = setInterval(() => { load() }, 60_000)
     return () => clearInterval(id)
-  }, [load])
+  }, [load, invertido])
 
   // ── KPIs derivados ──────────────────────────────────────────
   const funilEtapas: any[] = data?.crmFunil?.etapas ?? []
@@ -163,16 +217,26 @@ export default function ComercialPage() {
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
           {refreshing && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-          <Select value={periodo} onValueChange={setPeriodo}>
-            <SelectTrigger className="w-[170px] h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PERIODOS.map((p) => (
-                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Select value="" onValueChange={(v) => { const p = atalho(v); setDe(p.de); setAte(p.ate) }}>
+              <SelectTrigger className="w-[40px] sm:w-[130px] h-8 text-xs" title="Atalhos de período">
+                <CalendarRange className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <span className="hidden sm:inline"><SelectValue placeholder="Atalhos" /></span>
+              </SelectTrigger>
+              <SelectContent>
+                {ATALHOS.map((p) => (
+                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input type="date" aria-label="Data inicial" value={de} max={ate || undefined}
+              onChange={(e) => setDe(e.target.value)}
+              className={cn('h-8 w-[136px] text-xs', invertido && 'border-destructive')} />
+            <span className="text-xs text-muted-foreground">até</span>
+            <Input type="date" aria-label="Data final" value={ate} min={de || undefined}
+              onChange={(e) => setAte(e.target.value)}
+              className={cn('h-8 w-[136px] text-xs', invertido && 'border-destructive')} />
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-8 text-xs">
@@ -233,6 +297,13 @@ export default function ComercialPage() {
         </div>
       ) : (
         <>
+          {invertido && (
+            <p className={cn('text-xs', TEXT.rose)}>A data inicial está depois da final — ajuste o período.</p>
+          )}
+
+          {/* ── Funil comercial: Qualificação + Fechamento ── */}
+          {data?.funil && <FunilComercial funil={data.funil} />}
+
           {/* ── KPIs ───────────────────────────────────────── */}
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
@@ -473,6 +544,99 @@ export default function ComercialPage() {
         </>
       )}
     </div>
+  )
+}
+
+/**
+ * Funil comercial na forma da planilha do time: Qualificação (quem recebe e
+ * qualifica o lead) e Fechamento (quem conduz reunião, proposta e contrato),
+ * nos cartões e por pessoa. As regras de contagem estão no backend
+ * (apps/api/src/crm/indicadores-comerciais.ts).
+ */
+function FunilComercial({ funil }: { funil: IndicadoresFunil }) {
+  const t = funil.total
+  const pessoas = funil.pessoas
+  return (
+    <>
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+        <div className="xl:col-span-8">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
+            <Phone className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Funil — Qualificação
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <StatCard icon={Inbox} label="Leads recebidos" value={t.leadsRecebidos} color="#818cf8" />
+            <StatCard icon={Phone} label="Qualif. por ligação" value={t.qualifLigacao} color="#34d399" />
+            <StatCard icon={MessageCircle} label="Qualif. por WhatsApp" value={t.qualifWhatsapp} color="#10b981"
+              sub={t.qualifOutros > 0 ? `+${t.qualifOutros} por outros canais` : undefined} />
+            <StatCard icon={PhoneOff} label="Sem resposta" value={t.semResposta} color="#fbbf24" />
+            <StatCard icon={UserX} label="Desqualificados" value={t.desqualificados} color="#f87171" />
+            <StatCard icon={CalendarPlus} label="Reuniões agendadas" value={t.reunioesAgendadas} color="#60a5fa" />
+          </div>
+        </div>
+        <div className="xl:col-span-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
+            <FileSignature className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Funil — Fechamento
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-1 gap-3">
+            <StatCard icon={CalendarCheck} label="Reuniões realizadas" value={t.reunioesRealizadas} color="#60a5fa" />
+            <StatCard icon={Send} label="Propostas enviadas" value={t.propostasEnviadas} color="#a78bfa" />
+            <StatCard icon={FileSignature} label="Contratos assinados" value={t.contratosAssinados} color={MODULE_COLOR}
+              sub={funil.servicosDeEntrada === 0 ? 'nenhum serviço marcado como entrada de cliente' : undefined} />
+          </div>
+        </div>
+      </div>
+
+      {pessoas.length > 0 && (
+        <Card className="overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+            <Users className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+            <h3 className="text-[13px] font-semibold text-foreground">Funil por pessoa</h3>
+          </div>
+          <div className="overflow-x-auto nice-scrollbar">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs min-w-[160px]">Pessoa</TableHead>
+                  {COLUNAS_FUNIL.map((c) => (
+                    <TableHead key={c.campo}
+                      className={cn('text-xs text-center whitespace-nowrap', c.campo === 'reunioesRealizadas' && 'border-l border-border')}>
+                      {c.rotulo}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pessoas.map((p) => (
+                  <TableRow key={p.userId ?? 'sem'}>
+                    <TableCell className="text-xs">
+                      <span className="flex items-center gap-2">
+                        <UserAvatar user={p.userId ? { name: p.nome, image: p.image } : null} className="h-6 w-6 text-[9px]" />
+                        <span className={cn('truncate', !p.userId && 'text-muted-foreground italic')}>{p.nome}</span>
+                      </span>
+                    </TableCell>
+                    {COLUNAS_FUNIL.map((c) => (
+                      <TableCell key={c.campo}
+                        className={cn('text-xs text-center tabular-nums', !p[c.campo] && 'text-muted-foreground/50', c.campo === 'reunioesRealizadas' && 'border-l border-border')}>
+                        {p[c.campo]}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+                <TableRow className="bg-muted/40 font-semibold">
+                  <TableCell className="text-xs">Total</TableCell>
+                  {COLUNAS_FUNIL.map((c) => (
+                    <TableCell key={c.campo}
+                      className={cn('text-xs text-center tabular-nums', c.campo === 'reunioesRealizadas' && 'border-l border-border')}>
+                      {t[c.campo]}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
+      )}
+    </>
   )
 }
 

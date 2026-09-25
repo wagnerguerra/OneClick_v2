@@ -4,6 +4,7 @@ import { prisma } from '@saas/db'
 import { router, readProcedure, writeProcedure, deleteProcedure, publicProcedure, writeSubProcedure, deleteSubProcedure, protectedProcedure } from '../trpc/trpc.service'
 import { createOrcamentoSchema, updateOrcamentoSchema, listOrcamentoSchema, createOrcamentoItemSchema, updateOrcamentoItemSchema, resolveOrcamentoScope, ORCAMENTO_SCOPE_DEFAULT, type OrcamentoScope } from '@saas/types'
 import { OrcamentoService } from './orcamento.service'
+import { janelaDoPeriodo, periodoSchema } from '../common/periodo-br'
 
 const MODULE = 'orcamentos'
 
@@ -565,8 +566,9 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .query(({ input, ctx }) => orcamentoService.reportFunilComercial(ctx.empresaId, input?.dias)),
 
     reportMrrAvulso: readProcedure(MODULE)
-      .input(z.object({ dias: z.number().optional() }).optional())
-      .query(({ input, ctx }) => orcamentoService.reportMrrAvulso(ctx.empresaId, input?.dias)),
+      .input(periodoSchema.optional())
+      // `de`/`ate` (painel /comercial) vencem `dias` (relatórios).
+      .query(({ input, ctx }) => orcamentoService.reportMrrAvulso(ctx.empresaId, input?.de || input?.ate ? janelaDoPeriodo(input) : input?.dias)),
 
     reportRankingVendedores: readProcedure(MODULE)
       .input(z.object({ dias: z.number().optional() }).optional())

@@ -10,7 +10,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
   cn,
 } from '@saas/ui'
-import { PILL, SURFACE, TEXT, type ColorName } from '@/lib/color-styles'
+import { BADGE, PILL, SURFACE, TEXT, type ColorName } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -24,6 +24,20 @@ import { alerts } from '@/lib/alerts'
  */
 
 export type TipoInteracao = 'LIGACAO' | 'WHATSAPP' | 'EMAIL' | 'REUNIAO' | 'VISITA' | 'OUTRO'
+export type ResultadoInteracao = 'EM_ANDAMENTO' | 'QUALIFICADO' | 'SEM_RESPOSTA' | 'DESQUALIFICADO'
+
+/**
+ * O que o contato decidiu sobre o lead. Alimenta a Qualificação do /comercial:
+ * Ligação + Qualificado conta em "Qualif. por ligação", e assim por diante —
+ * valendo o último resultado do lead no período.
+ */
+const RESULTADOS: Array<{ valor: ResultadoInteracao; rotulo: string; cor: ColorName }> = [
+  { valor: 'EM_ANDAMENTO', rotulo: 'Em andamento', cor: 'slate' },
+  { valor: 'QUALIFICADO', rotulo: 'Qualificado', cor: 'emerald' },
+  { valor: 'SEM_RESPOSTA', rotulo: 'Sem resposta', cor: 'amber' },
+  { valor: 'DESQUALIFICADO', rotulo: 'Desqualificado', cor: 'rose' },
+]
+const resultadoInfo = (r: string | null | undefined) => RESULTADOS.find(x => x.valor === r) ?? RESULTADOS[0]!
 
 export interface InteracaoCrm {
   id: string
@@ -31,6 +45,7 @@ export interface InteracaoCrm {
   dataHora: string
   contato: string | null
   resumo: string
+  resultado?: ResultadoInteracao | null
   createdAt: string
   user?: { id: string; name: string } | null
 }
@@ -64,7 +79,7 @@ function haQuanto(iso: string): string {
   return `há ${dias} dias`
 }
 
-interface ValoresInteracao { tipo: TipoInteracao; dataHora: string; contato: string; resumo: string }
+interface ValoresInteracao { tipo: TipoInteracao; resultado: ResultadoInteracao; dataHora: string; contato: string; resumo: string }
 
 function FormInteracao({ inicial, editando, salvando, moduleColor, onSalvar, onCancelar }: {
   inicial: ValoresInteracao
@@ -83,7 +98,7 @@ function FormInteracao({ inicial, editando, salvando, moduleColor, onSalvar, onC
     const ok = await onSalvar(v)
     // Depois de registrar, o próximo contato provavelmente é com a mesma
     // pessoa e pelo mesmo canal: mantém os dois e renova a data.
-    if (ok && !editando) setV(atual => ({ ...atual, resumo: '', dataHora: paraInputLocal(new Date()) }))
+    if (ok && !editando) setV(atual => ({ ...atual, resumo: '', resultado: 'EM_ANDAMENTO', dataHora: paraInputLocal(new Date()) }))
   }
 
   return (
@@ -102,6 +117,25 @@ function FormInteracao({ inicial, editando, salvando, moduleColor, onSalvar, onC
             <t.icone className="h-3.5 w-3.5" />{t.rotulo}
           </button>
         ))}
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-[13px] font-semibold">Resultado</label>
+        <div className="flex flex-wrap gap-1.5">
+          {RESULTADOS.map(r => (
+            <button
+              key={r.valor}
+              type="button"
+              onClick={() => set('resultado', r.valor)}
+              className={cn(
+                'rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+                v.resultado === r.valor ? cn(PILL[r.cor], 'border-transparent') : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted/40',
+              )}
+            >
+              {r.rotulo}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
@@ -153,6 +187,7 @@ export function InteracoesTab({ oportunidadeId, interacoes, contatoPadrao, modul
 
   const payload = (v: ValoresInteracao) => ({
     tipo: v.tipo,
+    resultado: v.resultado,
     dataHora: new Date(v.dataHora).toISOString(),
     contato: v.contato.trim() || null,
     resumo: v.resumo,
@@ -188,7 +223,7 @@ export function InteracoesTab({ oportunidadeId, interacoes, contatoPadrao, modul
   return (
     <div className="space-y-3">
       <FormInteracao
-        inicial={{ tipo: 'LIGACAO', dataHora: paraInputLocal(new Date()), contato: contatoPadrao ?? '', resumo: '' }}
+        inicial={{ tipo: 'LIGACAO', resultado: 'EM_ANDAMENTO', dataHora: paraInputLocal(new Date()), contato: contatoPadrao ?? '', resumo: '' }}
         editando={false}
         salvando={salvando && !editandoId}
         moduleColor={moduleColor}
@@ -211,7 +246,7 @@ export function InteracoesTab({ oportunidadeId, interacoes, contatoPadrao, modul
               return (
                 <FormInteracao
                   key={i.id}
-                  inicial={{ tipo: i.tipo, dataHora: paraInputLocal(new Date(i.dataHora)), contato: i.contato ?? '', resumo: i.resumo }}
+                  inicial={{ tipo: i.tipo, resultado: i.resultado ?? 'EM_ANDAMENTO', dataHora: paraInputLocal(new Date(i.dataHora)), contato: i.contato ?? '', resumo: i.resumo }}
                   editando
                   salvando={salvando}
                   moduleColor={moduleColor}
@@ -221,6 +256,7 @@ export function InteracoesTab({ oportunidadeId, interacoes, contatoPadrao, modul
               )
             }
             const t = tipoInfo(i.tipo)
+            const r = resultadoInfo(i.resultado)
             return (
               <div key={i.id} className="rounded-md bg-muted/40 p-3">
                 <div className="flex items-start gap-2.5">
@@ -247,7 +283,12 @@ export function InteracoesTab({ oportunidadeId, interacoes, contatoPadrao, modul
                         </DropdownMenu>
                       </div>
                     </div>
-                    <p className="text-[10px] text-muted-foreground mb-1">Registrado por {i.user?.name || 'Sistema'}</p>
+                    <div className="flex items-center gap-2 mb-1">
+                      {r.valor !== 'EM_ANDAMENTO' && (
+                        <span className={cn('rounded-full border px-1.5 py-px text-[10px] font-medium', BADGE[r.cor])}>{r.rotulo}</span>
+                      )}
+                      <p className="text-[10px] text-muted-foreground">Registrado por {i.user?.name || 'Sistema'}</p>
+                    </div>
                     <RichContent className="text-sm" html={i.resumo} />
                   </div>
                 </div>

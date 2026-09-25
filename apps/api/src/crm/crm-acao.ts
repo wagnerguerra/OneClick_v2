@@ -83,8 +83,12 @@ export function descricaoDaInteracao(tipo: TipoInteracao, contato?: string | nul
   return quem ? `${rotulo} com ${quem}` : rotulo
 }
 
+export const RESULTADOS_INTERACAO = ['EM_ANDAMENTO', 'QUALIFICADO', 'SEM_RESPOSTA', 'DESQUALIFICADO'] as const
+
 export const interacaoSchema = z.object({
   tipo: tipoInteracaoSchema,
+  /** O que o contato decidiu sobre o lead — alimenta a Qualificação do /comercial. */
+  resultado: z.enum(RESULTADOS_INTERACAO).default('EM_ANDAMENTO'),
   /** Quando o contato aconteceu (ISO). */
   dataHora: z.coerce.date(),
   contato: z.string().max(200).nullable().optional(),

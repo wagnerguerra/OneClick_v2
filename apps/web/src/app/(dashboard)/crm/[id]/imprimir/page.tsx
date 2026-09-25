@@ -47,7 +47,12 @@ interface Interacao {
   dataHora: string
   contato: string | null
   resumo: string
+  resultado?: string | null
   user?: { name: string } | null
+}
+
+const ROTULO_RESULTADO: Record<string, string> = {
+  QUALIFICADO: 'qualificado', SEM_RESPOSTA: 'sem resposta', DESQUALIFICADO: 'desqualificado',
 }
 
 const ROTULO_INTERACAO: Record<string, string> = {
@@ -769,6 +774,7 @@ export default function ImprimirOportunidadePage() {
                 <div className="nota" key={i.id}>
                   <p className="nota-meta">
                     {ROTULO_INTERACAO[i.tipo] ?? i.tipo}{i.contato ? ` com ${i.contato}` : ''} · {formatDateTime(i.dataHora)}
+                    {i.resultado && ROTULO_RESULTADO[i.resultado] ? ` · ${ROTULO_RESULTADO[i.resultado]}` : ''}
                     {i.user?.name ? ` · registrado por ${i.user.name}` : ''}
                   </p>
                   <div className="descricao-content" dangerouslySetInnerHTML={{ __html: i.resumo || '' }} />

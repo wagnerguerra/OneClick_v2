@@ -6,11 +6,17 @@ import { CrmService } from './crm.service'
 import { ImportComercialService } from './import-comercial.service'
 import type { AgendaTarefaService } from '../agenda/agenda-tarefa.service'
 import { interacaoSchema, lembreteAcaoSchema, lembretesDaAcao, tituloDaAcao } from './crm-acao'
+import { janelaDoPeriodo, periodoSchema, type Periodo } from '../common/periodo-br'
 
 const MODULE = 'crm'
 
 const dataIso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 const hora = z.string().regex(/^\d{2}:\d{2}$/)
+
+/** Datas explícitas viram janela; senão segue a contagem de dias de sempre. */
+function periodoOuDias(p: Periodo) {
+  return p.de || p.ate ? janelaDoPeriodo(p) : p.dias
+}
 
 export function createCrmRouter(crmService: CrmService, tarefaService: AgendaTarefaService, importComercialService?: ImportComercialService) {
   const oportunidade = async (id: string, empresaId?: string | null) => {
@@ -292,13 +298,19 @@ export function createCrmRouter(crmService: CrmService, tarefaService: AgendaTar
       .query(({ ctx }) => crmService.getStats(ctx.isMaster ?? false, ctx.empresaId)),
 
     // ── Relatorios ────────────────────────────────────────
+    // `de`/`ate` (painel /comercial) vencem `dias` (demais telas).
     reportFunil: readProcedure(MODULE)
-      .input(z.object({ dias: z.number().optional() }))
-      .query(({ input, ctx }) => crmService.reportFunil(ctx.empresaId, input.dias)),
+      .input(periodoSchema)
+      .query(({ input, ctx }) => crmService.reportFunil(ctx.empresaId, periodoOuDias(input))),
 
     reportDesempenho: readProcedure(MODULE)
-      .input(z.object({ dias: z.number().optional() }))
-      .query(({ input, ctx }) => crmService.reportDesempenho(ctx.empresaId, input.dias)),
+      .input(periodoSchema)
+      .query(({ input, ctx }) => crmService.reportDesempenho(ctx.empresaId, periodoOuDias(input))),
+
+    /** Qualificação e Fechamento do /comercial — ver indicadores-comerciais.ts. */
+    indicadoresComerciais: readProcedure(MODULE)
+      .input(periodoSchema)
+      .query(({ input, ctx }) => crmService.indicadoresComerciais(ctx.empresaId, input)),
 
     reportOrigem: readProcedure(MODULE)
       .input(z.object({ dias: z.number().optional() }))

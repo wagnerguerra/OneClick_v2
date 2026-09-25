@@ -4631,6 +4631,11 @@ model OportunidadeInteracao {
   dataHora       DateTime @map("data_hora")
   /// Com quem se falou do lado do lead (nome livre).
   contato        String?
+  /// EM_ANDAMENTO | QUALIFICADO | SEM_RESPOSTA | DESQUALIFICADO — o que o
+  /// contato decidiu sobre o lead. Alimenta a Qualificação do /comercial
+  /// (ver apps/api/src/crm/indicadores-comerciais.ts). Nulo = registrado antes
+  /// do campo existir, conta como em andamento.
+  resultado      String?
   /// O que foi conversado e o que ficou combinado (HTML do RichEditor).
   resumo         String   @db.Text
   /// Autor do registro. Solto, como em OportunidadeMensagem.
@@ -5075,6 +5080,10 @@ model Servico {
   // por execucao). Ex: Folha mensal=true, Abertura de Empresa=false.
   // (Mantido por compat; preferir `categoriaServico` daqui pra frente.)
   recorrenteMensal    Boolean           @default(false) @map("recorrente_mensal")
+  // Serviço de ENTRADA de novo cliente (constituição, transferência de entrada...).
+  // Orçamento aprovado com um destes é um "contrato assinado" no painel /comercial.
+  // Flag e não casamento por nome: o nome muda por empresa e com o tempo.
+  entradaNovoCliente  Boolean           @default(false) @map("entrada_novo_cliente")
   // Slug do segmento de cliente ao qual este template pertence (ex: 'atacadista-lucro-real').
   // null = template genérico/avulso (Abertura de Empresa, Conciliação Bancária, certidões, etc).
   // Valores referenciam SEGMENTO_SLUGS em packages/types/src/segmento.ts

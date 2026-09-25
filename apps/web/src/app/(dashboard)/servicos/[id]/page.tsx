@@ -314,6 +314,9 @@ export default function ServicoDetailPage() {
   const [prioridade, setPrioridade] = useState<'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE'>('MEDIA')
   const [valorPadrao, setValorPadrao] = useState('')
   const [disponivelOrcamento, setDisponivelOrcamento] = useState(true)
+  // Serviço de entrada de novo cliente: orçamento aprovado com ele conta como
+  // "contrato assinado" no painel /comercial.
+  const [entradaNovoCliente, setEntradaNovoCliente] = useState(false)
   /** MENSAL = recorrente; EXTRA = pontual; FLUXO = item interno de outro serviço. */
   const [categoriaServico, setCategoriaServico] = useState<'MENSAL' | 'EXTRA' | 'FLUXO'>('EXTRA')
   /**
@@ -433,6 +436,7 @@ export default function ServicoDetailPage() {
       // valorPadrao no banco é decimal em reais; aqui guardamos centavos como string
       setValorPadrao(s.valorPadrao != null ? String(Math.round(Number(s.valorPadrao) * 100)) : '')
       setDisponivelOrcamento(s.disponivelOrcamento !== false)
+      setEntradaNovoCliente(s.entradaNovoCliente === true)
       // Lê categoriaServico se presente; fallback derivando da flag legada recorrenteMensal
       const cat: 'MENSAL' | 'EXTRA' | 'FLUXO' = (s.categoriaServico as any)
         ?? (s.recorrenteMensal === true ? 'MENSAL' : 'EXTRA')
@@ -672,6 +676,7 @@ export default function ServicoDetailPage() {
           // não deixar vínculo pendurado num serviço que saiu do HelpDesk.
           helpdeskTipos: ehServicoInterno ? helpdeskTipos : [],
           ehObrigacaoAcessoria,
+          entradaNovoCliente,
           recorrenteMensal: tipoNo === 'PERGUNTA' ? false : categoriaServico === 'MENSAL',
           categoriaServico,
           tipo: tipoNo,
@@ -1720,6 +1725,21 @@ export default function ServicoDetailPage() {
                         />
                         <Label htmlFor="disp-orc" className="text-[13px] font-medium cursor-pointer select-none">
                           Disponibilizar para inclusão em orçamentos
+                        </Label>
+                      </div>
+
+                      <div className="flex items-start gap-3 pt-2 border-t">
+                        <Switch
+                          id="entrada-cliente"
+                          checked={entradaNovoCliente}
+                          onCheckedChange={setEntradaNovoCliente}
+                          className={cn('mt-0.5', entradaNovoCliente && 'bg-emerald-600')}
+                        />
+                        <Label htmlFor="entrada-cliente" className="text-[13px] font-medium cursor-pointer select-none leading-snug">
+                          Serviço de entrada de novo cliente
+                          <span className="block text-[11px] font-normal text-muted-foreground">
+                            Orçamento aprovado com este serviço conta como contrato assinado no Painel Comercial.
+                          </span>
                         </Label>
                       </div>
 
