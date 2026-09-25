@@ -768,7 +768,7 @@ export class UserService {
         ...(callerEmpresaId ? { empresaId: callerEmpresaId } : {}),
       },
       select: {
-        id: true, name: true, email: true, role: true,
+        id: true, name: true, email: true, role: true, image: true,
         areaId: true,
         area: { select: { id: true, name: true } },
       },
@@ -778,6 +778,7 @@ export class UserService {
       id: u.id,
       name: u.name,
       email: u.email,
+      image: u.image,
       role: u.role,
       areaId: u.areaId,
       areaName: u.area?.name ?? null,

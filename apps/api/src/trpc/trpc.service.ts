@@ -1014,7 +1014,7 @@ export class TrpcService {
       folhaBi: createFolhaBiRouter(this.folhaBiService),
       agenda: createAgendaRouter(this.agendaService, this.agendaGoogleService, this.agendaConfigService, this.agendaSalaService, this.agendaDisparoService, this.agendaLembreteService, this.agendaTarefaService),
       dte: createDteRouter(this.dteService),
-      crm: createCrmRouter(this.crmService, this.importComercialService),
+      crm: createCrmRouter(this.crmService, this.agendaTarefaService, this.importComercialService),
       orcamento: createOrcamentoRouter(this.orcamentoService),
       beneficioFiscal: createBeneficioFiscalRouter(this.beneficioFiscalService),
       reformaTributaria: createReformaTributariaRouter(this.reformaTributariaService),

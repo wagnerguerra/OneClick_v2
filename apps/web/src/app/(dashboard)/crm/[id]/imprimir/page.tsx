@@ -30,21 +30,37 @@ interface Evento {
   createdAt: string
   user?: { name: string } | null
 }
+/** Ação do card = AgendaTarefa vinculada (rota `crm.acoes.list`). */
 interface Tarefa {
   id: string
   titulo: string
+  descricao: string | null
   prazo: string | null
   horaPrazo: string | null
   concluida: boolean
   concluidaEm: string | null
-  prioridade: string | null
+  membros?: Array<{ usuarioId: string; name: string }>
+}
+interface Interacao {
+  id: string
+  tipo: string
+  dataHora: string
+  contato: string | null
+  resumo: string
+  user?: { name: string } | null
+}
+
+const ROTULO_INTERACAO: Record<string, string> = {
+  LIGACAO: 'Ligação', WHATSAPP: 'WhatsApp', EMAIL: 'E-mail', REUNIAO: 'Reunião', VISITA: 'Visita', OUTRO: 'Contato',
 }
 
 interface Oportunidade {
   id: string
   numero: number | null
   titulo: string
+  /** Na tela: "Perfil do Lead". */
   descricao: string | null
+  doresOportunidades?: string | null
   valor: number | string | null
   clienteId: string | null
   previsaoFechamento: string | null
@@ -67,6 +83,7 @@ interface Oportunidade {
   responsavel: { id: string; name: string } | null
   tags: Tag[]
   mensagens: Mensagem[]
+  interacoes?: Interacao[]
   arquivos: Arquivo[]
   eventos: Evento[]
 }
@@ -127,12 +144,12 @@ export default function ImprimirOportunidadePage() {
         setOp(data)
 
         // Duas buscas que o `crm.getById` NÃO faz, e das quais a ficha precisa:
-        //  - as tarefas são AgendaTarefa vinculadas à oportunidade, de outro módulo;
+        //  - as ações são AgendaTarefa vinculadas à oportunidade, de outro módulo;
         //  - o cliente é um id solto (sem relation Prisma), então não vem no include.
         // Nenhuma das duas pode derrubar a impressão: falhando, a seção se vira
         // com o que a própria oportunidade guarda.
         const [t, c] = await Promise.all([
-          (trpc.agenda.tarefa as any).list.query({ oportunidadeId: id }).catch(() => []),
+          (trpc.crm as any).acoes.list.query({ oportunidadeId: id }).catch(() => []),
           data.clienteId
             ? (trpc.cliente as any).getById.query({ id: data.clienteId }).catch(() => null)
             : Promise.resolve(null),
@@ -688,27 +705,37 @@ export default function ImprimirOportunidadePage() {
             </div>
           )}
 
-          {/* DESCRIÇÃO */}
+          {/* PERFIL DO LEAD (coluna `descricao`) */}
           <div style={{ marginBottom: 32 }}>
-            <div className="section-title">Descrição</div>
+            <div className="section-title">Perfil do Lead</div>
             {htmlVazio(op.descricao) ? (
-              <p className="descricao-vazia">Oportunidade sem descrição</p>
+              <p className="descricao-vazia">Perfil não informado</p>
             ) : (
               <div className="descricao-content" dangerouslySetInnerHTML={{ __html: op.descricao || '' }} />
             )}
           </div>
 
-          {/* TAREFAS */}
+          {/* DORES / OPORTUNIDADES */}
           <div style={{ marginBottom: 32 }}>
-            <div className="section-title">Tarefas</div>
+            <div className="section-title">Dores / Oportunidades</div>
+            {htmlVazio(op.doresOportunidades) ? (
+              <p className="descricao-vazia">Não informadas</p>
+            ) : (
+              <div className="descricao-content" dangerouslySetInnerHTML={{ __html: op.doresOportunidades || '' }} />
+            )}
+          </div>
+
+          {/* AÇÕES */}
+          <div style={{ marginBottom: 32 }}>
+            <div className="section-title">Ações</div>
             {tarefas.length === 0 ? (
-              <p className="descricao-vazia">Nenhuma tarefa vinculada.</p>
+              <p className="descricao-vazia">Nenhuma ação registrada.</p>
             ) : (
               <table className="items">
                 <thead>
                   <tr>
-                    <th>Tarefa</th>
-                    <th style={{ width: 90 }}>Prioridade</th>
+                    <th>Ação</th>
+                    <th style={{ width: 150 }}>Responsáveis</th>
                     <th style={{ width: 110 }}>Prazo</th>
                     <th style={{ width: 90 }}>Situação</th>
                   </tr>
@@ -719,7 +746,7 @@ export default function ImprimirOportunidadePage() {
                   {[...tarefasAbertas, ...tarefasFeitas].map(t => (
                     <tr key={t.id}>
                       <td className={t.concluida ? 'feito' : undefined}>{t.titulo}</td>
-                      <td className="meta">{t.prioridade || 'NORMAL'}</td>
+                      <td>{(t.membros ?? []).map(m => m.name).join(', ') || '—'}</td>
                       <td className="num-mono">
                         {formatDate(t.prazo)}
                         {t.horaPrazo ? ` ${t.horaPrazo}` : ''}
@@ -729,6 +756,24 @@ export default function ImprimirOportunidadePage() {
                   ))}
                 </tbody>
               </table>
+            )}
+          </div>
+
+          {/* INTERAÇÕES */}
+          <div style={{ marginBottom: 32 }}>
+            <div className="section-title">Interações</div>
+            {(op.interacoes ?? []).length === 0 ? (
+              <p className="descricao-vazia">Nenhum contato registrado.</p>
+            ) : (
+              (op.interacoes ?? []).map(i => (
+                <div className="nota" key={i.id}>
+                  <p className="nota-meta">
+                    {ROTULO_INTERACAO[i.tipo] ?? i.tipo}{i.contato ? ` com ${i.contato}` : ''} · {formatDateTime(i.dataHora)}
+                    {i.user?.name ? ` · registrado por ${i.user.name}` : ''}
+                  </p>
+                  <div className="descricao-content" dangerouslySetInnerHTML={{ __html: i.resumo || '' }} />
+                </div>
+              ))
             )}
           </div>
 

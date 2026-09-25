@@ -8,7 +8,7 @@ import {
   CheckSquare, MessageSquare, Trash2, Send, LayoutGrid, List,
   Download, FileText, Settings2, GripVertical, Save, Paperclip, UploadCloud, File, History, Archive, SlidersHorizontal, Tag, Layers, Sparkles,
   Flame, Thermometer, Snowflake, Megaphone, RotateCcw,
-  Square, Edit2, AlertCircle, Bell, Mail, Search as SearchIcon, Printer,
+  Search as SearchIcon, Printer, PhoneCall,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, RichEditor,
@@ -31,12 +31,13 @@ import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrate
 import { CSS } from '@dnd-kit/utilities'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { trpc } from '@/lib/trpc'
-import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
+import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
 import { moedaParaNumero, masks } from '@/lib/masks'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { useAutoHideScrollbar } from '@/hooks/use-autohide-scrollbar'
-import { TarefaModal } from '../agenda/_components/tarefa-modal'
+import { AcoesTab, type AcaoCrm } from './_components/acoes-tab'
+import { InteracoesTab, type InteracaoCrm } from './_components/interacoes-tab'
 
 // Temperatura do lead (vinda do funil de captação por IA).
 const TEMP_META: Record<string, { label: string; icon: typeof Flame; cor: string }> = {
@@ -121,18 +122,9 @@ function ConversaIATab({ oportunidadeId }: { oportunidadeId: string }) {
 
 interface Etapa { id: string; nome: string; ordem: number; cor: string; probabilidade: number; ehGanho: boolean; ehPerda: boolean; slaDias: number | null; _count: { oportunidades: number } }
 
-interface Oportunidade { id: string; numero?: number | null; titulo: string; descricao: string | null; valor: number | null; origem: string | null; temperatura?: string | null; score?: number | null; previsaoFechamento: string | null; createdAt: string; updatedAt: string; etapaId: string; clienteId: string | null; responsavelId: string | null; etapa: Etapa; cliente?: { id: string; razaoSocial: string } | null; responsavel?: { id: string; name: string } | null; _count?: { agendaTarefas?: number; mensagens: number; arquivos: number; agendaEventos?: number } }
+interface Oportunidade { id: string; numero?: number | null; titulo: string; descricao: string | null; doresOportunidades?: string | null; valor: number | null; origem: string | null; temperatura?: string | null; score?: number | null; previsaoFechamento: string | null; createdAt: string; updatedAt: string; etapaId: string; clienteId: string | null; responsavelId: string | null; etapa: Etapa; cliente?: { id: string; razaoSocial: string } | null; responsavel?: { id: string; name: string } | null; _count?: { agendaTarefas?: number; mensagens: number; arquivos: number; agendaEventos?: number } }
 
-interface OportunidadeDetail extends Oportunidade { mensagens: Mensagem[]; arquivos: Arquivo[]; eventos: Evento[] }
-
-// Tarefa do CRM = AgendaTarefa vinculada (mesma forma do `agenda.tarefa.list`).
-interface Tarefa {
-  id: string; titulo: string; descricao: string | null; prazo: string; horaPrazo: string | null
-  concluida: boolean; concluidaEm: string | null; prioridade: 'BAIXA' | 'NORMAL' | 'ALTA'
-  criadorId: string; criador?: { id: string; name: string; image: string | null }
-  lembretes?: Array<{ canal: 'POPUP' | 'EMAIL'; minutosAntes: number }>
-  membros?: Array<{ usuarioId: string; name: string; image: string | null; ciente: boolean }>
-}
+interface OportunidadeDetail extends Oportunidade { mensagens: Mensagem[]; interacoes?: InteracaoCrm[]; arquivos: Arquivo[]; eventos: Evento[]; contatoNome?: string | null }
 
 interface Mensagem { id: string; mensagem: string; createdAt: string; user?: { id: string; name: string; image?: string | null } | null }
 
@@ -265,19 +257,17 @@ export default function CrmPage() {
   const [draftRestored, setDraftRestored] = useState(false)   // rascunho recuperado ao reabrir
   // Este literal duplica `formVazio()` e é DELE que sai o tipo do form —
   // campo novo tem que entrar nos dois, senão o outro nem compila.
-  const [form, setForm] = useState({ titulo: '', descricao: '', valor: '', etapaId: '', clienteId: '', responsavelId: '', previsaoFechamento: '', origem: '', atividade: '', cpfCnpj: '', razaoSocial: '', nomeFantasia: '', cnaeCodigo: '', cnaeDescricao: '', contatoNome: '', contatoCargo: '', contatoTelefone: '', contatoEmail: '', tagId: '', campanhaSlug: '' })
+  const [form, setForm] = useState({ titulo: '', descricao: '', doresOportunidades: '', valor: '', etapaId: '', clienteId: '', responsavelId: '', previsaoFechamento: '', origem: '', atividade: '', cpfCnpj: '', razaoSocial: '', nomeFantasia: '', cnaeCodigo: '', cnaeDescricao: '', contatoNome: '', contatoCargo: '', contatoTelefone: '', contatoEmail: '', tagId: '', campanhaSlug: '' })
   const [clientes, setClientes] = useState<ClienteSelect[]>([])
 
   // Detail modal
   const [detailOpen, setDetailOpen] = useState(false)
   const [detail, setDetail] = useState<OportunidadeDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
-  const [detailTab, setDetailTab] = useState<'detalhes' | 'conversa' | 'tarefas' | 'mensagens' | 'arquivos' | 'historico'>('detalhes')
-  // Tarefas do card = AgendaTarefa vinculada. Carregadas à parte (agenda.tarefa.list).
-  const [tarefasCrm, setTarefasCrm] = useState<Tarefa[]>([])
+  const [detailTab, setDetailTab] = useState<'detalhes' | 'conversa' | 'acoes' | 'interacoes' | 'mensagens' | 'arquivos' | 'historico'>('detalhes')
+  // Ações do card = AgendaTarefa vinculada. Carregadas à parte (crm.acoes.list).
+  const [tarefasCrm, setTarefasCrm] = useState<AcaoCrm[]>([])
   const [tarefasLoading, setTarefasLoading] = useState(false)
-  const [tarefaModalOpen, setTarefaModalOpen] = useState(false)
-  const [tarefaEditando, setTarefaEditando] = useState<Tarefa | null>(null)
   const [novaMensagem, setNovaMensagem] = useState('')
   const [saving, setSaving] = useState(false)
   const [buscandoCnpj, setBuscandoCnpj] = useState(false)
@@ -537,7 +527,9 @@ export default function CrmPage() {
   useEffect(() => {
     if (!opParam) return
     openDetail(opParam)
-    if (tabParam === 'conversa' || tabParam === 'tarefas' || tabParam === 'mensagens' || tabParam === 'arquivos' || tabParam === 'historico') {
+    // `tarefas` = link antigo (a aba virou "Ações" em 25/09/2026).
+    if (tabParam === 'tarefas') setDetailTab('acoes')
+    else if (tabParam === 'conversa' || tabParam === 'acoes' || tabParam === 'interacoes' || tabParam === 'mensagens' || tabParam === 'arquivos' || tabParam === 'historico') {
       setDetailTab(tabParam)
     }
     router.replace('/crm', { scroll: false })
@@ -640,7 +632,7 @@ export default function CrmPage() {
   }, [filteredOps, etapas])
 
   // ── Create ──
-  const formVazio = () => ({ titulo: '', descricao: '', valor: '', etapaId: etapas[0]?.id || '', clienteId: '', responsavelId: '', previsaoFechamento: '', origem: '', atividade: '', cpfCnpj: '', razaoSocial: '', nomeFantasia: '', cnaeCodigo: '', cnaeDescricao: '', contatoNome: '', contatoCargo: '', contatoTelefone: '', contatoEmail: '', tagId: '', campanhaSlug: '' })
+  const formVazio = () => ({ titulo: '', descricao: '', doresOportunidades: '', valor: '', etapaId: etapas[0]?.id || '', clienteId: '', responsavelId: '', previsaoFechamento: '', origem: '', atividade: '', cpfCnpj: '', razaoSocial: '', nomeFantasia: '', cnaeCodigo: '', cnaeDescricao: '', contatoNome: '', contatoCargo: '', contatoTelefone: '', contatoEmail: '', tagId: '', campanhaSlug: '' })
 
   // Campanhas ofertáveis: só as vigentes. `listConfigs` devolve tudo, inclusive
   // desativadas e os funis "roteador", que não são campanha. Aqui (criação) não
@@ -717,6 +709,7 @@ export default function CrmPage() {
       const created = await (trpc.crm as any).create.mutate({
         titulo: form.titulo.trim(),
         descricao: form.descricao.trim() || undefined,
+        doresOportunidades: form.doresOportunidades.trim() || undefined,
         valor: form.valor ? moedaParaNumero(form.valor) : undefined,
         etapaId: form.etapaId || undefined,
         clienteId: form.clienteId || undefined,
@@ -890,46 +883,36 @@ export default function CrmPage() {
     }
   }
 
-  // ── Tarefas (AgendaTarefa vinculada à oportunidade) ──
+  // ── Ações (AgendaTarefa vinculada à oportunidade) ──
   const loadTarefasCrm = useCallback(async (oportunidadeId: string) => {
     setTarefasLoading(true)
     try {
-      const r = await (trpc.agenda.tarefa as any).list.query({ oportunidadeId })
-      setTarefasCrm(r as Tarefa[])
+      const r = await (trpc.crm as any).acoes.list.query({ oportunidadeId })
+      setTarefasCrm(r as AcaoCrm[])
     } catch (e) {
-      console.error('[CRM] load tarefas:', (e as Error).message)
+      console.error('[CRM] load ações:', (e as Error).message)
     } finally {
       setTarefasLoading(false)
     }
   }, [])
 
-  // Recarrega a lista do card e atualiza os contadores dos cards do board.
+  // Recarrega a lista, o histórico do card e os contadores do board.
   const refreshTarefasCrm = () => {
-    if (detail) loadTarefasCrm(detail.id)
+    if (!detail) return
+    loadTarefasCrm(detail.id)
+    recarregarDetalhe()
     fetchAll(true)
   }
 
-  // Alterna a ciência do usuário atual (a tarefa só conclui quando todos os
-  // membros dão ciência — regra no backend). Numa tarefa de dono único, conclui.
-  const toggleTarefa = async (t: Tarefa) => {
+  // Interações vêm no getById: recarregar o card é recarregar a lista.
+  const recarregarDetalhe = async () => {
+    if (!detail) return
     try {
-      await (trpc.agenda.tarefa as any).toggleConcluida.mutate({ id: t.id, concluida: !t.concluida })
-      refreshTarefasCrm()
-    } catch (e) { alerts.error('Erro', (e as Error).message) }
-  }
-
-  const deleteTarefa = async (t: Tarefa) => {
-    const ok = await alerts.confirm({
-      title: 'Excluir tarefa?',
-      text: `"${t.titulo}" será removida.`,
-      confirmText: 'Excluir',
-      icon: 'warning',
-    })
-    if (!ok) return
-    try {
-      await (trpc.agenda.tarefa as any).delete.mutate({ id: t.id })
-      refreshTarefasCrm()
-    } catch (e) { alerts.error('Erro', (e as Error).message) }
+      const d = await (trpc.crm as any).getById.query({ id: detail.id })
+      setDetail(d)
+    } catch (e) {
+      console.error('[CRM] reload detalhe:', (e as Error).message)
+    }
   }
 
   // ── Mensagens ──
@@ -1455,10 +1438,15 @@ export default function CrmPage() {
                 </div>
               </div>
             )}
-            {/* Descricao */}
+            {/* Perfil do Lead (coluna `descricao`) + Dores / Oportunidades:
+                um diz QUEM é o lead, o outro o que ele PRECISA. */}
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Detalhes da oportunidade</label>
-              <RichEditor value={form.descricao} onChange={v => setForm(f => ({ ...f, descricao: v }))} placeholder="Informe abaixo os detalhes da oportunidade..." />
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Perfil do Lead</label>
+              <RichEditor value={form.descricao} onChange={v => setForm(f => ({ ...f, descricao: v }))} placeholder="Quem é o lead: porte, ramo, momento da empresa, quem decide..." />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Dores / Oportunidades</label>
+              <RichEditor value={form.doresOportunidades} onChange={v => setForm(f => ({ ...f, doresOportunidades: v }))} placeholder="O que incomoda o lead hoje e onde o escritório pode ajudar..." />
             </div>
           </SheetBody>
         </SheetContent>
@@ -1539,7 +1527,8 @@ export default function CrmPage() {
                   ...((detail.origem === 'lead-ia' || detail.temperatura)
                     ? [{ key: 'conversa' as const, label: 'Conversa (IA)', icon: Sparkles }]
                     : []),
-                  { key: 'tarefas' as const, label: `Tarefas (${tarefasCrm.length})`, icon: CheckSquare },
+                  { key: 'acoes' as const, label: `Ações (${tarefasCrm.length})`, icon: CheckSquare },
+                  { key: 'interacoes' as const, label: `Interações (${detail.interacoes?.length ?? 0})`, icon: PhoneCall },
                   { key: 'mensagens' as const, label: `Anotações (${detail.mensagens.length})`, icon: MessageSquare },
                   { key: 'arquivos' as const, label: `Arquivos (${detail.arquivos.length})`, icon: Paperclip },
                   { key: 'historico' as const, label: 'Historico', icon: History },
@@ -1572,103 +1561,35 @@ export default function CrmPage() {
                 {/* ── Conversa IA Tab ── */}
                 {detailTab === 'conversa' && <ConversaIATab oportunidadeId={detail.id} />}
 
-                {/* ── Tarefas Tab (AgendaTarefa vinculada ao card) ── */}
-                {detailTab === 'tarefas' && (
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="text-[11px] text-muted-foreground leading-snug">
-                        Tarefas com prazo, lembretes e participantes. Aparecem também na lista de tarefas de cada participante e disparam os lembretes escolhidos.
-                      </p>
-                      <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5 shrink-0"
-                        onClick={() => { setTarefaEditando(null); setTarefaModalOpen(true) }}>
-                        <Plus className="h-4 w-4" />Nova tarefa
-                      </Button>
-                    </div>
-                    {tarefasLoading && tarefasCrm.length === 0 ? (
-                      <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-                    ) : tarefasCrm.length === 0 ? (
-                      <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhuma tarefa cadastrada</p>
-                    ) : (
-                      <div className="divide-y rounded-md border">
-                        {tarefasCrm.map(t => {
-                          const d = new Date(t.prazo)
-                          const hoje = new Date()
-                          const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
-                          const prazoDate = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
-                          const diffDias = Math.floor((prazoDate.getTime() - inicioHoje.getTime()) / 86400000)
-                          const atrasada = !t.concluida && diffDias < 0
-                          const hojeFlag = !t.concluida && diffDias === 0
-                          const dataFmt = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
-                          const membros = t.membros ?? []
-                          return (
-                            <div key={t.id} className={cn('group/row flex items-start gap-2.5 px-3 py-2.5 hover:bg-muted/30 transition-colors', t.concluida && 'opacity-60')}>
-                              <button type="button" onClick={() => toggleTarefa(t)} className="shrink-0 mt-0.5"
-                                title={t.concluida ? 'Reabrir (retirar ciência)' : 'Concluir (dar ciência)'}>
-                                {t.concluida
-                                  ? <CheckSquare className={cn('h-4 w-4', TEXT.emerald)} />
-                                  : <Square className="h-4 w-4 text-muted-foreground hover:text-sky-500" />}
-                              </button>
-                              <div className="flex-1 min-w-0 cursor-pointer" onClick={() => { setTarefaEditando(t); setTarefaModalOpen(true) }}>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <p className={cn('text-sm font-medium leading-snug', t.concluida && 'line-through')}>{t.titulo}</p>
-                                  {t.prioridade === 'ALTA' && (
-                                    <Badge variant="outline" className={cn('text-[10px] h-4 px-1.5', BADGE.orange)}>
-                                      <AlertCircle className="h-2.5 w-2.5 mr-0.5" />Alta
-                                    </Badge>
-                                  )}
-                                  {t.prioridade === 'BAIXA' && <Badge variant="outline" className="text-[10px] h-4 px-1.5">Baixa</Badge>}
-                                </div>
-                                <div className="flex items-center gap-3 mt-1 text-[11px] flex-wrap">
-                                  <span className={cn('inline-flex items-center gap-1 font-medium',
-                                    atrasada && TEXT.rose,
-                                    hojeFlag && TEXT.amber,
-                                    !atrasada && !hojeFlag && 'text-muted-foreground')}>
-                                    <Calendar className="h-3 w-3" />{dataFmt}{t.horaPrazo && ` · ${t.horaPrazo}`}{atrasada && ` · atrasada ${Math.abs(diffDias)}d`}{hojeFlag && ' · hoje'}
-                                  </span>
-                                  {(t.lembretes?.length ?? 0) > 0 && (
-                                    <span className="inline-flex items-center gap-1 text-muted-foreground" title="Lembretes">
-                                      {t.lembretes!.some(l => l.canal === 'EMAIL') ? <Mail className="h-3 w-3" /> : <Bell className="h-3 w-3" />}
-                                      {t.lembretes!.length}
-                                    </span>
-                                  )}
-                                  {membros.length > 1 && (
-                                    <span className="inline-flex items-center gap-1 text-muted-foreground" title="Participantes">
-                                      <span className="flex -space-x-1.5">
-                                        {membros.slice(0, 4).map(m => (
-                                          <span key={m.usuarioId} title={`${m.name} · ${m.ciente ? 'ciente' : 'pendente'}`}
-                                            className={cn('h-4 w-4 rounded-full ring-1 bg-muted flex items-center justify-center text-[8px] font-bold uppercase overflow-hidden', m.ciente ? 'ring-emerald-500' : 'ring-border opacity-60')}>
-                                            {m.image ? <img src={resolveAssetUrl(m.image)} alt="" className="h-full w-full object-cover" /> : (m.name?.[0] ?? '?')}
-                                          </span>
-                                        ))}
-                                      </span>
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-1 sm:shrink-0 opacity-100 sm:opacity-0 sm:group-hover/row:opacity-100 transition-opacity">
-                                <button type="button" onClick={() => { setTarefaEditando(t); setTarefaModalOpen(true) }}
-                                  className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Editar">
-                                  <Edit2 className="h-3.5 w-3.5" />
-                                </button>
-                                <button type="button" onClick={() => deleteTarefa(t)}
-                                  className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-rose-500/10 text-muted-foreground hover:text-rose-600" title="Excluir">
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
+                {/* ── Ações Tab (AgendaTarefa vinculada ao card) ── */}
+                {detailTab === 'acoes' && (
+                  <AcoesTab
+                    oportunidadeId={detail.id}
+                    acoes={tarefasCrm}
+                    carregando={tarefasLoading}
+                    meuId={profile?.id}
+                    moduleColor={MODULE_COLOR}
+                    onChanged={refreshTarefasCrm}
+                  />
+                )}
+
+                {/* ── Interações Tab ── */}
+                {detailTab === 'interacoes' && (
+                  <InteracoesTab
+                    oportunidadeId={detail.id}
+                    interacoes={detail.interacoes ?? []}
+                    contatoPadrao={detail.contatoNome}
+                    moduleColor={MODULE_COLOR}
+                    onChanged={recarregarDetalhe}
+                  />
                 )}
 
                 {/* ── Mensagens Tab ── */}
                 {detailTab === 'mensagens' && (
                   <div className="space-y-3">
-                    {/* Campo no topo (igual às Tarefas) — evita colidir com o widget de ajuda.
+                    {/* Campo no topo (igual às Ações) — evita colidir com o widget de ajuda.
                         #HLP0218: era um Input de uma linha só; virou editor com toolbar
-                        (negrito e tópicos), igual ao campo de Detalhes da oportunidade.
+                        (negrito e tópicos), igual ao campo Perfil do Lead.
                         Cada anotação já é carimbada com autor e data/hora abaixo, que é
                         o histórico que antes era digitado à mão dentro dos Detalhes. */}
                     <div className="space-y-2">
@@ -1738,17 +1659,6 @@ export default function CrmPage() {
           )}
         </SheetContent>
       </Sheet>
-
-      {/* ── Modal de tarefa (AgendaTarefa vinculada ao card) ── */}
-      {detail && (
-        <TarefaModal
-          open={tarefaModalOpen}
-          onOpenChange={setTarefaModalOpen}
-          tarefa={tarefaEditando}
-          oportunidadeId={detail.id}
-          onSaved={refreshTarefasCrm}
-        />
-      )}
 
       {/* ── Gerenciar Tags Modal ── */}
       <Dialog open={tagsModal} onOpenChange={setTagsModal}>
@@ -1895,6 +1805,7 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
 }) {
   const [titulo, setTitulo] = useState(detail.titulo)
   const [descricao, setDescricao] = useState(detail.descricao || '')
+  const [dores, setDores] = useState(detail.doresOportunidades || '')
   const [cpfCnpj, setCpfCnpj] = useState((detail as any).cpfCnpj || '')
   const [razaoSocial, setRazaoSocial] = useState((detail as any).razaoSocial || '')
   const [nomeFantasia, setNomeFantasia] = useState((detail as any).nomeFantasia || '')
@@ -1932,6 +1843,7 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
   useEffect(() => {
     setTitulo(detail.titulo)
     setDescricao(detail.descricao || '')
+    setDores(detail.doresOportunidades || '')
     setCpfCnpj((detail as any).cpfCnpj || '')
     setRazaoSocial((detail as any).razaoSocial || '')
     setNomeFantasia((detail as any).nomeFantasia || '')
@@ -1991,6 +1903,7 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
     onSave({
       titulo: titulo.trim(),
       descricao: descricao.trim() || null,
+      doresOportunidades: dores.trim() || null,
       cpfCnpj: cpfCnpj.trim() || null,
       razaoSocial: razaoSocial.trim() || null,
       nomeFantasia: nomeFantasia.trim() || null,
@@ -2211,10 +2124,14 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
         )
       })()}
 
-      {/* Descricao (editor) */}
+      {/* Perfil do Lead (coluna `descricao`) + Dores / Oportunidades */}
       <div>
-        <label className="text-xs font-medium text-muted-foreground mb-1 block">Detalhes da oportunidade</label>
-        <RichEditor value={descricao} onChange={v => { setDescricao(v); markDirty() }} placeholder="Informe os detalhes..." />
+        <label className="text-xs font-medium text-muted-foreground mb-1 block">Perfil do Lead</label>
+        <RichEditor value={descricao} onChange={v => { setDescricao(v); markDirty() }} placeholder="Quem é o lead: porte, ramo, momento da empresa, quem decide..." />
+      </div>
+      <div>
+        <label className="text-xs font-medium text-muted-foreground mb-1 block">Dores / Oportunidades</label>
+        <RichEditor value={dores} onChange={v => { setDores(v); markDirty() }} placeholder="O que incomoda o lead hoje e onde o escritório pode ajudar..." />
       </div>
 
       {/* Meta */}
@@ -2475,7 +2392,7 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
         </div>
         <div className="flex items-center gap-2">
           {(op._count?.agendaTarefas ?? 0) > 0 && (
-            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title="Tarefas">
+            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title="Ações">
               <CheckSquare className="h-3 w-3" /> {op._count!.agendaTarefas}
             </span>
           )}
@@ -2632,6 +2549,7 @@ const EVENTO_ICONS: Record<string, { icon: typeof Target; color: string }> = {
   etapa: { icon: ArrowRight, color: '#3b82f6' },
   edicao: { icon: Save, color: '#f59e0b' },
   tarefa: { icon: CheckSquare, color: '#8b5cf6' },
+  interacao: { icon: PhoneCall, color: '#0ea5e9' },
   mensagem: { icon: MessageSquare, color: '#06b6d4' },
   arquivo: { icon: Paperclip, color: '#f97316' },
   tag: { icon: FileText, color: '#ec4899' },

@@ -6,6 +6,7 @@ import { CrmEventsService } from './crm-events.service'
 import { NotificationService } from '../notification/notification.service'
 import { CnpjService } from '../cnpj/cnpj.service'
 import { dataBrKey } from '../agenda/data-br.util'
+import { descricaoDaInteracao, type TipoInteracao } from './crm-acao'
 
 const DEFAULT_ETAPAS = [
   { nome: 'Deal Aberto', ordem: 1, cor: '#818cf8', probabilidade: 10, ehGanho: false, ehPerda: false },
@@ -357,6 +358,7 @@ export class CrmService {
         etapa: true,
         tags: { include: { tag: true } },
         mensagens: { orderBy: { createdAt: 'desc' } },
+        interacoes: { orderBy: { dataHora: 'desc' } },
         arquivos: { orderBy: { createdAt: 'desc' } },
         eventos: { orderBy: { createdAt: 'desc' }, take: 50 },
         // Eventos da agenda vinculados a esta oportunidade (vínculo bidirecional)
@@ -381,6 +383,7 @@ export class CrmService {
           op.responsavelId,
           ...op.eventos.map(e => e.userId),
           ...op.mensagens.map(m => m.userId),
+          ...op.interacoes.map(i => i.userId),
         ].filter(Boolean)),
       ] as string[]
       const users = userIds.length > 0
@@ -407,6 +410,7 @@ export class CrmService {
         responsavel: op.responsavelId ? userMap.get(op.responsavelId) || null : null,
         eventos: op.eventos.map(e => ({ ...e, user: e.userId ? userMap.get(e.userId) || null : null })),
         mensagens: op.mensagens.map(m => ({ ...m, user: m.userId ? userMap.get(m.userId) || null : null })),
+        interacoes: op.interacoes.map(i => ({ ...i, user: i.userId ? userMap.get(i.userId) || null : null })),
       }
     })
   }
@@ -517,6 +521,7 @@ export class CrmService {
       data: {
         titulo: input.titulo,
         descricao: input.descricao || null,
+        doresOportunidades: input.doresOportunidades || null,
         valor: input.valor ?? null,
         etapaId: input.etapaId,
         clienteId,
@@ -587,6 +592,7 @@ export class CrmService {
     const data: any = {}
     if (input.titulo !== undefined) data.titulo = input.titulo
     if (input.descricao !== undefined) data.descricao = input.descricao
+    if (input.doresOportunidades !== undefined) data.doresOportunidades = input.doresOportunidades || null
     if (input.valor !== undefined) data.valor = input.valor
     if (input.etapaId !== undefined) data.etapaId = input.etapaId
     if (input.clienteId !== undefined) data.clienteId = input.clienteId
@@ -826,6 +832,67 @@ export class CrmService {
     })
     this.addEvento(oportunidadeId, userId, 'mensagem', 'Nova mensagem adicionada')
     return result
+  }
+
+  // ── Escopo ────────────────────────────────────────────────
+
+  /**
+   * A oportunidade, se for da empresa ativa. As rotas de Ações e Interações
+   * recebem ids soltos; sem isto, quem tem o módulo numa empresa escreveria
+   * no card de outra. Master sem empresa selecionada vê todas.
+   */
+  async oportunidadeNoEscopo(id: string, empresaId?: string | null) {
+    const op = await prisma.oportunidade.findUnique({ where: { id }, select: { id: true, titulo: true, empresaId: true } })
+    if (!op) return null
+    if (empresaId && op.empresaId !== empresaId) return null
+    return op
+  }
+
+  /** A AgendaTarefa por trás de uma Ação, se o card dela estiver no escopo. */
+  async acaoNoEscopo(tarefaId: string, empresaId?: string | null) {
+    const t = await prisma.agendaTarefa.findUnique({ where: { id: tarefaId }, select: { id: true, titulo: true, oportunidadeId: true, criadorId: true } })
+    if (!t?.oportunidadeId) return null
+    const op = await this.oportunidadeNoEscopo(t.oportunidadeId, empresaId)
+    return op ? { ...t, oportunidadeId: t.oportunidadeId } : null
+  }
+
+  // ── Interações ────────────────────────────────────────────
+
+  async addInteracao(oportunidadeId: string, userId: string, data: { tipo: TipoInteracao; dataHora: Date; contato?: string | null; resumo: string }) {
+    const result = await prisma.oportunidadeInteracao.create({
+      data: {
+        oportunidadeId,
+        userId: userId || null,
+        tipo: data.tipo,
+        dataHora: data.dataHora,
+        contato: data.contato?.trim() || null,
+        resumo: data.resumo,
+      },
+    })
+    await this.addEvento(oportunidadeId, userId, 'interacao', `Interação registrada: ${descricaoDaInteracao(data.tipo, data.contato)}`)
+    return result
+  }
+
+  /** A interação, se o card dela estiver no escopo. */
+  async interacaoNoEscopo(id: string, empresaId?: string | null) {
+    const i = await prisma.oportunidadeInteracao.findUnique({ where: { id }, select: { id: true, oportunidadeId: true, tipo: true, contato: true } })
+    if (!i) return null
+    return (await this.oportunidadeNoEscopo(i.oportunidadeId, empresaId)) ? i : null
+  }
+
+  async updateInteracao(id: string, userId: string, data: { tipo: TipoInteracao; dataHora: Date; contato?: string | null; resumo: string }) {
+    const result = await prisma.oportunidadeInteracao.update({
+      where: { id },
+      data: { tipo: data.tipo, dataHora: data.dataHora, contato: data.contato?.trim() || null, resumo: data.resumo },
+    })
+    await this.addEvento(result.oportunidadeId, userId, 'interacao', `Interação editada: ${descricaoDaInteracao(data.tipo, data.contato)}`)
+    return result
+  }
+
+  async deleteInteracao(id: string, userId: string) {
+    const result = await prisma.oportunidadeInteracao.delete({ where: { id } })
+    await this.addEvento(result.oportunidadeId, userId, 'interacao', `Interação excluída: ${descricaoDaInteracao(result.tipo as TipoInteracao, result.contato)}`)
+    return { id }
   }
 
   // ── Arquivos ──────────────────────────────────────────────

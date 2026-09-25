@@ -9,6 +9,7 @@ import type { AgendaLembrete, AgendaLembreteCanal } from '@saas/db'
 import { EmailService } from '../common/email.service'
 import { AgendaLembreteEventsService } from './agenda-lembrete-events.service'
 import { PushService } from '../push/push.service'
+import { destinatariosDoLembreteDeTarefa } from './lembrete-destinatarios'
 
 // Logo do sistema embarcada inline em todos e-mails (via cid:logo). Lê uma vez
 // no boot do módulo — se o arquivo não existir (dev sem assets), faz fallback
@@ -135,8 +136,9 @@ export class AgendaLembreteService implements OnModuleInit {
   /**
    * Tick análogo ao de eventos, mas pra tarefas — busca AgendaTarefaLembrete
    * pendentes, calcula trigger pelo prazo + horaPrazo e dispara via mesmo
-   * canal (POPUP via SSE, EMAIL via EmailService). Lembrete só pra criador
-   * (tarefas não têm participantes).
+   * canal (POPUP via SSE, EMAIL via EmailService). Vai para os membros que
+   * ainda não deram ciência (ver `destinatariosDoLembreteDeTarefa`) — no CRM,
+   * são os responsáveis pela Ação.
    */
   private async tickTarefas() {
     const agoraUtc = new Date()
@@ -165,13 +167,22 @@ export class AgendaLembreteService implements OnModuleInit {
     })
     if (lembretes.length === 0) return
 
-    for (const lembrete of lembretes) {
-      try {
-        const triggerUtc = this.calcularTrigger(lembrete.tarefa.prazo, lembrete.tarefa.horaPrazo, !lembrete.tarefa.horaPrazo, lembrete.minutosAntes)
-        if (!triggerUtc) continue
-        const deltaMs = agoraUtc.getTime() - triggerUtc.getTime()
-        if (deltaMs < -60_000 || deltaMs > 30_000) continue
+    // Só consulta os membros das tarefas cujo lembrete dispara AGORA — a lista
+    // acima traz tudo que vence em 31 dias.
+    const disparando = lembretes.filter((lembrete) => {
+      const triggerUtc = this.calcularTrigger(lembrete.tarefa.prazo, lembrete.tarefa.horaPrazo, !lembrete.tarefa.horaPrazo, lembrete.minutosAntes)
+      if (!triggerUtc) return false
+      const deltaMs = agoraUtc.getTime() - triggerUtc.getTime()
+      return deltaMs >= -60_000 && deltaMs <= 30_000
+    })
+    if (disparando.length === 0) return
+    const membrosPorTarefa = await this.membrosParaLembrete([...new Set(disparando.map(l => l.tarefa.id))])
 
+    for (const lembrete of disparando) {
+      try {
+        const membros = membrosPorTarefa.get(lembrete.tarefa.id) ?? []
+        const destinatarios = destinatariosDoLembreteDeTarefa(membros, lembrete.tarefa.criadorId)
+        if (destinatarios.length === 0) continue
         const dataStr = lembrete.tarefa.prazo.toISOString().slice(0, 10)
         if (lembrete.canal === 'POPUP') {
           this.events.emit({
@@ -182,34 +193,61 @@ export class AgendaLembreteService implements OnModuleInit {
             diaInteiro: !lembrete.tarefa.horaPrazo,
             local: null,
             minutosAntes: lembrete.minutosAntes,
-            destinatarios: [lembrete.tarefa.criadorId],
+            destinatarios,
           })
-          // Push pro criador da tarefa (mesmo gatilho do POPUP). Best-effort.
-          await this.pushService.sendToUser(lembrete.tarefa.criadorId, {
-            title: `📋 ${lembrete.tarefa.titulo}`,
-            body: lembrete.tarefa.horaPrazo ? `Prazo às ${lembrete.tarefa.horaPrazo}` : 'Tarefa pendente',
-            data: { tipo: 'agenda' },
-          })
-        } else if (lembrete.canal === 'EMAIL' && lembrete.tarefa.criador.email) {
-          // E-mail simplificado pra tarefa (sem template rico — não tem participantes/local/etc)
-          await this.emailService.sendMail({
-            to: lembrete.tarefa.criador.email,
-            subject: `Lembrete de tarefa: ${lembrete.tarefa.titulo}`,
-            html: `<div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:24px;background:#f1f5f9">
+          // Push para os mesmos destinatários (mesmo gatilho do POPUP). Best-effort.
+          for (const uid of destinatarios) {
+            await this.pushService.sendToUser(uid, {
+              title: `📋 ${lembrete.tarefa.titulo}`,
+              body: lembrete.tarefa.horaPrazo ? `Prazo às ${lembrete.tarefa.horaPrazo}` : 'Tarefa pendente',
+              data: { tipo: 'agenda' },
+            })
+          }
+        } else if (lembrete.canal === 'EMAIL') {
+          const emails = destinatarios
+            .map(uid => membros.find(m => m.usuarioId === uid)?.email ?? (uid === lembrete.tarefa.criadorId ? lembrete.tarefa.criador.email : null))
+            .filter((e): e is string => !!e)
+          if (emails.length === 0) continue
+          // E-mail simplificado pra tarefa (sem template rico — não tem local/etc).
+          // A descrição das Ações do CRM é HTML do editor: vai como texto.
+          const html = `<div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:24px;background:#f1f5f9">
               <div style="background:#fff;border-radius:12px;padding:24px;border-left:4px solid #0ea5e9">
                 <p style="margin:0 0 8px;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:700">⏰ Lembrete de tarefa</p>
-                <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a">${lembrete.tarefa.titulo}</h2>
-                ${lembrete.tarefa.descricao ? `<p style="margin:0 0 12px;color:#475569;font-size:14px;line-height:1.5">${lembrete.tarefa.descricao.replace(/</g, '&lt;')}</p>` : ''}
+                <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a">${this.escapeHtml(lembrete.tarefa.titulo)}</h2>
+                ${lembrete.tarefa.descricao ? `<p style="margin:0 0 12px;color:#475569;font-size:14px;line-height:1.5">${this.escapeHtml(this.stripHtmlAndTruncate(lembrete.tarefa.descricao, 600))}</p>` : ''}
                 <p style="margin:8px 0 0;font-size:13px;color:#64748b"><strong>Prazo:</strong> ${dataStr.split('-').reverse().join('/')}${lembrete.tarefa.horaPrazo ? ` às ${lembrete.tarefa.horaPrazo}` : ''}</p>
               </div>
-            </div>`,
-          })
+            </div>`
+          // Um e-mail por pessoa, como nos eventos: falha de um não derruba os outros.
+          await Promise.all(emails.map(to =>
+            this.emailService.sendMail({ to, subject: `Lembrete de tarefa: ${lembrete.tarefa.titulo}`, html })
+              .catch((e: Error) => console.error(`[AgendaTarefaLembrete] Email pra ${to} falhou:`, e.message)),
+          ))
         }
         await prisma.agendaTarefaLembrete.update({ where: { id: lembrete.id }, data: { ultimoDisparoEm: new Date() } })
       } catch (e) {
         console.error(`[AgendaTarefaLembrete] Falha disparando ${lembrete.id}:`, (e as Error).message)
       }
     }
+  }
+
+  /** Membros das tarefas, com a ciência e o e-mail de cada um. */
+  private async membrosParaLembrete(ids: string[]): Promise<Map<string, Array<{ usuarioId: string; ciente: boolean; email: string | null }>>> {
+    const mapa = new Map<string, Array<{ usuarioId: string; ciente: boolean; email: string | null }>>()
+    if (ids.length === 0) return mapa
+    const ph = ids.map((_, i) => `$${i + 1}`).join(',')
+    const linhas = await prisma.$queryRawUnsafe<Array<{ tarefa_id: string; usuario_id: string; ciente_em: Date | null; email: string | null }>>(
+      `SELECT p.tarefa_id, p.usuario_id, p.ciente_em, u.email
+         FROM agenda_tarefa_participantes p JOIN users u ON u.id = p.usuario_id
+        WHERE p.tarefa_id IN (${ph})`,
+      ...ids,
+    )
+    for (const l of linhas) {
+      const lista = mapa.get(l.tarefa_id) ?? []
+      lista.push({ usuarioId: l.usuario_id, ciente: !!l.ciente_em, email: l.email })
+      mapa.set(l.tarefa_id, lista)
+    }
+    return mapa
   }
 
   /**

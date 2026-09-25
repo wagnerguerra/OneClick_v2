@@ -17,7 +17,10 @@ export type UpdateCrmEtapaInput = z.infer<typeof updateCrmEtapaSchema>
 
 export const createOportunidadeSchema = z.object({
   titulo: z.string().min(1, 'Titulo e obrigatorio'),
+  /** Na tela: "Perfil do Lead". O nome da coluna ficou por compatibilidade. */
   descricao: z.string().optional().nullable(),
+  /** Na tela: "Dores / Oportunidades". */
+  doresOportunidades: z.string().optional().nullable(),
   valor: z.coerce.number().min(0).optional().nullable(),
   etapaId: z.string().min(1, 'Etapa e obrigatoria'),
   clienteId: z.string().optional().nullable(),

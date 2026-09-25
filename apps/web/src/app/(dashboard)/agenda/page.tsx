@@ -2664,10 +2664,10 @@ export default function AgendaPage() {
                             </div>
                           )}
 
-                          {/* Descrição da oportunidade */}
+                          {/* Perfil do Lead (coluna `descricao` da oportunidade) */}
                           {op.descricao && op.descricao.trim() && (
                             <div className="space-y-1.5">
-                              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Descrição</span>
+                              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Perfil do Lead</span>
                               <RichContent
                                 // `[&_*]:text-[12px]` achata o tamanho de todo
                                 // descendente de propósito (mesmo motivo do bloco
@@ -2680,7 +2680,7 @@ export default function AgendaPage() {
 
                           {/* Contadores do card */}
                           <div className="flex items-center gap-3 text-[11px] text-muted-foreground border-t border-violet-500/15 pt-2.5">
-                            <span className="tabular-nums">{op._count?.agendaTarefas ?? 0} tarefa(s)</span>
+                            <span className="tabular-nums">{op._count?.agendaTarefas ?? 0} ação(ões)</span>
                             <span className="text-muted-foreground/50">·</span>
                             <span className="tabular-nums">{op._count?.mensagens ?? 0} msg</span>
                             <span className="text-muted-foreground/50">·</span>

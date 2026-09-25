@@ -4363,6 +4363,10 @@ model Oportunidade {
   id                 String    @id @default(cuid())
   titulo             String
   descricao          String?   @db.Text
+  /// "Dores / Oportunidades" — o problema do lead e onde o escritório entra.
+  /// Fica ao lado da `descricao`, que na tela passou a se chamar "Perfil do
+  /// Lead": uma diz QUEM é o lead, a outra o que ele PRECISA.
+  doresOportunidades String?   @map("dores_oportunidades") @db.Text
   valor              Decimal?  @db.Decimal(12, 2)
   etapaId            String    @map("etapa_id")
   clienteId          String?   @map("cliente_id")
@@ -4398,6 +4402,7 @@ model Oportunidade {
   etapa     CrmEtapa               @relation(fields: [etapaId], references: [id])
   tags      OportunidadeTag[]
   mensagens OportunidadeMensagem[]
+  interacoes OportunidadeInteracao[]
   arquivos  OportunidadeArquivo[]
   eventos   OportunidadeEvento[]
 
@@ -4607,6 +4612,36 @@ model OportunidadeMensagem {
 
   @@index([oportunidadeId])
   @@map("oportunidade_mensagens")
+}
+
+/// Interação com o lead — cada CONTATO feito: ligação, WhatsApp, e-mail,
+/// reunião, visita.
+///
+/// Separado das anotações de propósito: a anotação é genérica (qualquer
+/// observação sobre o card); a interação responde "quando falamos com eles, por
+/// qual canal, com quem, e o que saiu disso". É o que permite contar contatos
+/// por lead e saber há quantos dias ninguém fala com ele.
+model OportunidadeInteracao {
+  id             String   @id @default(cuid())
+  oportunidadeId String   @map("oportunidade_id")
+  /// LIGACAO | WHATSAPP | EMAIL | REUNIAO | VISITA | OUTRO
+  tipo           String
+  /// Quando o contato ACONTECEU — não quando foi registrado. Quem registra à
+  /// tarde a ligação da manhã precisa poder dizer isso.
+  dataHora       DateTime @map("data_hora")
+  /// Com quem se falou do lado do lead (nome livre).
+  contato        String?
+  /// O que foi conversado e o que ficou combinado (HTML do RichEditor).
+  resumo         String   @db.Text
+  /// Autor do registro. Solto, como em OportunidadeMensagem.
+  userId         String?  @map("user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  oportunidade Oportunidade @relation(fields: [oportunidadeId], references: [id], onDelete: Cascade)
+
+  @@index([oportunidadeId, dataHora])
+  @@map("oportunidade_interacoes")
 }
 
 model OportunidadeArquivo {
