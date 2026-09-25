@@ -17,7 +17,6 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { cn } from '@saas/ui'
-import { StatCard } from '@/components/stat-card'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -322,38 +321,44 @@ export default function ComercialPage() {
           {/* ── Funil comercial: Qualificação + Fechamento ── */}
           {data?.funil && <FunilComercial funil={data.funil} periodo={periodo} />}
 
-          {/* ── KPIs ───────────────────────────────────────── */}
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-              <Target className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> CRM — Pipeline
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <StatCard icon={Target} label="Oportunidades ativas" value={oportunidadesAtivas} color="#818cf8" />
-              <StatCard icon={TrendingUp} label="Valor em pipeline" value={formatCompact(pipelineValor)} color="#34d399" sub={formatCurrency(pipelineValor)} />
-              <StatCard icon={Percent} label="Taxa de conversão" value={`${taxaConversao}%`} color={MODULE_COLOR} />
+          {/* ── KPIs: CRM (3) + Orçamentos (4) + Contratos (3) numa linha só a
+              partir de 2xl, cada cartão com a mesma largura (3fr/4fr/3fr).
+              Abaixo disso não cabe: "R$ 283,3 mil" ao lado do ícone precisa de
+              ~150px e, a 1366px, dez cartões dão ~115px cada — então os três
+              grupos empilham, cada um na sua linha. */}
+          <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,3fr)_minmax(0,4fr)_minmax(0,3fr)] gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
+                <Target className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> CRM — Pipeline
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <KpiFunil icon={Target} label="Oportunidades ativas" value={oportunidadesAtivas} color="#818cf8" />
+                <KpiFunil icon={TrendingUp} label="Valor em pipeline" value={formatCompact(pipelineValor)} color="#34d399" sub={formatCurrency(pipelineValor)} />
+                <KpiFunil icon={Percent} label="Taxa de conversão" value={`${taxaConversao}%`} color={MODULE_COLOR} />
+              </div>
             </div>
-          </div>
 
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-              <CircleDollarSign className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Orçamentos
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard icon={FileText} label="Em aberto" value={orcEmAberto} color="#60a5fa" />
-              <StatCard icon={CircleDollarSign} label="Valor pendente" value={formatCompact(orcValorPendente)} color="#34d399" sub={orcDash?.permitido ? formatCurrency(orcValorPendente) : 'sem acesso a valores'} />
-              <StatCard icon={Percent} label="Taxa de aprovação" value={`${taxaAprovacao}%`} color="#a78bfa" />
-              <StatCard icon={AlertTriangle} label="Atrasados" value={orcAtrasados} color="#f97316" />
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
+                <CircleDollarSign className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Orçamentos
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <KpiFunil icon={FileText} label="Em aberto" value={orcEmAberto} color="#60a5fa" />
+                <KpiFunil icon={CircleDollarSign} label="Valor pendente" value={formatCompact(orcValorPendente)} color="#34d399" sub={orcDash?.permitido ? formatCurrency(orcValorPendente) : 'sem acesso a valores'} />
+                <KpiFunil icon={Percent} label="Taxa de aprovação" value={`${taxaAprovacao}%`} color="#a78bfa" />
+                <KpiFunil icon={AlertTriangle} label="Atrasados" value={orcAtrasados} color="#f97316" />
+              </div>
             </div>
-          </div>
 
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-              <FileCheck className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Contratos — Carteira
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <StatCard icon={FileCheck} label="Contratos vigentes" value={vigentes} color="#34d399" />
-              <StatCard icon={Landmark} label="MRR (receita recorrente)" value={formatCompact(mrr)} color={MODULE_COLOR} sub={formatCurrency(mrr)} />
-              <StatCard icon={CalendarClock} label="A vencer (30 dias)" value={aVencer30} color="#fbbf24" sub={`${ct?.aVencer60 ?? 0} em até 60 dias`} />
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
+                <FileCheck className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Contratos — Carteira
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <KpiFunil icon={FileCheck} label="Contratos vigentes" value={vigentes} color="#34d399" />
+                <KpiFunil icon={Landmark} label="MRR (receita recorrente)" value={formatCompact(mrr)} color={MODULE_COLOR} sub={formatCurrency(mrr)} />
+                <KpiFunil icon={CalendarClock} label="A vencer (30 dias)" value={aVencer30} color="#fbbf24" sub={`${ct?.aVencer60 ?? 0} em até 60 dias`} />
+              </div>
             </div>
           </div>
 
@@ -775,27 +780,32 @@ function DetalheIndicadorModal({ coluna, periodo, onClose }: {
 }
 
 /**
- * Cartão compacto do funil. O StatCard tem o ícone num quadro de 40px ao lado
- * do rótulo, o que não cabe em nove cartões na mesma linha num notebook
- * 1366px: aqui o rótulo vai em cima (até duas linhas), o ícone fica pequeno
- * no canto e o número ocupa a largura toda.
+ * Cartão compacto dos indicadores do painel. O StatCard põe um quadro de 40px
+ * ao lado do RÓTULO, o que não cabe em nove/dez cartões numa linha: aqui o
+ * rótulo vai em cima, na largura toda (até duas linhas), e o ícone fica ao
+ * lado do NÚMERO, onde pode ser maior.
  */
 function KpiFunil({ icon: Icon, label, value, color, sub, title }: {
   icon: ElementType
   label: string
-  value: number
+  value: number | string
   color: string
   sub?: string
   title?: string
 }) {
   return (
-    <Card className="relative overflow-hidden p-3" title={title ?? label}>
-      <div className="flex items-start justify-between gap-1.5">
-        <p className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground leading-tight line-clamp-2 min-h-[2lh]">{label}</p>
-        <Icon className="h-4 w-4 shrink-0" style={{ color }} />
+    <Card className="relative overflow-hidden p-3 pb-3.5" title={title ?? (sub ? `${label}: ${sub}` : label)}>
+      <p className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground leading-tight line-clamp-2 min-h-[2lh]">{label}</p>
+      <div className="mt-2 flex items-center gap-2.5">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+          style={{ backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)` }}>
+          <Icon className="h-5 w-5" style={{ color }} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-xl font-bold leading-none tabular-nums whitespace-nowrap">{value}</p>
+          {sub && <p className="text-[10.5px] text-muted-foreground truncate mt-1">{sub}</p>}
+        </div>
       </div>
-      <p className="text-xl font-bold leading-none mt-1.5 tabular-nums">{value}</p>
-      <p className="text-[10.5px] text-muted-foreground truncate mt-1 min-h-[1lh]">{sub ?? ''}</p>
       <div className="absolute bottom-0 left-0 right-0 h-[3px]" style={{ backgroundColor: color }} />
     </Card>
   )
