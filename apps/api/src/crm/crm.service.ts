@@ -8,7 +8,7 @@ import { CnpjService } from '../cnpj/cnpj.service'
 import { dataBrKey, horaBrKey } from '../agenda/data-br.util'
 import { descricaoDaInteracao, ROTULO_INTERACAO, type TipoInteracao } from './crm-acao'
 import { filtroDeData, janelaDoPeriodo, type Janela, type Periodo } from '../common/periodo-br'
-import { acumular, campoDaSituacao, reuniaoJaAconteceu, situacaoDosLeads, type CampoIndicador, type OcorrenciaDoFunil } from './indicadores-comerciais'
+import { acumular, campoDaSituacao, ehTipoDeReuniao, reuniaoJaAconteceu, situacaoDosLeads, type CampoIndicador, type OcorrenciaDoFunil } from './indicadores-comerciais'
 import { contratosDeOrcamento, servicosDeEntrada, temServicoDeEntrada } from '../orcamento/contratos-de-orcamento'
 
 const DEFAULT_ETAPAS = [
@@ -1072,6 +1072,15 @@ export class CrmService {
 
     const groupMap = new Map(grouped.map(g => [g.etapaId, g]))
 
+    // Ganho = card numa etapa de ganho OU card cujo orçamento virou contrato
+    // (decisão de 25/09/2026: o funil da Central não tem etapa de ganho, e a
+    // taxa ficava sempre em 0%).
+    const [comContrato, cards] = await Promise.all([
+      this.cardsComContrato(empresaId),
+      prisma.oportunidade.findMany({ where, select: { id: true, etapa: { select: { ehGanho: true } } } }),
+    ])
+    const ganhosTotal = cards.filter(c => c.etapa.ehGanho || comContrato.has(c.id)).length
+
     const funilData = etapas.map(e => {
       const g = groupMap.get(e.id)
       return {
@@ -1099,10 +1108,9 @@ export class CrmService {
 
     const totalOportunidades = funilData.reduce((s, e) => s + e.count, 0)
     const valorTotal = funilData.reduce((s, e) => s + e.valor, 0)
-    const ganhos = funilData.find(e => e.ehGanho)
-    const taxaGeral = totalOportunidades > 0 ? Math.round(((ganhos?.count ?? 0) / totalOportunidades) * 100) : 0
+    const taxaGeral = totalOportunidades > 0 ? Math.round((ganhosTotal / totalOportunidades) * 100) : 0
 
-    return { etapas: funilData, conversoes, totalOportunidades, valorTotal, taxaGeral }
+    return { etapas: funilData, conversoes, totalOportunidades, valorTotal, taxaGeral, ganhos: ganhosTotal }
   }
 
   async reportDesempenho(empresaId?: string, dias?: number | Janela) {
@@ -1113,14 +1121,19 @@ export class CrmService {
       if (f) where.createdAt = f
     } else if (dias) where.createdAt = { gte: new Date(Date.now() - dias * 86400000) }
 
-    const oportunidades = await prisma.oportunidade.findMany({
-      where,
-      select: {
-        responsavelId: true,
-        valor: true,
-        etapa: { select: { ehGanho: true, ehPerda: true } },
-      },
-    })
+    const [oportunidades, comContrato] = await Promise.all([
+      prisma.oportunidade.findMany({
+        where,
+        select: {
+          id: true,
+          responsavelId: true,
+          valor: true,
+          isActive: true,
+          etapa: { select: { ehGanho: true, ehPerda: true, nome: true } },
+        },
+      }),
+      this.cardsComContrato(empresaId),
+    ])
 
     // Agrupar por responsavel
     const byResp = new Map<string, { total: number; ganhos: number; perdidos: number; valor: number; valorGanho: number }>()
@@ -1131,8 +1144,12 @@ export class CrmService {
       const entry = byResp.get(rid)!
       entry.total++
       entry.valor += Number(op.valor ?? 0)
-      if (op.etapa.ehGanho) { entry.ganhos++; entry.valorGanho += Number(op.valor ?? 0) }
-      if (op.etapa.ehPerda) entry.perdidos++
+      // Ganho = etapa de ganho ou card com contrato; perdido = etapa de perda,
+      // Declínio (pelo nome, a regra do CRM) ou card arquivado — o que não é
+      // ganho nem perdido segue em andamento.
+      const ganho = op.etapa.ehGanho || comContrato.has(op.id)
+      if (ganho) { entry.ganhos++; entry.valorGanho += Number(op.valor ?? 0) }
+      else if (op.etapa.ehPerda || /decl/i.test(op.etapa.nome) || !op.isActive) entry.perdidos++
     }
 
     // Buscar nomes dos usuarios
@@ -1151,6 +1168,12 @@ export class CrmService {
     })).sort((a, b) => b.valorGanho - a.valorGanho)
 
     return resultado
+  }
+
+  /** Cards do CRM cujo orçamento virou contrato (a qualquer tempo). */
+  private async cardsComContrato(empresaId?: string): Promise<Set<string>> {
+    const contratos = await contratosDeOrcamento(empresaId, undefined)
+    return new Set(contratos.map(c => c.oportunidadeId).filter((x): x is string => !!x))
   }
 
   /**
@@ -1313,6 +1336,7 @@ export class CrmService {
       ocorrencias.push({ campo: campoDaSituacao(s), userId: s.userId, oportunidadeId: opId, quando: s.dataHora, detalhe: ROTULO_INTERACAO[s.canal as TipoInteracao] ?? s.canal })
     }
     for (const e of eventos) {
+      if (!ehTipoDeReuniao(e.tipo?.nome)) continue
       const opId = e.oportunidadeId ?? e.oportunidadesVinc[0]?.oportunidadeId ?? null
       const criadoNoPeriodo = (!janela.gte || e.createdAt >= janela.gte) && (!janela.lte || e.createdAt <= janela.lte)
       // O tipo do evento vai no detalhe: a lista do clique mostra o que está

@@ -18,8 +18,10 @@
  *  - propostas enviadas: orçamentos enviados no período vindos de um card do
  *    CRM ou com serviço de entrada de novo cliente;
  *  - contratos assinados: orçamentos marcados como "contrato fechado" no
- *    painel (vale a data informada) ou, sem a marca, aprovados no período com
- *    serviço de entrada de novo cliente (Servico.entradaNovoCliente).
+ *    painel (vale a data informada) ou, sem a marca, aprovados no período e de
+ *    cliente novo — vindos de card do CRM ou com serviço de entrada
+ *    (orcamento/contratos-de-orcamento.ts);
+ *  - reuniões: só eventos de tipo "Reunião…" ou "Visita…" (ver ehTipoDeReuniao).
  */
 
 /** Resultados que encerram a qualificação do lead (EM_ANDAMENTO não conta). */
@@ -72,11 +74,24 @@ export function reuniaoJaAconteceu(dia: string, horaFim: string | null, horaInic
 /**
  * Quando o orçamento virou contrato, ou `null` se não virou. A marca manual
  * ("contrato fechado", com data) vence: é o comercial dizendo que fechou. Sem
- * ela, vale a aprovação de um orçamento com serviço de entrada de cliente.
+ * ela, vale a aprovação de um orçamento de cliente novo (veio de card do CRM
+ * ou tem serviço de entrada).
  */
-export function dataDoContrato(o: { contratoFechadoEm: Date | null; dtAprovado: Date | null }, temEntrada: boolean): Date | null {
+export function dataDoContrato(o: { contratoFechadoEm: Date | null; dtAprovado: Date | null }, deClienteNovo: boolean): Date | null {
   if (o.contratoFechadoEm) return o.contratoFechadoEm
-  return temEntrada ? o.dtAprovado : null
+  return deClienteNovo ? o.dtAprovado : null
+}
+
+/**
+ * O evento da Agenda é uma reunião com o lead? Só os tipos de reunião/visita
+ * (Reunião Interna, Reunião Externa, Visita ao Cliente). Em set/2026, 10 dos
+ * 14 eventos vinculados a cards eram "Lembrete Corporativo" e contavam como
+ * reunião. Decisão do Wagner (25/09/2026).
+ */
+export const TERMOS_TIPO_REUNIAO = ['reuni', 'visita'] as const
+export function ehTipoDeReuniao(nomeDoTipo: string | null | undefined): boolean {
+  const n = (nomeDoTipo ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  return TERMOS_TIPO_REUNIAO.some(t => n.includes(t))
 }
 
 export const CAMPOS_INDICADOR = [

@@ -8,8 +8,14 @@ import { dataDoContrato } from '../crm/indicadores-comerciais'
  * Decisão do Wagner (25/09/2026): contrato assinado vem dos orçamentos, não do
  * módulo Contratos. Um orçamento vira contrato quando:
  *  - foi marcado como "contrato fechado" no painel (vale a data informada), ou
- *  - sem a marca, foi aprovado com um serviço de entrada de novo cliente
- *    (Servico.entradaNovoCliente) — vale a data da aprovação.
+ *  - sem a marca, foi APROVADO e é de cliente novo: nasceu de um card do CRM
+ *    ou tem serviço de entrada de novo cliente (Servico.entradaNovoCliente) —
+ *    vale a data da aprovação.
+ *
+ * "Vindo de card" entrou em 25/09/2026: o diagnóstico de produção mostrou que
+ * nenhum orçamento do mês tinha serviço de entrada, então só a marca manual
+ * contaria — e ninguém marca. O orçamento de lead do CRM é, por definição, de
+ * cliente novo.
  * Orçamento cancelado não conta.
  *
  * Antes desta função o funil do painel usava esta regra e o Funil unificado e
@@ -62,7 +68,7 @@ export async function contratosDeOrcamento(
   })
   const out: ContratoDeOrcamento[] = []
   for (const o of candidatos) {
-    const em = dataDoContrato(o, temServicoDeEntrada(o, ent))
+    const em = dataDoContrato(o, !!o.oportunidadeId || temServicoDeEntrada(o, ent))
     if (!em) continue
     if (quando?.gte && em < quando.gte) continue
     if (quando?.lte && em > quando.lte) continue

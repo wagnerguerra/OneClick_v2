@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
+import { carteiraRecorrente, situacaoVigencia } from './carteira-gestao'
 import type {
   CreateClausulaInput,
   UpdateClausulaInput,
@@ -1804,124 +1805,87 @@ export class ContratoService {
 
   // ── Relatorio consolidado (Painel de Gestao a Vista) ───────
   /**
-   * Agregados da carteira de contratos para o painel comercial:
-   * MRR (honorario recorrente da carteira ativa), contagem por status,
-   * contratos a vencer (30/60 dias) e evolucao novos x encerrados (6 meses).
+   * Carteira recorrente para a aba Contratos do /comercial e o Painel TV.
+   *
+   * Desde 25/09/2026 lê a GESTÃO DE CONTRATOS (`carteiraRecorrente`), não a
+   * tabela `contratos`, que não é alimentada (ver carteira-gestao.ts). O
+   * formato da resposta ficou o mesmo, para as telas não mudarem:
+   *  - mrr: soma dos honorários mensais da carteira;
+   *  - vigentes: clientes com honorário na carteira;
+   *  - porStatus: VIGENTE (permanente ou fim no futuro), VENCIDO (fim no
+   *    passado) e SEM_VIGENCIA (sem data de fim informada);
+   *  - a vencer: fim nos próximos 30/60 dias (permanentes não vencem);
+   *  - evolução: clientes que ENTRARAM (data de entrada) e SAÍRAM (data de
+   *    saída) do escritório em cada um dos últimos 6 meses.
    */
   async reportComercial(empresaId?: string) {
-    const baseWhere: any = {}
-    if (empresaId) baseWhere.empresaId = empresaId
-
     const now = new Date()
     const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
     const in60 = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
     // Inicio do mes 5 meses atras (janela de 6 meses, mes atual incluso)
     const inicioJanela = new Date(now.getFullYear(), now.getMonth() - 5, 1)
+    const emp = empresaId ? { empresaId } : {}
 
-    const ativos = { ...baseWhere, status: { in: ['VIGENTE', 'ASSINADO'] } }
-    const [mrrAgg, porStatusRaw, aVencerRows, criados, encerrados, qtd30, qtd60] = await Promise.all([
-      // MRR = honorario mensal somado da carteira ativa (VIGENTE + ASSINADO)
-      (prisma as any).contrato.aggregate({
-        where: { ...baseWhere, status: { in: ['VIGENTE', 'ASSINADO'] } },
-        _sum: { honorarioMensal: true },
-      }),
-      (prisma as any).contrato.groupBy({
-        by: ['status'],
-        where: baseWhere,
-        _count: { _all: true },
-        _sum: { honorarioMensal: true },
-      }),
-      // A vencer: vigentes/assinados com dataFim nos proximos 60 dias
-      (prisma as any).contrato.findMany({
-        where: {
-          ...baseWhere,
-          status: { in: ['VIGENTE', 'ASSINADO'] },
-          dataFim: { not: null, lte: in60 },
-        },
-        orderBy: { dataFim: 'asc' },
-        take: 20,
-        select: {
-          id: true,
-          numero: true,
-          dataFim: true,
-          honorarioMensal: true,
-          cliente: { select: { id: true, razaoSocial: true } },
-        },
-      }),
-      (prisma as any).contrato.findMany({
-        where: { ...baseWhere, createdAt: { gte: inicioJanela } },
-        select: { createdAt: true },
-      }),
-      (prisma as any).contrato.findMany({
-        where: { ...baseWhere, encerradoEm: { not: null, gte: inicioJanela } },
-        select: { encerradoEm: true },
-      }),
-      // Contagens à parte: a lista acima para em 20 e traz também os já
-      // vencidos (dataFim no passado) — contar por ela limitava o cartão a 20
-      // e somava contrato vencido como "a vencer".
-      (prisma as any).contrato.count({ where: { ...ativos, dataFim: { gte: now, lte: in30 } } }),
-      (prisma as any).contrato.count({ where: { ...ativos, dataFim: { gte: now, lte: in60 } } }),
+    const [carteira, entradas, saidas] = await Promise.all([
+      carteiraRecorrente(empresaId),
+      prisma.cliente.findMany({ where: { ...emp, dataEntrada: { gte: inicioJanela } }, select: { dataEntrada: true } }),
+      prisma.cliente.findMany({ where: { ...emp, dataSaida: { gte: inicioJanela } }, select: { dataSaida: true } }),
     ])
 
-    // Contagem por status -> mapa
-    const porStatus: Record<string, number> = {}
-    let totalContratos = 0
-    for (const r of porStatusRaw as Array<{ status: string; _count: { _all: number } }>) {
-      porStatus[r.status] = r._count._all
-      totalContratos += r._count._all
+    const porStatusMap = new Map<string, { count: number; valor: number }>()
+    for (const c of carteira) {
+      const st = situacaoVigencia(c, now)
+      const acc = porStatusMap.get(st) ?? { count: 0, valor: 0 }
+      acc.count++
+      acc.valor += c.honorario
+      porStatusMap.set(st, acc)
     }
 
-    // A vencer: classifica em <=30d e <=60d
-    const aVencer = (aVencerRows as Array<any>).map((c) => ({
+    const aVencerTodos = carteira
+      .filter(c => !c.permanente && c.dataFim && c.dataFim <= in60)
+      .sort((a, b) => a.dataFim!.getTime() - b.dataFim!.getTime())
+    const aVencer = aVencerTodos.slice(0, 20).map(c => ({
       id: c.id,
-      numero: c.numero,
-      cliente: c.cliente?.razaoSocial ?? '—',
+      numero: c.numero ?? '—',
+      cliente: c.cliente,
       dataFim: c.dataFim,
-      honorarioMensal: Number(c.honorarioMensal ?? 0),
-      diasRestantes: c.dataFim ? Math.ceil((new Date(c.dataFim).getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) : null,
+      honorarioMensal: c.honorario,
+      diasRestantes: Math.ceil((c.dataFim!.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)),
     }))
-    const aVencer30 = qtd30 as number
-    const aVencer60 = qtd60 as number
+    const aVencer30 = aVencerTodos.filter(c => c.dataFim! >= now && c.dataFim! <= in30).length
+    const aVencer60 = aVencerTodos.filter(c => c.dataFim! >= now).length
 
-    // Evolucao mensal (6 buckets)
+    // Evolucao mensal (6 buckets): entradas x saidas de clientes
     const buckets: Array<{ mes: string; novos: number; encerrados: number }> = []
     const idxByKey: Record<string, number> = {}
     const mesesLabel = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const key = `${d.getFullYear()}-${d.getMonth()}`
-      idxByKey[key] = buckets.length
+    for (let k = 5; k >= 0; k--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - k, 1)
+      idxByKey[`${d.getFullYear()}-${d.getMonth()}`] = buckets.length
       buckets.push({ mes: `${mesesLabel[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`, novos: 0, encerrados: 0 })
     }
-    for (const c of criados as Array<{ createdAt: Date }>) {
-      const d = new Date(c.createdAt)
+    const somar = (d: Date | null, campo: 'novos' | 'encerrados') => {
+      if (!d) return
       const idx = idxByKey[`${d.getFullYear()}-${d.getMonth()}`]
       const b = idx !== undefined ? buckets[idx] : undefined
-      if (b) b.novos++
+      if (b) b[campo]++
     }
-    for (const c of encerrados as Array<{ encerradoEm: Date }>) {
-      const d = new Date(c.encerradoEm)
-      const idx = idxByKey[`${d.getFullYear()}-${d.getMonth()}`]
-      const b = idx !== undefined ? buckets[idx] : undefined
-      if (b) b.encerrados++
-    }
+    for (const c of entradas) somar(c.dataEntrada, 'novos')
+    for (const c of saidas) somar(c.dataSaida, 'encerrados')
 
+    const mrr = Math.round(carteira.reduce((t, c) => t + c.honorario, 0) * 100) / 100
     return {
-      mrr: Number(mrrAgg._sum.honorarioMensal ?? 0),
-      totalContratos,
-      vigentes: porStatus['VIGENTE'] ?? 0,
-      assinados: porStatus['ASSINADO'] ?? 0,
-      aguardandoAssinatura: porStatus['AGUARDANDO_ASSINATURA'] ?? 0,
-      rascunhos: porStatus['RASCUNHO'] ?? 0,
-      encerrados: porStatus['ENCERRADO'] ?? 0,
-      cancelados: porStatus['CANCELADO'] ?? 0,
+      mrr,
+      totalContratos: carteira.length,
+      vigentes: carteira.length,
+      assinados: 0,
+      aguardandoAssinatura: 0,
+      rascunhos: 0,
+      encerrados: porStatusMap.get('VENCIDO')?.count ?? 0,
+      cancelados: 0,
       aVencer30,
       aVencer60,
-      porStatus: (porStatusRaw as Array<any>).map((r) => ({
-        status: r.status,
-        count: r._count._all,
-        valor: Number(r._sum?.honorarioMensal ?? 0),
-      })),
+      porStatus: [...porStatusMap.entries()].map(([status, v]) => ({ status, count: v.count, valor: Math.round(v.valor * 100) / 100 })),
       aVencer,
       evolucaoMensal: buckets,
     }

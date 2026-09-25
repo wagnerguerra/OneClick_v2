@@ -9,6 +9,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
 import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
+import { Ajuda, AJUDA } from './ajuda'
 import type { inferRouterOutputs } from '@trpc/server'
 import type { AppRouter } from '@saas/api/src/trpc/trpc.service'
 
@@ -116,6 +117,7 @@ function FunilUnificadoReport({ funil }: { funil: FunilData }) {
                 <div className="w-[190px] shrink-0 flex items-center gap-2 text-xs font-medium">
                   <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: MODULE_COLOR }} />
                   <span className="truncate">{s.label}</span>
+                  {AJUDA.funilUnificado[s.label] && <Ajuda texto={AJUDA.funilUnificado[s.label]} />}
                 </div>
                 <div className="flex-1 h-8 bg-muted/30 rounded relative overflow-hidden">
                   <div className="h-full flex items-center justify-end pr-2 text-[11px] font-semibold text-white transition-all"
@@ -135,7 +137,7 @@ function FunilUnificadoReport({ funil }: { funil: FunilData }) {
   )
 }
 
-function KpiCard({ icon: Icon, label, value, sub, cor }: { icon: any; label: string; value: string; sub?: string; cor: string }) {
+function KpiCard({ icon: Icon, label, value, sub, cor, ajuda }: { icon: any; label: string; value: string; sub?: string; cor: string; ajuda?: string }) {
   return (
     <Card className="p-4">
       <div className="flex items-center gap-2 mb-2">
@@ -143,6 +145,7 @@ function KpiCard({ icon: Icon, label, value, sub, cor }: { icon: any; label: str
           <Icon className="h-4 w-4" style={{ color: cor }} />
         </div>
         <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
+        {ajuda && <Ajuda texto={ajuda} className="ml-auto" />}
       </div>
       <p className="text-xl font-semibold tabular-nums text-foreground">{value}</p>
       {sub && <p className="text-[11px] text-muted-foreground mt-0.5">{sub}</p>}
@@ -157,15 +160,15 @@ function MrrReport({ mrr }: { mrr: MrrData }) {
     <div className="flex flex-col gap-4">
       {/* KPIs da carteira recorrente */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard icon={Landmark} label="MRR atual" value={formatCompact(mrr.mrrAtual)} sub={formatCurrency(mrr.mrrAtual)} cor={COR_RECORRENTE} />
-        <KpiCard icon={Repeat} label="Receita anualizada" value={formatCompact(mrr.mrrAnualizado)} sub="MRR × 12" cor="#34d399" />
-        <KpiCard icon={Users2} label="Contratos recorrentes" value={String(mrr.contratosRecorrentes)} sub="vigentes + assinados" cor="#818cf8" />
-        <KpiCard icon={Zap} label="Ticket médio MRR" value={formatCompact(mrr.ticketMedioMrr)} sub="por contrato/mês" cor={MODULE_COLOR} />
+        <KpiCard icon={Landmark} label="MRR atual" ajuda={AJUDA.mrrAtual} value={formatCompact(mrr.mrrAtual)} sub={formatCurrency(mrr.mrrAtual)} cor={COR_RECORRENTE} />
+        <KpiCard icon={Repeat} label="Receita anualizada" ajuda={AJUDA.receitaAnualizada} value={formatCompact(mrr.mrrAnualizado)} sub="MRR × 12" cor="#34d399" />
+        <KpiCard icon={Users2} label="Contratos recorrentes" ajuda={AJUDA.contratosRecorrentes} value={String(mrr.contratosRecorrentes)} sub="na Gestão de Contratos" cor="#818cf8" />
+        <KpiCard icon={Zap} label="Ticket médio MRR" ajuda={AJUDA.ticketMedioMrr} value={formatCompact(mrr.ticketMedioMrr)} sub="por contrato/mês" cor={MODULE_COLOR} />
       </div>
 
       {/* Mix de vendas aprovadas no período */}
       <Card className="p-5">
-        <h3 className="text-sm font-semibold mb-1">Mix das vendas aprovadas no período</h3>
+        <h3 className="text-sm font-semibold mb-1 flex items-center gap-1.5">Mix das vendas aprovadas no período <Ajuda texto={AJUDA.mixReceita} /></h3>
         <p className="text-[11px] text-muted-foreground mb-4">Orçamentos aprovados, separados pela natureza do serviço: recorrente (entra como MRR) vs. avulso (faturamento pontual).</p>
         {totalMix > 0 ? (
           <>
@@ -197,7 +200,7 @@ function MrrReport({ mrr }: { mrr: MrrData }) {
 
       {/* Série 12 meses */}
       <Card className="p-5">
-        <h3 className="text-sm font-semibold mb-1">Vendas aprovadas — recorrente × avulso (12 meses)</h3>
+        <h3 className="text-sm font-semibold mb-1 flex items-center gap-1.5">Vendas aprovadas — recorrente × avulso (12 meses) <Ajuda texto={AJUDA.serie12m} /></h3>
         <p className="text-[11px] text-muted-foreground mb-4">Valor aprovado por mês (por data de aprovação), classificado pela natureza do serviço.</p>
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
@@ -229,10 +232,10 @@ function VendedoresReport({ data }: { data: VendedoresData }) {
     <div className="flex flex-col gap-4">
       {/* KPIs totais */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard icon={Send} label="Orçamentos enviados" value={String(totais.enviados)} cor="#60a5fa" />
-        <KpiCard icon={CheckCircle2} label="Aprovados" value={String(totais.aprovados)} sub={`${totais.enviados > 0 ? Math.round((totais.aprovados / totais.enviados) * 100) : 0}% de aprovação`} cor={COR_RECORRENTE} />
-        <KpiCard icon={DollarSign} label="Valor aprovado" value={formatCompact(totais.valorAprovado)} sub={formatCurrency(totais.valorAprovado)} cor="#34d399" />
-        <KpiCard icon={FileCheck} label="Contratos efetivados" value={String(totais.contratos)} sub={`${formatCompact(totais.mrr)} em MRR`} cor={MODULE_COLOR} />
+        <KpiCard icon={Send} label="Orçamentos enviados" ajuda={AJUDA.rankEnviados} value={String(totais.enviados)} cor="#60a5fa" />
+        <KpiCard icon={CheckCircle2} label="Aprovados" ajuda={AJUDA.rankAprovados} value={String(totais.aprovados)} sub={`${totais.enviados > 0 ? Math.round((totais.aprovados / totais.enviados) * 100) : 0}% de aprovação`} cor={COR_RECORRENTE} />
+        <KpiCard icon={DollarSign} label="Valor aprovado" ajuda={AJUDA.rankValor} value={formatCompact(totais.valorAprovado)} sub={formatCurrency(totais.valorAprovado)} cor="#34d399" />
+        <KpiCard icon={FileCheck} label="Contratos efetivados" ajuda={AJUDA.rankContratos} value={String(totais.contratos)} sub="de clientes novos" cor={MODULE_COLOR} />
       </div>
 
       {/* Tabela ranking */}
@@ -262,7 +265,6 @@ function VendedoresReport({ data }: { data: VendedoresData }) {
                   <span className="font-medium" style={{ color: v.taxaAprovacao >= 50 ? COR_RECORRENTE : undefined }}>{v.taxaAprovacao}% conv.</span>
                   <span>Ticket {formatCompact(v.ticketMedio)}</span>
                   <span><FileCheck className="inline h-3 w-3 mr-0.5" />{v.contratos} contrato(s)</span>
-                  {v.mrr > 0 && <span><Landmark className="inline h-3 w-3 mr-0.5" />{formatCompact(v.mrr)} MRR</span>}
                 </div>
               </div>
             </div>
@@ -270,7 +272,7 @@ function VendedoresReport({ data }: { data: VendedoresData }) {
         </div>
       </Card>
       <p className="text-[10px] text-muted-foreground">
-        Vendedor = responsável do orçamento/contrato. Enviados e aprovados por data de envio/aprovação no período; contratos por data de criação.
+        Vendedor = responsável do orçamento. Enviados e aprovados por data de envio/aprovação no período (cancelados e arquivados fora); contratos pela regra de "Contratos assinados" do Funil comercial.
       </p>
     </div>
   )
@@ -284,10 +286,10 @@ function DescontosReport({ data }: { data: DescontosData }) {
     <div className="flex flex-col gap-4">
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard icon={Wallet} label="Valor bruto" value={formatCompact(kpis.brutoTotal)} sub={`${kpis.totalAprovados} aprovado(s)`} cor="#60a5fa" />
-        <KpiCard icon={Scissors} label="Desconto concedido" value={formatCompact(kpis.descTotal)} sub={formatCurrency(kpis.descTotal)} cor={MODULE_COLOR} />
-        <KpiCard icon={TicketPercent} label="Desconto médio" value={`${kpis.descontoMedioPct}%`} sub="sobre o bruto" cor="#f97316" />
-        <KpiCard icon={TrendingDown} label="Com desconto" value={`${kpis.pctComDesconto}%`} sub={`${kpis.comDesconto} de ${kpis.totalAprovados}`} cor="#fbbf24" />
+        <KpiCard icon={Wallet} label="Valor bruto" ajuda={AJUDA.descBruto} value={formatCompact(kpis.brutoTotal)} sub={`${kpis.totalAprovados} aprovado(s)`} cor="#60a5fa" />
+        <KpiCard icon={Scissors} label="Desconto concedido" ajuda={AJUDA.descConcedido} value={formatCompact(kpis.descTotal)} sub={formatCurrency(kpis.descTotal)} cor={MODULE_COLOR} />
+        <KpiCard icon={TicketPercent} label="Desconto médio" ajuda={AJUDA.descMedio} value={`${kpis.descontoMedioPct}%`} sub="sobre o bruto" cor="#f97316" />
+        <KpiCard icon={TrendingDown} label="Com desconto" ajuda={AJUDA.descComDesconto} value={`${kpis.pctComDesconto}%`} sub={`${kpis.comDesconto} de ${kpis.totalAprovados}`} cor="#fbbf24" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

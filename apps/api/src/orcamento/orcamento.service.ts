@@ -7,6 +7,7 @@ import {
 import { idsDeEmpresasInativas, semEmpresaInativa } from '../common/empresa-inativa'
 import { filtroDeData, filtroDeDiasOuJanela, type Janela } from '../common/periodo-br'
 import { contratosDeOrcamento } from './contratos-de-orcamento'
+import { carteiraRecorrente } from '../contrato/carteira-gestao'
 import type { CreateOrcamentoInput, UpdateOrcamentoInput, ListOrcamentoInput, CreateOrcamentoItemInput, UpdateOrcamentoItemInput } from '@saas/types'
 import { filtroDeBusca, escopoDeEmpresa, consolidar } from './orcamento-busca-cliente'
 import { ORCAMENTO_ALLOWED_TRANSITIONS, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_ORDER, isOrcamentoTransitionAllowed, limparCnpj, resolveOrcamentoScope } from '@saas/types'
@@ -4914,11 +4915,9 @@ export class OrcamentoService {
 
     const orcSelect = { totalGeral: true, tipo: true, dtAprovado: true, itens: { select: { tipo: true, catalogoId: true } } } as const
     const [mrrAgg, aprovados, ult12] = await Promise.all([
-      prisma.contrato.aggregate({
-        where: { ...(empresaId ? { empresaId } : {}), status: { in: ['VIGENTE', 'ASSINADO'] } },
-        _sum: { honorarioMensal: true },
-        _count: { _all: true },
-      }),
+      // MRR = carteira da Gestão de Contratos (a tabela `contratos` não é
+      // alimentada — ver contrato/carteira-gestao.ts).
+      carteiraRecorrente(empresaId),
       prisma.orcamento.findMany({
         where: { ...emp, arquivado: false, status: { not: 'CANCELADO' }, dtAprovado: aprovadoEm ?? { not: null } },
         select: orcSelect,
@@ -4929,8 +4928,8 @@ export class OrcamentoService {
       }),
     ])
 
-    const mrrAtual = Number(mrrAgg._sum.honorarioMensal ?? 0)
-    const contratosRecorrentes = mrrAgg._count._all
+    const mrrAtual = Math.round(mrrAgg.reduce((t, c) => t + c.honorario, 0) * 100) / 100
+    const contratosRecorrentes = mrrAgg.length
 
     // Vendas aprovadas no período → recorrente vs. avulso
     const rec = { count: 0, valor: 0 }, av = { count: 0, valor: 0 }

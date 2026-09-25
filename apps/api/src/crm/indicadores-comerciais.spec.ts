@@ -1,4 +1,4 @@
-import { acumular, campoDaSituacao, dataDoContrato, reuniaoJaAconteceu, situacaoDosLeads } from './indicadores-comerciais'
+import { acumular, campoDaSituacao, dataDoContrato, ehTipoDeReuniao, reuniaoJaAconteceu, situacaoDosLeads } from './indicadores-comerciais'
 
 const d = (s: string) => new Date(s)
 
@@ -44,6 +44,17 @@ describe('dataDoContrato', () => {
     expect(dataDoContrato({ contratoFechadoEm: null, dtAprovado: aprovado }, true)).toEqual(aprovado)
     expect(dataDoContrato({ contratoFechadoEm: null, dtAprovado: aprovado }, false)).toBeNull()
     expect(dataDoContrato({ contratoFechadoEm: null, dtAprovado: null }, true)).toBeNull()
+  })
+})
+
+describe('ehTipoDeReuniao', () => {
+  it('reunião e visita contam; lembrete, tarefa e compromisso não', () => {
+    expect(ehTipoDeReuniao('Reunião Interna')).toBe(true)
+    expect(ehTipoDeReuniao('Reuniao Externa')).toBe(true)
+    expect(ehTipoDeReuniao('Visita ao Cliente')).toBe(true)
+    expect(ehTipoDeReuniao('Lembrete Corporativo')).toBe(false)
+    expect(ehTipoDeReuniao('Tarefa')).toBe(false)
+    expect(ehTipoDeReuniao(null)).toBe(false)
   })
 })
 

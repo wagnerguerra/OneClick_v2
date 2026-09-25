@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useMemo, type ElementType } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo, type ElementType, type ReactNode } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
   Target, TrendingUp, Percent, CircleDollarSign, FileText, AlertTriangle,
@@ -24,6 +24,7 @@ import { trpc } from '@/lib/trpc'
 import { BADGE, STRONG, TEXT } from '@/lib/color-styles'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { RelatorioComercial, type TipoRelatorioComercial } from './_components/relatorios-comerciais'
+import { Ajuda, AJUDA } from './_components/ajuda'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -136,6 +137,8 @@ const ORC_STATUS_LABEL: Record<string, string> = {
   LIBERADO: 'Liberado', FINALIZADO: 'Finalizado', ENCERRADO: 'Encerrado', CANCELADO: 'Cancelado',
 }
 const CONTRATO_STATUS_LABEL: Record<string, string> = {
+  // Vigência da carteira (Gestão de Contratos) — a aba Contratos lê de lá.
+  VENCIDO: 'Vencido', SEM_VIGENCIA: 'Sem vigência informada',
   RASCUNHO: 'Rascunho', AGUARDANDO_ASSINATURA: 'Aguardando assinatura', ASSINADO: 'Assinado',
   VIGENTE: 'Vigente', ENCERRADO: 'Encerrado', CANCELADO: 'Cancelado',
 }
@@ -381,9 +384,9 @@ export default function ComercialPage() {
                   <Target className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> CRM — Pipeline
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <KpiFunil icon={Target} label="Oportunidades ativas" value={oportunidadesAtivas} color="#818cf8" sub="funil de hoje" />
-                  <KpiFunil icon={TrendingUp} label="Valor em pipeline" value={formatCompact(pipelineValor)} color="#34d399" sub={formatCurrency(pipelineValor)} />
-                  <KpiFunil icon={Percent} label="Taxa de conversão" value={`${taxaConversao}%`} color={MODULE_COLOR} />
+                  <KpiFunil icon={Target} label="Oportunidades ativas" ajuda={AJUDA.oportunidadesAtivas} value={oportunidadesAtivas} color="#818cf8" sub="funil de hoje" />
+                  <KpiFunil icon={TrendingUp} label="Valor em pipeline" ajuda={AJUDA.valorPipeline} value={formatCompact(pipelineValor)} color="#34d399" sub={formatCurrency(pipelineValor)} />
+                  <KpiFunil icon={Percent} label="Taxa de conversão" ajuda={AJUDA.taxaConversao} value={`${taxaConversao}%`} color={MODULE_COLOR} />
                 </div>
               </div>
 
@@ -392,11 +395,11 @@ export default function ComercialPage() {
                   <CircleDollarSign className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Orçamentos
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <KpiFunil icon={FileText} label="Em aberto" value={orcEmAberto} color="#60a5fa" />
-                  <KpiFunil icon={CircleDollarSign} label="Valor pendente" value={formatCompact(orcValorPendente)} color="#34d399" sub={orcDash?.permitido ? formatCurrency(orcValorPendente) : 'sem acesso a valores'} />
-                  <KpiFunil icon={Percent} label="Taxa de aprovação" value={`${taxaAprovacao}%`} color="#a78bfa"
+                  <KpiFunil icon={FileText} label="Em aberto" ajuda={AJUDA.emAberto} value={orcEmAberto} color="#60a5fa" />
+                  <KpiFunil icon={CircleDollarSign} label="Valor pendente" ajuda={AJUDA.valorPendente} value={formatCompact(orcValorPendente)} color="#34d399" sub={orcDash?.permitido ? formatCurrency(orcValorPendente) : 'sem acesso a valores'} />
+                  <KpiFunil icon={Percent} label="Taxa de aprovação" ajuda={AJUDA.taxaAprovacao} value={`${taxaAprovacao}%`} color="#a78bfa"
                     sub={`${orcAprovadosPeriodo} aprov. ÷ ${orcEnviadosPeriodo} env. no período`} />
-                  <KpiFunil icon={AlertTriangle} label="Atrasados" value={orcAtrasados} color="#f97316" />
+                  <KpiFunil icon={AlertTriangle} label="Atrasados" ajuda={AJUDA.atrasados} value={orcAtrasados} color="#f97316" />
                 </div>
                 </div>
 
@@ -404,7 +407,7 @@ export default function ComercialPage() {
               {mrrAvulso && (
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-                    <CircleDollarSign className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Receita — recorrente vs. avulsa
+                    <CircleDollarSign className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Receita — recorrente vs. avulsa <Ajuda texto={AJUDA.mixReceita} />
                   </p>
                   <Card className="p-4">
                     {recAvTotal > 0 ? (
@@ -457,7 +460,7 @@ export default function ComercialPage() {
               {/* ── Graficos linha 1: Funil CRM + Orcamentos por status ── */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 <Card className="lg:col-span-7 p-4">
-                  <h3 className="text-[13px] font-semibold text-foreground mb-4">Funil de vendas (CRM)</h3>
+                  <h3 className="text-[13px] font-semibold text-foreground mb-4 flex items-center gap-1.5">Funil de vendas (CRM) <Ajuda texto={AJUDA.funilCrm} /></h3>
                   <div className="h-[280px]">
                     {funilChart.length ? (
                       <ResponsiveContainer width="100%" height="100%">
@@ -478,7 +481,7 @@ export default function ComercialPage() {
                 </Card>
 
                 <Card className="lg:col-span-5 p-4">
-                  <h3 className="text-[13px] font-semibold text-foreground mb-4">Orçamentos por status <span className="font-normal text-muted-foreground">· situação atual, todos os períodos</span></h3>
+                  <h3 className="text-[13px] font-semibold text-foreground mb-4 flex items-center gap-1.5">Orçamentos por status <span className="font-normal text-muted-foreground">· situação atual</span> <Ajuda texto={AJUDA.orcPorStatus} /></h3>
                   <div className="h-[280px]">
                     {orcPie.length ? (
                       <ResponsiveContainer width="100%" height="100%">
@@ -498,7 +501,7 @@ export default function ComercialPage() {
               {/* ── Desempenho por responsavel (CRM) ── */}
               {data?.crmDesempenho.length ? (
                 <Card className="p-4">
-                  <h3 className="text-[13px] font-semibold text-foreground mb-4">Desempenho por responsável (CRM)</h3>
+                  <h3 className="text-[13px] font-semibold text-foreground mb-4 flex items-center gap-1.5">Desempenho por responsável (CRM) <Ajuda texto={AJUDA.desempenho} /></h3>
                   <div className="h-[280px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={data.crmDesempenho} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -527,16 +530,16 @@ export default function ComercialPage() {
                   <FileCheck className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Contratos — Carteira
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <KpiFunil icon={FileCheck} label="Contratos vigentes" value={vigentes} color="#34d399" />
-                  <KpiFunil icon={Landmark} label="MRR (receita recorrente)" value={formatCompact(mrr)} color={MODULE_COLOR} sub={formatCurrency(mrr)} />
-                  <KpiFunil icon={CalendarClock} label="A vencer (30 dias)" value={aVencer30} color="#fbbf24" sub={`${ct?.aVencer60 ?? 0} em até 60 dias`} />
+                  <KpiFunil icon={FileCheck} label="Clientes na carteira" ajuda={AJUDA.clientesCarteira} value={vigentes} color="#34d399" />
+                  <KpiFunil icon={Landmark} label="MRR (receita recorrente)" ajuda={AJUDA.mrr} value={formatCompact(mrr)} color={MODULE_COLOR} sub={formatCurrency(mrr)} />
+                  <KpiFunil icon={CalendarClock} label="A vencer (30 dias)" ajuda={AJUDA.aVencer} value={aVencer30} color="#fbbf24" sub={`${ct?.aVencer60 ?? 0} em até 60 dias`} />
                 </div>
               </div>
 
               {/* ── Graficos linha 2: Contratos por status + evolucao ── */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 <Card className="lg:col-span-5 p-4">
-                  <h3 className="text-[13px] font-semibold text-foreground mb-4">Contratos por status</h3>
+                  <h3 className="text-[13px] font-semibold text-foreground mb-4 flex items-center gap-1.5">Carteira por vigência <Ajuda texto={AJUDA.carteiraVigencia} /></h3>
                   <div className="h-[280px]">
                     {ctPie.length ? (
                       <ResponsiveContainer width="100%" height="100%">
@@ -553,7 +556,7 @@ export default function ComercialPage() {
                 </Card>
 
                 <Card className="lg:col-span-7 p-4">
-                  <h3 className="text-[13px] font-semibold text-foreground mb-4">Contratos — novos × encerrados (6 meses)</h3>
+                  <h3 className="text-[13px] font-semibold text-foreground mb-4 flex items-center gap-1.5">Clientes — entradas × saídas (6 meses) <Ajuda texto={AJUDA.entradasSaidas} /></h3>
                   <div className="h-[280px]">
                     {ctEvolucao.length ? (
                       <ResponsiveContainer width="100%" height="100%">
@@ -563,8 +566,8 @@ export default function ComercialPage() {
                           <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
                           <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} />
                           <Legend wrapperStyle={{ fontSize: 11 }} />
-                          <Bar dataKey="novos" name="Novos" fill="#34d399" radius={[4, 4, 0, 0]} />
-                          <Bar dataKey="encerrados" name="Encerrados" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="novos" name="Entradas" fill="#34d399" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="encerrados" name="Saídas" fill="#ef4444" radius={[4, 4, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
                     ) : <EmptyMini />}
@@ -578,6 +581,7 @@ export default function ComercialPage() {
                   <div className="px-4 py-3 border-b border-border flex items-center gap-2">
                     <CalendarClock className="h-4 w-4" style={{ color: MODULE_COLOR }} />
                     <h3 className="text-[13px] font-semibold text-foreground">Contratos a vencer (próximos 60 dias)</h3>
+                    <Ajuda texto={AJUDA.tabelaAVencer} />
                   </div>
                   <Table>
                     <TableHeader>
@@ -658,13 +662,13 @@ function FunilComercial({ funil, periodo, onChanged }: {
             <Phone className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Funil — Qualificação
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <KpiFunil icon={Inbox} label="Leads recebidos" value={t.leadsRecebidos} color="#818cf8" />
-            <KpiFunil icon={Phone} label="Qualif. por ligação" value={t.qualifLigacao} color="#34d399" />
-            <KpiFunil icon={MessageCircle} label="Qualif. por WhatsApp" value={t.qualifWhatsapp} color="#10b981"
+            <KpiFunil icon={Inbox} label="Leads recebidos" ajuda={AJUDA.leadsRecebidos} value={t.leadsRecebidos} color="#818cf8" />
+            <KpiFunil icon={Phone} label="Qualif. por ligação" ajuda={AJUDA.qualifLigacao} value={t.qualifLigacao} color="#34d399" />
+            <KpiFunil icon={MessageCircle} label="Qualif. por WhatsApp" ajuda={AJUDA.qualifWhatsapp} value={t.qualifWhatsapp} color="#10b981"
               sub={t.qualifOutros > 0 ? `+${t.qualifOutros} outros canais` : undefined} />
-            <KpiFunil icon={PhoneOff} label="Sem resposta" value={t.semResposta} color="#fbbf24" />
-            <KpiFunil icon={UserX} label="Desqualificados" value={t.desqualificados} color="#f87171" />
-            <KpiFunil icon={CalendarPlus} label="Reuniões agendadas" value={t.reunioesAgendadas} color="#60a5fa" />
+            <KpiFunil icon={PhoneOff} label="Sem resposta" ajuda={AJUDA.semResposta} value={t.semResposta} color="#fbbf24" />
+            <KpiFunil icon={UserX} label="Desqualificados" ajuda={AJUDA.desqualificados} value={t.desqualificados} color="#f87171" />
+            <KpiFunil icon={CalendarPlus} label="Reuniões agendadas" ajuda={AJUDA.reunioesAgendadas} value={t.reunioesAgendadas} color="#60a5fa" />
           </div>
         </div>
         <div>
@@ -672,9 +676,9 @@ function FunilComercial({ funil, periodo, onChanged }: {
             <FileSignature className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Funil — Fechamento
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <KpiFunil icon={CalendarCheck} label="Reuniões realizadas" value={t.reunioesRealizadas} color="#60a5fa" />
-            <KpiFunil icon={Send} label="Propostas enviadas" value={t.propostasEnviadas} color="#a78bfa" />
-            <KpiFunil icon={FileSignature} label="Contratos assinados" value={t.contratosAssinados} color={MODULE_COLOR}
+            <KpiFunil icon={CalendarCheck} label="Reuniões realizadas" ajuda={AJUDA.reunioesRealizadas} value={t.reunioesRealizadas} color="#60a5fa" />
+            <KpiFunil icon={Send} label="Propostas enviadas" ajuda={AJUDA.propostasEnviadas} value={t.propostasEnviadas} color="#a78bfa" />
+            <KpiFunil icon={FileSignature} label="Contratos assinados" ajuda={AJUDA.contratosAssinados} value={t.contratosAssinados} color={MODULE_COLOR}
               sub={funil.servicosDeEntrada === 0 ? 'sem serviço de entrada' : undefined}
               title={funil.servicosDeEntrada === 0 ? 'Nenhum serviço está marcado como entrada de novo cliente (cadastro do serviço).' : undefined} />
           </div>
@@ -695,7 +699,7 @@ function FunilComercial({ funil, periodo, onChanged }: {
                   {COLUNAS_FUNIL.map((c) => (
                     <TableHead key={c.campo}
                       className={cn('text-xs text-center whitespace-nowrap', c.campo === 'reunioesRealizadas' && 'border-l border-border')}>
-                      {c.rotulo}
+                      <span className="inline-flex items-center gap-1">{c.rotulo}<Ajuda texto={AJUDA[c.campo]} /></span>
                     </TableHead>
                   ))}
                 </TableRow>
@@ -984,17 +988,22 @@ function ContratoFechadoModal({ item, onClose, onSaved }: {
  * rótulo vai em cima, na largura toda (até duas linhas), e o ícone fica ao
  * lado do NÚMERO, onde pode ser maior.
  */
-function KpiFunil({ icon: Icon, label, value, color, sub, title }: {
+function KpiFunil({ icon: Icon, label, value, color, sub, title, ajuda }: {
   icon: ElementType
   label: string
   value: number | string
   color: string
   sub?: string
   title?: string
+  /** Texto do "(?)": de onde vem o número e o que entra nele. */
+  ajuda?: ReactNode
 }) {
   return (
-    <Card className="relative overflow-hidden p-3 pb-3.5" title={title ?? (sub ? `${label}: ${sub}` : label)}>
-      <p className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground leading-tight line-clamp-2 min-h-[2lh]">{label}</p>
+    <Card className="relative overflow-hidden p-3 pb-3.5" title={ajuda ? title : (title ?? (sub ? `${label}: ${sub}` : label))}>
+      <div className="flex items-start justify-between gap-1.5">
+        <p className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground leading-tight line-clamp-2 min-h-[2lh]">{label}</p>
+        {ajuda && <Ajuda texto={ajuda} className="mt-px" />}
+      </div>
       <div className="mt-2 flex items-center gap-2.5">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
           style={{ backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)` }}>
