@@ -6,10 +6,11 @@ import { NotificationService } from '../notification/notification.service'
 import { invalidateUserPermissionsCache } from '../trpc/trpc.service'
 import { CompraPdfService } from './compra-pdf.service'
 import { STATUS_COMPRA_LABELS } from '@saas/types'
+import { quantidadeRecebida, situacaoDoItem, statusPeloRecebimento, validarEntrega } from './recebimento'
 import type {
   CreateCompraInput, UpdateCompraInput, ListCompraInput,
   CreateCompraItemInput, UpdateCompraItemInput,
-  ReprovarCompraInput, AvaliarCompraInput,
+  ReprovarCompraInput, AvaliarCompraInput, ReceberItensInput,
   CreateCompraAnexoInput, UpdateCompraAnexoInput,
   CreateCompraMensagemInput, UpdateCompraMensagemInput,
   CreateCompraCriterioInput, UpdateCompraCriterioInput,
@@ -177,13 +178,39 @@ export class CompraService {
         where: { id },
         include: {
           fornecedor: { select: { id: true, razaoSocial: true, documento: true } },
-          itens: { where: { isActive: true }, orderBy: { createdAt: 'asc' } },
+          itens: {
+            where: { isActive: true },
+            orderBy: { createdAt: 'asc' },
+            include: { recebimentos: { orderBy: { dataRecebimento: 'asc' } } },
+          },
+          _count: { select: { mensagens: true, anexos: true } },
         },
       })
       if (!isMaster && empresaId && c.empresaId !== empresaId) throw new Error('Acesso negado.')
-      const uMap = await resolverUsuarios(db, [c.solicitanteId, c.aprovadorId, c.recebedorId])
+      const recebedores = c.itens.flatMap(i => i.recebimentos.map(r => r.recebedorId))
+      const uMap = await resolverUsuarios(db, [c.solicitanteId, c.aprovadorId, c.recebedorId, ...recebedores])
+      const base = this.serializar(c)
+      // Recebimento por item: quanto chegou de cada um e a situação.
+      const itens = base.itens.map(({ recebimentos: regs, ...it }: { id: string; quantidade: number; recebimentos: Array<{ quantidade: number }> }) => {
+        const recebida = quantidadeRecebida(it, regs, c.status)
+        return { ...it, quantidadeRecebida: recebida, situacaoRecebimento: situacaoDoItem(it.quantidade, recebida) }
+      })
+      // Histórico de entregas, da mais recente para a mais antiga.
+      const recebimentos = c.itens
+        .flatMap(i => i.recebimentos.map(r => ({
+          id: r.id, itemId: i.id, item: i.descricao, unidade: i.unidade, quantidade: r.quantidade,
+          dataRecebimento: r.dataRecebimento, nfNumero: r.nfNumero, observacao: r.observacao, createdAt: r.createdAt,
+          recebedor: r.recebedorId ? uMap.get(r.recebedorId) ?? null : null,
+        })))
+        .sort((a, b) => b.dataRecebimento.getTime() - a.dataRecebimento.getTime() || b.createdAt.getTime() - a.createdAt.getTime())
       return {
-        ...this.serializar(c),
+        ...base,
+        itens,
+        recebimentos,
+        // Pedido recebido antes do recebimento por item: itens contam inteiros,
+        // sem histórico de entregas — a tela avisa.
+        recebimentoLegado: recebimentos.length === 0 && (c.status === 'RECEBIDO' || c.status === 'AVALIADO'),
+        _count: c._count,
         total: this.total(c.itens, c.frete),
         solicitante: c.solicitanteId ? uMap.get(c.solicitanteId) ?? null : null,
         aprovador: c.aprovadorId ? uMap.get(c.aprovadorId) ?? null : null,
@@ -362,10 +389,81 @@ export class CompraService {
     })
   }
 
+  /**
+   * "Receber tudo": registra hoje o que falta de cada item. Atalho para quando
+   * a entrega veio completa — o caso comum continua sendo um clique só.
+   */
   async receber(id: string, userId?: string, tenantSchema?: string) {
+    const pendentes = await scoped(tenantSchema, async (db) => {
+      await this.assertStatus(db, id, ['APROVADO', 'RECEBIDO_PARCIAL'])
+      const itens = await db.compraItem.findMany({
+        where: { compraId: id, isActive: true },
+        include: { recebimentos: { select: { quantidade: true } } },
+      })
+      return itens
+        .map(i => ({ itemId: i.id, quantidade: i.quantidade - i.recebimentos.reduce((t, r) => t + r.quantidade, 0) }))
+        .filter(i => i.quantidade > 0)
+    })
+    if (pendentes.length === 0) throw new Error('Não há itens pendentes de recebimento.')
+    const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
+    return this.receberItens({ compraId: id, data: hoje, itens: pendentes }, userId, tenantSchema)
+  }
+
+  /**
+   * Registra uma entrega: os itens (e quantidades) que chegaram num dia. O
+   * pedido passa a RECEBIDO_PARCIAL enquanto faltar algo e a RECEBIDO quando o
+   * último item completar — só então pode ser avaliado.
+   */
+  async receberItens(input: ReceberItensInput, userId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, async (db) => {
-      await this.assertStatus(db, id, ['APROVADO'])
-      return db.compra.update({ where: { id }, data: { status: 'RECEBIDO', dataRecebimento: new Date(), recebedorId: userId || null } })
+      await this.assertStatus(db, input.compraId, ['APROVADO', 'RECEBIDO_PARCIAL'])
+      const itens = await db.compraItem.findMany({
+        where: { compraId: input.compraId, isActive: true },
+        include: { recebimentos: { select: { quantidade: true } } },
+      })
+      const situacao = itens.map(i => ({
+        id: i.id, descricao: i.descricao, quantidade: i.quantidade,
+        recebida: i.recebimentos.reduce((t, r) => t + r.quantidade, 0),
+      }))
+      const erro = validarEntrega(situacao, input.itens)
+      if (erro) throw new Error(erro)
+
+      // Meio-dia de Brasília: o dia informado não escorrega em nenhum fuso.
+      const quando = new Date(`${input.data}T12:00:00.000-03:00`)
+      await db.compraItemRecebimento.createMany({
+        data: input.itens.map(e => ({
+          compraId: input.compraId, itemId: e.itemId, quantidade: e.quantidade, dataRecebimento: quando,
+          nfNumero: input.nfNumero || null, observacao: input.observacao || null, recebedorId: userId || null,
+        })),
+      })
+      const doEntregue = new Map(input.itens.map(e => [e.itemId, e.quantidade]))
+      const novo = statusPeloRecebimento(situacao.map(i => ({ quantidade: i.quantidade, recebida: i.recebida + (doEntregue.get(i.id) ?? 0) })))
+      return db.compra.update({
+        where: { id: input.compraId },
+        data: {
+          status: novo,
+          // Recebido por inteiro: data da entrega que completou e quem recebeu.
+          ...(novo === 'RECEBIDO' ? { dataRecebimento: quando, recebedorId: userId || null } : {}),
+        },
+      })
+    })
+  }
+
+  /** Desfaz uma entrega registrada por engano. Pedido já avaliado não mexe. */
+  async estornarRecebimento(recebimentoId: string, tenantSchema?: string) {
+    return scoped(tenantSchema, async (db) => {
+      const r = await db.compraItemRecebimento.findUniqueOrThrow({ where: { id: recebimentoId }, select: { compraId: true } })
+      await this.assertStatus(db, r.compraId, ['RECEBIDO_PARCIAL', 'RECEBIDO'])
+      await db.compraItemRecebimento.delete({ where: { id: recebimentoId } })
+      const itens = await db.compraItem.findMany({
+        where: { compraId: r.compraId, isActive: true },
+        include: { recebimentos: { select: { quantidade: true } } },
+      })
+      const novo = statusPeloRecebimento(itens.map(i => ({ quantidade: i.quantidade, recebida: i.recebimentos.reduce((t, x) => t + x.quantidade, 0) })))
+      return db.compra.update({
+        where: { id: r.compraId },
+        data: { status: novo, ...(novo !== 'RECEBIDO' ? { dataRecebimento: null, recebedorId: null } : {}) },
+      })
     })
   }
 

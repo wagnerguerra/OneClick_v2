@@ -2621,6 +2621,7 @@ enum StatusCompra {
   AGUARDANDO_APROVACAO
   APROVADO
   REPROVADO
+  RECEBIDO_PARCIAL // parte dos itens chegou (recebimento por item, 25/09/2026)
   RECEBIDO
   AVALIADO
   CANCELADO
@@ -2686,6 +2687,7 @@ model Compra {
   anexos     CompraAnexo[]
   mensagens  CompraMensagem[]
   avaliacoes CompraAvaliacaoResposta[]
+  recebimentos CompraItemRecebimento[]
 
   @@index([empresaId])
   @@index([fornecedorId])
@@ -2821,10 +2823,42 @@ model CompraItem {
   createdAt     DateTime @default(now()) @map("created_at")
 
   compra Compra @relation(fields: [compraId], references: [id], onDelete: Cascade)
+  /// Entregas deste item — pode chegar em partes, em datas diferentes.
+  recebimentos CompraItemRecebimento[]
 
   @@index([compraId])
   @@map("compra_itens")
 }
+/// Recebimento de um item do pedido de compra.
+///
+/// Até 25/09/2026 o recebimento era do pedido inteiro (um clique em "Receber").
+/// Mas quem compra N coisas recebe em datas diferentes — e às vezes parte da
+/// quantidade de um mesmo item. Cada linha aqui é uma entrega: quanto chegou,
+/// quando, com qual nota e quem conferiu. O pedido fica RECEBIDO_PARCIAL até o
+/// último item completar; aí vira RECEBIDO (regras em compra/recebimento.ts).
+///
+/// Pedido recebido ANTES disto não tem linhas: a tela trata os itens dele como
+/// recebidos por inteiro na data de recebimento do pedido.
+model CompraItemRecebimento {
+  id              String   @id @default(cuid())
+  compraId        String   @map("compra_id")
+  itemId          String   @map("item_id")
+  quantidade      Int
+  /// Dia em que chegou (informado por quem recebeu; pode ser retroativo).
+  dataRecebimento DateTime @map("data_recebimento")
+  nfNumero        String?  @map("nf_numero")
+  observacao      String?  @db.Text
+  recebedorId     String?  @map("recebedor_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  compra Compra     @relation(fields: [compraId], references: [id], onDelete: Cascade)
+  item   CompraItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([compraId])
+  @@index([itemId])
+  @@map("compra_item_recebimentos")
+}
+
 
 model CompraAnexo {
   id           String   @id @default(cuid())

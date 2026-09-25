@@ -27,11 +27,12 @@ const STATUS_COLORS: Record<string, string> = {
   AGUARDANDO_APROVACAO: BADGE.amber,
   APROVADO: BADGE.sky,
   REPROVADO: BADGE.rose,
+  RECEBIDO_PARCIAL: BADGE.violet,
   RECEBIDO: BADGE.indigo,
   AVALIADO: BADGE.emerald,
   CANCELADO: 'bg-muted text-muted-foreground border-border',
 }
-const STATUS_OPCOES = ['NOVO', 'AGUARDANDO_APROVACAO', 'APROVADO', 'REPROVADO', 'RECEBIDO', 'AVALIADO']
+const STATUS_OPCOES = ['NOVO', 'AGUARDANDO_APROVACAO', 'APROVADO', 'REPROVADO', 'RECEBIDO_PARCIAL', 'RECEBIDO', 'AVALIADO']
 
 interface CompraRow {
   id: string

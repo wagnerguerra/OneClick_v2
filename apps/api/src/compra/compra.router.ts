@@ -5,7 +5,7 @@ import {
 import {
   createCompraSchema, updateCompraSchema, listCompraSchema,
   createCompraItemSchema, updateCompraItemSchema,
-  reprovarCompraSchema, avaliarCompraSchema,
+  reprovarCompraSchema, avaliarCompraSchema, receberItensSchema,
   createCompraAnexoSchema, updateCompraAnexoSchema,
   createCompraMensagemSchema, updateCompraMensagemSchema,
   createCompraCriterioSchema, updateCompraCriterioSchema,
@@ -59,9 +59,17 @@ export function createCompraRouter(compraService: CompraService, cotacaoService:
     reprovar: readSubProcedure(MODULE, SUB_APROVAR, 'Aprovar pedidos de compra')
       .input(reprovarCompraSchema)
       .mutation(({ input, ctx }) => compraService.reprovar(input, ctx.userId, ctx.tenantSchema)),
+    /** Recebe tudo o que falta, com a data de hoje. */
     receber: writeProcedure(MODULE)
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => compraService.receber(input.id, ctx.userId, ctx.tenantSchema)),
+    /** Recebimento por item: os itens (e quantidades) de uma entrega, num dia. */
+    receberItens: writeProcedure(MODULE)
+      .input(receberItensSchema)
+      .mutation(({ input, ctx }) => compraService.receberItens(input, ctx.userId, ctx.tenantSchema)),
+    estornarRecebimento: writeProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input, ctx }) => compraService.estornarRecebimento(input.id, ctx.tenantSchema)),
     avaliar: writeProcedure(MODULE)
       .input(avaliarCompraSchema)
       .mutation(({ input, ctx }) => compraService.avaliar(input, ctx.tenantSchema)),
