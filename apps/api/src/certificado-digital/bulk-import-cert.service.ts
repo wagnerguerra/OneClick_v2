@@ -6,6 +6,7 @@ import fs from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { encryptPassword, serializeCipher, sha256Hex } from './crypto.helper'
 import { parsePfx, type PfxInfo } from './pfx-parser'
+import { marcarSubstituidos, substituicaoEmLote } from './substituicao-certificado'
 import { CertificadoDigitalService } from './certificado-digital.service'
 
 const STORAGE_ROOT = path.resolve(process.cwd(), 'uploads', 'certificados')
@@ -385,6 +386,15 @@ export class BulkImportCertService {
         if (!item.pfxInfo || !item.alvoId || !item.senhaUsada) continue
         const pfxBuffer = Buffer.from(item.base64, 'base64')
         const arquivoHash = sha256Hex(pfxBuffer)
+        const empresaIdCert = item.vincularA === 'empresa' ? item.alvoId : job.empresaId
+
+        // Mesmo documento já com certificado vigente → substitui (#HLP0386).
+        const subst = await substituicaoEmLote(empresaIdCert, { ...item.pfxInfo, arquivoHash })
+        if ('pular' in subst) {
+          this.log(jobId, 'warn', `  ⚠ ${subst.pular}`)
+          job.processed++
+          continue
+        }
 
         const cipher = encryptPassword(item.senhaUsada)
         const senhaCifrada = serializeCipher(cipher)
@@ -392,7 +402,8 @@ export class BulkImportCertService {
         const created = await prisma.certificadoDigital.create({
           data: {
             clienteId: item.vincularA === 'cliente' ? item.alvoId : null,
-            empresaId: item.vincularA === 'empresa' ? item.alvoId : job.empresaId,
+            empresaId: empresaIdCert,
+            parentId: subst.parentId,
             tipo: 'A1',
             titular: item.pfxInfo.titular,
             documento: item.pfxInfo.documento,
@@ -428,8 +439,9 @@ export class BulkImportCertService {
           },
         }).catch(() => null)
 
+        await marcarSubstituidos(subst.substituidos, created.id, { userId })
         importados++
-        this.log(jobId, 'success', `  ✓ ${item.pfxInfo.titular} importado.`)
+        this.log(jobId, 'success', `  ✓ ${item.pfxInfo.titular} importado${subst.substituidos.length ? ` (substituiu ${subst.substituidos.length} anterior(es))` : ''}.`)
       } catch (e) {
         this.log(jobId, 'error', `  ✗ Erro: ${(e as Error).message}`)
       }

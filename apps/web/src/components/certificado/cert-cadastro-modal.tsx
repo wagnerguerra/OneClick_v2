@@ -17,6 +17,13 @@ const MOD = 'var(--mod-legalizacao, #7c3aed)'
 
 type ClienteOpt = { id: string; razaoSocial: string; documento?: string | null }
 
+/** Resposta do create (ver ResultadoCadastroCert na API, #HLP0386). */
+type ResultadoCadastro =
+  | { id: string; substituidos: Array<{ titular: string; expiraEm: string }> }
+  | { confirmar: { titular: string; expiraEm: string; novoExpiraEm: string } }
+
+const dataBr = (iso: string) => new Date(iso).toLocaleDateString('pt-BR')
+
 /**
  * Cadastro de certificado digital — unificado (#HLP0301).
  *
@@ -82,13 +89,42 @@ export function CertCadastroModal({
       for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]!)
       const pfxBase64 = btoa(binary)
 
-      await (trpc.certificadoDigital as any).create.mutate({
-        pfxBase64,
-        senha,
-        clienteId: clienteEfetivo,
-        observacoes: observacoes.trim() || null,
-      })
-      await alerts.success('Cadastrado', 'Certificado adicionado. Senha cifrada e arquivo armazenado com segurança.')
+      const enviar = (aceitarMaisAntigo: boolean): Promise<ResultadoCadastro> =>
+        (trpc.certificadoDigital as any).create.mutate({
+          pfxBase64,
+          senha,
+          clienteId: clienteEfetivo,
+          observacoes: observacoes.trim() || null,
+          aceitarMaisAntigo,
+        })
+
+      let r = await enviar(false)
+      // Já existe um certificado deste CPF/CNPJ que vence DEPOIS do enviado —
+      // provável arquivo antigo por engano. Nada foi gravado; o usuário decide.
+      if ('confirmar' in r) {
+        const c = r.confirmar
+        const ok = await alerts.confirm({
+          title: 'Certificado mais antigo que o atual',
+          text: `Já existe um certificado de ${c.titular} que vence em ${dataBr(c.expiraEm)}. `
+            + `O arquivo enviado vence antes, em ${dataBr(c.novoExpiraEm)}. Deseja substituir mesmo assim? `
+            + 'O atual fica no histórico.',
+          confirmText: 'Substituir',
+          cancelText: 'Não substituir',
+        })
+        if (!ok) return
+        r = await enviar(true)
+        if ('confirmar' in r) return
+      }
+
+      const subst = r.substituidos ?? []
+      await alerts.success(
+        'Cadastrado',
+        subst.length
+          ? `Certificado adicionado. Substituiu ${subst.length === 1 ? 'o certificado' : 'os certificados'} de `
+            + subst.map(s => `${s.titular} (vencia em ${dataBr(s.expiraEm)})`).join(', ')
+            + ', que ficou no histórico.'
+          : 'Certificado adicionado. Senha cifrada e arquivo armazenado com segurança.',
+      )
       onCreated()
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
@@ -130,6 +166,10 @@ export function CertCadastroModal({
                 </div>
               <input type="file" accept=".pfx,.p12" onChange={e => setArquivo(e.target.files?.[0] ?? null)} className="hidden" />
             </label>
+            <p className="text-[10px] text-muted-foreground">
+              Se já houver um certificado do mesmo CPF/CNPJ (o do certificado, não o do cadastro),
+              o novo <strong>substitui</strong> o anterior, que fica no histórico.
+            </p>
           </div>
 
           {/* Senha */}

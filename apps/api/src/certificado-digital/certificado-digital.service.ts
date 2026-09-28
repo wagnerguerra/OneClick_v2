@@ -6,6 +6,7 @@ import path from 'node:path'
 import fs from 'node:fs/promises'
 import { encryptPassword, decryptPassword, serializeCipher, parseCipher, sha256Hex } from './crypto.helper'
 import { parsePfx } from './pfx-parser'
+import { buscarVigentes, decidirSubstituicao, marcarSubstituidos, mensagemDuplicado } from './substituicao-certificado'
 
 const STORAGE_ROOT = path.resolve(process.cwd(), 'uploads', 'certificados')
 
@@ -23,6 +24,15 @@ export type AcaoAcesso =
   | 'excluido'
   | 'integridade_falhou'
   | 'renovado'
+
+/**
+ * Resultado do cadastro (#HLP0386). `confirmar` = nada foi gravado: já existe
+ * um certificado do mesmo documento que vence DEPOIS do enviado, e o usuário
+ * precisa dizer se substitui mesmo assim (reenvia com `aceitarMaisAntigo`).
+ */
+export type ResultadoCadastroCert =
+  | { id: string; substituidos: Array<{ titular: string; expiraEm: Date }> }
+  | { confirmar: { titular: string; expiraEm: Date; novoExpiraEm: Date } }
 
 export interface AuditContext {
   userId?: string
@@ -210,7 +220,9 @@ export class CertificadoDigitalService {
     empresaId?: string | null
     socioId?: string | null
     observacoes?: string | null
-  }, audit: AuditContext): Promise<{ id: string }> {
+    /** Confirmou substituir o vigente por um certificado que vence antes dele. */
+    aceitarMaisAntigo?: boolean
+  }, audit: AuditContext): Promise<ResultadoCadastroCert> {
     // Vínculo: pelo menos um
     if (!input.clienteId && !input.empresaId && !input.socioId) {
       throw new Error('Vincule o certificado a um cliente, empresa ou sócio.')
@@ -226,16 +238,29 @@ export class CertificadoDigitalService {
     // Hash de integridade
     const arquivoHash = sha256Hex(pfxBuffer)
 
+    // Mesmo documento já com certificado vigente → substitui (ver
+    // substituicao-certificado.ts). Decide ANTES de gravar qualquer coisa.
+    const vigentes = await buscarVigentes(input.empresaId || null, info.documento)
+    const decisao = decidirSubstituicao({ expiraEm: info.expiraEm, arquivoHash }, vigentes, input.aceitarMaisAntigo)
+    if (decisao.acao === 'DUPLICADO') throw new Error(mensagemDuplicado(decisao.existente))
+    if (decisao.acao === 'CONFIRMAR') {
+      return { confirmar: { titular: decisao.atual.titular, expiraEm: decisao.atual.expiraEm, novoExpiraEm: info.expiraEm } }
+    }
+    const substituir = decisao.acao === 'SUBSTITUIR' ? decisao : null
+
     // Cifra senha
     const cipher = encryptPassword(input.senha)
     const senhaCifrada = serializeCipher(cipher)
 
-    // Cria registro (sem arquivoPath ainda — gera após ter ID)
+    // Cria registro (sem arquivoPath ainda — gera após ter ID). Sem cliente
+    // escolhido no upload, a substituição herda o vínculo do certificado
+    // anterior — senão a renovação "some" do cadastro do cliente.
     const created = await prisma.certificadoDigital.create({
       data: {
-        clienteId: input.clienteId || null,
+        clienteId: input.clienteId || substituir?.atual.clienteId || null,
         empresaId: input.empresaId || null,
-        socioId: input.socioId || null,
+        socioId: input.socioId || substituir?.atual.socioId || null,
+        parentId: substituir?.atual.id ?? null,
         tipo: 'A1',
         titular: info.titular,
         documento: info.documento,
@@ -264,8 +289,15 @@ export class CertificadoDigitalService {
       data: { arquivoPath },
     })
 
-    await this.registrarAcesso(created.id, 'cadastrado', audit)
-    return { id: created.id }
+    if (substituir) await marcarSubstituidos(substituir.substituidos, created.id, audit)
+    await this.registrarAcesso(created.id, 'cadastrado', {
+      ...audit,
+      detalhes: substituir ? `Substituiu ${substituir.substituidos.map(s => s.id).join(', ')} (mesmo documento)` : audit.detalhes,
+    })
+    return {
+      id: created.id,
+      substituidos: (substituir?.substituidos ?? []).map(s => ({ titular: s.titular, expiraEm: s.expiraEm })),
+    }
   }
 
   // ── Edição (apenas metadados — não tocam arquivo/senha) ──

@@ -1,4 +1,5 @@
 import forge from 'node-forge'
+import { limparCnpj } from '@saas/types'
 
 export interface PfxInfo {
   titular: string         // Common Name (CN)
@@ -53,8 +54,9 @@ export function parsePfx(pfxBuffer: Buffer, password: string): PfxInfo {
     for (const ext of cert.extensions) {
       if (ext.name === 'subjectAltName' && Array.isArray(ext.altNames)) {
         for (const alt of ext.altNames) {
-          if (alt.value && /^\d{11}$|^\d{14}$|^\d{8,}$/.test(String(alt.value).replace(/\D/g, ''))) {
-            documento = String(alt.value).replace(/\D/g, '')
+          // CPF (11) ou CNPJ (14, que pode ser alfanumérico)
+          if (alt.value && /^\d{11}$|^[0-9A-Z]{12}\d{2}$|^\d{8,}$/.test(limparCnpj(String(alt.value)))) {
+            documento = limparCnpj(String(alt.value))
             break
           }
         }
@@ -62,7 +64,8 @@ export function parsePfx(pfxBuffer: Buffer, password: string): PfxInfo {
       if (documento) break
     }
   }
-  documento = documento.replace(/\D/g, '')
+  // limparCnpj, não /\D/g: o CNPJ alfanumérico tem letras (ver @saas/types)
+  documento = limparCnpj(documento)
 
   // Emissor (Issuer CN)
   const issuerCn = cert.issuer.attributes.find((a: forge.pki.CertificateField) => a.shortName === 'CN')

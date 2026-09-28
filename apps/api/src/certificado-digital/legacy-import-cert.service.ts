@@ -7,6 +7,7 @@ import fs from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { encryptPassword, serializeCipher, sha256Hex } from './crypto.helper'
 import { parsePfx, type PfxInfo } from './pfx-parser'
+import { marcarSubstituidos, substituicaoEmLote } from './substituicao-certificado'
 import { CertificadoDigitalService } from './certificado-digital.service'
 import type { ContratoSyncService } from '../cliente/contrato-sync.service'
 
@@ -424,6 +425,15 @@ export class LegacyImportCertService {
         if (!item.pfxInfo || !item.clienteIdNovo || !item.senhaUsada) continue
         const pfxBuffer = await fs.readFile(item.caminhoLegado)
         const arquivoHash = sha256Hex(pfxBuffer)
+        const empresaIdCert = item.vincularA === 'empresa' ? item.clienteIdNovo : job.empresaId
+
+        // Mesmo documento já com certificado vigente → substitui (#HLP0386).
+        const subst = await substituicaoEmLote(empresaIdCert, { ...item.pfxInfo, arquivoHash })
+        if ('pular' in subst) {
+          this.log(jobId, 'warn', `  ⚠ ${subst.pular}`)
+          job.processed++
+          continue
+        }
 
         const cipher = encryptPassword(item.senhaUsada)
         const senhaCifrada = serializeCipher(cipher)
@@ -431,7 +441,8 @@ export class LegacyImportCertService {
         const created = await prisma.certificadoDigital.create({
           data: {
             clienteId: item.vincularA === 'cliente' ? item.clienteIdNovo : null,
-            empresaId: item.vincularA === 'empresa' ? item.clienteIdNovo : job.empresaId,
+            empresaId: empresaIdCert,
+            parentId: subst.parentId,
             tipo: 'A1',
             titular: item.pfxInfo.titular,
             documento: item.pfxInfo.documento,
@@ -467,8 +478,9 @@ export class LegacyImportCertService {
           },
         }).catch(() => null)
 
+        await marcarSubstituidos(subst.substituidos, created.id, { userId })
         importados++
-        this.log(jobId, 'success', `  ✓ ${item.pfxInfo.titular} importado.`)
+        this.log(jobId, 'success', `  ✓ ${item.pfxInfo.titular} importado${subst.substituidos.length ? ` (substituiu ${subst.substituidos.length} anterior(es))` : ''}.`)
       } catch (e) {
         this.log(jobId, 'error', `  ✗ Erro: ${(e as Error).message}`)
       }
@@ -611,6 +623,14 @@ export class LegacyImportCertService {
         // Lê o arquivo PFX novamente (o preview já validou)
         const pfxBuffer = await fs.readFile(item.caminhoLegado)
         const arquivoHash = sha256Hex(pfxBuffer)
+        const empresaIdCert = item.vincularA === 'empresa' ? item.clienteIdNovo : empresaId
+
+        // Mesmo documento já com certificado vigente → substitui (#HLP0386).
+        const subst = await substituicaoEmLote(empresaIdCert, { ...item.pfxInfo, arquivoHash })
+        if ('pular' in subst) {
+          item.mensagem = subst.pular
+          continue
+        }
 
         // Cifra a senha com nossa KEK
         const cipher = encryptPassword(item.senhaUsada)
@@ -620,7 +640,8 @@ export class LegacyImportCertService {
         const created = await prisma.certificadoDigital.create({
           data: {
             clienteId: item.vincularA === 'cliente' ? item.clienteIdNovo : null,
-            empresaId: item.vincularA === 'empresa' ? item.clienteIdNovo : empresaId,
+            empresaId: empresaIdCert,
+            parentId: subst.parentId,
             tipo: 'A1',
             titular: item.pfxInfo.titular,
             documento: item.pfxInfo.documento,
@@ -658,6 +679,7 @@ export class LegacyImportCertService {
           },
         }).catch(() => null)
 
+        await marcarSubstituidos(subst.substituidos, created.id, { userId })
         importados++
       } catch (e) {
         item.status = 'pfx_invalido'

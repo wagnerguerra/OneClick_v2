@@ -134,6 +134,7 @@ export function createCertificadoDigitalRouter(
         empresaId: z.string().nullable().optional(),
         socioId: z.string().nullable().optional(),
         observacoes: z.string().nullable().optional(),
+        aceitarMaisAntigo: z.boolean().optional(),
       }))
       .mutation(({ input, ctx }) => certService.create({
         ...input,
