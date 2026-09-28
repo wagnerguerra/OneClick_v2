@@ -3,7 +3,7 @@
 import {
   FileSignature, Lightbulb, Send, CheckCircle2, ListChecks, Info,
   ArrowRight, BadgePercent, FileCheck2, FilePlus, RefreshCw, XCircle,
-  Network, Settings, BarChart2, Database, ScrollText, Workflow,
+  Network, Settings, BarChart2, Database, ScrollText, Workflow, MessageSquarePlus,
 } from 'lucide-react'
 import { Badge } from '@saas/ui'
 import { ArticleShell } from '../_components/article-shell'
@@ -21,7 +21,7 @@ export default function FaqOrcamentosPage() {
       moduloColor={MODULO_COLOR}
       icon={FileSignature}
       titulo="Orçamentos: do NOVO ao FINALIZADO"
-      descricao="Fluxo completo da proposta comercial — criação, itens, envio ao cliente, aprovação pública, execução automática e fechamento com pesquisa NPS."
+      descricao="Fluxo completo da proposta comercial — como as áreas pedem orçamento (botão + e roteiro do Detalhamento), criação, itens, envio ao cliente, aprovação pública, execução automática e fechamento com pesquisa NPS."
     >
       {/* ─────────────────────────────────────────────────────────── */}
       {/* Glossário */}
@@ -35,6 +35,9 @@ export default function FaqOrcamentosPage() {
           <DefRow termo="Processo" texto="Agregador criado automaticamente ao APROVAR. Cada item do tipo SERVIÇO vira 1 processo + execução-raiz vinculada ao template original." />
           <DefRow termo="Reabertura" texto='Volta um orçamento pra status anterior ao atual (exige motivo). Incrementa o contador "reaberturasCount" — visível na timeline.' />
           <DefRow termo="Paralisação" texto="Pausa lógica sem mudar o status. SLAs e contagem de dias atrasados ficam congelados até o gestor retomar." />
+          <DefRow termo="Solicitação" texto="Pedido de orçamento feito por uma área ao comercial — pelo botão + (balão Orçamento) ou pelo + Novo Orçamento do módulo. Quem pede fica registrado como solicitante." />
+          <DefRow termo="Roteiro do Detalhamento" texto="Perguntas que já vêm no campo Detalhamento ao pedir um orçamento: serviço, fato gerador, o que será feito, horas, regime (normal/extra), quem executa e, se aplicável, ganho tributário e desembolso. É lembrete, não trava." />
+          <DefRow termo="Final do CNPJ" texto="Ao lado da razão social, na lista e no kanban, aparece o final do CNPJ (ex.: 0001-91) com o selo Matriz ou Filial — para distinguir unidades da mesma empresa sem abrir o orçamento." />
         </div>
       </Section>
 
@@ -73,21 +76,66 @@ export default function FaqOrcamentosPage() {
         </Callout>
       </Section>
 
+      {/* ─────────────────────────────────────────────────────────── */}
+      {/* Pedido de orçamento pelas áreas (#HLP0411) */}
+      <Section icon={MessageSquarePlus} titulo="Como as áreas pedem um orçamento" cor={FAQ_COLOR}>
+        <p className="text-sm text-foreground/80 mb-3">
+          Qualquer área pode pedir um orçamento ao comercial, por dois caminhos. Os dois criam o
+          mesmo orçamento na coluna <Badge variant="outline" className="text-[10px] h-5 mx-1">NOVO</Badge>,
+          avisam as áreas marcadas e usam o mesmo <strong>roteiro no Detalhamento</strong>.
+        </p>
+        <div className="space-y-2 text-sm">
+          <DefRow termo="Botão + (recomendado)" texto="Em qualquer tela, no canto inferior direito → Orçamento. Não exige acesso ao módulo, aceita anexos e aceita cliente não cadastrado (digitado o nome, ele entra como prospect). O pedido chega sem responsável, para o comercial assumir." />
+          <DefRow termo="+ Novo Orçamento" texto="No módulo Orçamentos. Leva direto à tela do orçamento criado, onde já dá para incluir itens. Anexos entram depois, na tela do orçamento." />
+        </div>
+        <p className="text-sm text-foreground/80 mt-3 mb-2">
+          O campo <strong>Detalhamento</strong> já abre com as perguntas que o comercial precisa para
+          compor o preço. Responda na linha em branco abaixo de cada uma:
+        </p>
+        <ul className="list-disc list-inside space-y-1 ml-2 text-sm text-foreground/80">
+          <li><strong>Nome do serviço</strong></li>
+          <li><strong>Fato gerador</strong> — o que gerou a necessidade do trabalho</li>
+          <li><strong>Detalhamento do que será feito</strong></li>
+          <li><strong>Média de horas</strong> para a execução</li>
+          <li><strong>Regime</strong> — hora normal (dentro do expediente) ou extra (fora dele)</li>
+          <li><strong>Colaborador responsável</strong> pela execução</li>
+          <li><em>Se aplicável:</em> ganho ou vantagem tributária do cliente, e desembolso com obrigações</li>
+        </ul>
+        <Callout tipo="info">
+          O roteiro é <strong>lembrete, não trava</strong>: dá para enviar com itens em branco. Só o roteiro
+          intocado, sem nenhuma resposta, conta como vazio — pelo botão +, o envio é barrado com o aviso
+          &quot;Responda o roteiro do Detalhamento&quot;; no módulo, ele não é gravado. Não sabe uma resposta?
+          Escreva &quot;a confirmar&quot; em vez de deixar em branco.
+        </Callout>
+        <Callout tipo="dica">
+          Marque em <strong>Notificar as seguintes áreas</strong> todas as áreas envolvidas (obrigatório):
+          o líder de cada uma é avisado para detalhar a parte dela. O que você escreve no Detalhamento vira
+          o <strong>Texto Interno</strong> do orçamento — só a equipe vê, nunca o cliente.
+        </Callout>
+      </Section>
+
       <h2 className="text-base font-bold pt-2">Passo a passo detalhado</h2>
 
       {/* ─────────────────────────────────────────────────────────── */}
       <Step n={1} cor={MODULO_COLOR} icon={FilePlus} titulo="Criar o orçamento (NOVO)" rota="/orcamentos → + Novo Orçamento">
         <p>
-          No kanban, clique em <strong>+ Novo orçamento</strong> (ou abra direto pela URL). O modal pede:
+          No topo do módulo, clique em <strong>+ Novo Orçamento</strong>. O modal pede:
         </p>
         <ul className="list-disc list-inside space-y-1 ml-2">
-          <li><strong>Cliente</strong> — combo com busca por razão social/CNPJ. Pode criar sem cliente e vincular depois.</li>
-          <li><strong>Responsável</strong> — default = usuário logado. Quem aparece no card e recebe notificações.</li>
-          <li><strong>Solicitante</strong> — default = usuário logado. Quem demandou (pode ser diferente do responsável).</li>
-          <li><strong>Tipo</strong> e <strong>Área</strong> — strings livres pra classificação interna (ex: &quot;SERVICO_EXTRA&quot;, &quot;Fiscal&quot;).</li>
-          <li><strong>Validade</strong> — em dias, default = <code className="text-[11px]">validadeDias</code> da configuração (default global 90 dias).</li>
-          <li><strong>Contatos</strong> e <strong>e-mails de contatos</strong> — listas separadas por vírgula/ponto-e-vírgula, usadas no envio.</li>
+          <li><strong>Cliente</strong> (obrigatório) — busca por razão social/CNPJ; dá para cadastrar um cliente novo na hora pelo próprio campo.</li>
+          <li><strong>Contato</strong> e <strong>E-mail do contato</strong> — usados no envio da proposta. O e-mail, se informado, precisa ser válido.</li>
+          <li>
+            <strong>Campos comerciais</strong> — Forma de pagamento, Tipo (Serviço Mensal/Extra), Responsável pelo serviço,
+            Validade e Desconto. Só aparecem para quem tem a permissão de <strong>cadastro completo</strong>; quem não tem cria o
+            orçamento e o comercial completa.
+          </li>
+          <li><strong>Detalhamento</strong> — já vem com o roteiro de perguntas (ver &quot;Como as áreas pedem um orçamento&quot;). Vira o Texto Interno.</li>
+          <li><strong>Notificar as seguintes áreas</strong> — obrigatório marcar ao menos uma; o líder de cada área é avisado para detalhar a parte dela.</li>
         </ul>
+        <p>
+          O <strong>solicitante</strong> é quem criou. Pedidos das áreas costumam chegar pelo <strong>botão +</strong>,
+          que cria o orçamento sem responsável para o comercial assumir.
+        </p>
         <Callout tipo="dica">
           A <strong>numeração</strong> é sequencial e automática — sistema usa <code className="text-[11px]">max(numeroInicial, último+1)</code>.
           Pra começar de um número específico (ex: continuar série legada do v1), ajustar
@@ -141,17 +189,19 @@ export default function FaqOrcamentosPage() {
         </p>
         <ul className="list-disc list-inside space-y-1 ml-2">
           <li>
-            <strong>Desconto</strong> — pode ser percentual (<code className="text-[11px]">descontoPct</code>, 0–100) <em>ou</em>
-            valor fixo (<code className="text-[11px]">descontoValor</code>). Se ambos preenchidos, o sistema aplica o que
-            for maior na hora do cálculo final.
+            <strong>Desconto</strong> — <em>geral</em> (aba Itens → card &quot;Desconto e Pagamento&quot;, em % e/ou R$, sobre os
+            serviços) <strong>ou</strong> <em>por item</em> (em cada linha de serviço). Nunca os dois: com desconto nos itens,
+            o geral fica bloqueado, e vice-versa — os dois juntos somariam e o total deixaria de bater com o que as linhas
+            mostram. Taxas e despesas não recebem desconto.
           </li>
           <li>
             <strong>Forma de pagamento</strong> — campo livre (ex: <em>&quot;3x sem juros no boleto&quot;</em>,{' '}
             <em>&quot;Mensalidade R$ 1.500&quot;</em>). Aparece no link público e no PDF.
           </li>
           <li>
-            <strong>Texto interno</strong> — observações que <em>não</em> vão pro cliente. Útil pra
-            negociação, justificativa de desconto, lembretes pro responsável.
+            <strong>Texto interno</strong> — observações que <em>não</em> vão pro cliente. É onde fica o Detalhamento
+            escrito por quem pediu o orçamento (o roteiro respondido). Útil também pra negociação, justificativa de
+            desconto e lembretes pro responsável.
           </li>
           <li>
             <strong>Texto pro cliente</strong> — rich editor que vira a apresentação no link público
