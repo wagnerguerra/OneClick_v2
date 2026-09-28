@@ -25,7 +25,7 @@ import {
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT, BADGE, SURFACE, type ColorName } from '@/lib/color-styles'
+import { TEXT, BADGE, SURFACE, STRONG, type ColorName } from '@/lib/color-styles'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { SectionCard } from '@/components/section-card'
@@ -203,6 +203,8 @@ interface Orcamento {
      *  coordenação só define responsável de serviço de área que lidera. A tela
      *  compõe com a sub-permissão, sem reimplementar a regra. */
     podeDefinir: boolean
+    /** Execução do serviço (depois da aprovação): situação e conclusão. */
+    execucao?: { status: string; concluidoEm: string | null } | null
     motivoBloqueio: string | null
   }>
   solicitanteId: string | null
@@ -2921,6 +2923,30 @@ export default function OrcamentoDetailPage() {
                           <span className={cn('inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE[estado.tom])}>
                             <span className="truncate">{estado.detalhe}</span>
                           </span>
+
+                          {/* Situação da execução, depois da aprovação. O
+                              "Finalizado" é o que diz ao financeiro que o
+                              responsável já concluiu o serviço — o orçamento
+                              fica em Aprovado até a liberação (#4803). */}
+                          {r.execucao && (
+                            r.execucao.status === 'CONCLUIDO' ? (
+                              <span className={cn('inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold', STRONG.emerald)}
+                                title={r.execucao.concluidoEm ? `Serviço finalizado pelo responsável em ${fmtDataHora(r.execucao.concluidoEm)}` : 'Serviço finalizado pelo responsável'}>
+                                <CheckCircle2 className="h-3 w-3 shrink-0" />
+                                <span className="truncate">Finalizado{r.execucao.concluidoEm ? ` em ${new Date(r.execucao.concluidoEm).toLocaleDateString('pt-BR')}` : ''}</span>
+                              </span>
+                            ) : (
+                              <span className={cn('inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE[r.execucao.status === 'CANCELADO' || r.execucao.status === 'PULADO' ? 'slate' : 'sky'])}>
+                                <span className="truncate">{
+                                  r.execucao.status === 'EM_ANDAMENTO' ? 'Em execução'
+                                  : r.execucao.status === 'AGUARDANDO_INICIO' ? 'Aguardando início'
+                                  : r.execucao.status === 'CANCELADO' ? 'Execução cancelada'
+                                  : r.execucao.status === 'PULADO' ? 'Execução pulada'
+                                  : r.execucao.status
+                                }</span>
+                              </span>
+                            )
+                          )}
 
                           <div className="w-full border-t border-hairline pt-2">
                             {/* O nome do serviço só aparece quando há mais de um:

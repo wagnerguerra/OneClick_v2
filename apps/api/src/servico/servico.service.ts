@@ -2738,6 +2738,11 @@ export class ServicoService {
     podeDefinir: boolean
     /** Por que não pode — o texto que a tela mostra no lugar do menu. */
     motivoBloqueio: string | null
+    /** A execução deste serviço, depois da aprovação: situação e quando foi
+     *  concluída. É o que mostra, no quadro, que o responsável já finalizou o
+     *  serviço mesmo com o orçamento ainda aguardando o financeiro. Nulo antes
+     *  de a execução existir. */
+    execucao: { status: string; concluidoEm: Date | null } | null
   }>> {
     const orc = await prisma.orcamento.findUnique({
       where: { id: orcamentoId },
@@ -2793,6 +2798,22 @@ export class ServicoService {
       : []
     const userPorId = new Map(manuais.map(u => [u.id, u]))
 
+    // Execuções-RAIZ do orçamento (uma por serviço aprovado), casadas com os
+    // itens pela ordem de criação: o mesmo serviço duas vezes gera duas
+    // execuções, e cada uma vai para o item correspondente.
+    const execsRaiz = await prisma.servicoExecucao.findMany({
+      where: { orcamentoId, predecessorExecucaoId: null },
+      select: { servicoId: true, status: true, concluidoEm: true },
+      orderBy: { createdAt: 'asc' },
+    }).catch(() => [] as Array<{ servicoId: string; status: string; concluidoEm: Date | null }>)
+    const filaExec = new Map<string, Array<{ status: string; concluidoEm: Date | null }>>()
+    for (const e of execsRaiz) {
+      const l = filaExec.get(e.servicoId) ?? []
+      l.push({ status: e.status, concluidoEm: e.concluidoEm })
+      filaExec.set(e.servicoId, l)
+    }
+    const proximaExec = (sid: string) => filaExec.get(sid)?.shift() ?? null
+
     const saida = []
     for (const ref of refs) {
       const svc = servicoPorId.get(ref.servicoId)
@@ -2817,6 +2838,7 @@ export class ServicoService {
           totalCandidatos: 1,
           podeDefinir: alcadaDe(svc.id).podeDefinir,
           motivoBloqueio: alcadaDe(svc.id).motivo,
+          execucao: proximaExec(svc.id),
         })
         continue
       }
@@ -2859,6 +2881,7 @@ export class ServicoService {
         totalCandidatos: candidatos.length,
         podeDefinir: alcadaDe(svc.id).podeDefinir,
         motivoBloqueio: alcadaDe(svc.id).motivo,
+        execucao: proximaExec(svc.id),
       })
     }
     return saida
