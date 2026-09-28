@@ -2384,7 +2384,7 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
       <div className="flex items-start justify-between gap-1 px-3 pt-2.5 pb-1">
         <div className="min-w-0 flex-1">
           {empresaCliente && (
-            <p className="text-[10px] font-semibold uppercase tracking-wide truncate mb-0.5" style={{ color: PRIMARY }}>
+            <p className="text-[10px] font-semibold uppercase tracking-wide truncate mb-0.5 text-primary-on-surface">
               {empresaCliente}
             </p>
           )}
