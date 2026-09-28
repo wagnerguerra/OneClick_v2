@@ -69,12 +69,35 @@ function isNumericish(c: CellValue): boolean {
   return typeof c === 'number' || /^-?[\d.,]+$/.test(String(c).trim())
 }
 
-/** Linha é "majoritariamente textual" (candidata a cabeçalho). */
+/** Linha é "majoritariamente textual". */
 function isMostlyText(row: CellValue[]): boolean {
   const filled = row.filter(isFilled)
   if (filled.length < 2) return false
   const textCount = filled.filter((c) => typeof c === 'string' && !isNumericish(c)).length
   return textCount > filled.length / 2
+}
+
+/**
+ * Célula com VALOR de dado (não rótulo): número, data, CPF/CNPJ, moeda. Em arquivos
+ * de lançamento, datas e documentos costumam chegar como TEXTO ("23/06/2026",
+ * "14.630.124/0001-65") — por isso "é string" não basta para ser rótulo. Regra: tem
+ * dígito e nenhuma letra, desconsiderando o prefixo "R$" e o marcador D/C/CD/DB que
+ * alguns bancos colam no valor.
+ */
+function isValueLike(c: CellValue): boolean {
+  if (typeof c === 'number' || typeof c === 'boolean') return true
+  const s = String(c).trim().replace(/^R\$\s*/i, '').replace(/\s*(CD|DB|C|D)$/i, '')
+  return /\d/.test(s) && !/\p{L}/u.test(s)
+}
+
+/**
+ * Linha de CABEÇALHO de colunas: majoritariamente texto e SEM nenhum valor de dado.
+ * Uma linha de lançamento quase sempre tem ao menos um (data, valor, documento) —
+ * sem essa exigência, lançamentos idênticos repetidos (ex.: 3 boletos iguais no mesmo
+ * dia) eram confundidos com o cabeçalho que se repete a cada página de um relatório.
+ */
+function isHeaderRow(row: CellValue[]): boolean {
+  return isMostlyText(row) && !row.some((c) => isFilled(c) && isValueLike(c))
 }
 
 /** Nome de coluna por posição (A, B, ..., Z, AA, ...) para colunas sem cabeçalho.
@@ -124,15 +147,44 @@ function formatExcelDate(d: Date): string {
   return h || min ? `${dd}/${mm}/${yyyy} ${pad(h)}:${pad(min)}` : `${dd}/${mm}/${yyyy}`
 }
 
+/**
+ * Intervalo EFETIVO da aba: o `!ref` recortado até a última linha/coluna com valor.
+ * O `!ref` vem da tag <dimension> do arquivo e costuma estar inflado quando colunas
+ * inteiras foram formatadas (ex.: A1:J1048527 para 165 linhas de fato) — ler o `!ref`
+ * cru materializava ~1 milhão de linhas em branco (lento e estourava a pilha em
+ * `Math.max(...)`). Mantém o INÍCIO do `!ref`, para os índices de linha não mudarem.
+ */
+function effectiveRange(ws: XLSX.WorkSheet): string | undefined {
+  const ref = ws['!ref']
+  if (!ref) return undefined
+  const range = XLSX.utils.decode_range(ref)
+  let lastRow = -1
+  let lastCol = -1
+  for (const addr of Object.keys(ws)) {
+    if (addr.startsWith('!')) continue
+    const v = (ws[addr] as XLSX.CellObject | undefined)?.v
+    if (v === undefined || v === null || String(v).trim() === '') continue
+    const { r, c } = XLSX.utils.decode_cell(addr)
+    if (r > lastRow) lastRow = r
+    if (c > lastCol) lastCol = c
+  }
+  if (lastRow < 0) return ref // aba sem valores: segue o fluxo normal (acusa "sem tabela")
+  range.e.r = Math.min(range.e.r, lastRow)
+  range.e.c = Math.min(range.e.c, lastCol)
+  return XLSX.utils.encode_range(range)
+}
+
 function sheetToMatrix(ws: XLSX.WorkSheet): Matrix {
   // raw: true preserva números (valores/códigos) como number; cellDates: true
   // (no read) faz células de data virarem Date — que formatamos para texto aqui,
   // senão vaza o número de série do Excel (ex.: 46100 em vez de 17/03/2026).
+  const range = effectiveRange(ws)
   const raw = XLSX.utils.sheet_to_json<(CellValue | Date)[]>(ws, {
     header: 1,
     raw: true,
     blankrows: true,
     defval: null,
+    ...(range ? { range } : {}),
   })
   return raw.map((row) => row.map((c) => (c instanceof Date ? formatExcelDate(c) : c)))
 }
@@ -212,6 +264,7 @@ function buildTable(
     rows.push(obj)
   }
 
+  // Sem spread em Math.min/max: arquivos grandes estouram o limite de argumentos.
   const indices = dataRows.map((d) => d.i)
   return {
     headers,
@@ -219,8 +272,8 @@ function buildTable(
     meta: {
       sheetName,
       headerRowIndex,
-      bodyStartIndex: indices.length ? Math.min(...indices) : headerRowIndex,
-      bodyEndIndex: indices.length ? Math.max(...indices) : headerRowIndex,
+      bodyStartIndex: indices.length ? indices.reduce((a, b) => (b < a ? b : a)) : headerRowIndex,
+      bodyEndIndex: indices.length ? indices.reduce((a, b) => (b > a ? b : a)) : headerRowIndex,
       totalDataRows: rows.length,
       mode,
       // Compat: `sectionColumn` (campo único) aponta para a 1ª coluna carregada.
@@ -233,11 +286,11 @@ function buildTable(
 
 interface RepeatedHeader { cols: number[]; rowIndex: number; fingerprint: string; count: number }
 
-/** Cabeçalho que se repete: a assinatura textual (≥4 colunas) que aparece ≥2×. */
+/** Cabeçalho que se repete: a assinatura de rótulos (≥4 colunas) que aparece ≥2×. */
 function detectRepeatedHeader(matrix: Matrix): RepeatedHeader | null {
   const groups = new Map<string, { cols: number[]; rowIndex: number; count: number }>()
   matrix.forEach((row, i) => {
-    if (!isMostlyText(row)) return
+    if (!isHeaderRow(row)) return
     const cols = filledCols(row)
     if (cols.length < 4) return
     const fp = cols.map((c) => String(row[c]).trim().toLowerCase()).join('')
@@ -315,7 +368,7 @@ function extractReport(matrix: Matrix, sheetName: string, header: RepeatedHeader
 /** Acha [headerRowIndex, bodyStart, bodyEnd] na maior região contígua de linhas cheias. */
 function detectRegion(matrix: Matrix): { headerRowIndex: number; bodyStart: number; bodyEnd: number } | null {
   const counts = matrix.map((r) => filledCols(r).length)
-  const maxFilled = Math.max(0, ...counts)
+  const maxFilled = counts.reduce((m, c) => (c > m ? c : m), 0) // sem spread (arquivos grandes)
   if (maxFilled < 2) return null
 
   // "Linha cheia" = pelo menos 60% da largura máxima (mín. 2 colunas).
