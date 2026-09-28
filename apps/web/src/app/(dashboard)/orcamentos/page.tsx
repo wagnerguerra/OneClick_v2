@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, createContext, useContext, type ReactNode } from 'react'
 import { ClienteIdentificacao, type ClienteDoc } from '@/components/cliente-identificacao'
+import { ROTEIRO_SOLICITACAO_ORCAMENTO, detalhamentoPreenchido } from '@/components/orcamento/roteiro-solicitacao'
 import { useRouter } from 'next/navigation'
 import {
   FileText, CircleDollarSign, Loader2, Plus, MoreVertical, Copy, Archive, Ban,
@@ -538,7 +539,8 @@ export default function OrcamentosPage() {
     descontoPct: '',
     descontoValor: '',
     observacoes: '',
-    textoInterno: '',
+    // Abre com o roteiro do que o comercial precisa (#HLP0411) — lembrete, não trava.
+    textoInterno: ROTEIRO_SOLICITACAO_ORCAMENTO,
   }
   const [form, setForm] = useState(FORM_INITIAL)
 
@@ -718,7 +720,8 @@ export default function OrcamentosPage() {
         validadeDias: form.validadeDias ? Number(form.validadeDias) : 90,
         descontoPct: form.descontoPct ? Number(form.descontoPct) : undefined,
         descontoValor: form.descontoValor ? Number(form.descontoValor) : undefined,
-        textoInterno: form.textoInterno || undefined,
+        // Roteiro intacto (nenhuma resposta) não é gravado como detalhamento.
+        textoInterno: detalhamentoPreenchido(form.textoInterno) ? form.textoInterno : undefined,
       })
       // Vincula as áreas marcadas — é isso que dispara sino/e-mail pro líder (e
       // substituto) com o prazo pra detalhar. Falhar aqui não desfaz o orçamento,

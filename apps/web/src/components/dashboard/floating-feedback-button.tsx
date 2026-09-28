@@ -14,6 +14,7 @@ import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { renderConflitosHtml, type ConflitoAgenda, type ConflitoModo } from '@/lib/agenda-conflitos'
 import { AreasNotificarPicker, useAreasNotificaveis } from '@/components/orcamento/areas-notificar-picker'
+import { ROTEIRO_SOLICITACAO_ORCAMENTO, detalhamentoPreenchido } from '@/components/orcamento/roteiro-solicitacao'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { useTicketForm, TicketFormFields } from '@/app/(dashboard)/helpdesk/_components/ticket-form'
 import { TEXT } from '@/lib/color-styles'
@@ -511,7 +512,8 @@ function OrcamentoRequestForm({
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const seletorRef = useRef<HTMLDivElement>(null)
   const [clienteSel, setClienteSel] = useState<ClienteOpcao | null>(null)
-  const [detalhamento, setDetalhamento] = useState('')
+  // Abre com o roteiro do que o comercial precisa (#HLP0411) — lembrete, não trava.
+  const [detalhamento, setDetalhamento] = useState(ROTEIRO_SOLICITACAO_ORCAMENTO)
   const [enviando, setEnviando] = useState(false)
   const [criado, setCriado] = useState<{ numero: number; id: string } | null>(null)
   // Áreas a notificar — pills (cada área marcada notifica o líder pra detalhar a parte dela).
@@ -620,8 +622,9 @@ function OrcamentoRequestForm({
     setResultados([])
   }
 
-  // RichEditor entrega HTML — valida o texto puro (evita aceitar "<p></p>" vazio).
-  const detTexto = detalhamento.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim()
+  // RichEditor entrega HTML — valida o texto puro (evita aceitar "<p></p>" vazio)
+  // e trata o roteiro intacto, sem nenhuma resposta, como vazio.
+  const detPreenchido = detalhamentoPreenchido(detalhamento)
 
   async function handleEnviar() {
     const det = detalhamento.trim()
@@ -630,8 +633,8 @@ function OrcamentoRequestForm({
       alerts.error('Informe o cliente', 'Selecione um cliente cadastrado ou digite o nome.')
       return
     }
-    if (detTexto.length < 3) {
-      alerts.error('Detalhe a solicitação', 'Descreva o que o comercial precisa orçar.')
+    if (!detPreenchido) {
+      alerts.error('Detalhe a solicitação', 'Responda o roteiro do Detalhamento: o comercial precisa dessas informações para orçar.')
       return
     }
     if (anexos.some(a => a.uploading)) {
@@ -891,7 +894,7 @@ function OrcamentoRequestForm({
         <Button
           size="sm"
           onClick={handleEnviar}
-          disabled={enviando || detTexto.length < 3 || (!clienteSel && !busca.trim()) || anexos.some(a => a.uploading) || (areasNotificaveis.length > 0 && areasSel.length === 0)}
+          disabled={enviando || (!clienteSel && !busca.trim()) || anexos.some(a => a.uploading) || (areasNotificaveis.length > 0 && areasSel.length === 0)}
           className="gap-1.5 text-white"
           style={{ background: accent }}
         >
