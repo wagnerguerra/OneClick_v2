@@ -634,7 +634,7 @@ export default function GestaoCertificadosPage() {
               um filho flex nao encolhe abaixo do proprio conteudo e o card
               inteiro estica, levando a rolagem de volta para a pagina.
               `nice-scrollbar` porque a barra nativa destoa do tema (CLAUDE.md). */}
-          <div className="nice-scrollbar min-h-0 flex-1 overflow-y-auto">
+          <div className="nice-scrollbar min-h-0 flex-1 overflow-auto">
             <Table>
               <TableHeader>
                 <TableRow className="whitespace-nowrap">
@@ -651,7 +651,7 @@ export default function GestaoCertificadosPage() {
                   <TableHead className="hidden md:table-cell">Documento</TableHead>
                   <TableHead className="hidden xl:table-cell">Tipo</TableHead>
                   <TableHead className="hidden lg:table-cell">Vínculo</TableHead>
-                  <TableHead className="hidden xl:table-cell">Emissor</TableHead>
+                  <TableHead className="hidden 2xl:table-cell">Emissor</TableHead>
                   <TableHead className="hidden sm:table-cell">Expira em</TableHead>
                   <TableHead className="w-[120px]">Status</TableHead>
                   <TableHead className="w-[44px]"></TableHead>
@@ -682,7 +682,7 @@ export default function GestaoCertificadosPage() {
                     <TableCell className="hidden lg:table-cell text-xs text-muted-foreground max-w-[180px] truncate">
                       {c.cliente?.razaoSocial || c.empresa?.razaoSocial || c.socio?.nomeCompleto || '—'}
                     </TableCell>
-                    <TableCell className="hidden xl:table-cell text-xs text-muted-foreground max-w-[160px] truncate">{c.emissor || '—'}</TableCell>
+                    <TableCell className="hidden 2xl:table-cell text-xs text-muted-foreground max-w-[160px] truncate">{c.emissor || '—'}</TableCell>
                     <TableCell className="hidden sm:table-cell text-xs">{formatDate(c.expiraEm)}</TableCell>
                     <TableCell><StatusBadge status={c.status} expiraEm={c.expiraEm} /></TableCell>
                     <TableCell onClick={e => e.stopPropagation()}>
