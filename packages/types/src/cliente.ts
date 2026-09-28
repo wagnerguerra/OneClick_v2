@@ -133,6 +133,8 @@ export const createClienteSchema = z.object({
   // não é a mesma coisa que "não". Um false aqui afirma algo que ninguém apurou.
   apuracaoLucroReal: z.enum(['TRIMESTRAL', 'ANUAL', 'ESTIMATIVA']).nullish(),
   fatorR: z.boolean().nullish(),
+  /** true = apuração dentro do sistema contábil; false = fora dele. */
+  apuracaoNoSistemaContabil: z.boolean().nullish(),
   apuraIssPorFora: z.boolean().nullish(),
   apuraIcmsPorFora: z.boolean().nullish(),
   possuiProLabore: z.boolean().nullish(),

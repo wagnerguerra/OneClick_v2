@@ -2559,15 +2559,17 @@ function AcessoriasIntegracao({ clienteId }: { clienteId: string | null }) {
 // confiável de um cheio de falsos negativos.
 // ============================================================
 
-function TriEstado({ label, value, onChange, hint }: {
+function TriEstado({ label, value, onChange, hint, rotulos = ['Sim', 'Não'] }: {
   label: string
   value: boolean | null | undefined
   onChange: (v: boolean | null) => void
   hint?: string
+  /** Texto do true e do false, quando "Sim/Não" não é a resposta natural. */
+  rotulos?: [string, string]
 }) {
   const opcoes: Array<{ v: boolean | null; txt: string; titulo: string }> = [
-    { v: true, txt: 'Sim', titulo: 'Sim' },
-    { v: false, txt: 'Não', titulo: 'Não' },
+    { v: true, txt: rotulos[0], titulo: rotulos[0] },
+    { v: false, txt: rotulos[1], titulo: rotulos[1] },
     { v: null, txt: '—', titulo: 'Não informado' },
   ]
   const atual = value ?? null
@@ -2630,9 +2632,12 @@ function CaracteristicasFiscais({ control, tributacao }: {
   tributacao?: string | null
 }) {
   const ehSimples = tributacao === 'SIMPLES_NACIONAL'
-  const tri = (name: 'fatorR' | 'apuraIssPorFora' | 'apuraIcmsPorFora' | 'possuiProLabore' | 'possuiFuncionarios' | 'semMovimento', label: string, hint?: string) => (
+  const tri = (
+    name: 'fatorR' | 'apuracaoNoSistemaContabil' | 'apuraIssPorFora' | 'apuraIcmsPorFora' | 'possuiProLabore' | 'possuiFuncionarios' | 'semMovimento',
+    label: string, hint?: string, rotulos?: [string, string],
+  ) => (
     <Controller control={control} name={name} render={({ field }) => (
-      <TriEstado label={label} hint={hint} value={field.value} onChange={field.onChange} />
+      <TriEstado label={label} hint={hint} value={field.value} onChange={field.onChange} rotulos={rotulos} />
     )} />
   )
   return (
@@ -2640,6 +2645,9 @@ function CaracteristicasFiscais({ control, tributacao }: {
       <div className="col-span-12 md:col-span-6">
         <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Apuração</p>
         <div className="divide-y divide-border/60">
+          {/* Três posições como as demais, e não um liga/desliga: com switch
+              todo cliente nasceria "fora", afirmando o que ninguém apurou. */}
+          {tri('apuracaoNoSistemaContabil', 'Apuração no sistema contábil', 'Feita dentro do sistema ou fora dele', ['Dentro', 'Fora'])}
           {tri('apuraIssPorFora', 'Apura ISS por fora')}
           {tri('apuraIcmsPorFora', 'Apura ICMS por fora')}
           {ehSimples && tri('fatorR', 'Sujeita ao Fator R', 'Define o anexo: III ou V')}

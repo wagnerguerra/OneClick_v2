@@ -20,6 +20,7 @@ const FIELD_LABELS: Record<string, string> = {
   observacoes: 'Observações',
   tributacao: 'Tributação', regime: 'Regime', inscricaoEstadual: 'IE', inscricaoMunicipal: 'IM',
   apuracaoLucroReal: 'Apuração do Lucro Real', fatorR: 'Fator R',
+  apuracaoNoSistemaContabil: 'Apuração no sistema contábil',
   apuraIssPorFora: 'Apura ISS por fora', apuraIcmsPorFora: 'Apura ICMS por fora',
   possuiProLabore: 'Possui pró-labore', possuiFuncionarios: 'Possui funcionários',
   semMovimento: 'Sem movimento',
@@ -591,6 +592,7 @@ export class ClienteService {
           // e apagaria justamente a resposta "não".
           apuracaoLucroReal: input.apuracaoLucroReal ?? null,
           fatorR: input.fatorR ?? null,
+          apuracaoNoSistemaContabil: input.apuracaoNoSistemaContabil ?? null,
           apuraIssPorFora: input.apuraIssPorFora ?? null,
           apuraIcmsPorFora: input.apuraIcmsPorFora ?? null,
           possuiProLabore: input.possuiProLabore ?? null,

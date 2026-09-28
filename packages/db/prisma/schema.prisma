@@ -934,6 +934,9 @@ model Cliente {
   apuracaoLucroReal  String?  @map("apuracao_lucro_real")
   /// Simples Nacional: sujeita ao Fator R (decide entre o Anexo III e o V).
   fatorR             Boolean? @map("fator_r")
+  /// A apuração dos impostos é feita DENTRO do sistema contábil (true) ou
+  /// fora dele, em planilha/sistema à parte (false). Null = não informado.
+  apuracaoNoSistemaContabil Boolean? @map("apuracao_no_sistema_contabil")
   /// Destaca o imposto fora da nota — muda a conferência e a apuração.
   apuraIssPorFora    Boolean? @map("apura_iss_por_fora")
   apuraIcmsPorFora   Boolean? @map("apura_icms_por_fora")
