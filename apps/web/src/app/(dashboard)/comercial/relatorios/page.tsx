@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Loader2, Filter, Megaphone, Target, Send, CheckCircle2, FileCheck, DollarSign, Users, Percent, Landmark, Repeat, Zap, Users2, Trophy, TicketPercent, Scissors, Wallet, TrendingDown } from 'lucide-react'
 import { Card, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn } from '@saas/ui'
+import { FILL, TEXT } from '@/lib/color-styles'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { BackButton } from '@/components/ui/back-button'
 import Link from 'next/link'
@@ -131,7 +132,7 @@ export default function ComercialRelatoriosPage() {
                     {i > 0 && (
                       <div className="flex items-center gap-2 pl-[200px] py-0.5">
                         <span className="text-[10px] text-muted-foreground">↓ conversão</span>
-                        <span className="text-[10px] font-semibold tabular-nums" style={{ color: PRIMARY }}>
+                        <span className={cn('text-[10px] font-semibold tabular-nums', TEXT.emerald)}>
                           {s.conversao != null ? `${s.conversao}%` : '—'}
                         </span>
                       </div>
@@ -305,7 +306,7 @@ function VendedoresReport({ data }: { data: VendedoresData }) {
                   <span className="text-sm font-semibold tabular-nums shrink-0">{formatCurrency(v.valorAprovado)}</span>
                 </div>
                 <div className="mt-1 h-1.5 w-full rounded bg-muted/40 overflow-hidden">
-                  <div className="h-full rounded transition-all" style={{ width: `${Math.max((v.valorAprovado / maxValor) * 100, 2)}%`, backgroundColor: PRIMARY }} />
+                  <div className={cn('h-full rounded transition-all', FILL.emerald)} style={{ width: `${Math.max((v.valorAprovado / maxValor) * 100, 2)}%` }} />
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground">
                   <span><Send className="inline h-3 w-3 mr-0.5" />{v.enviados} env.</span>
