@@ -41,13 +41,16 @@ export function MioloColapsavel({ aberto, children }: { aberto: boolean; childre
 
   return (
     <div
-      className="grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none"
+      className="grid grid-cols-[minmax(0,1fr)] transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none"
       style={{ gridTemplateRows: aberto ? '1fr' : '0fr' }}
     >
       {/* `overflow-hidden` é o que corta o conteúdo enquanto a altura anda.
           Terminada a animação ele sai do caminho: mantido para sempre, um
-          elemento `sticky` lá dentro deixaria de grudar. */}
-      <div className={cn('min-h-0', (!aberto || animando) && 'overflow-hidden')}>{children}</div>
+          elemento `sticky` lá dentro deixaria de grudar.
+          `min-w-0` + coluna `minmax(0,1fr)`: sem eles o item do grid cresce até
+          a largura do conteúdo (ex.: tabela de Acessos) e o miolo vaza por
+          baixo da lateral em telas menores (#HLP0408). */}
+      <div className={cn('min-h-0 min-w-0', (!aberto || animando) && 'overflow-hidden')}>{children}</div>
     </div>
   )
 }

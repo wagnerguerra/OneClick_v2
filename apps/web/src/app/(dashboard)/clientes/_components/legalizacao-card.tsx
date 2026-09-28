@@ -1239,7 +1239,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     </p>
                   </div>
                 ) : (
-                  <div className="grid gap-2">
+                  <div className="grid grid-cols-1 gap-2">
                     {certificados.map(cert => {
                       const exp = cert.expiraEm ? new Date(cert.expiraEm) : null
                       const diasParaExpirar = exp ? Math.ceil((exp.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null
