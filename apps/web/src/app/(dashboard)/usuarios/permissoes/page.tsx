@@ -12,8 +12,7 @@ import {
 import { TEXT } from '@/lib/color-styles'
 import { MODULE_GROUPS, MODULE_LABELS, PLATFORM_ADMIN_MODULES } from '@saas/types'
 import { BackButton } from '@/components/ui/back-button'
-import { MODULE_ICONS, GROUP_ICONS } from '@/lib/navigation'
-import { useModuleColors } from '@/components/theme/module-colors'
+import { MODULE_ICONS, GROUP_ICONS, groupModuleColorVar } from '@/lib/navigation'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -22,15 +21,12 @@ import { alerts } from '@/lib/alerts'
 const PRIMARY = 'var(--color-primary)'
 
 /**
- * Bloco → slug da cor, os mesmos da barra lateral. Sem isto a tela seria uma
- * lista cinza de 90 linhas: a cor é o que deixa achar "o bloco Fiscal" sem ler.
+ * Cor de cada bloco = a cor do módulo (a mesma da barra lateral e da aba
+ * Permissões do usuário), via `groupModuleColorVar` — fonte única, editável no
+ * design-system. Sem isto a tela seria uma lista cinza de 90 linhas: a cor é o
+ * que deixa achar "o bloco Fiscal" sem ler.
  */
-const COR_DO_BLOCO: Record<string, string> = {
-  'Cadastros': 'cadastros', 'Comercial': 'comercial', 'Administrativo': 'administrativo',
-  'Legalização': 'legalizacao', 'Trabalhista': 'trabalhista', 'Fiscal': 'fiscal',
-  'Contábil': 'contabil', 'TI': 'ti', 'Ferramentas': 'ferramentas',
-  'Qualidade': 'qualidade', 'Configurações': 'configuracoes',
-}
+const corDe = (bloco: string) => groupModuleColorVar(bloco) ?? 'var(--color-primary)'
 
 /**
  * Os ícones saem de `MODULE_ICONS`/`GROUP_ICONS`, que a navegação já exporta
@@ -87,8 +83,6 @@ export default function PermissoesEmMassaPage() {
   // Nasce colapsado: onze blocos abertos sao ~90 linhas e o alvo fica longe da
   // vista. Abre-se o bloco em que se vai mexer.
   const [abertos, setAbertos] = useState<Set<string>>(new Set())
-  const cores = useModuleColors()
-  const corDe = (bloco: string) => cores[COR_DO_BLOCO[bloco] ?? ''] ?? 'var(--color-muted-foreground)'
 
   const carregarAlvos = useCallback(async () => {
     setCarregando(true)

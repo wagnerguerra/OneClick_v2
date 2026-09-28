@@ -355,6 +355,9 @@ const GROUP_SLUG: Record<string, string> = {
   'Cadastros': 'cadastros', 'Comercial': 'comercial', 'Administrativo': 'administrativo',
   'Legalização': 'legalizacao', 'Trabalhista': 'trabalhista', 'Fiscal': 'fiscal',
   'Contábil': 'contabil', 'TI': 'ti', 'Qualidade': 'qualidade', 'Configurações': 'configuracoes',
+  // Não é bloco da sidebar, mas é grupo de permissões (MODULE_GROUPS) e tem cor
+  // própria no design-system (--mod-ferramentas).
+  'Ferramentas': 'ferramentas',
 }
 
 /** Cor do grupo como CSS var (`var(--mod-<slug>, <fallback hex>)`) — assim abas,
