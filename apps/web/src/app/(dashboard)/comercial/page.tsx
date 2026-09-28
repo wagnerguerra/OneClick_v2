@@ -24,6 +24,7 @@ import {
   PieChart, Pie, Cell, Legend,
 } from 'recharts'
 import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
+import { ORCAMENTO_STATUS_COLORS, ORCAMENTO_STATUS_LABELS, CONTRATO_STATUS_COLORS, CONTRATO_STATUS_LABELS } from '@saas/types'
 
 const PRIMARY = 'var(--color-primary)'
 
@@ -34,19 +35,10 @@ const PERIODOS = [
   { value: 'all', label: 'Todo o período' },
 ]
 
-const PIE_COLORS = [
-  '#fb7185', '#818cf8', '#34d399', '#fbbf24', '#60a5fa',
-  '#f97316', '#a78bfa', '#2dd4bf', '#f472b6', '#38bdf8',
-]
-
-const ORC_STATUS_LABEL: Record<string, string> = {
-  NOVO: 'Novo', A_ENVIAR: 'A enviar', ENVIADO: 'Enviado', APROVADO: 'Aprovado',
-  LIBERADO: 'Liberado', FINALIZADO: 'Finalizado', ENCERRADO: 'Encerrado',
-}
-const CONTRATO_STATUS_LABEL: Record<string, string> = {
-  RASCUNHO: 'Rascunho', AGUARDANDO_ASSINATURA: 'Aguardando assinatura', ASSINADO: 'Assinado',
-  VIGENTE: 'Vigente', ENCERRADO: 'Encerrado', CANCELADO: 'Cancelado',
-}
+// Rótulos e cores de status vêm de @saas/types (tipados pelo enum de status:
+// status novo sem rótulo/cor quebra o typecheck, não dessincroniza calado).
+const ORC_STATUS_LABEL: Record<string, string> = ORCAMENTO_STATUS_LABELS
+const CONTRATO_STATUS_LABEL: Record<string, string> = CONTRATO_STATUS_LABELS
 
 const formatCurrency = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
@@ -148,13 +140,15 @@ export default function ComercialPage() {
 
   // ── Dados de graficos ──────────────────────────────────────
   const funilChart = funilEtapas.filter((e) => !e.ehPerda)
+  // Cor por STATUS (fonte única em @saas/types), não por posição: a mesma
+  // fatia tem sempre a mesma cor, com significado, qualquer que seja o período.
   const orcPie = orcPorStatus
     .filter((s) => (s._count ?? 0) > 0)
-    .map((s, idx) => ({ name: ORC_STATUS_LABEL[s.status] ?? s.status, value: s._count, fill: PIE_COLORS[idx % PIE_COLORS.length] }))
+    .map((s) => ({ name: ORC_STATUS_LABEL[s.status] ?? s.status, value: s._count, fill: (ORCAMENTO_STATUS_COLORS as Record<string, string>)[s.status] ?? '#94a3b8' }))
   const ctPorStatus: any[] = ct?.porStatus ?? []
   const ctPie = ctPorStatus
     .filter((s) => (s.count ?? 0) > 0)
-    .map((s, idx) => ({ name: CONTRATO_STATUS_LABEL[s.status] ?? s.status, value: s.count, fill: PIE_COLORS[idx % PIE_COLORS.length] }))
+    .map((s) => ({ name: CONTRATO_STATUS_LABEL[s.status] ?? s.status, value: s.count, fill: (CONTRATO_STATUS_COLORS as Record<string, string>)[s.status] ?? '#94a3b8' }))
   const ctEvolucao: any[] = ct?.evolucaoMensal ?? []
   const aVencer: any[] = ct?.aVencer ?? []
 

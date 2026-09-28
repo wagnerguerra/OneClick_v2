@@ -25,6 +25,7 @@ import {
   PieChart, Pie, Cell, Legend, LabelList,
 } from 'recharts'
 import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
+import { ORCAMENTO_STATUS_COLORS } from '@saas/types'
 
 const PRIMARY = 'var(--color-primary)'
 
@@ -41,10 +42,7 @@ const STATUS_LABELS: Record<string, string> = {
   LIBERADO: 'Liberado', FINALIZADO: 'Finalizado', ENCERRADO: 'Encerrado',
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  NOVO: '#818cf8', A_ENVIAR: '#94a3b8', ENVIADO: '#3b82f6', APROVADO: '#10b981',
-  LIBERADO: '#059669', FINALIZADO: '#1e293b', ENCERRADO: '#ef4444',
-}
+const STATUS_COLORS: Record<string, string> = ORCAMENTO_STATUS_COLORS
 
 const TABS = [
   { key: 'indicadores', label: 'Indicadores', icon: Activity },

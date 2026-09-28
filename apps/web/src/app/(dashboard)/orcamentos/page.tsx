@@ -44,19 +44,11 @@ import { useUserPermissions } from '@/hooks/use-user-permissions'
 // Tipos e constantes
 // ============================================================
 
-import { isOrcamentoTransitionAllowed, ORCAMENTO_STATUS_LABELS, resolveOrcamentoScope, type OrcamentoScope } from '@saas/types'
+import { isOrcamentoTransitionAllowed, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_COLORS, resolveOrcamentoScope, type OrcamentoScope } from '@saas/types'
 
 const STATUS_ORDER = ['NOVO', 'A_ENVIAR', 'ENVIADO', 'APROVADO', 'LIBERADO', 'FINALIZADO', 'ENCERRADO'] as const
 
-const STATUS_COLORS: Record<string, string> = {
-  NOVO: '#818cf8',
-  A_ENVIAR: '#94a3b8',
-  ENVIADO: '#3b82f6',
-  APROVADO: '#10b981',
-  LIBERADO: '#059669',
-  FINALIZADO: '#1e293b',
-  ENCERRADO: '#ef4444',
-}
+const STATUS_COLORS: Record<string, string> = ORCAMENTO_STATUS_COLORS
 
 const STATUS_LABELS: Record<string, string> = {
   NOVO: 'Novo',

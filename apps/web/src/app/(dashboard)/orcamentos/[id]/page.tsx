@@ -41,7 +41,7 @@ import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { useTabLabel } from '@/hooks/use-tab-label'
-import { ORCAMENTO_STATUS_ORDER, ORCAMENTO_STATUS_LABELS } from '@saas/types'
+import { ORCAMENTO_STATUS_ORDER, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_COLORS } from '@saas/types'
 import { ClienteCombobox } from '../_components/cliente-combobox'
 import { UserCombobox } from '../_components/user-combobox'
 import { CatalogoCombobox } from '../_components/catalogo-combobox'
@@ -54,10 +54,7 @@ import { CrmResumoModal } from '../_components/crm-resumo-modal'
 
 const PRIMARY = 'var(--color-primary)'
 
-const STATUS_COLORS: Record<string, string> = {
-  NOVO: '#818cf8', A_ENVIAR: '#94a3b8', ENVIADO: '#3b82f6', APROVADO: '#10b981',
-  LIBERADO: '#059669', FINALIZADO: '#1e293b', ENCERRADO: '#ef4444',
-}
+const STATUS_COLORS: Record<string, string> = ORCAMENTO_STATUS_COLORS
 
 const STATUS_LABELS: Record<string, string> = {
   NOVO: 'Novo', A_ENVIAR: 'A Enviar', ENVIADO: 'Enviado', APROVADO: 'Aprovado',
