@@ -3653,7 +3653,7 @@ export default function OrcamentoDetailPage() {
           <DialogBody className="space-y-3">
             <h4 className="text-sm font-semibold">{textoPadraoModal?.nome}</h4>
             <RichContent
-              className="text-sm leading-relaxed [&_a]:text-sky-600"
+              className="text-sm leading-relaxed"
               html={textoPadraoModal?.texto || ''}
             />
           </DialogBody>
@@ -3923,7 +3923,7 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
               </div>
             ) : (
               <RichContent
-                className="text-sm text-foreground [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_a]:text-rose-600"
+                className="text-sm text-foreground [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1"
                 html={mensagemHtml}
               />
             )}

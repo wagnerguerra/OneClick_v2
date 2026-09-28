@@ -1409,7 +1409,7 @@ export default function CaixaPostalPage() {
                     <div className="px-5 py-4">
                       {(() => {
                         const corpo = extrairCorpoMensagem(detalheData)
-                        if (corpo) return <RichContent className="text-sm leading-relaxed [&_p]:mb-3 [&_a]:text-sky-600" html={corpo} />
+                        if (corpo) return <RichContent className="text-sm leading-relaxed [&_p]:mb-3" html={corpo} />
                         const meta = extrairMetadados(detalheData)
                         if (meta) {
                           for (const campo of ['textoMensagem', 'texto', 'mensagem', 'corpo', 'descricao']) {
@@ -2550,7 +2550,7 @@ export default function CaixaPostalPage() {
                         <div className="px-4 py-3">
                           {(() => {
                             const corpo = extrairCorpoMensagem(detalheData)
-                            if (corpo) return <RichContent className="text-sm leading-relaxed [&_p]:mb-2 [&_a]:text-sky-600" html={corpo} />
+                            if (corpo) return <RichContent className="text-sm leading-relaxed [&_p]:mb-2" html={corpo} />
                             const meta = extrairMetadados(detalheData)
                             if (meta) {
                               for (const campo of ['textoMensagem', 'texto', 'mensagem', 'corpo', 'descricao']) {

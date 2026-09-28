@@ -1075,7 +1075,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
               {/* Conteúdo da descrição + anexos enviados na solicitação */}
               <CardContent className="px-5 py-4">
                 <RichContent
-                  className="text-sm leading-relaxed [&_a]:text-primary"
+                  className="text-sm leading-relaxed"
                   html={linkifyHelpdesk(ticket.descricao)}
                 />
                 <AnexoThumbs anexos={anexosIniciais} onOpen={setAnexoPreview} />
@@ -1415,7 +1415,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                           sem elas, parágrafos ficavam colados e a linha em
                           branco digitada pelo autor sumia. */}
                       <RichContent
-                        className="text-sm [&_a]:text-primary"
+                        className="text-sm"
                         html={linkifyHelpdesk(msg.conteudo)}
                       />
                       {/* Anexos vinculados a esta mensagem — abrem no visualizador inline */}

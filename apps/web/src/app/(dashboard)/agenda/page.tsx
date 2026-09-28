@@ -2468,7 +2468,7 @@ export default function AgendaPage() {
                             // documento, e a hierarquia de títulos desequilibra o
                             // layout. Os marcadores de lista continuam vindo do
                             // RichContent, que é o que estava faltando.
-                            className="text-sm [&_*]:text-sm [&_a]:text-sky-600"
+                            className="text-sm [&_*]:text-sm"
                             html={ev.descricao}
                           />
                         </div>
@@ -2671,7 +2671,7 @@ export default function AgendaPage() {
                                 // `[&_*]:text-[12px]` achata o tamanho de todo
                                 // descendente de propósito (mesmo motivo do bloco
                                 // de descrição do evento, acima).
-                                className="rounded-md border border-border bg-background/40 p-2.5 max-h-44 overflow-y-auto nice-scrollbar break-words text-[12px] [&_*]:text-[12px] [&_p]:my-1 [&_ul]:my-1 [&_ul]:pl-4 [&_ol]:my-1 [&_ol]:pl-4 [&_a]:text-violet-600 dark:[&_a]:text-violet-400"
+                                className="rounded-md border border-border bg-background/40 p-2.5 max-h-44 overflow-y-auto nice-scrollbar break-words text-[12px] [&_*]:text-[12px] [&_p]:my-1 [&_ul]:my-1 [&_ul]:pl-4 [&_ol]:my-1 [&_ol]:pl-4"
                                 html={op.descricao}
                               />
                             </div>

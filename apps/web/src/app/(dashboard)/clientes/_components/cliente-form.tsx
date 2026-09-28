@@ -4324,7 +4324,7 @@ function CaixaPostalClienteCard({ documento }: { documento: string }) {
                 {/* Corpo */}
                 {(() => {
                   const corpo = extrairCorpoMensagem(detalheData)
-                  if (corpo) return <RichContent className="text-sm leading-relaxed [&_p]:mb-3 [&_a]:text-sky-600" html={corpo} />
+                  if (corpo) return <RichContent className="text-sm leading-relaxed [&_p]:mb-3" html={corpo} />
                   if (detalheData) return (<div><p className="text-xs text-muted-foreground mb-2">Resposta bruta da API:</p><pre className="text-xs whitespace-pre-wrap bg-muted/30 rounded-lg p-4 overflow-x-auto max-h-[400px] nice-scrollbar">{JSON.stringify(detalheData, null, 2)}</pre></div>)
                   return <p className="text-center text-muted-foreground py-10">Nenhum conteúdo disponível.</p>
                 })()}

@@ -74,7 +74,7 @@ export default function FaqArtigoPage() {
             utilitárias; o escrito no RichEditor depende do RichContent, que
             aplica as MESMAS regras do editor. Antes havia aqui um bloco
             `.faq-html` que replicava essas regras à mão. */}
-        <RichContent className="text-sm leading-relaxed [&_a]:text-primary" html={artigo.conteudoHtml} />
+        <RichContent className="text-sm leading-relaxed" html={artigo.conteudoHtml} />
       </ArticleShell>
     )
   }
