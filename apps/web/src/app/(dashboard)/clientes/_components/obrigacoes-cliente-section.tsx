@@ -429,7 +429,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
             <Button type="button" variant="outline" size="sm" onClick={abrirGrupo}>
               <ListPlus className="h-4 w-4 text-orange-500" />Aplicar grupo
             </Button>
-            <Button type="button" size="sm" onClick={abrirAdicionar} style={{ backgroundColor: PRIMARY, color: 'white' }}>
+            <Button type="button" size="sm" variant="success" onClick={abrirAdicionar}>
               <Plus className="h-4 w-4" />Adicionar individual
             </Button>
           </div>

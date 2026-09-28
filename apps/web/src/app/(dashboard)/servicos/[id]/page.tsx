@@ -1535,8 +1535,7 @@ export default function ServicoDetailPage() {
                   <div className="space-y-4 px-5 py-4" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
                     <div className="flex items-center justify-between border-b border-border pb-2 -mx-5 px-5">
                       <h4 className="text-[13px] font-semibold text-foreground">Responsáveis</h4>
-                      <Button onClick={salvarVisao} disabled={saving} size="sm" className="gap-1.5"
-                        style={{ backgroundColor: PRIMARY }}>
+                      <Button variant="success" onClick={salvarVisao} disabled={saving} size="sm" className="gap-1.5">
                         {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                         Salvar
                       </Button>
@@ -1998,7 +1997,7 @@ export default function ServicoDetailPage() {
 
                 {/* Rodapé fixo com botão Salvar — vale pra qualquer pill */}
                 <div className="mt-auto border-t border-border px-5 py-3 bg-card flex justify-end">
-                  <Button onClick={salvarVisao} disabled={saving} className="gap-1.5" style={{ backgroundColor: PRIMARY }}>
+                  <Button variant="success" onClick={salvarVisao} disabled={saving} className="gap-1.5">
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Salvar alterações
                   </Button>
@@ -2620,8 +2619,8 @@ export default function ServicoDetailPage() {
                     direto num orçamento e tem as próprias variações.
                   </p>
                 </div>
-                <Button onClick={salvarSubservicos} disabled={salvandoSub || !mudouSub} size="sm"
-                  className="gap-1.5 shrink-0" style={{ backgroundColor: PRIMARY }}>
+                <Button variant="success" onClick={salvarSubservicos} disabled={salvandoSub || !mudouSub} size="sm"
+                  className="gap-1.5 shrink-0">
                   {salvandoSub ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                   Salvar
                 </Button>
@@ -2703,7 +2702,7 @@ export default function ServicoDetailPage() {
                     texto e o valor padrão dele.
                   </p>
                 </div>
-                <Button onClick={abrirNovaVariacao} size="sm" className="gap-1.5 shrink-0" style={{ backgroundColor: PRIMARY }}>
+                <Button variant="success" onClick={abrirNovaVariacao} size="sm" className="gap-1.5 shrink-0">
                   <Plus className="h-3.5 w-3.5" /> Nova variação
                 </Button>
               </div>
@@ -2783,7 +2782,7 @@ export default function ServicoDetailPage() {
                     notas ou documentação automática quando este serviço for executado.
                   </p>
                 </div>
-                <Button onClick={salvarVisao} disabled={saving} size="sm" className="gap-1.5 shrink-0" style={{ backgroundColor: PRIMARY }}>
+                <Button variant="success" onClick={salvarVisao} disabled={saving} size="sm" className="gap-1.5 shrink-0">
                   {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                   Salvar alterações
                 </Button>
