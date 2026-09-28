@@ -200,13 +200,19 @@ function TabFunil({ dias }: { dias?: number }) {
                 <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
                 <YAxis yAxisId="left" tick={{ fontSize: 10 }} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} tickFormatter={(v: number) => formatCompact(v)} />
-                <Tooltip content={<ChartTooltip format={(v, n) => (n === 'valor' ? formatCurrency(v) : v)} />} cursor={{ fill: CHART_CURSOR_FILL }} />
+                <Tooltip
+                  content={<ChartTooltip
+                    format={(v, n) => (n === 'Valor' ? formatCurrency(v) : v)}
+                    seriesColor={(serie, etapa) => (serie === 'Quantidade' ? (etapa.cor as string) || PRIMARY : PRIMARY)}
+                  />}
+                  cursor={{ fill: CHART_CURSOR_FILL }}
+                />
                 <Bar yAxisId="left" dataKey="count" name="Quantidade" radius={[4, 4, 0, 0]}>
                   {data.etapas.map((e: any) => (
                     <Cell key={e.etapaId} fill={e.cor || PRIMARY} opacity={0.85} />
                   ))}
                 </Bar>
-                <Bar yAxisId="right" dataKey="valor" name="Valor" radius={[4, 4, 0, 0]} fill={PRIMARY} opacity={0.3} />
+                <Bar yAxisId="right" dataKey="valor" name="Valor" radius={[4, 4, 0, 0]} fill={PRIMARY} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -275,7 +281,7 @@ function TabDesempenho({ dias }: { dias?: number }) {
               <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Bar dataKey="ganhos" name="Ganhos" fill="#10b981" radius={[4, 4, 0, 0]} />
               <Bar dataKey="perdidos" name="Perdidos" fill="#ef4444" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="total" name="Total" fill={PRIMARY} radius={[4, 4, 0, 0]} opacity={0.4} />
+              <Bar dataKey="total" name="Total" fill={PRIMARY} radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -499,7 +505,10 @@ function TabTempoMedio() {
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip content={<ChartTooltip format={(v) => `${v} dias`} />} cursor={{ fill: CHART_CURSOR_FILL }} />
+              <Tooltip
+                content={<ChartTooltip format={(v) => `${v} dias`} seriesColor={(_serie, etapa) => (etapa.cor as string) || PRIMARY} />}
+                cursor={{ fill: CHART_CURSOR_FILL }}
+              />
               <Bar dataKey="mediaDias" name="Dias" radius={[4, 4, 0, 0]}>
                 {data.map((e: any) => (
                   <Cell key={e.etapaId} fill={e.cor || PRIMARY} opacity={0.85} />

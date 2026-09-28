@@ -326,7 +326,13 @@ export default function ComercialPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                       <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
                       <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-                      <Tooltip content={<ChartTooltip format={(v: number, n?: string) => (n === 'Valor' ? formatCurrency(v) : v)} />} cursor={{ fill: CHART_CURSOR_FILL }} />
+                      <Tooltip
+                        content={<ChartTooltip
+                          format={(v: number, n?: string) => (n === 'Valor' ? formatCurrency(v) : v)}
+                          seriesColor={(_serie, etapa) => (etapa.cor as string) || PRIMARY}
+                        />}
+                        cursor={{ fill: CHART_CURSOR_FILL }}
+                      />
                       <Bar dataKey="count" name="Quantidade" radius={[4, 4, 0, 0]}>
                         {funilChart.map((e: any) => (
                           <Cell key={e.etapaId} fill={e.cor || PRIMARY} opacity={0.85} />
@@ -409,7 +415,7 @@ export default function ComercialPage() {
                     <Legend wrapperStyle={{ fontSize: 11 }} />
                     <Bar dataKey="ganhos" name="Ganhos" fill="#10b981" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="perdidos" name="Perdidos" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="total" name="Total" fill={PRIMARY} opacity={0.4} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="total" name="Total" fill={PRIMARY} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
