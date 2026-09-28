@@ -7,6 +7,7 @@ import {
 import { idsDeEmpresasInativas, semEmpresaInativa } from '../common/empresa-inativa'
 import { filtroDeData, filtroDeDiasOuJanela, mesBr, mesesDaJanela, type Janela } from '../common/periodo-br'
 import { contratosDeOrcamento } from './contratos-de-orcamento'
+import { acaoAposServicos, situacaoDosServicos, type SituacaoServicos } from './servicos-do-orcamento'
 import { carteiraRecorrente } from '../contrato/carteira-gestao'
 import type { CreateOrcamentoInput, UpdateOrcamentoInput, ListOrcamentoInput, CreateOrcamentoItemInput, UpdateOrcamentoItemInput } from '@saas/types'
 import { filtroDeBusca, escopoDeEmpresa, consolidar } from './orcamento-busca-cliente'
@@ -360,8 +361,28 @@ export class OrcamentoService {
       } catch { oportIds.forEach(id => oportMap.set(id, null)) }
     }
 
+    // Aprovados com o serviço já concluído — o card avisa o financeiro que é
+    // só liberar (o sistema finaliza na liberação).
+    const aprovadosIds = data.filter(o => o.status === 'APROVADO').map(o => o.id)
+    const servicosConcluidos = new Set<string>()
+    if (aprovadosIds.length) {
+      const execs = await prisma.servicoExecucao.findMany({
+        where: { orcamentoId: { in: aprovadosIds } },
+        select: { orcamentoId: true, status: true, concluidoEm: true },
+      }).catch(() => [] as Array<{ orcamentoId: string | null; status: string; concluidoEm: Date | null }>)
+      const porOrc = new Map<string, Array<{ status: string; concluidoEm: Date | null }>>()
+      for (const e of execs) {
+        if (!e.orcamentoId) continue
+        const l = porOrc.get(e.orcamentoId) ?? []
+        l.push(e)
+        porOrc.set(e.orcamentoId, l)
+      }
+      for (const [oid, l] of porOrc) if (situacaoDosServicos(l).todosConcluidos) servicosConcluidos.add(oid)
+    }
+
     const enriched = data.map(o => ({
       ...o,
+      servicosConcluidos: servicosConcluidos.has(o.id),
       responsavel: o.responsavelId ? userMap.get(o.responsavelId) || null : null,
       solicitante: o.solicitanteId ? userMap.get(o.solicitanteId) || null : null,
       pesquisaRespondida: respSet.has(o.id),
@@ -486,15 +507,59 @@ export class OrcamentoService {
         return [] as Awaited<ReturnType<typeof this.servicoService.resolverResponsaveisOrcamento>>
       })
 
+    // Serviços concluídos aguardando a liberação do financeiro (ver
+    // servicos-do-orcamento.ts) — a tela avisa em vez de o sistema pular etapa.
+    const servicos = await this.situacaoServicos(id).catch(() => null)
+
     return {
       ...orc, arquivos, mensagens, eventos, cliente, empresa, solicitante, responsavel,
       areas,
       responsaveis,
+      servicos,
       oportunidade: oportunidade ? { id: oportunidade.id, numero: oportunidade.numero, titulo: oportunidade.titulo, etapa: oportunidade.etapa?.nome ?? null } : null,
       podeVincularCrm,
       pesquisa,
       decisaoCnpjFaturamento: fat[0]?.decisaoCnpjFaturamento ?? null,
       decisaoEmailFinanceiro: fat[0]?.decisaoEmailFinanceiro ?? null,
+    }
+  }
+
+  /** Situação das execuções de serviço do orçamento (servicos-do-orcamento.ts). */
+  async situacaoServicos(orcamentoId: string): Promise<SituacaoServicos> {
+    const execs = await prisma.servicoExecucao.findMany({
+      where: { orcamentoId },
+      select: { status: true, concluidoEm: true },
+    })
+    return situacaoDosServicos(execs)
+  }
+
+  /**
+   * Chamado quando uma execução de serviço do orçamento é concluída. NÃO mexe
+   * no fluxo do financeiro: com o orçamento APROVADO, só registra na timeline
+   * que o serviço acabou e aguarda a liberação; já LIBERADO, finaliza.
+   */
+  async aoConcluirServico(orcamentoId: string, userId?: string) {
+    const orc = await prisma.orcamento.findUnique({ where: { id: orcamentoId }, select: { status: true, numero: true } })
+    if (!orc) return
+    const sit = await this.situacaoServicos(orcamentoId)
+    const acao = acaoAposServicos(orc.status, sit.todosConcluidos)
+    if (acao === 'FINALIZAR') {
+      await this.changeStatus(orcamentoId, 'FINALIZADO', userId)
+    } else if (acao === 'AGUARDAR_LIBERACAO') {
+      // Uma vez só: rechamadas (conclusão idempotente) não repetem o registro.
+      const jaAvisado = await prisma.orcamentoEvento.findFirst({ where: { orcamentoId, tipo: 'servicos_concluidos' }, select: { id: true } })
+      if (!jaAvisado) {
+        await this.addEvento(orcamentoId, userId, 'servicos_concluidos', null, null,
+          'Serviço concluído — aguardando a liberação do financeiro. Ao liberar, o orçamento será finalizado automaticamente.')
+      }
+    }
+  }
+
+  /** Depois da liberação: finaliza se os serviços já estiverem concluídos. */
+  private async finalizarSeServicosConcluidos(orcamentoId: string, userId?: string) {
+    const sit = await this.situacaoServicos(orcamentoId)
+    if (acaoAposServicos('LIBERADO', sit.todosConcluidos) === 'FINALIZAR') {
+      await this.changeStatus(orcamentoId, 'FINALIZADO', userId)
     }
   }
 
@@ -2121,6 +2186,14 @@ export class OrcamentoService {
       })
     }
 
+    // Liberação pelo financeiro com os serviços já concluídos → finaliza agora.
+    // É a outra metade da regra de servicos-do-orcamento.ts: o colaborador
+    // conclui o serviço, o orçamento espera o financeiro, e a liberação fecha.
+    if (novoStatus === 'LIBERADO') {
+      await this.finalizarSeServicosConcluidos(id, userId)
+        .catch(e => console.warn('[Orcamento] Falha ao finalizar após a liberação:', (e as Error).message))
+    }
+
     // Trigger ao ENCERRAR como cancelamento (recusa direta antes de aprovação) —
     // grava data de cancelamento se aplicável e ainda não definida.
     if (novoStatus === 'ENCERRADO' && (statusAtual === 'NOVO' || statusAtual === 'A_ENVIAR' || statusAtual === 'ENVIADO')) {
@@ -2130,6 +2203,10 @@ export class OrcamentoService {
     }
 
     this.emitEvent('kanban', { orcamentoId: id, empresaId: updated.empresaId, actorUserId: userId })
+    // A liberação pode ter finalizado logo em seguida: devolve o estado atual.
+    if (novoStatus === 'LIBERADO') {
+      return (await prisma.orcamento.findUnique({ where: { id } })) ?? updated
+    }
     return updated
   }
 

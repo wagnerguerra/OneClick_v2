@@ -379,6 +379,13 @@ export default function FaqOrcamentosPage() {
           Arrastar o card pra <Badge variant="outline" className="text-[10px] h-5 mx-1">FINALIZADO</Badge>{' '}
           é o gesto de encerramento <em>positivo</em>: a entrega aconteceu e o cliente está satisfeito.
         </p>
+        <Callout tipo="info">
+          Na maioria das vezes a finalização é <strong>automática</strong>. Quem executa conclui o{' '}
+          <strong>serviço</strong> em Meus Serviços; o orçamento continua APROVADO, com o selo{' '}
+          <strong>Serviço concluído</strong> no card e o aviso no detalhe, até o financeiro liberar. Ao liberar, o
+          sistema finaliza na hora. Se o financeiro liberar antes, o orçamento finaliza quando o último serviço
+          terminar. A liberação pelo financeiro nunca é pulada.
+        </Callout>
         <p>
           Nessa primeira transição, o backend executa:
         </p>

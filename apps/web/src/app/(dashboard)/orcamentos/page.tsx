@@ -80,6 +80,8 @@ interface OrcamentoRow {
   id: string
   numero: number
   status: string
+  /** APROVADO com o serviço já concluído — falta a liberação do financeiro. */
+  servicosConcluidos?: boolean
   totalGeral: number
   valorTotal?: number
   clienteId: string | null
@@ -1180,6 +1182,10 @@ export default function OrcamentosPage() {
                       {orc.paralizado && (
                         <Badge variant="outline" className={cn('shrink-0 text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.amber)}>Paralizado</Badge>
                       )}
+                      {orc.status === 'APROVADO' && orc.servicosConcluidos && (
+                        <Badge variant="outline" title="Serviço concluído — ao liberar, o orçamento é finalizado automaticamente"
+                          className={cn('shrink-0 text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.emerald)}>Serviço concluído</Badge>
+                      )}
                     </span>
                     {/* Número e status, que ganham coluna a partir de `sm` */}
                     <span className="mt-1 flex items-center gap-1.5 sm:hidden">
@@ -1671,6 +1677,10 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
           <span className="shrink-0">#{orc.numero}</span> {clienteNome || 'Sem cliente'}
           {orc.paralizado && (
             <Badge variant="outline" className={cn('ml-1 align-middle text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.amber)}>Paralizado</Badge>
+          )}
+          {orc.status === 'APROVADO' && orc.servicosConcluidos && (
+            <Badge variant="outline" title="Serviço concluído — ao liberar, o orçamento é finalizado automaticamente"
+              className={cn('ml-1 align-middle text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.emerald)}>Serviço concluído</Badge>
           )}
         </h4>
         <div className="h-6 w-6 shrink-0 -mr-1 -mt-0.5">

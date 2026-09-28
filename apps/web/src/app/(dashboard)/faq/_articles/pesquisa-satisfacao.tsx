@@ -32,8 +32,9 @@ export default function FaqPesquisaSatisfacaoPage() {
 
       <Step n={1} cor={MODULO_COLOR} icon={Send} titulo="Disparo automático" rota="trigger interno">
         <p>
-          Quando um orçamento atinge status <strong>FINALIZADO</strong> (ou execução-raiz
-          conclui — vide <a className="text-rose-600 hover:underline" href="/faq/processos">Fluxo de Processos</a>),
+          Quando um orçamento atinge status <strong>FINALIZADO</strong> — pelo comercial, ou automaticamente
+          quando o financeiro libera um orçamento cujos serviços já foram concluídos (vide{' '}
+          <a className="text-rose-600 hover:underline" href="/faq/processos">Fluxo de Processos</a>) —
           o sistema:
         </p>
         <ul className="list-disc list-inside space-y-1 ml-2">

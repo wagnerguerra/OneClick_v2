@@ -151,6 +151,8 @@ interface Orcamento {
   numero: number
   token: string
   status: string
+  /** Situação dos serviços executados (backend: servicos-do-orcamento.ts). */
+  servicos?: { total: number; concluidos: number; todosConcluidos: boolean; concluidoEm: string | null } | null
   tipo: string
   valorTotal: number
   descontoValor: number
@@ -2266,6 +2268,25 @@ export default function OrcamentoDetailPage() {
                 <Play className="h-3 w-3" /> Retomar
               </Button>
             )}
+          </div>
+        </Card>
+      )}
+
+      {/* Serviço concluído com o orçamento ainda APROVADO: o colaborador
+          terminou o trabalho, falta o financeiro liberar. Ao liberar, o sistema
+          finaliza sozinho (antes, concluir o serviço pulava a liberação — #4803). */}
+      {orc.status === 'APROVADO' && orc.servicos?.todosConcluidos && (
+        <Card className={cn('p-3 mt-5', SURFACE.emerald)}>
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className={cn('h-5 w-5 shrink-0 mt-0.5', TEXT.emerald)} />
+            <div className="flex-1 min-w-0">
+              <p className={cn('text-sm font-semibold', TEXT.emerald)}>Serviço concluído — aguardando liberação do financeiro</p>
+              <p className={cn('text-xs mt-0.5', TEXT.emerald)}>
+                {orc.servicos.concluidos === 1 ? 'O serviço deste orçamento foi finalizado' : `Os ${orc.servicos.concluidos} serviços deste orçamento foram finalizados`}
+                {orc.servicos.concluidoEm ? ` em ${new Date(orc.servicos.concluidoEm).toLocaleDateString('pt-BR')}` : ''}.
+                {' '}Ao liberar, o orçamento será finalizado automaticamente.
+              </p>
+            </div>
           </div>
         </Card>
       )}

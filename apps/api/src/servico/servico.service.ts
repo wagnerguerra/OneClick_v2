@@ -3804,8 +3804,9 @@ export class ServicoService {
    * Marca a execução como CONCLUIDO, registra evento na timeline, dispara as
    * cascatas:
    *
-   *  1. **Orçamento → FINALIZADO** (decisão 1a — apenas a execução-raiz finaliza
-   *     o orçamento; sucessores de cadeia herdam orcamentoId mas não disparam).
+   *  1. **Orçamento** — avisa o OrcamentoService (aoConcluirServico): APROVADO
+   *     fica aguardando a liberação do financeiro; LIBERADO é finalizado quando
+   *     todas as execuções do orçamento terminaram.
    *  2. **Cria execuções sucessoras** definidas em ServicoEncadeamento (DAG no
    *     template). Avalia condicionais; status inicial decidido por iniciaAuto/obrigatorio.
    *  3. **Recalcula status do Processo** (se a execução faz parte de um) —
@@ -3846,39 +3847,18 @@ export class ServicoService {
       void this.notificacaoService.disparar(exec.id, 'CONCLUIDA')
     }
 
-    // 1) Orcamento → FINALIZADO (so a raiz da cadeia, decisao 1a)
-    //    Sucessores de cadeia herdam orcamentoId mas NAO devem refinalizar o
-    //    orcamento. A diferenca eh predecessorExecucaoId: raiz nao tem.
-    //
-    //    A FSM eh APROVADO → LIBERADO → FINALIZADO. No fluxo manual, o gestor
-    //    move LIBERADO ao iniciar a execucao. Aqui, o trigger eh automatico —
-    //    a execucao ja rodou. Pulamos APROVADO → LIBERADO silenciosamente
-    //    (sem disparar email "Liberado para execucao", que faria sentido apenas
-    //    no inicio) e logo em seguida LIBERADO → FINALIZADO normal (com email
-    //    de finalizacao para o cliente + criacao da pesquisa NPS).
-    if (exec.orcamentoId && !exec.predecessorExecucaoId) {
+    // 1) Orçamento: o colaborador conclui o SERVIÇO, não o orçamento. Até
+    //    28/09/2026 a raiz concluída levava o orçamento de APROVADO a LIBERADO
+    //    em silêncio e logo a FINALIZADO — o financeiro não via a liberação e
+    //    deixava de faturar (#4803). Agora quem decide é o OrcamentoService:
+    //    APROVADO fica aguardando a liberação (com aviso); LIBERADO finaliza.
+    //    Vale para qualquer execução do orçamento (inclusive sucessoras): o
+    //    orçamento só conta como servido quando TODAS terminaram.
+    if (exec.orcamentoId) {
       try {
-        const orc = await prisma.orcamento.findUnique({
-          where: { id: exec.orcamentoId },
-          select: { status: true },
-        })
-        if (orc?.status === 'APROVADO') {
-          await this.orcamentoService.changeStatus(
-            exec.orcamentoId, 'LIBERADO', userId,
-            { skipNotifications: true },
-          )
-        }
-        // Re-busca o status pos-LIBERADO (pode ter saltado o passo acima
-        // se o gestor ja havia movido manualmente).
-        const orcAtual = await prisma.orcamento.findUnique({
-          where: { id: exec.orcamentoId },
-          select: { status: true },
-        })
-        if (orcAtual && orcAtual.status === 'LIBERADO') {
-          await this.orcamentoService.changeStatus(exec.orcamentoId, 'FINALIZADO', userId)
-        }
+        await this.orcamentoService.aoConcluirServico(exec.orcamentoId, userId)
       } catch (e) {
-        console.warn('[Servico] Falha ao finalizar orçamento vinculado:', (e as Error).message)
+        console.warn('[Servico] Falha ao atualizar o orçamento vinculado:', (e as Error).message)
       }
     }
 
