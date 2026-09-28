@@ -2553,7 +2553,7 @@ export default function ServicoDetailPage() {
                 <div className="space-y-2">
                   {encadeamentos.map(enc => (
                     <div key={enc.id} className="flex items-center gap-3 rounded-lg border bg-card p-3 hover:shadow-sm transition-shadow">
-                      <div className={cn('shrink-0 flex h-8 w-8 items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-xs font-bold', TEXT.emerald)}>
+                      <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary-on-surface">
                         {enc.ordem + 1}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -2561,7 +2561,7 @@ export default function ServicoDetailPage() {
                           <button
                             type="button"
                             onClick={() => router.push(`/servicos/${enc.servicoDestinoId}`)}
-                            className="text-sm font-semibold truncate hover:text-emerald-600 hover:underline text-left"
+                            className="text-sm font-semibold truncate hover:text-primary-on-surface hover:underline text-left"
                           >
                             {enc.servicoDestino.nome}
                           </button>

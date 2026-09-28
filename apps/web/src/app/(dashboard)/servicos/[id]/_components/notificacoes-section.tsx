@@ -518,7 +518,7 @@ export function NotificacoesSection({
                               type="button"
                               onClick={() => aplicarPreset(p)}
                               title={p.descricao}
-                              className="px-2.5 py-1 rounded-full text-[11px] border bg-card hover:bg-emerald-50 hover:border-emerald-300 transition-colors"
+                              className="px-2.5 py-1 rounded-full text-[11px] border bg-card hover:bg-primary/5 hover:border-primary/40 transition-colors"
                             >
                               {p.label}
                             </button>
@@ -722,7 +722,7 @@ export function NotificacoesSection({
                         document.querySelector('[data-form-regra]')?.scrollIntoView({ behavior: 'smooth' })
                       }, 50)
                     }}
-                    className="text-left p-3 rounded border bg-card hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:border-emerald-300 transition-colors"
+                    className="text-left p-3 rounded border bg-card hover:bg-primary/10 hover:border-primary/60 transition-colors"
                   >
                     <div className="text-[12.5px] font-semibold mb-0.5">{tpl.nome}</div>
                     <div className="text-[11px] text-muted-foreground">{tpl.descricao}</div>
@@ -852,7 +852,7 @@ export function NotificacoesSection({
                         navigator.clipboard?.writeText(v.key)
                         void alerts.success('Copiado', `${v.key} copiado para a área de transferência`)
                       }}
-                      className="block w-full text-left px-2 py-1 rounded hover:bg-emerald-100 dark:hover:bg-emerald-950/50 text-[10.5px] font-mono"
+                      className="block w-full text-left px-2 py-1 rounded hover:bg-primary/10 text-[10.5px] font-mono"
                       title={v.label}
                     >
                       {v.key}
