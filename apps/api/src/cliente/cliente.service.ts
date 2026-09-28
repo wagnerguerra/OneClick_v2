@@ -1047,7 +1047,9 @@ export class ClienteService {
         : { status: 'ATIVO', empresaId: '__none__' }
     return prisma.cliente.findMany({
       where,
-      select: { id: true, razaoSocial: true, nomeFantasia: true, code: true, documento: true, situacao: true },
+      // tipoDocumento/ehMatriz: o final do CNPJ e o selo Matriz/Filial nas
+      // listas que usam este seletor (#HLP0410).
+      select: { id: true, razaoSocial: true, nomeFantasia: true, code: true, documento: true, situacao: true, tipoDocumento: true, ehMatriz: true },
       orderBy: { razaoSocial: 'asc' },
     })
   }

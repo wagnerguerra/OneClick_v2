@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react'
+import { useState, useEffect, useCallback, useRef, createContext, useContext, type ReactNode } from 'react'
+import { ClienteIdentificacao, type ClienteDoc } from '@/components/cliente-identificacao'
 import { useRouter } from 'next/navigation'
 import {
   FileText, CircleDollarSign, Loader2, Plus, MoreVertical, Copy, Archive, Ban,
@@ -310,7 +311,7 @@ export default function OrcamentosPage() {
   const [orcamentos, setOrcamentos] = useState<OrcamentoRow[]>([])
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
-  const [clientesMap, setClientesMap] = useState<Map<string, { razaoSocial: string }>>(new Map())
+  const [clientesMap, setClientesMap] = useState<Map<string, ClienteDoc>>(new Map())
   const [orcConfig, setOrcConfig] = useState<OrcConfig>(DEFAULT_CONFIG)
   const [viewMode, setViewMode] = useState<'tabela' | 'kanban'>(() => {
     if (typeof window === 'undefined') return 'kanban'
@@ -630,8 +631,8 @@ export default function OrcamentosPage() {
       if (clienteIds.length > 0) {
         try {
           const cls = await (trpc.cliente as any).listForSelect.query()
-          const map = new Map<string, { razaoSocial: string }>()
-          for (const c of cls) map.set(c.id, { razaoSocial: c.razaoSocial })
+          const map = new Map<string, ClienteDoc>()
+          for (const c of cls) map.set(c.id, { razaoSocial: c.razaoSocial, documento: c.documento, tipoDocumento: c.tipoDocumento, ehMatriz: c.ehMatriz })
           setClientesMap(map)
         } catch { /* */ }
       }
@@ -807,9 +808,12 @@ export default function OrcamentosPage() {
     return acc
   }, {} as Record<string, OrcamentoRow[]>)
 
-  const getClienteNome = (orc: OrcamentoRow) => {
+  // Nome + final do CNPJ e selo Matriz/Filial (#HLP0410): matriz e filiais
+  // de uma mesma empresa apareciam idênticas na lista.
+  const getClienteNome = (orc: OrcamentoRow, variante: 'linha' | 'bloco' = 'linha'): ReactNode => {
     if (!orc.clienteId) return null
-    return clientesMap.get(orc.clienteId)?.razaoSocial || null
+    const cli = clientesMap.get(orc.clienteId)
+    return cli ? <ClienteIdentificacao cliente={cli} variante={variante} /> : null
   }
 
   return (
@@ -1045,7 +1049,7 @@ export default function OrcamentosPage() {
               </div>
             </div>
             <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
-              {activeCard && <KanbanCardOverlay orc={activeCard} clienteNome={getClienteNome(activeCard)} velocityX={dragDeltaX} />}
+              {activeCard && <KanbanCardOverlay orc={activeCard} clienteNome={getClienteNome(activeCard, 'bloco')} velocityX={dragDeltaX} />}
             </DragOverlay>
           </DndContext>
           </OrcConfigContext.Provider>
@@ -1162,7 +1166,7 @@ export default function OrcamentosPage() {
                   <TableCell className="hidden sm:table-cell"><StatusBadge status={orc.status} /></TableCell>
                   <TableCell className="text-sm">
                     <span className="flex items-center gap-1.5 min-w-0">
-                      <span className="truncate">{getClienteNome(orc) || '—'}</span>
+                      <span className="flex min-w-0">{getClienteNome(orc) || '—'}</span>
                       {orc.paralizado && (
                         <Badge variant="outline" className={cn('shrink-0 text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.amber)}>Paralizado</Badge>
                       )}
@@ -1421,7 +1425,7 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
   draggable: boolean
   onToggleCollapse: () => void
   onRelatorio: () => void
-  getClienteNome: (orc: OrcamentoRow) => string | null
+  getClienteNome: (orc: OrcamentoRow, variante?: 'linha' | 'bloco') => ReactNode
   onOpenDetail: (id: string) => void
   onDuplicar: (id: string) => void
   onArquivar: (id: string) => void
@@ -1534,7 +1538,7 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
               key={orc.id}
               orc={orc}
               isDraggingAny={!!activeCardId}
-              clienteNome={getClienteNome(orc)}
+              clienteNome={getClienteNome(orc, 'bloco')}
               draggable={draggable}
               onOpenDetail={onOpenDetail}
               onDuplicar={onDuplicar}
@@ -1551,7 +1555,7 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
 function KanbanCard({ orc, isDraggingAny, clienteNome, draggable, onOpenDetail, onDuplicar, onArquivar, onCancelar }: {
   orc: OrcamentoRow
   isDraggingAny: boolean
-  clienteNome: string | null
+  clienteNome: ReactNode
   draggable: boolean
   onOpenDetail: (id: string) => void
   onDuplicar: (id: string) => void
@@ -1586,7 +1590,7 @@ function KanbanCard({ orc, isDraggingAny, clienteNome, draggable, onOpenDetail, 
   )
 }
 
-function KanbanCardOverlay({ orc, clienteNome, velocityX }: { orc: OrcamentoRow; clienteNome: string | null; velocityX: number }) {
+function KanbanCardOverlay({ orc, clienteNome, velocityX }: { orc: OrcamentoRow; clienteNome: ReactNode; velocityX: number }) {
   const [rotation, setRotation] = useState(0)
   const rotRef = useRef(0)
   const angVelRef = useRef(0)
@@ -1640,7 +1644,7 @@ function KanbanCardOverlay({ orc, clienteNome, velocityX }: { orc: OrcamentoRow;
 
 function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancelar, onOpenDetail, showMenu }: {
   orc: OrcamentoRow
-  clienteNome: string | null
+  clienteNome: ReactNode
   onOpenDetail: (id: string) => void
   onDuplicar: (id: string) => void
   onArquivar: (id: string) => void

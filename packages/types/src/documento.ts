@@ -74,6 +74,21 @@ export function ehMatrizCnpj(
 }
 
 /**
+ * Final do CNPJ — ordem + dígitos verificadores (`0001-91`), o pedaço que
+ * distingue matriz e filiais de uma mesma empresa. Vazio para CPF ou documento
+ * incompleto. Por posição, então vale para o CNPJ alfanumérico.
+ *
+ * #HLP0410: nas listas, clientes com a mesma razão social (matriz e filiais)
+ * ficavam idênticos; com o final ao lado do nome, dá para distinguir sem abrir.
+ */
+export function finalCnpj(documento: string | null | undefined, tipoDocumento?: string | null): string {
+  if (tipoDocumento && tipoDocumento !== 'CNPJ') return ''
+  const c = limparCnpj(documento)
+  if (c.length !== 14) return ''
+  return `${c.slice(8, 12)}-${c.slice(12, 14)}`
+}
+
+/**
  * O CNPJ tem letra nas 12 primeiras posições?
  *
  * Serve de guarda para os caminhos de CONSULTA externa: nem a Receita nem a
