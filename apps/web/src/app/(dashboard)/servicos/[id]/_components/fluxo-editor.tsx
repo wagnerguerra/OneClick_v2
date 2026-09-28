@@ -373,10 +373,11 @@ function ExecucoesSection({ execucoes }: { execucoes: NonNullable<FluxoNode['exe
     return `${dia} ${hora}`
   }
   return (
-    <div className="px-3 py-2.5 border-t bg-primary/5">
+    // Verde semântico (rodando/ativo), não cor de módulo — mesmo verde do "em dia".
+    <div className={cn('px-3 py-2.5 border-t', SURFACE.emerald)}>
       <div className="flex items-center gap-1.5 mb-1.5">
-        <PlayCircle className="h-3 w-3 text-primary-on-surface" />
-        <span className="text-[10px] font-bold text-primary-on-surface uppercase tracking-wider">
+        <PlayCircle className={cn('h-3 w-3', TEXT.emerald)} />
+        <span className={cn('text-[10px] font-bold uppercase tracking-wider', TEXT.emerald)}>
           Em execução — {execucoes.total}
         </span>
       </div>

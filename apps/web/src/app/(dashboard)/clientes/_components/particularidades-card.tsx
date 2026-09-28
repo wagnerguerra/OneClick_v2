@@ -6,7 +6,7 @@ import { Button, Card, RichEditor, cn } from '@saas/ui'
 import { MioloColapsavel } from './card-colapsavel'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { TEXT } from '@/lib/color-styles'
+import { DOT, TEXT } from '@/lib/color-styles'
 
 const PRIMARY = 'var(--color-primary)'
 
@@ -135,7 +135,8 @@ export function ParticularidadesCard({ clienteId }: { clienteId: string }) {
                 {dirty.has(row.clienteAreaContratadaId)
                   ? <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', isActive ? 'bg-white' : 'bg-amber-500')} />
                   : hasText
-                    ? <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: isActive ? '#fff' : PRIMARY }} />
+                    // Preenchido/salvo = verde semântico (par do âmbar de "não salvo").
+                    ? <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', isActive ? 'bg-white' : DOT.emerald)} />
                     : <span className="h-1.5 w-1.5 shrink-0" />}
               </button>
             )

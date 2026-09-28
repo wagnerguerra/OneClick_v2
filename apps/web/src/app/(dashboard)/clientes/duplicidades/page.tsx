@@ -17,8 +17,6 @@ import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-const PRIMARY = 'var(--color-primary)'
-
 interface Cadastro {
   id: string
   code: number
@@ -287,7 +285,7 @@ export default function DuplicidadesPage() {
                       )}
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-lg font-bold tabular-nums" style={{ color: c.totalVinculos > 0 ? PRIMARY : undefined }}>
+                      <p className={cn('text-lg font-bold tabular-nums', c.totalVinculos > 0 && 'text-primary-on-surface')}>
                         {c.totalVinculos}
                       </p>
                       <p className="text-[10px] text-muted-foreground">registros</p>
