@@ -20,7 +20,7 @@ import {
   Checkbox, RichEditor, Textarea,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { BADGE, TEXT } from '@/lib/color-styles'
+import { BADGE, FILL, TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { ServicoWizard } from './_components/servico-wizard'
 import Link from 'next/link'
@@ -1574,12 +1574,10 @@ export default function ServicosPage() {
                     <TableCell className="hidden md:table-cell text-center whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                          {/* Progresso de etapas = verde (pausado = âmbar). */}
                           <div
-                            className="h-full rounded-full transition-all"
-                            style={{
-                              width: `${tPassos > 0 ? (cPassos / tPassos) * 100 : 0}%`,
-                              backgroundColor: (exec as any).pausado ? '#f59e0b' : PRIMARY,
-                            }}
+                            className={cn('h-full rounded-full transition-all', (exec as any).pausado ? FILL.amber : FILL.emerald)}
+                            style={{ width: `${tPassos > 0 ? (cPassos / tPassos) * 100 : 0}%` }}
                           />
                         </div>
                         <span className="text-[10px] text-muted-foreground font-medium shrink-0">{cPassos}/{tPassos}</span>
@@ -2308,10 +2306,10 @@ export default function ServicosPage() {
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Progresso</span>
-                    <span className="font-semibold" style={{ color: PRIMARY }}>{progressPct}% ({concluidos}/{totalPassos})</span>
+                    <span className={cn('font-semibold', TEXT.emerald)}>{progressPct}% ({concluidos}/{totalPassos})</span>
                   </div>
                   <div className="h-2.5 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-300" style={{ width: `${progressPct}%`, backgroundColor: PRIMARY }} />
+                    <div className={cn('h-full rounded-full transition-all duration-300', FILL.emerald)} style={{ width: `${progressPct}%` }} />
                   </div>
                 </div>
 
@@ -2397,7 +2395,7 @@ export default function ServicosPage() {
                     <Button variant="destructive" size="sm" onClick={() => handleCancelarExecucao(selectedExecucao.id)} className="gap-1.5">
                       <XCircle className="h-4 w-4" />Cancelar
                     </Button>
-                    <Button size="sm" onClick={() => handleConcluirExecucao(selectedExecucao.id)} className="gap-1.5" style={{ backgroundColor: 'var(--color-primary)' }}>
+                    <Button size="sm" variant="success" onClick={() => handleConcluirExecucao(selectedExecucao.id)} className="gap-1.5">
                       <CheckCircle2 className="h-4 w-4" />Concluir
                     </Button>
                   </>
