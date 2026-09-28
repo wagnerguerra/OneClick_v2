@@ -15,7 +15,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Wand2, Repeat, Zap, Lock, ShieldCheck, CircleDollarSign, Copy, Loader2 } from 'lucide-react'
 import {
-  Dialog, DialogContent, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription,
   Input, Label, RichEditor, Button, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
@@ -194,7 +194,7 @@ export function ServicoWizard({ open, onOpenChange, areas }: ServicoWizardProps)
           <DialogDescription>Vamos criar o serviço passo a passo.</DialogDescription>
         </DialogHeaderIcon>
 
-        <div className="px-6 py-5 overflow-y-auto">
+        <DialogBody className="px-6 py-5">
           <WizardShell
             steps={visibleSteps}
             current={step}
@@ -379,7 +379,7 @@ export function ServicoWizard({ open, onOpenChange, areas }: ServicoWizardProps)
               </div>
             )}
           </WizardShell>
-        </div>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   )
