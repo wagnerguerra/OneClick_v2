@@ -9,7 +9,9 @@
  * perguntas.
  *
  * Usado nos dois caminhos: o balão "Solicitar orçamento" (botão +) e o
- * "Novo Orçamento" do módulo.
+ * "Novo Orçamento" do módulo. Editável em Configurações de Orçamentos →
+ * Textos padrão (quem tem acesso às configurações); este é o PADRÃO, usado
+ * enquanto a empresa não configurou o seu.
  */
 export const ROTEIRO_SOLICITACAO_ORCAMENTO = [
   '<p><strong>Nome do serviço:</strong></p><p></p>',
@@ -28,13 +30,17 @@ function texto(html: string): string {
   return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, '').replace(/\s+/g, '')
 }
 
-const TEXTO_ROTEIRO = texto(ROTEIRO_SOLICITACAO_ORCAMENTO)
-
 /**
  * O detalhamento tem conteúdo de verdade? Vazio, ou só o roteiro sem nenhuma
- * resposta, conta como não preenchido.
+ * resposta, conta como não preenchido. `roteiro` = o que o formulário abriu
+ * (o configurado pela empresa, ou o padrão).
  */
-export function detalhamentoPreenchido(html: string): boolean {
+export function detalhamentoPreenchido(html: string, roteiro: string = ROTEIRO_SOLICITACAO_ORCAMENTO): boolean {
   const t = texto(html)
-  return t.length >= 3 && t !== TEXTO_ROTEIRO
+  return t.length >= 3 && t !== texto(roteiro)
+}
+
+/** Configuração salva → roteiro efetivo. null (nunca configurado) = padrão. */
+export function roteiroEfetivo(configurado: string | null | undefined): string {
+  return configurado ?? ROTEIRO_SOLICITACAO_ORCAMENTO
 }

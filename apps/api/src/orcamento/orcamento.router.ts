@@ -428,8 +428,18 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
         followup_tipo_evento_id: z.string().optional(),
         // #HLP0302 — "Usar apenas desconto por item" ('1' marcada / '0' desmarcada).
         apenas_desconto_item: z.string().optional(),
+        // #HLP0411 — roteiro do Detalhamento ao pedir orçamento (HTML).
+        roteiro_solicitacao: z.string().optional(),
       }))
       .mutation(({ input, ctx }) => orcamentoService.saveConfig(input, ctx.empresaId)),
+
+    /**
+     * Roteiro do Detalhamento para quem PEDE orçamento — qualquer usuário
+     * logado: o balão do botão + não exige acesso ao módulo. null = usar o
+     * roteiro padrão.
+     */
+    roteiroSolicitacao: protectedProcedure
+      .query(({ ctx }) => orcamentoService.getRoteiroSolicitacao(ctx.empresaId)),
 
     // Imagem de fundo do header — apenas Master pode editar
     setHeaderCover: protectedProcedure

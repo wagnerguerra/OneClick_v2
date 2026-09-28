@@ -5374,7 +5374,21 @@ export class OrcamentoService {
       // geral fica bloqueado e só o por-item vale. Desmarcada = os dois somam.
       // Default '1' (travado por padrão, conforme decisão do Wagner).
       apenasDescontoItem: (config.apenas_desconto_item ?? '1') === '1',
+      // #HLP0411 — roteiro que abre no Detalhamento ao pedir orçamento. null =
+      // nunca configurado (a tela usa o roteiro padrão); '' = configurado vazio
+      // (sem roteiro, de propósito).
+      roteiroSolicitacao: 'roteiro_solicitacao' in config ? config.roteiro_solicitacao! : null,
     }
+  }
+
+  /**
+   * O roteiro da solicitação para os formulários (balão do botão + e Novo
+   * Orçamento). Separado do getConfig porque o balão é usado por quem nem tem
+   * acesso ao módulo — e não precisa ver o resto da configuração.
+   */
+  async getRoteiroSolicitacao(empresaId?: string): Promise<string | null> {
+    const cfg = await this.getConfig(empresaId).catch(() => null)
+    return cfg?.roteiroSolicitacao ?? null
   }
 
   /** #HLP0302 — o desconto GERAL só entra quando "apenas por item" está DESmarcado. */

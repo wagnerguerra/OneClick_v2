@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, createContext, useContext, type ReactNode } from 'react'
 import { ClienteIdentificacao, type ClienteDoc } from '@/components/cliente-identificacao'
 import { ROTEIRO_SOLICITACAO_ORCAMENTO, detalhamentoPreenchido } from '@/components/orcamento/roteiro-solicitacao'
+import { useRoteiroSolicitacao } from '@/components/orcamento/use-roteiro-solicitacao'
 import { useRouter } from 'next/navigation'
 import {
   FileText, CircleDollarSign, Loader2, Plus, MoreVertical, Copy, Archive, Ban,
@@ -543,6 +544,12 @@ export default function OrcamentosPage() {
     textoInterno: ROTEIRO_SOLICITACAO_ORCAMENTO,
   }
   const [form, setForm] = useState(FORM_INITIAL)
+  // Roteiro configurável (Configurações → Textos padrão): substitui o padrão
+  // no Detalhamento enquanto ninguém mexeu nele.
+  const roteiro = useRoteiroSolicitacao()
+  useEffect(() => {
+    setForm(f => (f.textoInterno === ROTEIRO_SOLICITACAO_ORCAMENTO ? { ...f, textoInterno: roteiro } : f))
+  }, [roteiro, createOpen])
 
   useEffect(() => { const t = setTimeout(() => { setDebouncedSearch(search); setPage(1) }, 400); return () => clearTimeout(t) }, [search])
   useEffect(() => { const t = setTimeout(() => { setDebouncedNumero(numeroFilter); setPage(1) }, 400); return () => clearTimeout(t) }, [numeroFilter])
@@ -721,7 +728,7 @@ export default function OrcamentosPage() {
         descontoPct: form.descontoPct ? Number(form.descontoPct) : undefined,
         descontoValor: form.descontoValor ? Number(form.descontoValor) : undefined,
         // Roteiro intacto (nenhuma resposta) não é gravado como detalhamento.
-        textoInterno: detalhamentoPreenchido(form.textoInterno) ? form.textoInterno : undefined,
+        textoInterno: detalhamentoPreenchido(form.textoInterno, roteiro) ? form.textoInterno : undefined,
       })
       // Vincula as áreas marcadas — é isso que dispara sino/e-mail pro líder (e
       // substituto) com o prazo pra detalhar. Falhar aqui não desfaz o orçamento,

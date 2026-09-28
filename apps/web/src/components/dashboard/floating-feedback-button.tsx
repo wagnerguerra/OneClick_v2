@@ -15,6 +15,7 @@ import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { renderConflitosHtml, type ConflitoAgenda, type ConflitoModo } from '@/lib/agenda-conflitos'
 import { AreasNotificarPicker, useAreasNotificaveis } from '@/components/orcamento/areas-notificar-picker'
 import { ROTEIRO_SOLICITACAO_ORCAMENTO, detalhamentoPreenchido } from '@/components/orcamento/roteiro-solicitacao'
+import { useRoteiroSolicitacao } from '@/components/orcamento/use-roteiro-solicitacao'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { useTicketForm, TicketFormFields } from '@/app/(dashboard)/helpdesk/_components/ticket-form'
 import { TEXT } from '@/lib/color-styles'
@@ -514,6 +515,12 @@ function OrcamentoRequestForm({
   const [clienteSel, setClienteSel] = useState<ClienteOpcao | null>(null)
   // Abre com o roteiro do que o comercial precisa (#HLP0411) — lembrete, não trava.
   const [detalhamento, setDetalhamento] = useState(ROTEIRO_SOLICITACAO_ORCAMENTO)
+  // O roteiro é configurável (Configurações de Orçamentos → Textos padrão).
+  // Quando o da empresa chega, troca o padrão — só se ninguém mexeu ainda.
+  const roteiro = useRoteiroSolicitacao()
+  useEffect(() => {
+    setDetalhamento(atual => (atual === ROTEIRO_SOLICITACAO_ORCAMENTO ? roteiro : atual))
+  }, [roteiro])
   const [enviando, setEnviando] = useState(false)
   const [criado, setCriado] = useState<{ numero: number; id: string } | null>(null)
   // Áreas a notificar — pills (cada área marcada notifica o líder pra detalhar a parte dela).
@@ -624,7 +631,7 @@ function OrcamentoRequestForm({
 
   // RichEditor entrega HTML — valida o texto puro (evita aceitar "<p></p>" vazio)
   // e trata o roteiro intacto, sem nenhuma resposta, como vazio.
-  const detPreenchido = detalhamentoPreenchido(detalhamento)
+  const detPreenchido = detalhamentoPreenchido(detalhamento, roteiro)
 
   async function handleEnviar() {
     const det = detalhamento.trim()
