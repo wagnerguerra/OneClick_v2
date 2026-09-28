@@ -223,7 +223,7 @@ export default function ComercialPage() {
 
       {loading ? (
         <div className="flex items-center justify-center py-24">
-          <Loader2 className="h-6 w-6 animate-spin" style={{ color: PRIMARY }} />
+          <Loader2 className="h-6 w-6 animate-spin text-primary-on-surface" />
           <span className="ml-2 text-sm text-muted-foreground">Carregando painel...</span>
         </div>
       ) : erro ? (
@@ -236,7 +236,7 @@ export default function ComercialPage() {
           {/* ── KPIs ───────────────────────────────────────── */}
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-              <Target className="h-3.5 w-3.5" style={{ color: PRIMARY }} /> CRM — Pipeline
+              <Target className="h-3.5 w-3.5 text-primary-on-surface" /> CRM — Pipeline
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <StatCard icon={Target} label="Oportunidades ativas" value={oportunidadesAtivas} color="#818cf8" />
@@ -247,7 +247,7 @@ export default function ComercialPage() {
 
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-              <CircleDollarSign className="h-3.5 w-3.5" style={{ color: PRIMARY }} /> Orçamentos
+              <CircleDollarSign className="h-3.5 w-3.5 text-primary-on-surface" /> Orçamentos
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <StatCard icon={FileText} label="Em aberto" value={orcEmAberto} color="#60a5fa" />
@@ -259,7 +259,7 @@ export default function ComercialPage() {
 
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-              <FileCheck className="h-3.5 w-3.5" style={{ color: PRIMARY }} /> Contratos — Carteira
+              <FileCheck className="h-3.5 w-3.5 text-primary-on-surface" /> Contratos — Carteira
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <StatCard icon={FileCheck} label="Contratos vigentes" value={vigentes} color="#34d399" />
@@ -272,7 +272,7 @@ export default function ComercialPage() {
           {mrrAvulso && (
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-                <CircleDollarSign className="h-3.5 w-3.5" style={{ color: PRIMARY }} /> Receita — recorrente vs. avulsa
+                <CircleDollarSign className="h-3.5 w-3.5 text-primary-on-surface" /> Receita — recorrente vs. avulsa
               </p>
               <Card className="p-4">
                 {recAvTotal > 0 ? (
@@ -309,8 +309,7 @@ export default function ComercialPage() {
                     </div>
                     <button
                       onClick={() => router.push('/comercial/relatorios?tab=mrr')}
-                      className="self-start text-[11px] font-medium hover:underline"
-                      style={{ color: PRIMARY }}
+                      className="self-start text-[11px] font-medium hover:underline text-primary-on-surface"
                     >
                       Ver relatório completo de MRR →
                     </button>
@@ -427,7 +426,7 @@ export default function ComercialPage() {
           {aVencer.length ? (
             <Card className="overflow-hidden">
               <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-                <CalendarClock className="h-4 w-4" style={{ color: PRIMARY }} />
+                <CalendarClock className="h-4 w-4 text-primary-on-surface" />
                 <h3 className="text-[13px] font-semibold text-foreground">Contratos a vencer (próximos 60 dias)</h3>
               </div>
               <Table>
