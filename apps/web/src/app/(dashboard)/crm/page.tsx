@@ -33,6 +33,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
+import { mensagemErro } from '@/lib/errors'
 import { moedaParaNumero, masks } from '@/lib/masks'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { useAutoHideScrollbar } from '@/hooks/use-autohide-scrollbar'
@@ -486,8 +487,8 @@ export default function CrmPage() {
       // pode oferecer campanha vigente — listConfigs devolve tudo, inclusive
       // desativadas e os funis "roteador", que nao sao campanha.
       setCampanhasList(((camps || []) as any[]).map(c => ({ slug: c.slug, nome: c.nome, ativo: c.ativo !== false, roteador: c.roteador === true })))
-    } catch {
-      if (!silent) alerts.error('Erro', 'Falha ao carregar dados do CRM')
+    } catch (e) {
+      if (!silent) alerts.error('Erro', mensagemErro(e, 'Falha ao carregar dados do CRM'))
     } finally {
       if (!silent) setLoading(false)
     }
@@ -739,8 +740,8 @@ export default function CrmPage() {
       setDraftRestored(false)
       alerts.success('Oportunidade criada')
       fetchAll()
-    } catch {
-      alerts.error('Erro', 'Falha ao criar oportunidade')
+    } catch (e) {
+      alerts.error('Erro', mensagemErro(e, 'Falha ao criar oportunidade'))
     } finally {
       setCreating(false)
     }
@@ -755,8 +756,8 @@ export default function CrmPage() {
       const d = await (trpc.crm as any).getById.query({ id })
       setDetail(d)
       loadTarefasCrm(id)
-    } catch {
-      alerts.error('Erro', 'Falha ao carregar oportunidade')
+    } catch (e) {
+      alerts.error('Erro', mensagemErro(e, 'Falha ao carregar oportunidade'))
       setDetailOpen(false)
     } finally {
       setDetailLoading(false)
@@ -776,8 +777,8 @@ export default function CrmPage() {
       if (result.orcamentoCriado) {
         alerts.success('Orcamento criado', `Orcamento #${result.orcamentoCriado.numero} gerado automaticamente`)
       }
-    } catch {
-      alerts.error('Erro', 'Falha ao mover oportunidade')
+    } catch (e) {
+      alerts.error('Erro', mensagemErro(e, 'Falha ao mover oportunidade'))
     }
   }
 
@@ -878,8 +879,8 @@ export default function CrmPage() {
       alerts.success('Oportunidade excluida')
       setDetailOpen(false)
       fetchAll()
-    } catch {
-      alerts.error('Erro', 'Falha ao excluir')
+    } catch (e) {
+      alerts.error('Erro', mensagemErro(e, 'Falha ao excluir'))
     }
   }
 
@@ -927,8 +928,8 @@ export default function CrmPage() {
       const d = await (trpc.crm as any).getById.query({ id: detail.id })
       setDetail(d)
       setNovaMensagem('')
-    } catch {
-      alerts.error('Erro', 'Falha ao enviar mensagem')
+    } catch (e) {
+      alerts.error('Erro', mensagemErro(e, 'Falha ao enviar mensagem'))
     } finally {
       setSaving(false)
     }
@@ -957,8 +958,8 @@ export default function CrmPage() {
       }
       const d = await (trpc.crm as any).getById.query({ id: detail.id })
       setDetail(d)
-    } catch {
-      alerts.error('Erro', 'Falha ao enviar arquivo')
+    } catch (e) {
+      alerts.error('Erro', mensagemErro(e, 'Falha ao enviar arquivo'))
     } finally {
       setSaving(false)
     }
@@ -984,8 +985,8 @@ export default function CrmPage() {
       const d = await (trpc.crm as any).getById.query({ id: detail.id })
       setDetail(d)
       fetchAll()
-    } catch {
-      alerts.error('Erro', 'Falha ao salvar')
+    } catch (e) {
+      alerts.error('Erro', mensagemErro(e, 'Falha ao salvar'))
     } finally {
       setSaving(false)
     }
@@ -1772,8 +1773,8 @@ export default function CrmPage() {
                 await (trpc.crm as any).saveConfig.mutate({ key: 'declinio_dias', value: String(declinioDias) })
                 alerts.success('Salvo', 'Configuracao atualizada')
                 setConfigModal(false)
-              } catch {
-                alerts.error('Erro', 'Falha ao salvar configuracao')
+              } catch (e) {
+                alerts.error('Erro', mensagemErro(e, 'Falha ao salvar configuracao'))
               }
             }}>
               Salvar

@@ -1,6 +1,7 @@
 import { createTRPCClient, httpLink } from '@trpc/client'
 import type { AppRouter } from '@saas/api/src/trpc/trpc.service'
 import { getApiUrl } from './api-url'
+import { avisoAtualizacao, fetchComRetentativa } from './retentativa-api'
 
 /**
  * Custom fetch que SEMPRE inclui credentials (cookies de sessão) e preserva o
@@ -16,7 +17,13 @@ const fetchWithCredentials: typeof fetch = async (input, init) => {
     console.info(`[trpc] ${method} ${url}`)
   }
   try {
-    const res = await fetch(input, { ...init, credentials: 'include' })
+    // API fora por instantes (deploy) → espera e repete; ver retentativa-api.ts.
+    // Aviso na tela só para ações do usuário: consultas de fundo (sino,
+    // contadores) repetem em silêncio, senão todos veriam o aviso a cada deploy.
+    const res = await fetchComRetentativa(
+      () => fetch(input, { ...init, credentials: 'include' }),
+      { signal: init?.signal, aviso: method !== 'GET' && typeof window !== 'undefined' ? avisoAtualizacao : undefined },
+    )
     if (typeof window !== 'undefined' && method !== 'GET') {
       console.info(`[trpc] ${method} ${url} → ${res.status} em ${Math.round(performance.now() - t0)}ms`)
     }
