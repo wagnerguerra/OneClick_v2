@@ -13,6 +13,9 @@ export interface ClienteDoc {
   documento?: string | null
   tipoDocumento?: string | null
   ehMatriz?: boolean | null
+  /** Opcionais — usados pelo card do quadro de orçamentos (logo + nome curto). */
+  nomeFantasia?: string | null
+  logoUrl?: string | null
 }
 
 /**

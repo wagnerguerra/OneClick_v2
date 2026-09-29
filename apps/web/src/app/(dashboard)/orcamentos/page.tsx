@@ -9,7 +9,7 @@ import { useRoteiroSolicitacao } from '@/components/orcamento/use-roteiro-solici
 import { useRouter } from 'next/navigation'
 import {
   FileText, CircleDollarSign, Loader2, Plus, MoreVertical, Copy, Archive, Ban,
-  Highlighter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, ChevronsUpDown,
+  Highlighter, Building2, IdCard, ListChecks, Pause, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, ChevronsUpDown,
   Clock, AlertTriangle, LayoutGrid, List, Eye, Settings2, Package, BarChart3, Activity,
   MessageSquare, Paperclip, RotateCcw, Star, SlidersHorizontal, X, Target, Check,
   Download, FileSpreadsheet, FileDown, CheckCircle2, Pencil, ThumbsDown, Search as SearchIcon,
@@ -673,7 +673,7 @@ export default function OrcamentosPage() {
         try {
           const cls = await (trpc.cliente as any).listForSelect.query()
           const map = new Map<string, ClienteDoc>()
-          for (const c of cls) map.set(c.id, { razaoSocial: c.razaoSocial, documento: c.documento, tipoDocumento: c.tipoDocumento, ehMatriz: c.ehMatriz })
+          for (const c of cls) map.set(c.id, { razaoSocial: c.razaoSocial, documento: c.documento, tipoDocumento: c.tipoDocumento, ehMatriz: c.ehMatriz, nomeFantasia: c.nomeFantasia, logoUrl: c.logoUrl })
           setClientesMap(map)
         } catch { /* */ }
       }
@@ -1746,274 +1746,244 @@ function KanbanCardContent({ orc, cliente, onDuplicar, onArquivar, onCancelar, o
   showMenu: boolean
 }) {
   const valor = Number(orc.totalGeral || orc.valorTotal || 0)
-  const temItens = !!orc.itens && orc.itens.length > 0
   const prazo = calcularPrazoCard(orc, useContext(OrcConfigContext))
-  // Avisos da quina do header, do mais importante ao menos: resposta do
-  // cliente pelo link, prazo vencido, prazo vencendo. A quina mostra o
-  // primeiro; o tooltip lista todos.
-  const avisos: Array<{ label: string; detalhe?: string; Icon: typeof Clock; cor: string }> = []
+  // Avisos do badge informativo do cabeçalho (o papel que era da quina), do
+  // mais importante ao menos. O badge mostra o primeiro; o tooltip, todos.
+  const avisos: Array<{ curto: string; label: string; detalhe?: string; Icon: typeof Clock; cor: string }> = []
   if (orc.decisaoTipo) {
     const quando = orc.decisaoEm
       ? `Respondido em ${new Date(orc.decisaoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}`
       : undefined
     avisos.push(orc.decisaoTipo === 'APROVADO'
-      ? { label: 'Cliente aprovou pelo link', detalhe: quando, Icon: CheckCircle2, cor: AVISO_COR.verde }
+      ? { curto: 'Aprovado', label: 'Cliente aprovou pelo link', detalhe: quando, Icon: CheckCircle2, cor: AVISO_COR.verde }
       : orc.decisaoTipo === 'REVISAO_SOLICITADA'
-      ? { label: 'Cliente pediu revisão', detalhe: quando, Icon: Pencil, cor: AVISO_COR.ambar }
-      : { label: 'Cliente recusou pelo link', detalhe: quando, Icon: ThumbsDown, cor: AVISO_COR.vermelho })
+      ? { curto: 'Revisão', label: 'Cliente pediu revisão', detalhe: quando, Icon: Pencil, cor: AVISO_COR.ambar }
+      : { curto: 'Recusado', label: 'Cliente recusou pelo link', detalhe: quando, Icon: ThumbsDown, cor: AVISO_COR.vermelho })
   }
-  if (prazo.variant === 'danger') avisos.push({ label: `Prazo ${prazo.label}`, detalhe: prazo.tooltip, Icon: AlertTriangle, cor: AVISO_COR.vermelho })
-  else if (prazo.variant === 'warning') avisos.push({ label: `Prazo: ${prazo.label}`, detalhe: prazo.tooltip, Icon: Clock, cor: AVISO_COR.ambar })
+  if (prazo.variant === 'danger') avisos.push({ curto: prazo.label === 'vence hoje' ? 'Vence hoje' : 'Vencido', label: `Prazo ${prazo.label}`, detalhe: prazo.tooltip, Icon: AlertTriangle, cor: AVISO_COR.vermelho })
+  else if (prazo.variant === 'warning') avisos.push({ curto: 'Vencendo', label: `Prazo: ${prazo.label}`, detalhe: prazo.tooltip, Icon: Clock, cor: AVISO_COR.ambar })
+  if (orc.status === 'APROVADO' && orc.servicosConcluidos) avisos.push({ curto: 'Serviço concluído', label: 'Serviço concluído', detalhe: 'Ao liberar, o orçamento é finalizado automaticamente', Icon: CheckCircle2, cor: AVISO_COR.verde })
+  if (orc.paralizado) avisos.push({ curto: 'Paralizado', label: 'Orçamento paralizado', Icon: Pause, cor: AVISO_COR.ambar })
   const aviso = avisos[0] ?? null
-  // Corpo vazio não é desenhado: sem isto, header e footer ficariam separados
-  // por uma faixa branca sem nada dentro.
-  const temCorpo = valor > 0 || temItens || !!orc.observacoes
+
+  // Cabeçalho: nome curto (fantasia, senão a razão social); o corpo traz a
+  // razão social completa em uma linha.
+  const nomeCurto = cliente?.nomeFantasia?.trim() || cliente?.razaoSocial || 'Sem cliente'
+  const doc = cliente?.documento ? formatDocumento(cliente.documento) : ''
+  const ehCnpj = cliente?.tipoDocumento ? cliente.tipoDocumento === 'CNPJ' : doc.length > 14
+  const matriz = ehCnpj && cliente ? ehMatrizCnpj(cliente.documento, cliente.ehMatriz, cliente.tipoDocumento) : false
+  // Relógio do rodapé em versão curta ("3d p/ enviar" → "3d"); a frase inteira fica no tooltip.
+  const prazoCurto = prazo.label.replace(/\s*p\/.*$/, '')
+  const prazoCor: Record<typeof prazo.variant, string> = {
+    ok: 'text-muted-foreground', neutral: 'text-muted-foreground',
+    warning: TEXT.amber, danger: cn(TEXT.rose, 'font-semibold'),
+  }
 
   return (
     <div className="flex flex-col">
-      {/* Header — mesmo fundo do card, separado do corpo por uma linha tracejada (como o footer) */}
+      {/* Cabeçalho — logo + nome curto à esquerda; nº do orçamento e badge informativo à direita */}
       <div
-        className={cn('relative flex items-center justify-between gap-1 px-3 py-2 border-b border-dashed border-border transition-colors duration-500 ease-out', aviso && 'pr-8')}
-        // Destacado: a cor do destaque bem de leve no header (hex + alfa 12 ≈ 7%),
-        // inline pelo mesmo motivo da borda (retint do módulo).
+        className="flex items-center gap-2 px-3 py-2.5 border-b border-dashed border-border transition-colors duration-500 ease-out"
         style={{ backgroundColor: orc.destacadoEm ? `${DESTAQUE_COR[corDoDestaque(orc)]}12` : 'transparent' }}
       >
-        {/* Quina de aviso: triângulo no canto superior direito, na cor do
-            aviso; o texto fica no tooltip. O card é overflow-hidden e
-            arredondado, então o canto do triângulo acompanha a borda. */}
-        {aviso && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span
-                className="absolute right-0 top-0 z-10 h-7 w-7 cursor-help"
-                aria-label={avisos.map(a => a.label).join('; ')}
-                onClick={e => e.stopPropagation()}
-                onPointerDown={e => e.stopPropagation()}
-              >
-                {/* Cor inline: o vermelho em classe sofre o retint do módulo. */}
-                <span className="absolute inset-0 transition-colors duration-500 [clip-path:polygon(0_0,100%_0,100%_100%)]" style={{ backgroundColor: aviso.cor }} />
-                <aviso.Icon className="absolute right-[3px] top-[3px] h-3 w-3 text-white" strokeWidth={2.25} />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="top" align="end" sideOffset={6} className="tooltip-fade text-[11px] max-w-[280px]">
-              <div className="space-y-1.5">
-                {avisos.map(a => (
-                  <div key={a.label}>
-                    <p className="flex items-center gap-1 font-semibold"><a.Icon className="h-3 w-3 shrink-0" /> {a.label}</p>
-                    {a.detalhe && <p>{a.detalhe}</p>}
-                  </div>
-                ))}
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        )}
-        {/* Uma linha só: quem encolhe é o nome (com "…"); número e selos não. */}
-        <h4 className="flex min-w-0 items-center gap-1 text-[13px] font-semibold leading-tight">
-          <DadosClienteTooltip numero={orc.numero} cliente={cliente}>
-            <span className="flex min-w-0 items-center gap-1 cursor-help">
-              <span className="shrink-0">#{orc.numero}</span>
-              <span className="truncate">{cliente?.razaoSocial || 'Sem cliente'}</span>
-            </span>
-          </DadosClienteTooltip>
-          {orc.paralizado && (
-            <Badge variant="outline" className={cn('shrink-0 text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.amber)}>Paralizado</Badge>
-          )}
-          {orc.status === 'APROVADO' && orc.servicosConcluidos && (
-            <Badge variant="outline" title="Serviço concluído — ao liberar, o orçamento é finalizado automaticamente"
-              className={cn('shrink-0 text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.emerald)}>Serviço concluído</Badge>
-          )}
-        </h4>
-        <div className="h-6 w-6 shrink-0 -mr-1">
-          {showMenu && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
-                <button className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded hover:bg-muted">
-                  <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
-                <DropdownMenuItem onClick={() => onOpenDetail(orc.id)}><Eye className="h-3.5 w-3.5 mr-2" /> Detalhes</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDuplicar(orc.id)}><Copy className="h-3.5 w-3.5 mr-2" /> Duplicar</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <p className="flex items-center gap-2 px-2 pt-1 text-xs text-muted-foreground">
-                  <Highlighter className="h-3.5 w-3.5" /> {orc.destacadoEm ? 'Cor do destaque' : 'Destacar'}
-                </p>
-                {/* Uma bolinha por cor; cada uma é item do menu (teclado e
-                    fechamento ao escolher vêm de graça). */}
-                <div className="flex items-center gap-1 px-1.5 pb-1 pt-1.5">
-                  {DESTAQUE_CORES.map(c => {
-                    const atual = !!orc.destacadoEm && corDoDestaque(orc) === c
-                    return (
-                      <DropdownMenuItem
-                        key={c}
-                        title={DESTAQUE_COR_LABELS[c]}
-                        aria-label={`Destacar em ${DESTAQUE_COR_LABELS[c]}`}
-                        onClick={() => { if (!atual) onDestacar(orc.id, true, c) }}
-                        className="h-7 w-7 justify-center rounded-full p-0"
-                      >
-                        <span className={cn('flex h-4 w-4 items-center justify-center rounded-full', atual && 'ring-2 ring-offset-2 ring-offset-popover ring-foreground/40')} style={{ backgroundColor: DESTAQUE_COR[c] }}>
-                          {atual && <Check className="!size-2.5 text-white" strokeWidth={3} />}
-                        </span>
-                      </DropdownMenuItem>
-                    )
-                  })}
+        <LogoCliente cliente={cliente} />
+        <DadosClienteTooltip numero={orc.numero} cliente={cliente}>
+          <span className="min-w-0 flex-1 cursor-help truncate text-[13px] font-semibold">{nomeCurto}</span>
+        </DadosClienteTooltip>
+        <div className="flex shrink-0 items-center gap-1">
+          <span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-foreground/80">#{orc.numero}</span>
+          {aviso && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="inline-flex max-w-[110px] cursor-help items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold"
+                  // Cor inline (fundo = a cor com ~10% de alfa): em classe, o vermelho sofre o retint do módulo.
+                  style={{ backgroundColor: `${aviso.cor}1A`, color: aviso.cor }}
+                  onClick={e => e.stopPropagation()}
+                  onPointerDown={e => e.stopPropagation()}
+                >
+                  <aviso.Icon className="h-3 w-3 shrink-0" strokeWidth={2.25} />
+                  <span className="truncate">{aviso.curto}</span>
+                  {avisos.length > 1 && <span className="shrink-0 opacity-70">+{avisos.length - 1}</span>}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="end" sideOffset={6} className="tooltip-fade text-[11px] max-w-[280px]">
+                <div className="space-y-1.5">
+                  {avisos.map(a => (
+                    <div key={a.label}>
+                      <p className="flex items-center gap-1 font-semibold"><a.Icon className="h-3 w-3 shrink-0" /> {a.label}</p>
+                      {a.detalhe && <p>{a.detalhe}</p>}
+                    </div>
+                  ))}
                 </div>
-                {orc.destacadoEm && (
-                  <DropdownMenuItem onClick={() => onDestacar(orc.id, false)}>
-                    <X className="h-3.5 w-3.5 mr-2" /> Remover destaque
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onArquivar(orc.id)}><Archive className="h-3.5 w-3.5 mr-2" /> Arquivar</DropdownMenuItem>
-                <DropdownMenuItem className={TEXT.amber} onClick={() => onCancelar(orc.id)}><Ban className="h-3.5 w-3.5 mr-2" /> Cancelar</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </TooltipContent>
+            </Tooltip>
           )}
+          <div className="-mr-1 h-6 w-6 shrink-0">
+              {showMenu && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
+                    <button className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded hover:bg-muted">
+                      <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+                    <DropdownMenuItem onClick={() => onOpenDetail(orc.id)}><Eye className="h-3.5 w-3.5 mr-2" /> Detalhes</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onDuplicar(orc.id)}><Copy className="h-3.5 w-3.5 mr-2" /> Duplicar</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <p className="flex items-center gap-2 px-2 pt-1 text-xs text-muted-foreground">
+                      <Highlighter className="h-3.5 w-3.5" /> {orc.destacadoEm ? 'Cor do destaque' : 'Destacar'}
+                    </p>
+                    {/* Uma bolinha por cor; cada uma é item do menu (teclado e
+                        fechamento ao escolher vêm de graça). */}
+                    <div className="flex items-center gap-1 px-1.5 pb-1 pt-1.5">
+                      {DESTAQUE_CORES.map(c => {
+                        const atual = !!orc.destacadoEm && corDoDestaque(orc) === c
+                        return (
+                          <DropdownMenuItem
+                            key={c}
+                            title={DESTAQUE_COR_LABELS[c]}
+                            aria-label={`Destacar em ${DESTAQUE_COR_LABELS[c]}`}
+                            onClick={() => { if (!atual) onDestacar(orc.id, true, c) }}
+                            className="h-7 w-7 justify-center rounded-full p-0"
+                          >
+                            <span className={cn('flex h-4 w-4 items-center justify-center rounded-full', atual && 'ring-2 ring-offset-2 ring-offset-popover ring-foreground/40')} style={{ backgroundColor: DESTAQUE_COR[c] }}>
+                              {atual && <Check className="!size-2.5 text-white" strokeWidth={3} />}
+                            </span>
+                          </DropdownMenuItem>
+                        )
+                      })}
+                    </div>
+                    {orc.destacadoEm && (
+                      <DropdownMenuItem onClick={() => onDestacar(orc.id, false)}>
+                        <X className="h-3.5 w-3.5 mr-2" /> Remover destaque
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => onArquivar(orc.id)}><Archive className="h-3.5 w-3.5 mr-2" /> Arquivar</DropdownMenuItem>
+                    <DropdownMenuItem className={TEXT.amber} onClick={() => onCancelar(orc.id)}><Ban className="h-3.5 w-3.5 mr-2" /> Cancelar</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+          </div>
         </div>
       </div>
-      {/* Corpo — branco, entre as duas faixas */}
-      {temCorpo && (
-      <div className="px-3 py-2 space-y-1">
-        {orc.itens && orc.itens.length > 0 && (
-          <div className="space-y-0.5 pt-0.5">
-            {orc.itens.map(item => (
-              <div key={item.id} className="text-[11px] text-foreground/75 leading-tight flex items-start gap-1.5">
-                <span className="text-muted-foreground/60 shrink-0 mt-px">•</span>
-                <span className="truncate flex-1">{stripHtml(item.descricao)}</span>
-              </div>
-            ))}
-            {(orc._count?.itens ?? 0) > orc.itens.length && (() => {
-              const ocultos = orc._count!.itens - orc.itens.length
-              // O card mostra os 2 primeiros; o tooltip lista os que sobraram.
-              const restantes = (orc.itensDescricoes ?? []).slice(orc.itens!.length)
-              return (
-                <ItensRestantesTooltip restantes={restantes}>
-                  <div
-                    className={cn(
-                      'text-[10px] font-medium pl-3 w-fit',
-                      restantes.length > 0 && 'underline decoration-dotted underline-offset-2 cursor-help',
-                    )}
-                    style={{ color: MODULE_COLOR }}
-                  >
-                    + {ocultos} {ocultos === 1 ? 'outro item' : 'outros itens'}
-                  </div>
+
+      {/* Corpo — uma informação por linha, cada uma com seu ícone */}
+      <div className="space-y-1.5 px-3 py-2.5 text-[12px] text-foreground/85">
+        <LinhaCard icone={Building2}>
+          <span className="truncate">{cliente?.razaoSocial || 'Sem cliente'}</span>
+        </LinhaCard>
+        {doc && (
+          <LinhaCard icone={IdCard}>
+            <span className="truncate tabular-nums">{ehCnpj ? `CNPJ ${doc}` : `CPF ${doc}`}</span>
+            {ehCnpj && <span className="shrink-0 text-muted-foreground">· {matriz ? 'Matriz' : 'Filial'}</span>}
+          </LinhaCard>
+        )}
+        <LinhaCard icone={ListChecks}>
+          {orc.itens && orc.itens.length > 0 ? (
+            <>
+              <span className="truncate">{stripHtml(orc.itens[0]!.descricao)}</span>
+              {(orc._count?.itens ?? orc.itens.length) > 1 && (
+                <ItensRestantesTooltip restantes={(orc.itensDescricoes ?? []).slice(1)}>
+                  <span className="shrink-0 cursor-help text-[11px] font-medium" style={{ color: MODULE_COLOR }}>
+                    +{(orc._count?.itens ?? orc.itens.length) - 1}
+                  </span>
                 </ItensRestantesTooltip>
-              )
-            })()}
+              )}
+            </>
+          ) : (
+            <span className="truncate text-muted-foreground">{orc.observacoes ? stripHtml(orc.observacoes) : 'Sem serviços'}</span>
+          )}
+          {valor > 0 && (
+            <span className="ml-auto shrink-0 pl-2 font-semibold tabular-nums" style={{ color: MODULE_COLOR }}>{formatCurrency(valor)}</span>
+          )}
+        </LinhaCard>
+        {orc.solicitante && (
+          <div className="flex min-w-0 items-center gap-2">
+            <AvatarPequeno user={orc.solicitante} />
+            <span className="truncate">{orc.solicitante.name}</span>
           </div>
         )}
-        {orc.observacoes && !temItens && (
-          <p className="text-[11px] text-muted-foreground truncate">{stripHtml(orc.observacoes)}</p>
-        )}
-        {/* Valor depois dos serviços: primeiro o que é, depois quanto custa. */}
-        {valor > 0 && (
-          <p className="pt-0.5 text-right text-xs font-semibold tabular-nums" style={{ color: MODULE_COLOR }}>{formatCurrency(valor)}</p>
-        )}
       </div>
-      )}
-      {/* Footer — mesmo fundo do card: pessoas e prazo à esquerda, vínculos e contadores à direita */}
-      <div className={cn('flex items-center justify-between px-3 py-2', temCorpo && 'border-t border-dashed border-border')}>
-        <div className="flex items-center gap-2">
-          {(orc.solicitante || orc.responsavel) && (
-            <div className="flex items-center -space-x-1.5">
-              {orc.solicitante && <UserChip user={orc.solicitante} role="Solicitante" />}
-              {orc.responsavel && <UserChip user={orc.responsavel} role="Responsavel" />}
-            </div>
-          )}
-        </div>
-        {/* Ícones contraídos num só; passando o mouse, desenrolam para a
-            esquerda. Só em aparelho com mouse (hover): no toque ficam sempre
-            abertos, senão não haveria como vê-los. O prazo em alerta fica à
-            vista pela quina do header. */}
-        <div className="group/icones flex items-center">
-          <div className="flex items-center gap-2.5 overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out [@media(hover:hover)]:max-w-0 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/icones:max-w-[240px] [@media(hover:hover)]:group-hover/icones:opacity-100 [@media(hover:hover)]:group-hover/icones:pr-1.5">
+
+      {/* Rodapé — contadores à esquerda, relógio do prazo à direita */}
+      <div className="flex items-center justify-between gap-2 border-t border-dashed border-border px-3 py-2 text-[11px] text-muted-foreground">
+        <div className="flex min-w-0 items-center gap-3">
           {orc.destacadoEm && (
             <DicaIcone
               titulo="Card destacado"
               texto={`${orc.destacadoPorUser?.name ? `Por ${orc.destacadoPorUser.name} em ` : 'Em '}${new Date(orc.destacadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}`}
             >
-              <span className="flex items-center cursor-help" style={{ color: DESTAQUE_COR[corDoDestaque(orc)] }}>
+              <span className="flex cursor-help items-center" style={{ color: DESTAQUE_COR[corDoDestaque(orc)] }}>
                 <Highlighter className="h-3.5 w-3.5" strokeWidth={1.5} />
               </span>
             </DicaIcone>
           )}
-          <PrazoBadge orc={orc} />
           {orc.oportunidadeId && (
-            // Só o ícone, como o prazo; o número do card de CRM fica no tooltip.
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className={cn('flex items-center cursor-help opacity-80', TEXT.fuchsia)} aria-label="Card de CRM vinculado">
-                  <Target className="h-3.5 w-3.5" strokeWidth={1.5} />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top" sideOffset={6} className="tooltip-fade text-[11px]">
-                <p className="font-semibold">CRM{orc.oportunidadeNumero != null ? ` #${orc.oportunidadeNumero}` : ''}</p>
-                <p>Card de CRM vinculado</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
-          {(orc._count?.itens ?? 0) > 0 && (
-            <DicaIcone titulo={`${orc._count!.itens} ${orc._count!.itens === 1 ? 'item' : 'itens'}`} texto="Serviços incluídos no orçamento">
-              <span className="text-[11px] text-muted-foreground flex items-center gap-0.5 cursor-help">
-                <FileText className="h-3.5 w-3.5" strokeWidth={1.5} /> {orc._count!.itens}
+            <DicaIcone titulo={`CRM${orc.oportunidadeNumero != null ? ` #${orc.oportunidadeNumero}` : ''}`} texto="Card de CRM vinculado">
+              <span className={cn('flex cursor-help items-center', TEXT.fuchsia)}>
+                <Target className="h-3.5 w-3.5" strokeWidth={1.5} />
               </span>
             </DicaIcone>
           )}
-          {(orc._count?.mensagens ?? 0) > 0 && (
-            <DicaIcone titulo={`${orc._count!.mensagens} ${orc._count!.mensagens === 1 ? 'mensagem' : 'mensagens'}`} texto="Mensagens trocadas no orçamento">
-              <span className="text-[11px] text-muted-foreground flex items-center gap-0.5 cursor-help">
-                <MessageSquare className="h-3.5 w-3.5" strokeWidth={1.5} /> {orc._count!.mensagens}
-              </span>
-            </DicaIcone>
-          )}
-          {(orc._count?.arquivos ?? 0) > 0 && (
-            <DicaIcone titulo={`${orc._count!.arquivos} ${orc._count!.arquivos === 1 ? 'arquivo' : 'arquivos'}`} texto="Anexos do orçamento">
-              <span className="text-[11px] text-muted-foreground flex items-center gap-0.5 cursor-help">
-                <Paperclip className="h-3.5 w-3.5" strokeWidth={1.5} /> {orc._count!.arquivos}
-              </span>
-            </DicaIcone>
-          )}
+          <DicaIcone titulo={`${orc._count?.itens ?? 0} ${(orc._count?.itens ?? 0) === 1 ? 'item' : 'itens'}`} texto="Serviços, taxas e despesas do orçamento">
+            <span className="flex cursor-help items-center gap-1"><ListChecks className="h-3.5 w-3.5" strokeWidth={1.5} /> {orc._count?.itens ?? 0}</span>
+          </DicaIcone>
+          <DicaIcone titulo={`${orc._count?.mensagens ?? 0} ${(orc._count?.mensagens ?? 0) === 1 ? 'mensagem' : 'mensagens'}`} texto="Mensagens trocadas no orçamento">
+            <span className="flex cursor-help items-center gap-1"><MessageSquare className="h-3.5 w-3.5" strokeWidth={1.5} /> {orc._count?.mensagens ?? 0}</span>
+          </DicaIcone>
+          <DicaIcone titulo={`${orc._count?.arquivos ?? 0} ${(orc._count?.arquivos ?? 0) === 1 ? 'arquivo' : 'arquivos'}`} texto="Anexos do orçamento">
+            <span className="flex cursor-help items-center gap-1"><Paperclip className="h-3.5 w-3.5" strokeWidth={1.5} /> {orc._count?.arquivos ?? 0}</span>
+          </DicaIcone>
           {orc.pesquisaRespondida && (
             <DicaIcone titulo="Pesquisa respondida" texto="O cliente respondeu a pesquisa de satisfação">
-              <span className="text-[11px] flex items-center gap-0.5 cursor-help" style={{ color: 'var(--mod-comercial, #fb7185)' }}>
+              <span className="flex cursor-help items-center" style={{ color: 'var(--mod-comercial, #fb7185)' }}>
                 <Star className="h-3.5 w-3.5 fill-current" />
               </span>
             </DicaIcone>
           )}
-          </div>
-          <span className="relative hidden h-5 w-5 cursor-default items-center justify-center rounded text-muted-foreground transition-colors group-hover/icones:bg-muted [@media(hover:hover)]:flex">
-            <ChevronLeft className="h-3.5 w-3.5 transition-transform duration-300 group-hover/icones:rotate-180" strokeWidth={1.5} />
-          </span>
         </div>
+        <DicaIcone titulo={prazo.label} texto={prazo.tooltip}>
+          <span className={cn('flex shrink-0 cursor-help items-center gap-1 tabular-nums', prazoCor[prazo.variant])}>
+            <Clock className="h-3.5 w-3.5" strokeWidth={1.5} /> {prazoCurto}
+          </span>
+        </DicaIcone>
       </div>
     </div>
   )
 }
 
-// Badge de prazo no card do kanban — calcula dinamicamente baseado no status + config + datas
-function PrazoBadge({ orc }: { orc: OrcamentoRow }) {
-  const config = useContext(OrcConfigContext)
-  const prazo = calcularPrazoCard(orc, config)
-  const colorClasses: Record<typeof prazo.variant, string> = {
-    ok: TEXT.emerald,
-    warning: TEXT.amber,
-    danger: cn(TEXT.rose, 'font-semibold'),
-    neutral: 'text-muted-foreground',
-  }
-  // Só o ícone no card, na cor do prazo — o atraso continua visível de longe;
-  // o texto ("115d p/ aprovação") e a regra ficam no tooltip.
+/** Linha do corpo do card: ícone fixo à esquerda + conteúdo numa linha só. */
+function LinhaCard({ icone: Icone, children }: { icone: typeof Clock; children: React.ReactNode }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className={cn('flex items-center cursor-help opacity-80', colorClasses[prazo.variant])} aria-label={prazo.label}>
-          <Clock className="h-3.5 w-3.5" strokeWidth={1.5} />
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6} className="tooltip-fade text-[11px]">
-        <p className="font-semibold">{prazo.label}</p>
-        <p>{prazo.tooltip}</p>
-      </TooltipContent>
-    </Tooltip>
+    <div className="flex min-w-0 items-center gap-2">
+      <Icone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={1.75} />
+      <div className="flex min-w-0 flex-1 items-center gap-1">{children}</div>
+    </div>
+  )
+}
+
+/** Logo do cliente (cadastro); sem logo, a inicial num quadrado neutro. */
+function LogoCliente({ cliente }: { cliente: ClienteDoc | null }) {
+  const [falhou, setFalhou] = useState(false)
+  const src = cliente?.logoUrl && !falhou ? resolveAssetUrl(cliente.logoUrl) : ''
+  if (src) {
+    return <img src={src} alt="" onError={() => setFalhou(true)} className="h-6 w-6 shrink-0 rounded-md border border-border/60 bg-white object-contain" />
+  }
+  const inicial = (cliente?.nomeFantasia || cliente?.razaoSocial || '?').trim().charAt(0).toUpperCase()
+  return (
+    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted text-[11px] font-bold text-muted-foreground">{inicial}</span>
+  )
+}
+
+/** Avatar do solicitante na linha do corpo (foto ou iniciais). */
+function AvatarPequeno({ user }: { user: UserRef }) {
+  const iniciais = (user.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+  return user.image ? (
+    <img src={resolveAssetUrl(user.image)} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover" />
+  ) : (
+    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[8px] font-bold text-muted-foreground">{iniciais}</span>
   )
 }
 
@@ -2144,23 +2114,3 @@ function PessoasCell({ solicitante, responsavel }: { solicitante?: UserRef | nul
   )
 }
 
-function UserChip({ user, role }: { user: UserRef; role: 'Solicitante' | 'Responsavel' }) {
-  const initials = (user.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
-  const chip = user.image ? (
-    <img src={resolveAssetUrl(user.image)} alt={user.name} className="h-6 w-6 rounded-full object-cover shrink-0 border-2 border-background shadow-sm" />
-  ) : (
-    <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0 border-2 border-background shadow-sm">
-      <span className="text-[8px] font-bold text-muted-foreground">{initials}</span>
-    </div>
-  )
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="inline-flex">{chip}</span>
-      </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6} className="tooltip-fade text-[11px]">
-        <span className="font-semibold">{role}:</span> {user.name}
-      </TooltipContent>
-    </Tooltip>
-  )
-}

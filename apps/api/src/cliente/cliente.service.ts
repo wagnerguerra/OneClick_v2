@@ -1051,7 +1051,8 @@ export class ClienteService {
       where,
       // tipoDocumento/ehMatriz: o final do CNPJ e o selo Matriz/Filial nas
       // listas que usam este seletor (#HLP0410).
-      select: { id: true, razaoSocial: true, nomeFantasia: true, code: true, documento: true, situacao: true, tipoDocumento: true, ehMatriz: true },
+      // logoUrl: a logo do cliente no card do quadro de orçamentos.
+      select: { id: true, razaoSocial: true, nomeFantasia: true, code: true, documento: true, situacao: true, tipoDocumento: true, ehMatriz: true, logoUrl: true },
       orderBy: { razaoSocial: 'asc' },
     })
   }
