@@ -2126,7 +2126,7 @@ export class OrcamentoService {
     }
 
     // Ao ENCERRAR (cancelar) um orçamento, cancela em cascata os serviços/processos
-    // ainda abertos que foram disparados na aprovação. Sem efeito se nunca foi aprovado
+    // ainda abertos que foram disparados na liberação (ou na aprovação, antes de 29/09/2026). Sem efeito se nunca foi aprovado
     // (nenhum processo vinculado) ou se já finalizou (processos concluídos são preservados).
     if (novoStatus === 'ENCERRADO') {
       await this.cancelarServicosDoOrcamento(id, `Orçamento #${orc.numero} encerrado`, userId)
@@ -2169,14 +2169,6 @@ export class OrcamentoService {
     // (A pesquisa de satisfação agora é enviada MANUALMENTE pelo comercial —
     //  sem disparo automático no FINALIZADO.)
 
-    // Trigger: ao APROVAR pela primeira vez, cria o Processo + a ServicoExecucao
-    // de cada item de tipo SERVICO. A rotina mora num método próprio porque a
-    // aprovação também chega pelo link público (`registrarDecisao`), que não
-    // passa por aqui — era assim que o serviço deixava de nascer.
-    if (novoStatus === 'APROVADO' && isFirstTransition) {
-      await this.dispararServicosDaAprovacao(id, userId)
-    }
-
     // Notificações: somente na primeira ocorrência da transição (idempotente).
     // Repor status após Reabrir não dispara email novo a menos que o Reabrir
     // tenha limpado a data dedicada (cenário legítimo de reprocessamento).
@@ -2188,9 +2180,22 @@ export class OrcamentoService {
       })
     }
 
+    // Trigger: ao LIBERAR pela primeira vez, cria o Processo + a ServicoExecucao
+    // de cada item de tipo SERVICO. Até 29/09/2026 era na APROVAÇÃO; passou para
+    // a liberação do financeiro: o trabalho só começa (e a área só é avisada)
+    // depois que o financeiro libera. A aprovação agora só avisa comercial e
+    // financeiro. A FSM não deixa pular: de APROVADO só se vai a LIBERADO ou
+    // ENCERRADO. Idempotente por item, então orçamentos que já tinham serviço
+    // (criados na aprovação, antes da mudança) não duplicam.
+    if (novoStatus === 'LIBERADO' && isFirstTransition) {
+      await this.dispararServicosDaLiberacao(id, userId)
+    }
+
     // Liberação pelo financeiro com os serviços já concluídos → finaliza agora.
     // É a outra metade da regra de servicos-do-orcamento.ts: o colaborador
     // conclui o serviço, o orçamento espera o financeiro, e a liberação fecha.
+    // (Com os serviços nascendo na liberação, isso só acontece com orçamento
+    // antigo, cujos serviços nasceram na aprovação.)
     if (novoStatus === 'LIBERADO') {
       await this.finalizarSeServicosConcluidos(id, userId)
         .catch(e => console.warn('[Orcamento] Falha ao finalizar após a liberação:', (e as Error).message))
@@ -2214,19 +2219,18 @@ export class OrcamentoService {
 
   /**
    * Cria o Processo + a ServicoExecucao de cada item de tipo SERVICO do
-   * orçamento aprovado.
+   * orçamento liberado pelo financeiro.
    *
-   * Vive fora do `changeStatus` porque a aprovação tem DUAS portas: o comercial
-   * mudando o status por dentro e o cliente decidindo pelo link público
-   * (`registrarDecisao`). A segunda gravava o status direto no banco e nunca
-   * chamava este gatilho — o serviço simplesmente não nascia, e o orçamento
-   * seguia para LIBERADO sem ninguém notar a falta.
+   * Até 29/09/2026 rodava na aprovação — e por isso vive fora do `changeStatus`:
+   * a aprovação tem duas portas (status interno e link público do cliente). A
+   * liberação só tem uma (o `changeStatus`), mas o método próprio continua
+   * servindo ao reprocessamento em lote.
    *
    * É idempotente **por item**: um item que já tem execução deste orçamento é
    * pulado. Isso permite reprocessar um orçamento sem duplicar o que já existe
    * e cobre o caso do orçamento com dois serviços em que só um vingou.
    */
-  private async dispararServicosDaAprovacao(
+  private async dispararServicosDaLiberacao(
     orcamentoId: string,
     userId?: string,
     opts?: { silencioso?: boolean },
@@ -2377,16 +2381,17 @@ export class OrcamentoService {
    * se curam sozinhos: o `dtAprovado` já está gravado, então uma nova passagem
    * pelo `changeStatus` enxerga a transição como repetida e não dispara nada.
    *
-   * Recorte: só **trabalho vivo** (APROVADO ou LIBERADO). Um orçamento
-   * FINALIZADO teve seu ciclo encerrado e um ENCERRADO foi recusado/cancelado —
-   * abrir execução neles agora empurraria trabalho vencido para o painel de
-   * alguém. Eles saem no relatório como `ignorados`, para decisão caso a caso.
+   * Recorte: só **trabalho liberado** (LIBERADO). Desde 29/09/2026 o serviço
+   * nasce na liberação do financeiro, então um APROVADO sem serviço é o normal
+   * (aguarda a liberação), não um órfão. FINALIZADO teve o ciclo encerrado e
+   * ENCERRADO foi recusado/cancelado — abrir execução neles empurraria trabalho
+   * vencido para o painel de alguém. Todos saem como `ignorados`, com o motivo.
    *
    * `dryRun` (padrão) só relata; nada é criado.
    */
   async reprocessarServicosAprovados(opts?: { dryRun?: boolean; empresaId?: string }) {
     const dryRun = opts?.dryRun !== false
-    const STATUS_VIVOS = ['APROVADO', 'LIBERADO']
+    const STATUS_VIVOS = ['LIBERADO']
 
     // "Foi aprovado" tem três provas, e nenhuma sozinha cobre tudo: a data do
     // marco, a decisão registrada pelo link, e o próprio status vivo (APROVADO
@@ -2397,7 +2402,7 @@ export class OrcamentoService {
         OR: [
           { dtAprovado: { not: null } },
           { decisaoTipo: 'APROVADO' },
-          { status: { in: STATUS_VIVOS as any } },
+          { status: { in: ['APROVADO', 'LIBERADO'] as any } },
         ],
         ...(opts?.empresaId ? { empresaId: opts.empresaId } : {}),
         itens: { some: { tipo: 'SERVICO', catalogoId: { not: null } } },
@@ -2442,7 +2447,11 @@ export class OrcamentoService {
       if (faltando.length === 0) continue
       const linha = { numero: o.numero, status: o.status as string, cliente: (o.clienteId && nomeCliente.get(o.clienteId)) || '—' }
       if (!STATUS_VIVOS.includes(o.status as string)) {
-        ignorados.push({ ...linha, motivo: o.status === 'ENCERRADO' ? 'orçamento encerrado' : 'ciclo já finalizado' })
+        ignorados.push({
+          ...linha,
+          motivo: o.status === 'APROVADO' ? 'aguarda a liberação do financeiro (o serviço nasce nela)'
+            : o.status === 'ENCERRADO' ? 'orçamento encerrado' : 'ciclo já finalizado',
+        })
         continue
       }
       pendentes.push({ id: o.id, ...linha, faltando })
@@ -2457,7 +2466,7 @@ export class OrcamentoService {
     for (const o of pendentes) {
       // `silencioso`: não dispara o sino do responsável. São aprovações de até
       // dois meses atrás — o aviso chegaria como novidade de algo antigo.
-      const r = await this.dispararServicosDaAprovacao(o.id, undefined, { silencioso: true })
+      const r = await this.dispararServicosDaLiberacao(o.id, undefined, { silencioso: true })
       criadas += r.criadas
       resultado.push({ numero: o.numero, criadas: r.criadas, nomes: r.nomes })
     }
@@ -3054,7 +3063,7 @@ export class OrcamentoService {
           userId: responsavelId,
           titulo: `Você vai executar: ${item.descricao}`,
           mensagem: `${quem ?? 'Um gestor'} definiu você como responsável no orçamento #${orc.numero}. `
-            + 'A execução aparece no seu Meus Serviços quando o orçamento for aprovado.',
+            + 'A execução aparece no seu Meus Serviços quando o financeiro liberar o orçamento.',
           tipo: 'info',
           origem: 'orcamentos',
           empresaId: orc.empresaId,
@@ -3504,7 +3513,7 @@ export class OrcamentoService {
         heroSubtitle: `${numero} · ${clienteNome}`,
         bodyHtml: `
           <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:16px 20px;margin:0 0 18px;">
-            <p style="margin:0;color:#065f46;font-weight:600;font-size:14px;">🎉 O cliente aprovou a proposta. Próximo passo: liberar para execução.</p>
+            <p style="margin:0;color:#065f46;font-weight:600;font-size:14px;">🎉 O cliente aprovou a proposta. Próximo passo: o financeiro liberar para execução — os serviços só começam depois da liberação.</p>
           </div>
           <p>O orçamento <strong>${numero}</strong> para <strong>${clienteNome}</strong> foi aprovado.</p>
           ${summaryTable}
@@ -3838,17 +3847,9 @@ export class OrcamentoService {
         : isRevisao ? `Cliente (${decisao.nome}) solicitou revisão da proposta`
         : `Decisão do cliente (${decisao.nome}): Recusado`,
     )
-    // Aprovou pelo link → o serviço tem que nascer igual ao caminho interno.
-    // Este gatilho vivia dentro do `changeStatus`, por onde a decisão do cliente
-    // não passa: o orçamento ficava APROVADO e o serviço nunca aparecia em
-    // /meus-servicos. Como aqui o `dtAprovado` já é gravado acima, uma passagem
-    // posterior pelo `changeStatus` também não recuperaria (a transição deixa de
-    // ser a primeira). Best-effort: falhar em criar o serviço não pode derrubar
-    // a decisão do cliente, que é o ato importante desta chamada.
-    if (isAprovado) {
-      await this.dispararServicosDaAprovacao(orc.id, undefined)
-        .catch(e => console.warn('[Orcamento] Falha ao criar serviços da aprovação pelo link:', (e as Error).message))
-    }
+    // Aprovou pelo link → NÃO cria serviço: desde 29/09/2026 os serviços nascem
+    // na liberação do financeiro (`changeStatus` → LIBERADO), como no caminho
+    // interno. A aprovação só avisa comercial e financeiro (abaixo).
     // Dispara as notificações internas (comercial/financeiro + aprovações) — antes
     // o fluxo do link público não notificava ninguém, só o de status direto. Agora
     // aprovação/recusa pelo link avisa os mesmos destinatários. Best-effort.

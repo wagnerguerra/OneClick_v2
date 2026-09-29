@@ -321,10 +321,30 @@ export default function FaqOrcamentosPage() {
       </Step>
 
       {/* ─────────────────────────────────────────────────────────── */}
-      <Step n={7} cor={MODULO_COLOR} icon={Workflow} titulo="Aprovação dispara processos automáticos">
+      <Step n={7} cor={MODULO_COLOR} icon={Send} titulo="Aprovação avisa o comercial e o financeiro">
         <p>
-          Ao APROVAR (seja pelo link público, seja pelo botão interno no detalhe), o sistema
-          executa <em>na transação</em> três ações encadeadas:
+          Ao APROVAR (seja pelo link público, seja pelo botão interno no detalhe), o sistema envia o e-mail
+          de aprovação para o <strong>comercial</strong>, o <strong>financeiro</strong> e a lista de
+          &quot;Notificar aprovações de orçamento para&quot; das configurações. O card do CRM vinculado vai para
+          a etapa de ganho.
+        </p>
+        <Callout tipo="info">
+          A aprovação <strong>não cria serviço</strong> e <strong>não avisa a área</strong>. O trabalho só
+          começa depois que o financeiro libera o orçamento (passo seguinte).
+        </Callout>
+      </Step>
+
+      {/* ─────────────────────────────────────────────────────────── */}
+      <Step n={8} cor={MODULO_COLOR} icon={Workflow} titulo="Liberação financeira dispara os serviços — APROVADO → LIBERADO" rota="kanban ou detalhe">
+        <p>
+          A coluna <Badge variant="outline" className="text-[10px] h-5 mx-1">LIBERADO</Badge> é o sinal
+          de que o <strong>financeiro</strong> liberou a execução do trabalho. Em fluxos rigorosos
+          (que exigem pagamento de entrada antes de começar) essa transição só ocorre quando o
+          comprovante chega. Não dá para pular: de APROVADO o orçamento só vai para LIBERADO ou ENCERRADO.
+        </p>
+        <p>
+          Na primeira liberação, o sistema grava <code className="text-[11px]">dtLiberado</code> e executa
+          três ações encadeadas:
         </p>
         <div className="space-y-2 mt-2">
           <CascadeRow ordem="1" titulo="Cria 1 Processo por item SERVIÇO com catalogoId" cor={MODULO_COLOR}>
@@ -334,43 +354,24 @@ export default function FaqOrcamentosPage() {
           </CascadeRow>
           <CascadeRow ordem="2" titulo="Cria a execução-raiz vinculada ao processo" cor={MODULO_COLOR}>
             A execução nasce em <Badge variant="outline" className="text-[10px] h-5 bg-violet-50 dark:bg-violet-950/30 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-400">EM_ANDAMENTO</Badge>{' '}
-            com o checklist do template. O responsável do orçamento herda como responsável da execução
-            (a menos que o encadeamento diga outra coisa).
+            com o checklist do template. O responsável segue a regra de atribuição do serviço (ou a
+            escolha manual feita no item do orçamento).
           </CascadeRow>
-          <CascadeRow ordem="3" titulo="Notifica responsável + grava evento" cor={MODULO_COLOR}>
-            Se o responsável do orçamento for diferente de quem aprovou, recebe notificação no sino
-            global. O evento <em>&quot;X processo(s) de serviço iniciado(s) automaticamente&quot;</em> aparece
-            na timeline do orçamento.
+          <CascadeRow ordem="3" titulo="Avisa quem vai executar + grava evento" cor={MODULO_COLOR}>
+            Os responsáveis pela execução (e a área, quando o serviço é por setor) recebem o aviso no sino
+            e por e-mail. O evento <em>&quot;X processo(s) de serviço iniciado(s) automaticamente&quot;</em>{' '}
+            aparece na timeline do orçamento.
           </CascadeRow>
         </div>
         <Callout tipo="aviso">
           Item SERVIÇO <strong>sem catalogoId</strong> não dispara processo — vira só um valor no total.
-          Se você quer que o cliente APROVE e a cadeia execute, garanta que o item esteja vinculado
-          a um template (escolha pelo dropdown de catálogo no modal de item).
+          Para o serviço nascer na liberação, garanta que o item esteja vinculado a um template (escolha pelo
+          dropdown de catálogo no modal de item).
         </Callout>
         <p className="mt-2">
           A partir daqui, o ciclo de vida da execução é responsabilidade do módulo de <strong>Processos</strong> —
           ver <code className="text-[11px]">/faq/processos</code>.
         </p>
-      </Step>
-
-      {/* ─────────────────────────────────────────────────────────── */}
-      <Step n={8} cor={MODULO_COLOR} icon={CheckCircle2} titulo="Liberação financeira — APROVADO → LIBERADO" rota="kanban ou detalhe">
-        <p>
-          A coluna <Badge variant="outline" className="text-[10px] h-5 mx-1">LIBERADO</Badge> é o sinal
-          de que o <strong>financeiro</strong> liberou a execução do trabalho. Em fluxos rigorosos
-          (que exigem pagamento de entrada antes de começar) essa transição só ocorre quando o
-          comprovante chega.
-        </p>
-        <p>
-          Não há gatilho automático aqui: é a equipe financeira que avalia a aprovação do cliente,
-          eventual sinal e arrasta o card pra LIBERADO. Grava <code className="text-[11px]">dtLiberado</code> +
-          evento na timeline.
-        </p>
-        <Callout tipo="info">
-          Algumas equipes pulam essa etapa e vão direto de APROVADO pra FINALIZADO quando o pagamento
-          é &quot;na entrega&quot;. O FSM permite — basta arrastar o card duas colunas à direita.
-        </Callout>
       </Step>
 
       {/* ─────────────────────────────────────────────────────────── */}
@@ -380,11 +381,10 @@ export default function FaqOrcamentosPage() {
           é o gesto de encerramento <em>positivo</em>: a entrega aconteceu e o cliente está satisfeito.
         </p>
         <Callout tipo="info">
-          Na maioria das vezes a finalização é <strong>automática</strong>. Quem executa conclui o{' '}
-          <strong>serviço</strong> em Meus Serviços; o orçamento continua APROVADO, com o selo{' '}
-          <strong>Serviço concluído</strong> no card e o aviso no detalhe, até o financeiro liberar. Ao liberar, o
-          sistema finaliza na hora. Se o financeiro liberar antes, o orçamento finaliza quando o último serviço
-          terminar. A liberação pelo financeiro nunca é pulada.
+          Na maioria das vezes a finalização é <strong>automática</strong>: quem executa conclui o{' '}
+          <strong>serviço</strong> em Meus Serviços e, quando o último serviço do orçamento termina, o orçamento
+          (já LIBERADO) é finalizado. Orçamentos antigos, cujos serviços nasceram na aprovação, podem estar
+          APROVADOS com o selo <strong>Serviço concluído</strong>: ao liberar, o sistema finaliza na hora.
         </Callout>
         <p>
           Nessa primeira transição, o backend executa:
@@ -448,7 +448,7 @@ export default function FaqOrcamentosPage() {
                   <li>Datas dedicadas posteriores ao alvo são <strong>limpas</strong> (ex: reabrir pra ENVIADO limpa dtAprovado, dtLiberado, dtFinalizado)</li>
                   <li>Contador <code className="text-[11px]">reaberturasCount</code> incrementa</li>
                   <li>Evento na timeline: <em>&quot;Reaberto pelo usuário X — motivo: Y&quot;</em></li>
-                  <li>Side-effects <strong>não disparam de novo</strong> — se reabrir pra APROVADO depois de FINALIZADO, novos processos não são criados (porque dtAprovado já existia, então não é &quot;1ª transição&quot;)</li>
+                  <li>Side-effects <strong>não disparam de novo</strong> — se reabrir pra LIBERADO depois de FINALIZADO, novos processos não são criados (porque dtLiberado já existia, então não é &quot;1ª transição&quot;)</li>
                 </ul>
               </>
             }

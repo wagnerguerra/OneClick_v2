@@ -3373,7 +3373,7 @@ export class ServicoService {
 
     // Evento timeline
     await this.addEvento(execucao.id, input.responsavelId || undefined, 'criado',
-      `Execução criada${input.orcamentoId ? ' a partir de orçamento aprovado' : ''}`)
+      `Execução criada${input.orcamentoId ? ' a partir de orçamento liberado' : ''}`)
 
     // Notificações por email — dispara evento conforme statusInicial.
     // PERGUNTA cai em AGUARDANDO_RESPOSTA (humano responde no painel).
