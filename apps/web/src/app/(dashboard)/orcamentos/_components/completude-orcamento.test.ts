@@ -45,4 +45,29 @@ describe('calcularCompletude', () => {
     expect(c.falta).not.toContain('avançar as etapas')
     expect(c.pct).toBe(10)
   })
+
+  it('tabela: um critério por linha, somando o percentual', () => {
+    const c = calcularCompletude({ ...base, status: 'ENVIADO', itens: [{ tipo: 'SERVICO', valorTotal: 100 }], valorTotal: 100 })
+    expect(c.criterios.map(x => x.rotulo)).toEqual(['Etapa', 'Itens', 'Valor', 'Anexos', 'Mensagens', 'Pessoas', 'Prazo'])
+    expect(c.criterios.reduce((a, x) => a + x.pontos, 0)).toBe(c.pct)
+  })
+
+  it('gargalo é o critério que mais deixou de pontuar', () => {
+    // Enviado (16/40 → faltam 24) pesa mais que anexos (0/10)
+    expect(calcularCompletude({ ...base, status: 'ENVIADO' }).gargalo?.rotulo).toBe('Etapa')
+    // Finalizado com tudo menos anexo → gargalo = Anexos
+    const c = calcularCompletude({
+      ...base, status: 'FINALIZADO', itens: [{ tipo: 'SERVICO', valorTotal: 1 }], valorTotal: 1,
+      mensagens: 3, temSolicitante: true, temResponsavelServico: true, prazoVariant: 'neutral',
+    })
+    expect(c.gargalo?.rotulo).toBe('Anexos')
+  })
+
+  it('completo não tem gargalo', () => {
+    const c = calcularCompletude({
+      ...base, status: 'FINALIZADO', itens: [{ tipo: 'SERVICO', valorTotal: 1 }], valorTotal: 1,
+      arquivos: 1, mensagens: 3, temSolicitante: true, temResponsavelServico: true, prazoVariant: 'ok',
+    })
+    expect(c.gargalo).toBeNull()
+  })
 })

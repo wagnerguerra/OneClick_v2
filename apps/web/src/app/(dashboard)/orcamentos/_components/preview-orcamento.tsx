@@ -16,15 +16,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, cn, Tooltip, TooltipTrigger, TooltipContent } from '@saas/ui'
 import {
-  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign, Clock, Download, Hourglass, IdCard,
+  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign, Clock, Download, Hourglass,
   Info, Loader2, UserCog, UserRound, Workflow, X,
 } from 'lucide-react'
-import { formatDocumento, ehMatrizCnpj } from '@saas/types'
 import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl } from '@/lib/api-url'
 import { classificarArquivo, formatarTamanho } from '@/lib/arquivo-tipo'
 import type { ClienteDoc } from '@/components/cliente-identificacao'
-import { calcularCompletude, NIVEL_COMPLETUDE_LABEL, type NivelCompletude } from './completude-orcamento'
+import { calcularCompletude, NIVEL_COMPLETUDE_LABEL, type Completude, type NivelCompletude } from './completude-orcamento'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
 
@@ -143,9 +142,6 @@ export function PreviewOrcamento({
   const valor = Number(o.totalGeral || o.valorTotal || 0)
   const nome = cliente?.nomeFantasia?.trim() || cliente?.razaoSocial || 'Sem cliente'
   const servicoPrincipal = o.itens?.[0]?.descricao?.replace(/<[^>]*>/g, '').trim()
-  const doc = cliente?.documento ? formatDocumento(cliente.documento) : ''
-  const ehCnpj = cliente?.tipoDocumento ? cliente.tipoDocumento === 'CNPJ' : doc.length > 14
-  const matriz = ehCnpj && cliente ? ehMatrizCnpj(cliente.documento, cliente.ehMatriz, cliente.tipoDocumento) : false
   const campoEtapa = ETAPA_DATA[o.status]
   const desdeEtapa = (campoEtapa && (o[campoEtapa] as string | null | undefined)) || o.createdAt
 
@@ -216,20 +212,15 @@ export function PreviewOrcamento({
         {/* Corpo — cartão branco rolável */}
         <div className="nice-scrollbar mx-2 flex-1 overflow-y-auto rounded-xl border border-border/60 bg-card px-5 py-4">
           <div className="space-y-5">
-            {/* Próximo passo */}
-            <div
-              className="preview-item-in flex items-start gap-2 rounded-lg border px-3 py-2 text-[12px] leading-snug"
-              style={{ ...atraso(0), backgroundColor: bloco.cor.fundo, borderColor: bloco.cor.borda, color: bloco.cor.texto }}
-            >
-              <bloco.Icon className="mt-px h-3.5 w-3.5 shrink-0" />
-              <p><span className="font-semibold">{bloco.titulo}:</span> {bloco.texto}</p>
-            </div>
-
             {/* Visão geral */}
-            <section className="preview-item-in" style={atraso(1)}>
+            <section className="preview-item-in" style={atraso(0)}>
               <h3 className="mb-2 text-[13px] font-semibold">Visão geral</h3>
               <div className="flex items-center gap-4">
-                <MedidorCompletude pct={completude?.pct} nivel={completude?.nivel ?? null} />
+                <TooltipGargalo completude={completude}>
+                  <span className="cursor-help">
+                    <MedidorCompletude pct={completude?.pct} nivel={completude?.nivel ?? null} />
+                  </span>
+                </TooltipGargalo>
                 <div className="min-w-0">
                   <p className="text-[13px] font-semibold">{completude ? NIVEL_COMPLETUDE_LABEL[completude.nivel] : 'Calculando…'}</p>
                   <p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">
@@ -239,9 +230,25 @@ export function PreviewOrcamento({
                   </p>
                 </div>
               </div>
-              <dl className="mt-3 divide-y divide-border/70 text-[12px]">
+              {/* Próximo passo — dentro da visão geral */}
+              <div
+                className="mt-3 flex items-start gap-2 rounded-lg border px-3 py-2 text-[12px] leading-snug"
+                style={{ backgroundColor: bloco.cor.fundo, borderColor: bloco.cor.borda, color: bloco.cor.texto }}
+              >
+                <bloco.Icon className="mt-px h-3.5 w-3.5 shrink-0" />
+                <p><span className="font-semibold">{bloco.titulo}:</span> {bloco.texto}</p>
+              </div>
+              <dl className="mt-2 divide-y divide-border/70 text-[12px]">
                 <LinhaDado icone={CircleDollarSign} rotulo="Valor do orçamento" valor={valor > 0 ? moeda(valor) : '—'} />
-                <LinhaDado icone={Workflow} rotulo="Etapa atual" valor={statusLabel} />
+                <LinhaDado
+                  icone={Workflow}
+                  rotulo="Etapa atual"
+                  valor={
+                    <span className="inline-flex rounded-md px-1.5 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: `${statusCor}1A`, color: statusCor }}>
+                      {statusLabel}
+                    </span>
+                  }
+                />
                 <LinhaDado icone={Hourglass} rotulo="Tempo na etapa" valor={`${diasDesde(desdeEtapa)} dia(s)`} />
                 <LinhaDado icone={UserRound} rotulo="Solicitante" valor={o.solicitante?.name ?? '—'} />
                 <LinhaDado
@@ -249,12 +256,11 @@ export function PreviewOrcamento({
                   rotulo="Responsável"
                   valor={carregando && !detalhe ? '…' : respServico.length ? respServico.join(', ') : 'A definir'}
                 />
-                {doc && <LinhaDado icone={IdCard} rotulo={ehCnpj ? 'CNPJ' : 'CPF'} valor={`${doc}${ehCnpj ? ` · ${matriz ? 'Matriz' : 'Filial'}` : ''}`} />}
               </dl>
             </section>
 
             {/* Itens */}
-            <section className="preview-item-in" style={atraso(2)}>
+            <section className="preview-item-in" style={atraso(1)}>
               <h3 className="mb-2 text-[13px] font-semibold">Itens</h3>
               {carregando && !detalhe ? <Carregando /> : (
                 (detalhe?.itens?.length ?? 0) === 0
@@ -274,13 +280,13 @@ export function PreviewOrcamento({
             </section>
 
             {/* Atividade */}
-            <section className="preview-item-in" style={atraso(3)}>
+            <section className="preview-item-in" style={atraso(2)}>
               <h3 className="text-[13px] font-semibold">Atividade</h3>
               {carregando && !detalhe ? <Carregando /> : <CalendarioAtividade detalhe={detalhe} criadoEm={o.createdAt} />}
             </section>
 
             {/* Documentos */}
-            <section className="preview-item-in pb-1" style={atraso(4)}>
+            <section className="preview-item-in pb-1" style={atraso(3)}>
               <h3 className="mb-2 text-[13px] font-semibold">Documentos</h3>
               {carregando && !detalhe ? <Carregando /> : (
                 (detalhe?.arquivos?.length ?? 0) === 0
@@ -515,7 +521,57 @@ function CalendarioAtividade({ detalhe, criadoEm }: { detalhe: Detalhe | null; c
   )
 }
 
-function LinhaDado({ icone: Icone, rotulo, valor }: { icone: typeof Clock; rotulo: string; valor: string }) {
+/**
+ * Tooltip do medidor: a tabela de onde o orçamento pontua e onde perde. A
+ * linha do gargalo (o critério que mais deixou de pontuar) vem destacada.
+ */
+function TooltipGargalo({ completude, children }: { completude: Completude | null; children: React.ReactElement }) {
+  if (!completude) return children
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="bottom" align="start" sideOffset={8} className="tooltip-fade w-[300px] p-0 text-[11px]">
+        <div className="px-3 pb-1.5 pt-2.5">
+          <p className="font-semibold">Completude: {completude.pct}%</p>
+          <p className="opacity-75">
+            {completude.gargalo
+              ? `Gargalo: ${completude.gargalo.rotulo.toLowerCase()} (${completude.gargalo.situacao})`
+              : 'Sem gargalo — tudo pontuando.'}
+          </p>
+        </div>
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="border-y border-background/15 text-left opacity-70">
+              <th className="px-3 py-1 font-medium">Critério</th>
+              <th className="px-2 py-1 font-medium">Situação</th>
+              <th className="px-3 py-1 text-right font-medium">Pontos</th>
+            </tr>
+          </thead>
+          <tbody>
+            {completude.criterios.map(c => {
+              const ehGargalo = completude.gargalo?.rotulo === c.rotulo
+              const cheio = c.pontos >= c.maximo
+              return (
+                <tr key={c.rotulo} className={cn('border-b border-background/10 last:border-0', ehGargalo && 'bg-background/10')}>
+                  <td className="px-3 py-1 font-medium">
+                    {ehGargalo && <AlertTriangle className="mr-1 inline h-3 w-3 -translate-y-px text-amber-300" />}
+                    {c.rotulo}
+                  </td>
+                  <td className="px-2 py-1 opacity-80">{c.situacao}</td>
+                  <td className={cn('px-3 py-1 text-right tabular-nums', cheio ? 'opacity-60' : 'font-semibold')}>
+                    {c.pontos}/{c.maximo}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+function LinhaDado({ icone: Icone, rotulo, valor }: { icone: typeof Clock; rotulo: string; valor: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3 py-2">
       <dt className="flex items-center gap-2 text-muted-foreground">
