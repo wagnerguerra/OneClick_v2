@@ -14,10 +14,13 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Button, cn, Label, RichEditor, Tooltip, TooltipTrigger, TooltipContent } from '@saas/ui'
+import {
+  Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Label, RichEditor,
+  Tooltip, TooltipTrigger, TooltipContent,
+} from '@saas/ui'
 import {
   AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign, Clock, Download, Hourglass,
-  Info, Loader2, MessageSquare, Paperclip, Send, SlidersHorizontal, UserCog, UserRound, Workflow, X,
+  Info, Loader2, MessageSquare, Paperclip, Plus, Send, SlidersHorizontal, UserCog, UserRound, Workflow, X,
 } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
@@ -387,22 +390,25 @@ export function PreviewOrcamento({
         )}
 
         <footer className="preview-item-in flex items-center justify-between gap-2 px-3 py-2.5" style={{ animationDelay: '300ms' }}>
-          <div className="flex items-center gap-1.5">
-            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-[12px]" onClick={() => setCompondo(c => !c)} aria-pressed={compondo}>
-              <MessageSquare className="h-3.5 w-3.5" /> Adicionar mensagem
-            </Button>
-            <Button
-              variant="outline" size="sm" className="h-8 gap-1.5 text-[12px]"
-              disabled={enviandoArquivos.length > 0}
-              onClick={() => inputArquivo.current?.click()}
-            >
-              {enviandoArquivos.length > 0 ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}
-              Enviar documento
-            </Button>
-            <input ref={inputArquivo} type="file" multiple className="hidden" onChange={e => enviarArquivos(e.target.files)} />
-          </div>
+          {/* Um "+" só, abrindo para cima as duas ações */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 w-8 p-0" aria-label="Adicionar" title="Adicionar">
+                {enviandoArquivos.length > 0 ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="start" sideOffset={6} className="z-[60] min-w-[190px]">
+              <DropdownMenuItem onClick={() => setCompondo(true)}>
+                <MessageSquare className="h-3.5 w-3.5" /> Adicionar mensagem
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={enviandoArquivos.length > 0} onClick={() => inputArquivo.current?.click()}>
+                <Paperclip className="h-3.5 w-3.5" /> Enviar documento
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <input ref={inputArquivo} type="file" multiple className="hidden" onChange={e => enviarArquivos(e.target.files)} />
           <Button size="sm" className="h-8 gap-1.5 text-[12px]" onClick={() => onAbrir(o.id)}>
-            Abrir orçamento <kbd className="rounded bg-white/15 px-1 text-[10px] font-normal">↵</kbd>
+            Detalhes <kbd className="rounded bg-white/15 px-1 text-[10px] font-normal">↵</kbd>
           </Button>
         </footer>
       </aside>
