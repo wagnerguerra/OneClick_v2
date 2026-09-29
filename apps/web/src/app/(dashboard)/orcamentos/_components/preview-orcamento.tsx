@@ -15,12 +15,16 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, cn, Tooltip, TooltipTrigger, TooltipContent } from '@saas/ui'
-import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Download, Info, Loader2, X } from 'lucide-react'
+import {
+  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign, Clock, Download, Hourglass, IdCard,
+  Info, Loader2, UserCog, UserRound, Workflow, X,
+} from 'lucide-react'
 import { formatDocumento, ehMatrizCnpj } from '@saas/types'
 import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl } from '@/lib/api-url'
 import { classificarArquivo, formatarTamanho } from '@/lib/arquivo-tipo'
 import type { ClienteDoc } from '@/components/cliente-identificacao'
+import { calcularCompletude, NIVEL_COMPLETUDE_LABEL, type NivelCompletude } from './completude-orcamento'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
 
@@ -54,6 +58,8 @@ type Detalhe = {
   itens?: Array<{ id: string; descricao: string; tipo: string; valorTotal?: number | null; quantidade?: number | null; valorUnitario?: number | null }>
   arquivos?: Array<{ id: string; fileName: string; fileUrl: string; fileSize?: number | null; mimeType?: string | null; createdAt: string }>
   eventos?: Array<{ createdAt: string; descricao?: string | null }>
+  /** Responsáveis pela execução de cada serviço (o quadro da página de detalhe). */
+  responsaveis?: Array<{ responsavelNome: string | null; responsavelImage: string | null }>
   mensagens?: Array<{ createdAt: string }>
 }
 
@@ -144,6 +150,25 @@ export function PreviewOrcamento({
   const desdeEtapa = (campoEtapa && (o[campoEtapa] as string | null | undefined)) || o.createdAt
 
   const bloco = proximoPasso(o, prazo)
+
+  // Responsável = quem executa o serviço (como no quadro "Responsáveis pela
+  // Execução" da página de detalhe), não o responsável comercial do orçamento.
+  const respServico = [...new Set((detalhe?.responsaveis ?? []).map(r => r.responsavelNome).filter((n): n is string => !!n))]
+
+  // Farol de completude (ver completude-orcamento.ts): só depois do detalhe,
+  // que traz itens, anexos, mensagens e responsáveis.
+  const completude = detalhe
+    ? calcularCompletude({
+        status: o.status,
+        itens: (detalhe.itens ?? []).map(i => ({ tipo: i.tipo, valorTotal: i.valorTotal })),
+        valorTotal: valor,
+        arquivos: detalhe.arquivos?.length ?? 0,
+        mensagens: detalhe.mensagens?.length ?? 0,
+        temSolicitante: !!o.solicitante,
+        temResponsavelServico: respServico.length > 0,
+        prazoVariant: prazo?.variant ?? null,
+      })
+    : null
   // Delay de cada seção na cascata (ms, depois que o painel desenrolou).
   const atraso = (i: number) => ({ animationDelay: `${260 + i * 70}ms` })
 
@@ -204,22 +229,27 @@ export function PreviewOrcamento({
             <section className="preview-item-in" style={atraso(1)}>
               <h3 className="mb-2 text-[13px] font-semibold">Visão geral</h3>
               <div className="flex items-center gap-4">
-                <MedidorPrazo pct={prazo?.restantePct} variant={prazo?.variant ?? 'neutral'} />
+                <MedidorCompletude pct={completude?.pct} nivel={completude?.nivel ?? null} />
                 <div className="min-w-0">
-                  <p className="text-[13px] font-semibold">{tituloPrazo(prazo)}</p>
+                  <p className="text-[13px] font-semibold">{completude ? NIVEL_COMPLETUDE_LABEL[completude.nivel] : 'Calculando…'}</p>
                   <p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">
-                    {prazo?.tooltip ?? 'Sem prazo ativo nesta etapa.'}
-                    {o.responsavel?.name ? ` Responsável: ${o.responsavel.name}.` : ''}
+                    {!completude ? 'Completude do orçamento: etapas, itens, anexos, mensagens, pessoas e prazo.'
+                      : completude.falta.length === 0 ? 'Tudo preenchido e em dia.'
+                      : `Falta: ${completude.falta.join(', ')}.`}
                   </p>
                 </div>
               </div>
               <dl className="mt-3 divide-y divide-border/70 text-[12px]">
-                <LinhaDado rotulo="Valor do orçamento" valor={valor > 0 ? moeda(valor) : '—'} />
-                <LinhaDado rotulo="Etapa atual" valor={statusLabel} />
-                <LinhaDado rotulo="Tempo na etapa" valor={`${diasDesde(desdeEtapa)} dia(s)`} />
-                <LinhaDado rotulo="Responsável" valor={o.responsavel?.name ?? '—'} />
-                <LinhaDado rotulo="Solicitante" valor={o.solicitante?.name ?? '—'} />
-                {doc && <LinhaDado rotulo={ehCnpj ? 'CNPJ' : 'CPF'} valor={`${doc}${ehCnpj ? ` · ${matriz ? 'Matriz' : 'Filial'}` : ''}`} />}
+                <LinhaDado icone={CircleDollarSign} rotulo="Valor do orçamento" valor={valor > 0 ? moeda(valor) : '—'} />
+                <LinhaDado icone={Workflow} rotulo="Etapa atual" valor={statusLabel} />
+                <LinhaDado icone={Hourglass} rotulo="Tempo na etapa" valor={`${diasDesde(desdeEtapa)} dia(s)`} />
+                <LinhaDado icone={UserRound} rotulo="Solicitante" valor={o.solicitante?.name ?? '—'} />
+                <LinhaDado
+                  icone={UserCog}
+                  rotulo="Responsável"
+                  valor={carregando && !detalhe ? '…' : respServico.length ? respServico.join(', ') : 'A definir'}
+                />
+                {doc && <LinhaDado icone={IdCard} rotulo={ehCnpj ? 'CNPJ' : 'CPF'} valor={`${doc}${ehCnpj ? ` · ${matriz ? 'Matriz' : 'Filial'}` : ''}`} />}
               </dl>
             </section>
 
@@ -325,20 +355,12 @@ function proximoPasso(o: PreviewOrcamentoRow, prazo: PreviewPrazo | null): { tit
   }
 }
 
-function tituloPrazo(prazo: PreviewPrazo | null): string {
-  switch (prazo?.variant) {
-    case 'ok': return 'No prazo!'
-    case 'warning': return 'Atenção ao prazo'
-    case 'danger': return prazo.label === 'vence hoje' ? 'Vence hoje' : 'Prazo vencido'
-    default: return 'Sem prazo ativo'
-  }
-}
-
 /**
  * Medidor em meio-arco com "tiques" (como no Rounder): o arco colorido sobe de
- * 0 até o prazo restante, e o número conta junto. Gradiente âmbar → verde.
+ * 0 até a completude do orçamento, e o número conta junto. Gradiente laranja
+ * → amarelo → verde-azulado; o número segue o nível do farol.
  */
-function MedidorPrazo({ pct, variant }: { pct?: number; variant: PreviewPrazo['variant'] }) {
+function MedidorCompletude({ pct, nivel }: { pct?: number; nivel: NivelCompletude | null }) {
   const alvo = pct == null ? 0 : Math.max(0, Math.min(100, Math.round(pct)))
   const [atual, setAtual] = useState(0)
   useEffect(() => {
@@ -355,7 +377,7 @@ function MedidorPrazo({ pct, variant }: { pct?: number; variant: PreviewPrazo['v
     return () => cancelAnimationFrame(raf)
   }, [alvo])
   const arco = 'M 10 58 A 48 48 0 0 1 106 58'
-  const corNumero = variant === 'danger' ? '#e11d48' : variant === 'warning' ? '#d97706' : variant === 'ok' ? '#0d9488' : '#94a3b8'
+  const corNumero = nivel === 'incompleto' ? '#e11d48' : nivel === 'andamento' ? '#d97706' : nivel ? '#0d9488' : '#94a3b8'
   const id = useMemo(() => `m${Math.random().toString(36).slice(2, 8)}`, [])
   return (
     <div className="relative h-[66px] w-[116px] shrink-0">
@@ -493,10 +515,13 @@ function CalendarioAtividade({ detalhe, criadoEm }: { detalhe: Detalhe | null; c
   )
 }
 
-function LinhaDado({ rotulo, valor }: { rotulo: string; valor: string }) {
+function LinhaDado({ icone: Icone, rotulo, valor }: { icone: typeof Clock; rotulo: string; valor: string }) {
   return (
     <div className="flex items-center justify-between gap-3 py-2">
-      <dt className="text-muted-foreground">{rotulo}</dt>
+      <dt className="flex items-center gap-2 text-muted-foreground">
+        <Icone className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+        {rotulo}
+      </dt>
       <dd className="min-w-0 truncate text-right font-medium">{valor}</dd>
     </div>
   )
