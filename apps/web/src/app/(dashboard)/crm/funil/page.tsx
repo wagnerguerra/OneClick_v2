@@ -224,7 +224,7 @@ export default function CrmFunilPage() {
                 const ativa = cfg?.id === c.id && cfg?.id !== null
                 return (
                   <button key={c.id ?? c.slug} type="button" onClick={() => setCfg({ ...c })}
-                    className={cn('w-full text-left rounded-md border px-2.5 py-2 transition-colors hover:bg-muted/50', ativa && 'ring-2 ring-rose-400 bg-rose-50/50 dark:bg-rose-950/20')}>
+                    className={cn('w-full text-left rounded-md border px-2.5 py-2 transition-colors hover:bg-muted/50', ativa && 'ring-2 ring-primary/80 bg-primary/10')}>
                     <div className="flex items-center gap-2 min-w-0">
                       <Megaphone className="h-3.5 w-3.5 shrink-0" style={{ color: c.corPrimaria || '#10b981' }} />
                       <span className="text-sm font-medium truncate flex-1">{c.nome || c.slug}</span>
