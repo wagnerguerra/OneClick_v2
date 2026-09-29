@@ -381,7 +381,7 @@ export default function PainelOperacionalPage() {
               <div key={resp?.id ?? '__sem__'} className="rounded-lg border bg-card">
                 <div className="flex items-center justify-between gap-2 p-3 border-b bg-muted/30">
                   <div className="flex items-center gap-2 min-w-0">
-                    <UserAvatar user={resp} className="h-7 w-7 text-[10px] shrink-0" bg="bg-sky-500" />
+                    <UserAvatar user={resp} className="h-7 w-7 text-[10px] shrink-0" bg="bg-primary" fg="text-primary-foreground" />
                     <span className="text-sm font-semibold truncate" title={resp?.name ?? 'Sem responsável'}>
                       {resp?.name ?? 'Sem responsável'}
                     </span>
@@ -554,7 +554,7 @@ function TimelineView({ execucoes, apenasAtrasados, onCardClick }: { execucoes: 
                       <p className="text-[10px] text-muted-foreground truncate" title={e.clienteRazaoSocial}>{e.clienteRazaoSocial}</p>
                     </div>
                     {e.responsavel && (
-                      <UserAvatar user={e.responsavel} className="h-5 w-5 text-[8px] shrink-0" bg="bg-sky-500" title={e.responsavel.name} />
+                      <UserAvatar user={e.responsavel} className="h-5 w-5 text-[8px] shrink-0" bg="bg-primary" fg="text-primary-foreground" title={e.responsavel.name} />
                     )}
                   </div>
                   {/* Track */}
@@ -735,7 +735,7 @@ function ExecucaoCard({ exec, onClick }: { exec: Execucao; onClick?: () => void 
         <div className="flex items-center gap-1.5 min-w-0">
           {exec.responsavel ? (
             <>
-              <UserAvatar user={exec.responsavel} className="h-5 w-5 text-[9px] shrink-0" bg="bg-sky-500" />
+              <UserAvatar user={exec.responsavel} className="h-5 w-5 text-[9px] shrink-0" bg="bg-primary" fg="text-primary-foreground" />
               <span className="text-[10px] truncate" title={exec.responsavel.name}>
                 {exec.responsavel.name.split(' ')[0]}
               </span>

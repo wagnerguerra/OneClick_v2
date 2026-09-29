@@ -310,7 +310,7 @@ function TabDesempenho({ dias }: { dias?: number }) {
               <TableRow key={row.responsavelId || 'sem'}>
                 <TableCell className="text-xs font-medium">
                   <div className="flex items-center gap-2">
-                    <UserAvatar user={{ name: row.nome, image: row.image }} bg="bg-rose-500" className="h-6 w-6 text-[10px]" />
+                    <UserAvatar user={{ name: row.nome, image: row.image }} bg="bg-primary" fg="text-primary-foreground" className="h-6 w-6 text-[10px]" />
                     {row.nome}
                   </div>
                 </TableCell>

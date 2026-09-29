@@ -2089,7 +2089,7 @@ export default function AgendaPage() {
                             className="inline-flex items-center gap-1.5 text-[12px] bg-muted/60 border border-border/60 rounded-full pl-0.5 pr-2.5 py-0.5"
                             title={p.nome}
                           >
-                            <UserAvatar user={{ name: p.nome, image: p.image }} className="h-6 w-6 text-[9px] shrink-0" bg="bg-sky-500" />
+                            <UserAvatar user={{ name: p.nome, image: p.image }} className="h-6 w-6 text-[9px] shrink-0" bg="bg-primary" fg="text-primary-foreground" />
                             <span className="truncate max-w-[140px]">{p.nome}</span>
                           </span>
                         ))}
@@ -2436,7 +2436,7 @@ export default function AgendaPage() {
                                   className="inline-flex items-center gap-1.5 pl-1 pr-2.5 py-0.5 rounded-full bg-muted/60 border border-border/60"
                                   title={nome}
                                 >
-                                  <UserAvatar user={{ name: nome, image: p.usuario?.image ?? null }} className="h-5 w-5 text-[9px] shrink-0" bg="bg-sky-500" />
+                                  <UserAvatar user={{ name: nome, image: p.usuario?.image ?? null }} className="h-5 w-5 text-[9px] shrink-0" bg="bg-primary" fg="text-primary-foreground" />
                                   <span className="text-[12px] font-medium truncate max-w-[160px] text-foreground">{nome}</span>
                                 </span>
                               )

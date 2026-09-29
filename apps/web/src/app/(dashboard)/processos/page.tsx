@@ -215,7 +215,7 @@ export default function ProcessosPage() {
                   <TableCell className="hidden lg:table-cell">
                     {p.responsavel ? (
                       <div className="flex items-center gap-2">
-                        <UserAvatar user={p.responsavel} className="h-6 w-6 text-[10px]" bg="bg-sky-500" />
+                        <UserAvatar user={p.responsavel} className="h-6 w-6 text-[10px]" bg="bg-primary" fg="text-primary-foreground" />
                         <span className="text-xs">{p.responsavel.name}</span>
                       </div>
                     ) : (

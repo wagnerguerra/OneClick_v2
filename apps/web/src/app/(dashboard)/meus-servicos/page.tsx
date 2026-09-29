@@ -105,7 +105,7 @@ function ResponsavelChip({ user, size = 'sm' }: {
   }
   return (
     <span className={cn('inline-flex items-center gap-1', txt)} title={`Responsável: ${user.name}`}>
-      <UserAvatar user={user} className={cn('border border-background shrink-0', dim)} bg="bg-sky-500" />
+      <UserAvatar user={user} className={cn('border border-background shrink-0', dim)} bg="bg-primary" fg="text-primary-foreground" />
       <span className="font-medium text-foreground/80 truncate max-w-[140px]">{user.name}</span>
     </span>
   )
@@ -263,7 +263,7 @@ function ResponsavelEditor({
               {salvando === c.id ? (
                 <Loader2 className="h-4 w-4 animate-spin shrink-0" />
               ) : (
-                <UserAvatar user={c} className="h-5 w-5 text-[8px] shrink-0" bg="bg-sky-500" />
+                <UserAvatar user={c} className="h-5 w-5 text-[8px] shrink-0" bg="bg-primary" fg="text-primary-foreground" />
               )}
               <span className="flex-1 min-w-0">
                 <span className="block truncate font-medium text-foreground">{c.name}</span>

@@ -1258,7 +1258,7 @@ function FluxoResponsavelPopover({ exec, triggerRect, onClose, onChanged }: {
               {salvando === c.id ? (
                 <Loader2 className="h-4 w-4 animate-spin shrink-0" />
               ) : (
-                <UserAvatar user={c} className="h-5 w-5 text-[8px] shrink-0" bg="bg-sky-500" />
+                <UserAvatar user={c} className="h-5 w-5 text-[8px] shrink-0" bg="bg-primary" fg="text-primary-foreground" />
               )}
               <span className="flex-1 min-w-0">
                 <span className="block truncate font-medium text-foreground">{c.name}</span>
