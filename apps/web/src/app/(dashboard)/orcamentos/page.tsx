@@ -1692,7 +1692,7 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
       {/* Body */}
       <div className="px-3 pb-2 space-y-1">
         {valor > 0 && (
-          <span className="text-xs font-semibold" style={{ color: PRIMARY }}>{formatCurrency(valor)}</span>
+          <span className={cn('text-xs font-semibold', TEXT.emerald)}>{formatCurrency(valor)}</span>
         )}
         {orc.itens && orc.itens.length > 0 && (
           <div className="space-y-0.5 pt-0.5">

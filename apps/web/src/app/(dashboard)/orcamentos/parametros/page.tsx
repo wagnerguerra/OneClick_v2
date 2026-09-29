@@ -476,9 +476,9 @@ export default function ParametrosOrcamentosPage() {
         {/* Barra de ação da seleção em massa. Os botões de disponibilidade não
             aparecem na visão "Excluídos": item excluído não é afetado. */}
         {selectedIds.size > 0 && (
-          <div className="flex flex-col gap-2 border-b border-border/60 bg-muted/30 px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 border-b border-primary/30 bg-primary/10 px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-xs text-muted-foreground">
-              <strong className="text-foreground">{selectedIds.size}</strong> {selectedIds.size === 1 ? 'item selecionado' : 'itens selecionados'}
+              <strong className="text-primary-on-surface">{selectedIds.size}</strong> {selectedIds.size === 1 ? 'item selecionado' : 'itens selecionados'}
             </span>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={() => setSelectedIds(new Set())} disabled={bulking}>
