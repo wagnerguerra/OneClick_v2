@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation'
 import {
   FileText, CircleDollarSign, Loader2, Plus, MoreVertical, Copy, Archive, Ban,
   Highlighter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, ChevronsUpDown,
-  Clock, LayoutGrid, List, Eye, Settings2, Package, BarChart3, Activity,
+  Clock, AlertTriangle, LayoutGrid, List, Eye, Settings2, Package, BarChart3, Activity,
   MessageSquare, Paperclip, RotateCcw, Star, SlidersHorizontal, X, Target, Check,
   Download, FileSpreadsheet, FileDown, CheckCircle2, Pencil, ThumbsDown, Search as SearchIcon,
   Wrench,
@@ -30,7 +30,7 @@ import { CatalogoCombobox } from './_components/catalogo-combobox'
 import { RelatorioColunaModal } from './_components/relatorio-coluna-modal'
 import { ReprocessarServicosModal } from './_components/reprocessar-servicos-modal'
 import { cn } from '@saas/ui'
-import { TEXT, BADGE, DOT, FILL } from '@/lib/color-styles'
+import { TEXT, BADGE } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { useAutoHideScrollbar } from '@/hooks/use-autohide-scrollbar'
@@ -151,6 +151,9 @@ const DESTAQUE_COR: Record<DestaqueCor, string> = {
   sky: '#0ea5e9',
   violet: '#8b5cf6',
 }
+/** Cores da quina de aviso do header (inline pelo mesmo motivo do DESTAQUE_COR). */
+const AVISO_COR = { verde: '#10b981', ambar: '#f59e0b', vermelho: '#e11d48' } as const
+
 const corDoDestaque = (orc: { destacadoCor?: DestaqueCor | null }): DestaqueCor =>
   orc.destacadoCor && (DESTAQUE_CORES as readonly string[]).includes(orc.destacadoCor) ? orc.destacadoCor : 'amber'
 
@@ -1744,26 +1747,33 @@ function KanbanCardContent({ orc, cliente, onDuplicar, onArquivar, onCancelar, o
 }) {
   const valor = Number(orc.totalGeral || orc.valorTotal || 0)
   const temItens = !!orc.itens && orc.itens.length > 0
-  // Prazo em alerta aparece como ponto no ícone contraído do rodapé.
   const prazo = calcularPrazoCard(orc, useContext(OrcConfigContext))
-  const alertaPrazo = prazo.variant === 'danger' ? DOT.rose : prazo.variant === 'warning' ? DOT.amber : null
-  // Avisos na quina do header (resposta do cliente pelo link).
-  const aviso = orc.decisaoTipo === 'APROVADO'
-    ? { label: 'Cliente aprovou pelo link', Icon: CheckCircle2, fill: FILL.emerald }
-    : orc.decisaoTipo === 'REVISAO_SOLICITADA'
-    ? { label: 'Cliente pediu revisão', Icon: Pencil, fill: FILL.amber }
-    : orc.decisaoTipo
-    ? { label: 'Cliente recusou pelo link', Icon: ThumbsDown, fill: FILL.rose }
-    : null
+  // Avisos da quina do header, do mais importante ao menos: resposta do
+  // cliente pelo link, prazo vencido, prazo vencendo. A quina mostra o
+  // primeiro; o tooltip lista todos.
+  const avisos: Array<{ label: string; detalhe?: string; Icon: typeof Clock; cor: string }> = []
+  if (orc.decisaoTipo) {
+    const quando = orc.decisaoEm
+      ? `Respondido em ${new Date(orc.decisaoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}`
+      : undefined
+    avisos.push(orc.decisaoTipo === 'APROVADO'
+      ? { label: 'Cliente aprovou pelo link', detalhe: quando, Icon: CheckCircle2, cor: AVISO_COR.verde }
+      : orc.decisaoTipo === 'REVISAO_SOLICITADA'
+      ? { label: 'Cliente pediu revisão', detalhe: quando, Icon: Pencil, cor: AVISO_COR.ambar }
+      : { label: 'Cliente recusou pelo link', detalhe: quando, Icon: ThumbsDown, cor: AVISO_COR.vermelho })
+  }
+  if (prazo.variant === 'danger') avisos.push({ label: `Prazo ${prazo.label}`, detalhe: prazo.tooltip, Icon: AlertTriangle, cor: AVISO_COR.vermelho })
+  else if (prazo.variant === 'warning') avisos.push({ label: `Prazo: ${prazo.label}`, detalhe: prazo.tooltip, Icon: Clock, cor: AVISO_COR.ambar })
+  const aviso = avisos[0] ?? null
   // Corpo vazio não é desenhado: sem isto, header e footer ficariam separados
   // por uma faixa branca sem nada dentro.
   const temCorpo = valor > 0 || temItens || !!orc.observacoes
 
   return (
     <div className="flex flex-col">
-      {/* Header — mesmo fundo do card, separado do corpo por uma linha fina */}
+      {/* Header — mesmo fundo do card, separado do corpo por uma linha tracejada (como o footer) */}
       <div
-        className={cn('relative flex items-center justify-between gap-1 px-3 py-2 border-b border-hairline transition-colors duration-500 ease-out', aviso && 'pr-8')}
+        className={cn('relative flex items-center justify-between gap-1 px-3 py-2 border-b border-dashed border-border transition-colors duration-500 ease-out', aviso && 'pr-8')}
         // Destacado: a cor do destaque bem de leve no header (hex + alfa 12 ≈ 7%),
         // inline pelo mesmo motivo da borda (retint do módulo).
         style={{ backgroundColor: orc.destacadoEm ? `${DESTAQUE_COR[corDoDestaque(orc)]}12` : 'transparent' }}
@@ -1776,17 +1786,24 @@ function KanbanCardContent({ orc, cliente, onDuplicar, onArquivar, onCancelar, o
             <TooltipTrigger asChild>
               <span
                 className="absolute right-0 top-0 z-10 h-7 w-7 cursor-help"
-                aria-label={aviso.label}
+                aria-label={avisos.map(a => a.label).join('; ')}
                 onClick={e => e.stopPropagation()}
                 onPointerDown={e => e.stopPropagation()}
               >
-                <span className={cn('absolute inset-0 [clip-path:polygon(0_0,100%_0,100%_100%)]', aviso.fill)} />
+                {/* Cor inline: o vermelho em classe sofre o retint do módulo. */}
+                <span className="absolute inset-0 transition-colors duration-500 [clip-path:polygon(0_0,100%_0,100%_100%)]" style={{ backgroundColor: aviso.cor }} />
                 <aviso.Icon className="absolute right-[3px] top-[3px] h-3 w-3 text-white" strokeWidth={2.25} />
               </span>
             </TooltipTrigger>
-            <TooltipContent side="top" align="end" sideOffset={6} className="tooltip-fade text-[11px]">
-              <p className="flex items-center gap-1 font-semibold"><aviso.Icon className="h-3 w-3" /> {aviso.label}</p>
-              {orc.decisaoEm && <p>Respondido em {new Date(orc.decisaoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</p>}
+            <TooltipContent side="top" align="end" sideOffset={6} className="tooltip-fade text-[11px] max-w-[280px]">
+              <div className="space-y-1.5">
+                {avisos.map(a => (
+                  <div key={a.label}>
+                    <p className="flex items-center gap-1 font-semibold"><a.Icon className="h-3 w-3 shrink-0" /> {a.label}</p>
+                    {a.detalhe && <p>{a.detalhe}</p>}
+                  </div>
+                ))}
+              </div>
             </TooltipContent>
           </Tooltip>
         )}
@@ -1906,8 +1923,8 @@ function KanbanCardContent({ orc, cliente, onDuplicar, onArquivar, onCancelar, o
         </div>
         {/* Ícones contraídos num só; passando o mouse, desenrolam para a
             esquerda. Só em aparelho com mouse (hover): no toque ficam sempre
-            abertos, senão não haveria como vê-los. O ponto no gatilho mantém
-            à vista o prazo em alerta, que a cor do relógio avisava. */}
+            abertos, senão não haveria como vê-los. O prazo em alerta fica à
+            vista pela quina do header. */}
         <div className="group/icones flex items-center">
           <div className="flex items-center gap-2.5 overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out [@media(hover:hover)]:max-w-0 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/icones:max-w-[240px] [@media(hover:hover)]:group-hover/icones:opacity-100 [@media(hover:hover)]:group-hover/icones:pr-1.5">
           {orc.destacadoEm && (
@@ -1966,9 +1983,6 @@ function KanbanCardContent({ orc, cliente, onDuplicar, onArquivar, onCancelar, o
           </div>
           <span className="relative hidden h-5 w-5 cursor-default items-center justify-center rounded text-muted-foreground transition-colors group-hover/icones:bg-muted [@media(hover:hover)]:flex">
             <ChevronLeft className="h-3.5 w-3.5 transition-transform duration-300 group-hover/icones:rotate-180" strokeWidth={1.5} />
-            {alertaPrazo && (
-              <span className={cn('absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full', alertaPrazo)} />
-            )}
           </span>
         </div>
       </div>
