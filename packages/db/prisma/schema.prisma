@@ -4786,6 +4786,12 @@ model Orcamento {
   // de entrada. Ver apps/api/src/crm/indicadores-comerciais.ts.
   contratoFechadoEm      DateTime?       @map("contrato_fechado_em")
   contratoFechadoPor     String?         @map("contrato_fechado_por")
+  // Destaque do card no quadro de orçamentos: alguém marca para chamar a
+  // atenção da equipe (todos veem; o card sobe para o topo da coluna).
+  destacadoEm            DateTime?       @map("destacado_em")
+  destacadoPor           String?         @map("destacado_por")
+  /// amber | orange | rose | emerald | sky | violet (DESTAQUE_CORES).
+  destacadoCor           String?         @map("destacado_cor")
   // Paralizacao (pausa sem mudar status)
   paralizado             Boolean         @default(false)
   paralizadoEm           DateTime?       @map("paralizado_em")

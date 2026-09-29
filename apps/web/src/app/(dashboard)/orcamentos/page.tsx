@@ -2,14 +2,16 @@
 
 import { useState, useEffect, useCallback, useRef, createContext, useContext, type ReactNode } from 'react'
 import { ClienteIdentificacao, type ClienteDoc } from '@/components/cliente-identificacao'
+import { mensagemErro } from '@/lib/errors'
+import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { ROTEIRO_SOLICITACAO_ORCAMENTO, detalhamentoPreenchido } from '@/components/orcamento/roteiro-solicitacao'
 import { useRoteiroSolicitacao } from '@/components/orcamento/use-roteiro-solicitacao'
 import { useRouter } from 'next/navigation'
 import {
   FileText, CircleDollarSign, Loader2, Plus, MoreVertical, Copy, Archive, Ban,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, ChevronsUpDown,
+  Highlighter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, ChevronsUpDown,
   Clock, LayoutGrid, List, Eye, Settings2, Package, BarChart3, Activity,
-  MessageSquare, Paperclip, RotateCcw, Star, SlidersHorizontal, X, Target,
+  MessageSquare, Paperclip, RotateCcw, Star, SlidersHorizontal, X, Target, Check,
   Download, FileSpreadsheet, FileDown, CheckCircle2, Pencil, ThumbsDown, Search as SearchIcon,
   Wrench,
 } from 'lucide-react'
@@ -17,7 +19,7 @@ import {
   Button, Input, Badge, Card, Checkbox,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   Label, RichEditor,
@@ -28,7 +30,7 @@ import { CatalogoCombobox } from './_components/catalogo-combobox'
 import { RelatorioColunaModal } from './_components/relatorio-coluna-modal'
 import { ReprocessarServicosModal } from './_components/reprocessar-servicos-modal'
 import { cn } from '@saas/ui'
-import { TEXT, BADGE, DOT } from '@/lib/color-styles'
+import { TEXT, BADGE, DOT, FILL } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { useAutoHideScrollbar } from '@/hooks/use-autohide-scrollbar'
@@ -47,7 +49,7 @@ import { useUserPermissions } from '@/hooks/use-user-permissions'
 // Tipos e constantes
 // ============================================================
 
-import { isOrcamentoTransitionAllowed, ORCAMENTO_STATUS_LABELS, resolveOrcamentoScope, type OrcamentoScope } from '@saas/types'
+import { isOrcamentoTransitionAllowed, ORCAMENTO_STATUS_LABELS, resolveOrcamentoScope, type OrcamentoScope, formatDocumento, ehMatrizCnpj, DESTAQUE_CORES, DESTAQUE_COR_LABELS, type DestaqueCor } from '@saas/types'
 
 const STATUS_ORDER = ['NOVO', 'A_ENVIAR', 'ENVIADO', 'APROVADO', 'LIBERADO', 'FINALIZADO', 'ENCERRADO'] as const
 
@@ -80,6 +82,10 @@ interface OrcamentoRow {
   id: string
   numero: number
   status: string
+  /** Card destacado no quadro (todos veem; sobe para o topo da coluna). */
+  destacadoEm?: string | null
+  destacadoCor?: DestaqueCor | null
+  destacadoPorUser?: { id: string; name: string; image?: string | null } | null
   /** APROVADO com o serviço já concluído — falta a liberação do financeiro. */
   servicosConcluidos?: boolean
   totalGeral: number
@@ -129,6 +135,24 @@ const DEFAULT_CONFIG: OrcConfig = { diasEnviar: 7, diasAprovar: 15, diasRevisar:
 
 // Context para que o KanbanCardContent pegue config sem prop drilling
 const OrcConfigContext = createContext<OrcConfig>(DEFAULT_CONFIG)
+
+/**
+ * Cor do destaque em hex, aplicada inline na bolinha do menu, na borda do card
+ * e no ícone do rodapé — os três idênticos. Não usa classes Tailwind porque a
+ * página roda sob `.mod-comercial`, e o retint do globals.css troca as classes
+ * rosa pela cor do módulo (a borda saía lavada, puxando para o laranja). Cor
+ * escolhida pelo usuário é conceito, não módulo: mapa `*_COR` local.
+ */
+const DESTAQUE_COR: Record<DestaqueCor, string> = {
+  amber: '#f59e0b',
+  orange: '#f97316',
+  rose: '#e11d48',
+  emerald: '#10b981',
+  sky: '#0ea5e9',
+  violet: '#8b5cf6',
+}
+const corDoDestaque = (orc: { destacadoCor?: DestaqueCor | null }): DestaqueCor =>
+  orc.destacadoCor && (DESTAQUE_CORES as readonly string[]).includes(orc.destacadoCor) ? orc.destacadoCor : 'amber'
 
 interface PrazoInfo {
   label: string  // texto curto pro card. ex: "3d p/ enviar", "vencido 2d"
@@ -313,6 +337,9 @@ export default function OrcamentosPage() {
     setIncluirParalizados(true); setPage(1)
   }
   const [orcamentos, setOrcamentos] = useState<OrcamentoRow[]>([])
+  // Quem está logado — o destaque aplicado aqui já mostra "Por <nome>" sem
+  // recarregar a lista.
+  const { profile: eu } = useCurrentUserProfile()
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [clientesMap, setClientesMap] = useState<Map<string, ClienteDoc>>(new Map())
@@ -771,6 +798,29 @@ export default function OrcamentosPage() {
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
+  /**
+   * Destaque sem recarregar a página: atualiza só o card, na hora (a coluna o
+   * reposiciona sozinha, porque a ordem sai de `orcByStatus`). Se a API recusar,
+   * o card volta como estava.
+   */
+  async function handleDestacar(id: string, destacar: boolean, cor?: DestaqueCor) {
+    const antes = orcamentos.find(o => o.id === id)
+    if (!antes) return
+    const aplicar = (patch: Partial<OrcamentoRow>) =>
+      setOrcamentos(lista => lista.map(o => (o.id === id ? { ...o, ...patch } : o)))
+    aplicar(destacar
+      ? { destacadoEm: new Date().toISOString(), destacadoCor: cor ?? 'amber', destacadoPorUser: eu ? { id: eu.id, name: eu.name, image: eu.image } : null }
+      : { destacadoEm: null, destacadoCor: null, destacadoPorUser: null })
+    try {
+      const r = await (trpc.orcamento as any).destacar.mutate({ id, destacar, cor }) as { destacadoEm: string | null }
+      // Hora oficial do servidor (a local pode diferir alguns segundos).
+      if (destacar && r?.destacadoEm) aplicar({ destacadoEm: r.destacadoEm })
+    } catch (e) {
+      aplicar({ destacadoEm: antes.destacadoEm ?? null, destacadoCor: antes.destacadoCor ?? null, destacadoPorUser: antes.destacadoPorUser ?? null })
+      alerts.error('Erro', mensagemErro(e, 'Não foi possível alterar o destaque.'))
+    }
+  }
+
   async function handleCancelar(id: string) {
     // #HLP0303 — não existe mais exclusão permanente. Cancelar é soft: o orçamento
     // sai do funil e passa a constar como "Cancelado" no cadastro do cliente.
@@ -816,7 +866,13 @@ export default function OrcamentosPage() {
 
   // ── Kanban data ──
   const orcByStatus = STATUS_ORDER.reduce((acc, status) => {
-    acc[status] = orcamentos.filter(o => o.status === status)
+    const daColuna = orcamentos.filter(o => o.status === status)
+    // Destacados sobem para o topo (o mais recente primeiro); os demais
+    // mantêm a ordem de sempre — sort estável, só separa os dois grupos.
+    acc[status] = [
+      ...daColuna.filter(o => o.destacadoEm).sort((a, b) => (b.destacadoEm ?? '').localeCompare(a.destacadoEm ?? '')),
+      ...daColuna.filter(o => !o.destacadoEm),
+    ]
     return acc
   }, {} as Record<string, OrcamentoRow[]>)
 
@@ -827,6 +883,10 @@ export default function OrcamentosPage() {
     const cli = clientesMap.get(orc.clienteId)
     return cli ? <ClienteIdentificacao cliente={cli} variante={variante} /> : null
   }
+  // O card do quadro mostra só a razão social; CNPJ e matriz/filial vão para o
+  // tooltip do título, por isso ele recebe o cliente cru.
+  const getCliente = (orc: OrcamentoRow): ClienteDoc | null =>
+    orc.clienteId ? clientesMap.get(orc.clienteId) ?? null : null
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -1050,18 +1110,19 @@ export default function OrcamentosPage() {
                       draggable={canMoverKanban}
                       onToggleCollapse={() => toggleColumnCollapse(status)}
                       onRelatorio={() => setRelatorioColuna(status)}
-                      getClienteNome={getClienteNome}
+                      getCliente={getCliente}
                       onOpenDetail={(id) => router.push(`/orcamentos/${id}`)}
                       onDuplicar={handleDuplicar}
                       onArquivar={handleArquivar}
                       onCancelar={handleCancelar}
+                      onDestacar={handleDestacar}
                     />
                   )
                 })}
               </div>
             </div>
             <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
-              {activeCard && <KanbanCardOverlay orc={activeCard} clienteNome={getClienteNome(activeCard, 'bloco')} velocityX={dragDeltaX} />}
+              {activeCard && <KanbanCardOverlay orc={activeCard} cliente={getCliente(activeCard)} velocityX={dragDeltaX} />}
             </DragOverlay>
           </DndContext>
           </OrcConfigContext.Provider>
@@ -1431,7 +1492,7 @@ function SortHead({ label, sortKey, sort, onSort, className, align = 'left' }: {
 // Kanban DnD Components
 // ============================================================
 
-function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisabled, draggable, onToggleCollapse, onRelatorio, getClienteNome, onOpenDetail, onDuplicar, onArquivar, onCancelar }: {
+function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisabled, draggable, onToggleCollapse, onRelatorio, getCliente, onOpenDetail, onDuplicar, onArquivar, onCancelar, onDestacar }: {
   status: string
   items: OrcamentoRow[]
   isOver: boolean
@@ -1441,11 +1502,12 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
   draggable: boolean
   onToggleCollapse: () => void
   onRelatorio: () => void
-  getClienteNome: (orc: OrcamentoRow, variante?: 'linha' | 'bloco') => ReactNode
+  getCliente: (orc: OrcamentoRow) => ClienteDoc | null
   onOpenDetail: (id: string) => void
   onDuplicar: (id: string) => void
   onArquivar: (id: string) => void
   onCancelar: (id: string) => void
+  onDestacar: (id: string, destacar: boolean, cor?: DestaqueCor) => void
 }) {
   // Quando user não pode mover, desabilita também o drop (defesa em profundidade)
   const { setNodeRef } = useDroppable({ id: status, disabled: dropDisabled || !draggable })
@@ -1554,12 +1616,13 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
               key={orc.id}
               orc={orc}
               isDraggingAny={!!activeCardId}
-              clienteNome={getClienteNome(orc, 'bloco')}
+              cliente={getCliente(orc)}
               draggable={draggable}
               onOpenDetail={onOpenDetail}
               onDuplicar={onDuplicar}
               onArquivar={onArquivar}
               onCancelar={onCancelar}
+              onDestacar={onDestacar}
             />
           ))}
         </div>
@@ -1568,19 +1631,39 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
   )
 }
 
-function KanbanCard({ orc, isDraggingAny, clienteNome, draggable, onOpenDetail, onDuplicar, onArquivar, onCancelar }: {
+function KanbanCard({ orc, isDraggingAny, cliente, draggable, onOpenDetail, onDuplicar, onArquivar, onCancelar, onDestacar }: {
   orc: OrcamentoRow
   isDraggingAny: boolean
-  clienteNome: ReactNode
+  cliente: ClienteDoc | null
   draggable: boolean
   onOpenDetail: (id: string) => void
   onDuplicar: (id: string) => void
   onArquivar: (id: string) => void
   onCancelar: (id: string) => void
+  onDestacar: (id: string, destacar: boolean, cor?: DestaqueCor) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: orc.id, disabled: !draggable })
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }
-  const color = STATUS_COLORS[orc.status] || '#94a3b8'
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    // O dnd-kit controla `transition` do movimento; a da cor da borda (fade do
+    // destaque) vai junto, senão uma sobrescreveria a outra.
+    transition: [transition, 'border-color 500ms ease-out', 'box-shadow 500ms ease-out'].filter(Boolean).join(', '),
+    opacity: isDragging ? 0.3 : 1,
+    // Destacado: borda e sombra na mesma cor. Três camadas leves que se somam
+    // num degradê suave (hex + alfa: 26 ≈ 15%, 38 ≈ 22%). Nenhuma passa de 6px
+    // para os lados: a lista da coluna tem 6px de margem e rola, então sombra
+    // mais larga era cortada e deixava a borda grosseira.
+    ...(orc.destacadoEm && !isDragging
+      ? {
+          borderColor: DESTAQUE_COR[corDoDestaque(orc)],
+          boxShadow: [
+            `0 1px 2px ${DESTAQUE_COR[corDoDestaque(orc)]}26`,
+            `0 2px 5px ${DESTAQUE_COR[corDoDestaque(orc)]}26`,
+            `0 4px 8px -3px ${DESTAQUE_COR[corDoDestaque(orc)]}38`,
+          ].join(', '),
+        }
+      : { boxShadow: '0 0 0 transparent, 0 0 0 transparent, 0 0 0 transparent' }),
+  }
 
   return (
     <div
@@ -1589,30 +1672,26 @@ function KanbanCard({ orc, isDraggingAny, clienteNome, draggable, onOpenDetail, 
       {...(draggable ? attributes : {})}
       {...(draggable ? listeners : {})}
       className={cn(
-        'rounded-xl bg-white dark:bg-card shadow-sm group touch-none overflow-hidden',
+        'rounded-md bg-white dark:bg-card group touch-none overflow-hidden',
         draggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
-        isDragging ? 'border border-transparent opacity-30' : 'border border-border/60',
-        !isDragging && !isDraggingAny && 'hover:shadow-md transition-shadow',
+        isDragging ? 'border border-transparent opacity-30'
+          // Destacado: borda de 1px na cor escolhida (inline, ver DESTAQUE_COR).
+          : orc.destacadoEm ? 'border'
+          : 'border border-border/60',
       )}
       onClick={() => { if (!isDraggingAny) onOpenDetail(orc.id) }}
     >
-      <div className="flex">
-        <div className="w-1 shrink-0" style={{ backgroundColor: color }} />
-        <div className="flex-1 min-w-0">
-          <KanbanCardContent orc={orc} clienteNome={clienteNome} onDuplicar={onDuplicar} onArquivar={onArquivar} onCancelar={onCancelar} onOpenDetail={onOpenDetail} showMenu={!isDraggingAny} />
-        </div>
-      </div>
+      <KanbanCardContent orc={orc} cliente={cliente} onDuplicar={onDuplicar} onArquivar={onArquivar} onCancelar={onCancelar} onDestacar={onDestacar} onOpenDetail={onOpenDetail} showMenu={!isDraggingAny} />
     </div>
   )
 }
 
-function KanbanCardOverlay({ orc, clienteNome, velocityX }: { orc: OrcamentoRow; clienteNome: ReactNode; velocityX: number }) {
+function KanbanCardOverlay({ orc, cliente, velocityX }: { orc: OrcamentoRow; cliente: ClienteDoc | null; velocityX: number }) {
   const [rotation, setRotation] = useState(0)
   const rotRef = useRef(0)
   const angVelRef = useRef(0)
   const rafRef = useRef(0)
   const inputVelRef = useRef(0)
-  const color = STATUS_COLORS[orc.status] || '#94a3b8'
 
   useEffect(() => { inputVelRef.current = velocityX * 0.3 }, [velocityX])
 
@@ -1641,49 +1720,93 @@ function KanbanCardOverlay({ orc, clienteNome, velocityX }: { orc: OrcamentoRow;
     <div
       // Largura casa com o card da coluna (w-[340px] - padding px-1.5 12px = 328px),
       // pra evitar o efeito "encolher" ao iniciar o drag e "voltar ao normal" ao soltar.
-      className="rounded-xl bg-white dark:bg-card w-[328px] overflow-hidden"
+      className="rounded-md bg-white dark:bg-card w-[328px] overflow-hidden"
       style={{
         transform: `rotate(${rotation.toFixed(2)}deg) scale(1.02)`,
         transformOrigin: 'top center',
         boxShadow: `0 10px 25px rgba(0,0,0,0.15)`,
       }}
     >
-      <div className="flex">
-        <div className="w-1 shrink-0" style={{ backgroundColor: color }} />
-        <div className="flex-1 min-w-0">
-          <KanbanCardContent orc={orc} clienteNome={clienteNome} onDuplicar={() => {}} onArquivar={() => {}} onCancelar={() => {}} onOpenDetail={() => {}} showMenu={false} />
-        </div>
-      </div>
+      <KanbanCardContent orc={orc} cliente={cliente} onDuplicar={() => {}} onArquivar={() => {}} onCancelar={() => {}} onDestacar={() => {}} onOpenDetail={() => {}} showMenu={false} />
     </div>
   )
 }
 
-function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancelar, onOpenDetail, showMenu }: {
+function KanbanCardContent({ orc, cliente, onDuplicar, onArquivar, onCancelar, onDestacar, onOpenDetail, showMenu }: {
   orc: OrcamentoRow
-  clienteNome: ReactNode
+  cliente: ClienteDoc | null
   onOpenDetail: (id: string) => void
   onDuplicar: (id: string) => void
   onArquivar: (id: string) => void
   onCancelar: (id: string) => void
+  onDestacar: (id: string, destacar: boolean, cor?: DestaqueCor) => void
   showMenu: boolean
 }) {
   const valor = Number(orc.totalGeral || orc.valorTotal || 0)
+  const temItens = !!orc.itens && orc.itens.length > 0
+  // Prazo em alerta aparece como ponto no ícone contraído do rodapé.
+  const prazo = calcularPrazoCard(orc, useContext(OrcConfigContext))
+  const alertaPrazo = prazo.variant === 'danger' ? DOT.rose : prazo.variant === 'warning' ? DOT.amber : null
+  // Avisos na quina do header (resposta do cliente pelo link).
+  const aviso = orc.decisaoTipo === 'APROVADO'
+    ? { label: 'Cliente aprovou pelo link', Icon: CheckCircle2, fill: FILL.emerald }
+    : orc.decisaoTipo === 'REVISAO_SOLICITADA'
+    ? { label: 'Cliente pediu revisão', Icon: Pencil, fill: FILL.amber }
+    : orc.decisaoTipo
+    ? { label: 'Cliente recusou pelo link', Icon: ThumbsDown, fill: FILL.rose }
+    : null
+  // Corpo vazio não é desenhado: sem isto, header e footer ficariam separados
+  // por uma faixa branca sem nada dentro.
+  const temCorpo = valor > 0 || temItens || !!orc.observacoes
 
   return (
     <div className="flex flex-col">
-      {/* Header — número à esquerda do nome do cliente para ganhar espaço vertical */}
-      <div className="flex items-start justify-between gap-1 px-3 pt-2.5 pb-1">
-        <h4 className="min-w-0 text-[13px] font-semibold leading-tight line-clamp-2">
-          <span className="shrink-0">#{orc.numero}</span> {clienteNome || 'Sem cliente'}
+      {/* Header — mesmo fundo do card, separado do corpo por uma linha fina */}
+      <div
+        className={cn('relative flex items-center justify-between gap-1 px-3 py-2 border-b border-hairline transition-colors duration-500 ease-out', aviso && 'pr-8')}
+        // Destacado: a cor do destaque bem de leve no header (hex + alfa 12 ≈ 7%),
+        // inline pelo mesmo motivo da borda (retint do módulo).
+        style={{ backgroundColor: orc.destacadoEm ? `${DESTAQUE_COR[corDoDestaque(orc)]}12` : 'transparent' }}
+      >
+        {/* Quina de aviso: triângulo no canto superior direito, na cor do
+            aviso; o texto fica no tooltip. O card é overflow-hidden e
+            arredondado, então o canto do triângulo acompanha a borda. */}
+        {aviso && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className="absolute right-0 top-0 z-10 h-7 w-7 cursor-help"
+                aria-label={aviso.label}
+                onClick={e => e.stopPropagation()}
+                onPointerDown={e => e.stopPropagation()}
+              >
+                <span className={cn('absolute inset-0 [clip-path:polygon(0_0,100%_0,100%_100%)]', aviso.fill)} />
+                <aviso.Icon className="absolute right-[3px] top-[3px] h-3 w-3 text-white" strokeWidth={2.25} />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" align="end" sideOffset={6} className="tooltip-fade text-[11px]">
+              <p className="flex items-center gap-1 font-semibold"><aviso.Icon className="h-3 w-3" /> {aviso.label}</p>
+              {orc.decisaoEm && <p>Respondido em {new Date(orc.decisaoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</p>}
+            </TooltipContent>
+          </Tooltip>
+        )}
+        {/* Uma linha só: quem encolhe é o nome (com "…"); número e selos não. */}
+        <h4 className="flex min-w-0 items-center gap-1 text-[13px] font-semibold leading-tight">
+          <DadosClienteTooltip numero={orc.numero} cliente={cliente}>
+            <span className="flex min-w-0 items-center gap-1 cursor-help">
+              <span className="shrink-0">#{orc.numero}</span>
+              <span className="truncate">{cliente?.razaoSocial || 'Sem cliente'}</span>
+            </span>
+          </DadosClienteTooltip>
           {orc.paralizado && (
-            <Badge variant="outline" className={cn('ml-1 align-middle text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.amber)}>Paralizado</Badge>
+            <Badge variant="outline" className={cn('shrink-0 text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.amber)}>Paralizado</Badge>
           )}
           {orc.status === 'APROVADO' && orc.servicosConcluidos && (
             <Badge variant="outline" title="Serviço concluído — ao liberar, o orçamento é finalizado automaticamente"
-              className={cn('ml-1 align-middle text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.emerald)}>Serviço concluído</Badge>
+              className={cn('shrink-0 text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.emerald)}>Serviço concluído</Badge>
           )}
         </h4>
-        <div className="h-6 w-6 shrink-0 -mr-1 -mt-0.5">
+        <div className="h-6 w-6 shrink-0 -mr-1">
           {showMenu && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
@@ -1694,6 +1817,36 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
               <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
                 <DropdownMenuItem onClick={() => onOpenDetail(orc.id)}><Eye className="h-3.5 w-3.5 mr-2" /> Detalhes</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onDuplicar(orc.id)}><Copy className="h-3.5 w-3.5 mr-2" /> Duplicar</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <p className="flex items-center gap-2 px-2 pt-1 text-xs text-muted-foreground">
+                  <Highlighter className="h-3.5 w-3.5" /> {orc.destacadoEm ? 'Cor do destaque' : 'Destacar'}
+                </p>
+                {/* Uma bolinha por cor; cada uma é item do menu (teclado e
+                    fechamento ao escolher vêm de graça). */}
+                <div className="flex items-center gap-1 px-1.5 pb-1 pt-1.5">
+                  {DESTAQUE_CORES.map(c => {
+                    const atual = !!orc.destacadoEm && corDoDestaque(orc) === c
+                    return (
+                      <DropdownMenuItem
+                        key={c}
+                        title={DESTAQUE_COR_LABELS[c]}
+                        aria-label={`Destacar em ${DESTAQUE_COR_LABELS[c]}`}
+                        onClick={() => { if (!atual) onDestacar(orc.id, true, c) }}
+                        className="h-7 w-7 justify-center rounded-full p-0"
+                      >
+                        <span className={cn('flex h-4 w-4 items-center justify-center rounded-full', atual && 'ring-2 ring-offset-2 ring-offset-popover ring-foreground/40')} style={{ backgroundColor: DESTAQUE_COR[c] }}>
+                          {atual && <Check className="!size-2.5 text-white" strokeWidth={3} />}
+                        </span>
+                      </DropdownMenuItem>
+                    )
+                  })}
+                </div>
+                {orc.destacadoEm && (
+                  <DropdownMenuItem onClick={() => onDestacar(orc.id, false)}>
+                    <X className="h-3.5 w-3.5 mr-2" /> Remover destaque
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => onArquivar(orc.id)}><Archive className="h-3.5 w-3.5 mr-2" /> Arquivar</DropdownMenuItem>
                 <DropdownMenuItem className={TEXT.amber} onClick={() => onCancelar(orc.id)}><Ban className="h-3.5 w-3.5 mr-2" /> Cancelar</DropdownMenuItem>
               </DropdownMenuContent>
@@ -1701,31 +1854,9 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
           )}
         </div>
       </div>
-      {/* Resposta do cliente pelo link — faixa de destaque pra ninguém deixar passar */}
-      {orc.decisaoTipo && (() => {
-        const meta = orc.decisaoTipo === 'APROVADO'
-          ? { label: 'Cliente aprovou pelo link', Icon: CheckCircle2, cls: BADGE.emerald, dot: DOT.emerald }
-          : orc.decisaoTipo === 'REVISAO_SOLICITADA'
-          ? { label: 'Cliente pediu revisão', Icon: Pencil, cls: BADGE.amber, dot: DOT.amber }
-          : { label: 'Cliente recusou pelo link', Icon: ThumbsDown, cls: BADGE.rose, dot: DOT.rose }
-        const Icon = meta.Icon
-        return (
-          <div className={cn('mx-3 mb-1.5 flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium', meta.cls)}
-               title={orc.decisaoEm ? `Respondido em ${new Date(orc.decisaoEm).toLocaleString('pt-BR')}` : undefined}>
-            <span className="relative flex h-2 w-2 shrink-0">
-              <span className={cn('absolute inline-flex h-full w-full animate-ping rounded-full opacity-60', meta.dot)} />
-              <span className={cn('relative inline-flex h-2 w-2 rounded-full', meta.dot)} />
-            </span>
-            <Icon className="h-3 w-3 shrink-0" />
-            <span className="truncate">{meta.label}</span>
-          </div>
-        )
-      })()}
-      {/* Body */}
-      <div className="px-3 pb-2 space-y-1">
-        {valor > 0 && (
-          <span className="text-xs font-semibold" style={{ color: MODULE_COLOR }}>{formatCurrency(valor)}</span>
-        )}
+      {/* Corpo — branco, entre as duas faixas */}
+      {temCorpo && (
+      <div className="px-3 py-2 space-y-1">
         {orc.itens && orc.itens.length > 0 && (
           <div className="space-y-0.5 pt-0.5">
             {orc.itens.map(item => (
@@ -1754,12 +1885,17 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
             })()}
           </div>
         )}
-        {orc.observacoes && (!orc.itens || orc.itens.length === 0) && (
+        {orc.observacoes && !temItens && (
           <p className="text-[11px] text-muted-foreground truncate">{stripHtml(orc.observacoes)}</p>
         )}
+        {/* Valor depois dos serviços: primeiro o que é, depois quanto custa. */}
+        {valor > 0 && (
+          <p className="pt-0.5 text-right text-xs font-semibold tabular-nums" style={{ color: MODULE_COLOR }}>{formatCurrency(valor)}</p>
+        )}
       </div>
-      {/* Footer — ícones inline no corpo branco (sem faixa), como no /crm */}
-      <div className="flex items-center justify-between px-3 pb-2.5 pt-1">
+      )}
+      {/* Footer — mesmo fundo do card: pessoas e prazo à esquerda, vínculos e contadores à direita */}
+      <div className={cn('flex items-center justify-between px-3 py-2', temCorpo && 'border-t border-dashed border-border')}>
         <div className="flex items-center gap-2">
           {(orc.solicitante || orc.responsavel) && (
             <div className="flex items-center -space-x-1.5">
@@ -1767,34 +1903,73 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
               {orc.responsavel && <UserChip user={orc.responsavel} role="Responsavel" />}
             </div>
           )}
-          <PrazoBadge orc={orc} />
         </div>
-        <div className="flex items-center gap-2">
+        {/* Ícones contraídos num só; passando o mouse, desenrolam para a
+            esquerda. Só em aparelho com mouse (hover): no toque ficam sempre
+            abertos, senão não haveria como vê-los. O ponto no gatilho mantém
+            à vista o prazo em alerta, que a cor do relógio avisava. */}
+        <div className="group/icones flex items-center">
+          <div className="flex items-center gap-2.5 overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out [@media(hover:hover)]:max-w-0 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/icones:max-w-[240px] [@media(hover:hover)]:group-hover/icones:opacity-100 [@media(hover:hover)]:group-hover/icones:pr-1.5">
+          {orc.destacadoEm && (
+            <DicaIcone
+              titulo="Card destacado"
+              texto={`${orc.destacadoPorUser?.name ? `Por ${orc.destacadoPorUser.name} em ` : 'Em '}${new Date(orc.destacadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}`}
+            >
+              <span className="flex items-center cursor-help" style={{ color: DESTAQUE_COR[corDoDestaque(orc)] }}>
+                <Highlighter className="h-3.5 w-3.5" strokeWidth={1.5} />
+              </span>
+            </DicaIcone>
+          )}
+          <PrazoBadge orc={orc} />
           {orc.oportunidadeId && (
-            <span className={cn('inline-flex items-center gap-1 text-[10px] font-medium rounded-sm px-1.5 py-0.5', BADGE.fuchsia)} title="Card de CRM vinculado">
-              <Target className="h-3 w-3" /> CRM{orc.oportunidadeNumero != null ? ` #${orc.oportunidadeNumero}` : ''}
-            </span>
+            // Só o ícone, como o prazo; o número do card de CRM fica no tooltip.
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className={cn('flex items-center cursor-help opacity-80', TEXT.fuchsia)} aria-label="Card de CRM vinculado">
+                  <Target className="h-3.5 w-3.5" strokeWidth={1.5} />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={6} className="tooltip-fade text-[11px]">
+                <p className="font-semibold">CRM{orc.oportunidadeNumero != null ? ` #${orc.oportunidadeNumero}` : ''}</p>
+                <p>Card de CRM vinculado</p>
+              </TooltipContent>
+            </Tooltip>
           )}
           {(orc._count?.itens ?? 0) > 0 && (
-            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title={`${orc._count!.itens} ${orc._count!.itens === 1 ? 'item' : 'itens'}`}>
-              <FileText className="h-3 w-3" /> {orc._count!.itens}
-            </span>
+            <DicaIcone titulo={`${orc._count!.itens} ${orc._count!.itens === 1 ? 'item' : 'itens'}`} texto="Serviços incluídos no orçamento">
+              <span className="text-[11px] text-muted-foreground flex items-center gap-0.5 cursor-help">
+                <FileText className="h-3.5 w-3.5" strokeWidth={1.5} /> {orc._count!.itens}
+              </span>
+            </DicaIcone>
           )}
           {(orc._count?.mensagens ?? 0) > 0 && (
-            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title={`${orc._count!.mensagens} ${orc._count!.mensagens === 1 ? 'mensagem' : 'mensagens'}`}>
-              <MessageSquare className="h-3 w-3" /> {orc._count!.mensagens}
-            </span>
+            <DicaIcone titulo={`${orc._count!.mensagens} ${orc._count!.mensagens === 1 ? 'mensagem' : 'mensagens'}`} texto="Mensagens trocadas no orçamento">
+              <span className="text-[11px] text-muted-foreground flex items-center gap-0.5 cursor-help">
+                <MessageSquare className="h-3.5 w-3.5" strokeWidth={1.5} /> {orc._count!.mensagens}
+              </span>
+            </DicaIcone>
           )}
           {(orc._count?.arquivos ?? 0) > 0 && (
-            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title={`${orc._count!.arquivos} ${orc._count!.arquivos === 1 ? 'arquivo' : 'arquivos'}`}>
-              <Paperclip className="h-3 w-3" /> {orc._count!.arquivos}
-            </span>
+            <DicaIcone titulo={`${orc._count!.arquivos} ${orc._count!.arquivos === 1 ? 'arquivo' : 'arquivos'}`} texto="Anexos do orçamento">
+              <span className="text-[11px] text-muted-foreground flex items-center gap-0.5 cursor-help">
+                <Paperclip className="h-3.5 w-3.5" strokeWidth={1.5} /> {orc._count!.arquivos}
+              </span>
+            </DicaIcone>
           )}
           {orc.pesquisaRespondida && (
-            <span className="text-[10px] flex items-center gap-0.5" style={{ color: 'var(--mod-comercial, #fb7185)' }} title="Cliente respondeu a pesquisa de satisfação">
-              <Star className="h-3 w-3 fill-current" />
-            </span>
+            <DicaIcone titulo="Pesquisa respondida" texto="O cliente respondeu a pesquisa de satisfação">
+              <span className="text-[11px] flex items-center gap-0.5 cursor-help" style={{ color: 'var(--mod-comercial, #fb7185)' }}>
+                <Star className="h-3.5 w-3.5 fill-current" />
+              </span>
+            </DicaIcone>
           )}
+          </div>
+          <span className="relative hidden h-5 w-5 cursor-default items-center justify-center rounded text-muted-foreground transition-colors group-hover/icones:bg-muted [@media(hover:hover)]:flex">
+            <ChevronLeft className="h-3.5 w-3.5 transition-transform duration-300 group-hover/icones:rotate-180" strokeWidth={1.5} />
+            {alertaPrazo && (
+              <span className={cn('absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full', alertaPrazo)} />
+            )}
+          </span>
         </div>
       </div>
     </div>
@@ -1811,15 +1986,61 @@ function PrazoBadge({ orc }: { orc: OrcamentoRow }) {
     danger: cn(TEXT.rose, 'font-semibold'),
     neutral: 'text-muted-foreground',
   }
+  // Só o ícone no card, na cor do prazo — o atraso continua visível de longe;
+  // o texto ("115d p/ aprovação") e a regra ficam no tooltip.
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className={cn('text-[10px] flex items-center gap-0.5 whitespace-nowrap', colorClasses[prazo.variant])}>
-          <Clock className="h-3 w-3" /> {prazo.label}
+        <span className={cn('flex items-center cursor-help opacity-80', colorClasses[prazo.variant])} aria-label={prazo.label}>
+          <Clock className="h-3.5 w-3.5" strokeWidth={1.5} />
         </span>
       </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6} className="text-[11px]">
-        {prazo.tooltip}
+      <TooltipContent side="top" sideOffset={6} className="tooltip-fade text-[11px]">
+        <p className="font-semibold">{prazo.label}</p>
+        <p>{prazo.tooltip}</p>
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+/**
+ * Tooltip do título do card: nome completo (o título corta com "…") e os dados
+ * que saíram do card para liberar espaço — CNPJ formatado e se é matriz ou
+ * filial (#HLP0410). Abre sempre, já que essa informação não está mais à vista.
+ */
+function DadosClienteTooltip({ numero, cliente, children }: { numero: number; cliente: ClienteDoc | null; children: React.ReactElement }) {
+  const tipo = cliente?.tipoDocumento ?? null
+  const doc = cliente?.documento ? formatDocumento(cliente.documento) : ''
+  const ehCnpj = tipo ? tipo === 'CNPJ' : doc.length > 14
+  let linhaDoc = cliente ? 'Sem CPF/CNPJ no cadastro' : ''
+  if (doc) {
+    linhaDoc = ehCnpj
+      ? `CNPJ ${doc} · ${ehMatrizCnpj(cliente!.documento, cliente!.ehMatriz, tipo) ? 'Matriz' : 'Filial'}`
+      : `CPF ${doc}`
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="top" align="start" sideOffset={6} className="tooltip-fade text-[11px] max-w-[320px]">
+        <p className="font-semibold">#{numero} {cliente?.razaoSocial || 'Sem cliente'}</p>
+        {linhaDoc && <p>{linhaDoc}</p>}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+/**
+ * Ícone do rodapé do card com o mesmo tooltip do prazo e do CRM (título em
+ * negrito + explicação). Radix em vez de `title`: o nativo demora, tem outro
+ * visual e é cortado pelas colunas com rolagem.
+ */
+function DicaIcone({ titulo, texto, children }: { titulo: string; texto: string; children: React.ReactElement }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="top" sideOffset={6} className="tooltip-fade text-[11px]">
+        <p className="font-semibold">{titulo}</p>
+        <p>{texto}</p>
       </TooltipContent>
     </Tooltip>
   )
@@ -1838,7 +2059,7 @@ function ItensRestantesTooltip({ restantes, children }: { restantes: string[]; c
   return (
     <Tooltip>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6} className="text-[11px] max-w-[280px]">
+      <TooltipContent side="top" sideOffset={6} className="tooltip-fade text-[11px] max-w-[280px]">
         <ul className="space-y-0.5">
           {restantes.map((d, i) => <li key={i}>• {stripHtml(d)}</li>)}
         </ul>
@@ -1923,7 +2144,7 @@ function UserChip({ user, role }: { user: UserRef; role: 'Solicitante' | 'Respon
       <TooltipTrigger asChild>
         <span className="inline-flex">{chip}</span>
       </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6} className="text-[11px]">
+      <TooltipContent side="top" sideOffset={6} className="tooltip-fade text-[11px]">
         <span className="font-semibold">{role}:</span> {user.name}
       </TooltipContent>
     </Tooltip>

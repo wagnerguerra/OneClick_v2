@@ -308,6 +308,7 @@ export class OrcamentoService {
     const userIds = [...new Set([
       ...data.map(o => o.responsavelId),
       ...data.map(o => o.solicitanteId),
+      ...data.map(o => o.destacadoPor),
     ].filter(Boolean))] as string[]
     const users = userIds.length > 0
       ? await prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true, image: true } }).catch(() => [])
@@ -385,6 +386,7 @@ export class OrcamentoService {
       servicosConcluidos: servicosConcluidos.has(o.id),
       responsavel: o.responsavelId ? userMap.get(o.responsavelId) || null : null,
       solicitante: o.solicitanteId ? userMap.get(o.solicitanteId) || null : null,
+      destacadoPorUser: o.destacadoPor ? userMap.get(o.destacadoPor) || null : null,
       pesquisaRespondida: respSet.has(o.id),
       areas: areasPorOrcamento.get(o.id) ?? [],
       // Descrições de todos os itens, na ordem de inclusão — a tabela mostra a
@@ -4968,6 +4970,29 @@ export class OrcamentoService {
           ? `Contrato fechado em ${fechadoEm!.split('-').reverse().join('/')} (informado no Painel Comercial)`
           : 'Marca de contrato fechado desfeita (Painel Comercial)',
       },
+    }).catch(() => null)
+    return r
+  }
+
+  /**
+   * Destaca (ou tira o destaque de) um card do quadro. Vale para toda a equipe:
+   * o card ganha borda âmbar e sobe para o topo da coluna. Registra no
+   * histórico quem destacou.
+   */
+  async destacar(id: string, destacar: boolean, userId: string, empresaId?: string, cor: string = 'amber') {
+    const orc = await prisma.orcamento.findUnique({ where: { id }, select: { id: true, empresaId: true } })
+    if (!orc || (empresaId && orc.empresaId !== empresaId)) return null
+    const r = await prisma.orcamento.update({
+      where: { id },
+      data: {
+        destacadoEm: destacar ? new Date() : null,
+        destacadoPor: destacar ? userId : null,
+        destacadoCor: destacar ? cor : null,
+      },
+      select: { id: true, destacadoEm: true, destacadoPor: true, destacadoCor: true },
+    })
+    await prisma.orcamentoEvento.create({
+      data: { orcamentoId: id, userId, tipo: 'destaque', descricao: destacar ? 'Card destacado no quadro' : 'Destaque do card removido' },
     }).catch(() => null)
     return r
   }

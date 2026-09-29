@@ -65,6 +65,19 @@
 @keyframes sheetOverlayIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes sheetOverlayOut { from { opacity: 1; } to { opacity: 0; } }
 
+/* Tooltip (Radix) com fade — classe opcional no TooltipContent. O Radix marca
+   o estado em data-state e só desmonta depois que a animação de saída acaba,
+   por isso o fade-out funciona só com CSS. Usada nos cards do quadro de
+   /orcamentos. */
+@keyframes tooltipFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tooltipFadeOut { from { opacity: 1; } to { opacity: 0; } }
+.tooltip-fade[data-state='delayed-open'],
+.tooltip-fade[data-state='instant-open'] { animation: tooltipFadeIn 150ms ease-out; }
+.tooltip-fade[data-state='closed'] { animation: tooltipFadeOut 120ms ease-in forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .tooltip-fade[data-state] { animation: none; }
+}
+
 /* Sino — efeito de "desenrolar" (roll down) e "reenrolar" (roll up) */
 /* ─── Skins de acento (painel "Configurações de layout") ───────────────────
    Só o primário muda — módulos, status e semânticas continuam com suas cores. */

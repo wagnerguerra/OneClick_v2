@@ -136,3 +136,14 @@ export function isOrcamentoTransitionAllowed(de: string, para: string): boolean 
   if (de === para) return false
   return (ORCAMENTO_ALLOWED_TRANSITIONS[de as OrcamentoStatusValue] ?? []).includes(para as OrcamentoStatusValue)
 }
+
+/**
+ * Cores do destaque do card no quadro de orçamentos. Nomes das cores do
+ * `color-styles` do web (a tela monta as classes a partir deles). A primeira é
+ * o padrão.
+ */
+export const DESTAQUE_CORES = ['amber', 'orange', 'rose', 'emerald', 'sky', 'violet'] as const
+export type DestaqueCor = (typeof DESTAQUE_CORES)[number]
+export const DESTAQUE_COR_LABELS: Record<DestaqueCor, string> = {
+  amber: 'Âmbar', orange: 'Laranja', rose: 'Rosa', emerald: 'Verde', sky: 'Azul', violet: 'Violeta',
+}

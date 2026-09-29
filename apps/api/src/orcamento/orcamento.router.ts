@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
 import { router, readProcedure, writeProcedure, deleteProcedure, publicProcedure, writeSubProcedure, deleteSubProcedure, protectedProcedure } from '../trpc/trpc.service'
-import { createOrcamentoSchema, updateOrcamentoSchema, listOrcamentoSchema, createOrcamentoItemSchema, updateOrcamentoItemSchema, resolveOrcamentoScope, ORCAMENTO_SCOPE_DEFAULT, type OrcamentoScope } from '@saas/types'
+import { createOrcamentoSchema, updateOrcamentoSchema, listOrcamentoSchema, createOrcamentoItemSchema, updateOrcamentoItemSchema, resolveOrcamentoScope, ORCAMENTO_SCOPE_DEFAULT, type OrcamentoScope, DESTAQUE_CORES } from '@saas/types'
 import { OrcamentoService } from './orcamento.service'
 import { janelaDoPeriodo, periodoSchema, type Periodo } from '../common/periodo-br'
 
@@ -588,6 +588,15 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ id: z.string(), fechadoEm: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable() }))
       .mutation(async ({ input, ctx }) => {
         const r = await orcamentoService.marcarContratoFechado(input.id, input.fechadoEm, ctx.userId, ctx.empresaId)
+        if (!r) throw new TRPCError({ code: 'NOT_FOUND', message: 'Orçamento não encontrado.' })
+        return r
+      }),
+
+    /** Destaque do card no quadro (todos veem; sobe para o topo da coluna). */
+    destacar: writeProcedure(MODULE)
+      .input(z.object({ id: z.string(), destacar: z.boolean(), cor: z.enum(DESTAQUE_CORES).optional() }))
+      .mutation(async ({ input, ctx }) => {
+        const r = await orcamentoService.destacar(input.id, input.destacar, ctx.userId, ctx.empresaId, input.cor)
         if (!r) throw new TRPCError({ code: 'NOT_FOUND', message: 'Orçamento não encontrado.' })
         return r
       }),
