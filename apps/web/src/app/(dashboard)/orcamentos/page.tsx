@@ -28,6 +28,7 @@ import { ClienteCombobox } from './_components/cliente-combobox'
 import { UserCombobox } from './_components/user-combobox'
 import { CatalogoCombobox } from './_components/catalogo-combobox'
 import { RelatorioColunaModal } from './_components/relatorio-coluna-modal'
+import { PreviewOrcamento } from './_components/preview-orcamento'
 import { ReprocessarServicosModal } from './_components/reprocessar-servicos-modal'
 import { cn } from '@saas/ui'
 import { TEXT, BADGE } from '@/lib/color-styles'
@@ -161,6 +162,8 @@ interface PrazoInfo {
   label: string  // texto curto pro card. ex: "3d p/ enviar", "vencido 2d"
   tooltip: string
   variant: 'ok' | 'warning' | 'danger' | 'neutral'
+  /** 0–100: quanto do prazo da etapa ainda resta (medidor do preview). */
+  restantePct?: number
 }
 
 function calcularPrazoCard(orc: OrcamentoRow, config: OrcConfig): PrazoInfo {
@@ -215,10 +218,11 @@ function calcularPrazoCard(orc: OrcamentoRow, config: OrcConfig): PrazoInfo {
       label: `vencido ${atraso}d`,
       tooltip: `${acaoTooltip}. Vencido há ${atraso} dia(s)`,
       variant: 'danger',
+      restantePct: 0,
     }
   }
   if (restantes === 0) {
-    return { label: 'vence hoje', tooltip: `${acaoTooltip}. Vence hoje!`, variant: 'danger' }
+    return { label: 'vence hoje', tooltip: `${acaoTooltip}. Vence hoje!`, variant: 'danger', restantePct: 0 }
   }
 
   // Cor baseada na proporção do prazo restante
@@ -230,6 +234,7 @@ function calcularPrazoCard(orc: OrcamentoRow, config: OrcConfig): PrazoInfo {
     label: `${restantes}d ${acaoLabel}`,
     tooltip: `${acaoTooltip}. Restam ${restantes} dia(s)`,
     variant,
+    restantePct: Math.round(Math.min(1, ratio) * 100),
   }
 }
 
@@ -340,6 +345,8 @@ export default function OrcamentosPage() {
     setIncluirParalizados(true); setPage(1)
   }
   const [orcamentos, setOrcamentos] = useState<OrcamentoRow[]>([])
+  // Preview (painel lateral) do card clicado no quadro.
+  const [previewId, setPreviewId] = useState<string | null>(null)
   // Quem está logado — o destaque aplicado aqui já mostra "Por <nome>" sem
   // recarregar a lista.
   const { profile: eu } = useCurrentUserProfile()
@@ -1119,6 +1126,7 @@ export default function OrcamentosPage() {
                       onArquivar={handleArquivar}
                       onCancelar={handleCancelar}
                       onDestacar={handleDestacar}
+                      onPreview={setPreviewId}
                     />
                   )
                 })}
@@ -1308,6 +1316,22 @@ export default function OrcamentosPage() {
       <FormasPagamentoModal open={formasModal} onOpenChange={(o) => { setFormasModal(o); if (!o) void loadFormasCatalogo() }} />
       <ReprocessarServicosModal open={reprocessarModal} onOpenChange={setReprocessarModal} />
 
+      {/* Preview do orçamento — abre ao clicar no card do quadro */}
+      {(() => {
+        const o = previewId ? orcamentos.find(x => x.id === previewId) ?? null : null
+        return (
+          <PreviewOrcamento
+            orc={o}
+            cliente={o ? getCliente(o) : null}
+            prazo={o ? calcularPrazoCard(o, orcConfig) : null}
+            statusLabel={o ? (STATUS_LABELS[o.status] ?? o.status) : ''}
+            statusCor={o ? (STATUS_COLORS[o.status] ?? '#94a3b8') : '#94a3b8'}
+            onClose={() => setPreviewId(null)}
+            onAbrir={(id) => router.push(`/orcamentos/${id}`)}
+          />
+        )
+      })()}
+
       {/* Relatório de uma coluna do kanban (menu ⋮ da coluna) */}
       {relatorioColuna && (
         <RelatorioColunaModal
@@ -1495,7 +1519,7 @@ function SortHead({ label, sortKey, sort, onSort, className, align = 'left' }: {
 // Kanban DnD Components
 // ============================================================
 
-function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisabled, draggable, onToggleCollapse, onRelatorio, getCliente, onOpenDetail, onDuplicar, onArquivar, onCancelar, onDestacar }: {
+function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisabled, draggable, onToggleCollapse, onRelatorio, getCliente, onOpenDetail, onDuplicar, onArquivar, onCancelar, onDestacar, onPreview }: {
   status: string
   items: OrcamentoRow[]
   isOver: boolean
@@ -1511,6 +1535,7 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
   onArquivar: (id: string) => void
   onCancelar: (id: string) => void
   onDestacar: (id: string, destacar: boolean, cor?: DestaqueCor) => void
+  onPreview: (id: string) => void
 }) {
   // Quando user não pode mover, desabilita também o drop (defesa em profundidade)
   const { setNodeRef } = useDroppable({ id: status, disabled: dropDisabled || !draggable })
@@ -1626,6 +1651,7 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
               onArquivar={onArquivar}
               onCancelar={onCancelar}
               onDestacar={onDestacar}
+              onPreview={onPreview}
             />
           ))}
         </div>
@@ -1634,7 +1660,7 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
   )
 }
 
-function KanbanCard({ orc, isDraggingAny, cliente, draggable, onOpenDetail, onDuplicar, onArquivar, onCancelar, onDestacar }: {
+function KanbanCard({ orc, isDraggingAny, cliente, draggable, onOpenDetail, onDuplicar, onArquivar, onCancelar, onDestacar, onPreview }: {
   orc: OrcamentoRow
   isDraggingAny: boolean
   cliente: ClienteDoc | null
@@ -1644,6 +1670,7 @@ function KanbanCard({ orc, isDraggingAny, cliente, draggable, onOpenDetail, onDu
   onArquivar: (id: string) => void
   onCancelar: (id: string) => void
   onDestacar: (id: string, destacar: boolean, cor?: DestaqueCor) => void
+  onPreview: (id: string) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: orc.id, disabled: !draggable })
   const style = {
@@ -1682,7 +1709,8 @@ function KanbanCard({ orc, isDraggingAny, cliente, draggable, onOpenDetail, onDu
           : orc.destacadoEm ? 'border'
           : 'border border-border/60',
       )}
-      onClick={() => { if (!isDraggingAny) onOpenDetail(orc.id) }}
+      // Clique abre o preview; o "Detalhes" do menu ⋮ segue indo à página.
+      onClick={() => { if (!isDraggingAny) onPreview(orc.id) }}
     >
       <KanbanCardContent orc={orc} cliente={cliente} onDuplicar={onDuplicar} onArquivar={onArquivar} onCancelar={onCancelar} onDestacar={onDestacar} onOpenDetail={onOpenDetail} showMenu={!isDraggingAny} />
     </div>
