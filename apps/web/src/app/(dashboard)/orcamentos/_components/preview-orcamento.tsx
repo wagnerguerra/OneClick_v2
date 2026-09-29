@@ -13,14 +13,17 @@
  * `orcamento.getById`, carregado ao abrir.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Button, cn, Tooltip, TooltipTrigger, TooltipContent } from '@saas/ui'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Button, cn, Label, RichEditor, Tooltip, TooltipTrigger, TooltipContent } from '@saas/ui'
 import {
   AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign, Clock, Download, Hourglass,
-  Info, Loader2, UserCog, UserRound, Workflow, X,
+  Info, Loader2, MessageSquare, Paperclip, Send, SlidersHorizontal, UserCog, UserRound, Workflow, X,
 } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
-import { resolveAssetUrl } from '@/lib/api-url'
+import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
+import { alerts } from '@/lib/alerts'
+import { mensagemErro } from '@/lib/errors'
+import { UserMultiPicker } from '@/components/user-multi-picker'
 import { classificarArquivo, formatarTamanho } from '@/lib/arquivo-tipo'
 import type { ClienteDoc } from '@/components/cliente-identificacao'
 import { calcularCompletude, NIVEL_COMPLETUDE_LABEL, type Completude, type NivelCompletude } from './completude-orcamento'
@@ -98,11 +101,19 @@ export function PreviewOrcamento({
   const [detalhe, setDetalhe] = useState<Detalhe | null>(null)
   const [carregando, setCarregando] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Ações do preview: recarregar o detalhe depois de salvar algo.
+  const [recarga, setRecarga] = useState(0)
+  const recarregar = useCallback(() => setRecarga(n => n + 1), [])
+  const [compondo, setCompondo] = useState(false)
+  const [enviandoArquivos, setEnviandoArquivos] = useState<string[]>([])
+  const inputArquivo = useRef<HTMLInputElement>(null)
+  const ultimoId = useRef<string | null>(null)
 
   useEffect(() => {
     if (orc) {
       if (timer.current) clearTimeout(timer.current)
       setSaindo(false)
+      setCompondo(false)
       setVisivel(orc)
     } else if (visivel) {
       setSaindo(true)
@@ -115,14 +126,18 @@ export function PreviewOrcamento({
   useEffect(() => {
     if (!orc?.id) return
     let vivo = true
-    setDetalhe(null)
+    // Outro orçamento: limpa a tela. Recarga do mesmo (após salvar mensagem ou
+    // documento): mantém o que está à vista enquanto busca.
+    const outro = ultimoId.current !== orc.id
+    ultimoId.current = orc.id
+    if (outro) setDetalhe(null)
     setCarregando(true)
     ;(trpc.orcamento as any).getById.query({ id: orc.id })
       .then((d: Detalhe) => { if (vivo) setDetalhe(d) })
-      .catch(() => { if (vivo) setDetalhe({}) })
+      .catch(() => { if (vivo && outro) setDetalhe({}) })
       .finally(() => { if (vivo) setCarregando(false) })
     return () => { vivo = false }
-  }, [orc?.id])
+  }, [orc?.id, recarga])
 
   // Esc fecha; Enter abre o orçamento (fora de campos de texto).
   useEffect(() => {
@@ -130,12 +145,41 @@ export function PreviewOrcamento({
     const onKey = (e: KeyboardEvent) => {
       const alvo = e.target as HTMLElement | null
       if (alvo && (alvo.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(alvo.tagName))) return
-      if (e.key === 'Escape') { e.preventDefault(); onClose() }
+      if (e.key === 'Escape') { e.preventDefault(); if (compondo) setCompondo(false); else onClose() }
       else if (e.key === 'Enter') { e.preventDefault(); onAbrir(orc.id) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [orc, onClose, onAbrir])
+  }, [orc, onClose, onAbrir, compondo])
+
+  // Envio de documento — mesmo fluxo da página de detalhe: sobe o arquivo em
+  // /api/upload e registra no orçamento (orcamento.addArquivo).
+  async function enviarArquivos(files: FileList | null) {
+    const id = visivel?.id
+    if (!files?.length || !id) return
+    const lista = Array.from(files)
+    setEnviandoArquivos(lista.map(f => f.name))
+    const apiUrl = getApiUrl()
+    await Promise.all(lista.map(async file => {
+      try {
+        const fd = new FormData()
+        fd.append('file', file)
+        const res = await fetch(`${apiUrl}/api/upload`, { method: 'POST', body: fd, credentials: 'include' })
+        if (!res.ok) throw new Error(`Falha no upload (${res.status})`)
+        const data = await res.json()
+        const fileUrl = data.url && data.url.startsWith('http') ? data.url : `${apiUrl}/api/upload/${data.filename}`
+        await (trpc.orcamento as any).addArquivo.mutate({
+          orcamentoId: id, fileName: file.name, fileUrl, fileSize: file.size, mimeType: file.type || undefined,
+        })
+      } catch (e) {
+        alerts.error('Erro', `Falha ao enviar "${file.name}": ${mensagemErro(e)}`)
+      } finally {
+        setEnviandoArquivos(prev => prev.filter(n => n !== file.name))
+      }
+    }))
+    if (inputArquivo.current) inputArquivo.current.value = ''
+    recarregar()
+  }
 
   if (!visivel) return null
   const o = visivel
@@ -288,6 +332,15 @@ export function PreviewOrcamento({
             {/* Documentos */}
             <section className="preview-item-in pb-1" style={atraso(3)}>
               <h3 className="mb-2 text-[13px] font-semibold">Documentos</h3>
+              {enviandoArquivos.length > 0 && (
+                <div className="mb-2 space-y-1">
+                  {enviandoArquivos.map(n => (
+                    <p key={n} className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Enviando {n}…
+                    </p>
+                  ))}
+                </div>
+              )}
               {carregando && !detalhe ? <Carregando /> : (
                 (detalhe?.arquivos?.length ?? 0) === 0
                   ? <p className="text-[12px] text-muted-foreground">Nenhum anexo.</p>
@@ -324,16 +377,113 @@ export function PreviewOrcamento({
         </div>
 
         {/* Rodapé de ações */}
+        {/* Compositor de mensagem — sobe sobre o corpo, dentro do painel */}
+        {compondo && (
+          <CompositorMensagem
+            orcamentoId={o.id}
+            onFechar={() => setCompondo(false)}
+            onSalvo={() => { setCompondo(false); recarregar() }}
+          />
+        )}
+
         <footer className="preview-item-in flex items-center justify-between gap-2 px-3 py-2.5" style={{ animationDelay: '300ms' }}>
-          <Button variant="outline" size="sm" className="h-8 text-[12px]" onClick={() => onAbrir(o.id)}>Adicionar nota</Button>
           <div className="flex items-center gap-1.5">
-            <Button variant="ghost" size="sm" className="h-8 text-[12px]" onClick={() => onAbrir(o.id)}>Editar</Button>
-            <Button size="sm" className="h-8 gap-1.5 text-[12px]" onClick={() => onAbrir(o.id)}>
-              Abrir orçamento <kbd className="rounded bg-white/15 px-1 text-[10px] font-normal">↵</kbd>
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-[12px]" onClick={() => setCompondo(c => !c)} aria-pressed={compondo}>
+              <MessageSquare className="h-3.5 w-3.5" /> Adicionar mensagem
             </Button>
+            <Button
+              variant="outline" size="sm" className="h-8 gap-1.5 text-[12px]"
+              disabled={enviandoArquivos.length > 0}
+              onClick={() => inputArquivo.current?.click()}
+            >
+              {enviandoArquivos.length > 0 ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}
+              Enviar documento
+            </Button>
+            <input ref={inputArquivo} type="file" multiple className="hidden" onChange={e => enviarArquivos(e.target.files)} />
           </div>
+          <Button size="sm" className="h-8 gap-1.5 text-[12px]" onClick={() => onAbrir(o.id)}>
+            Abrir orçamento <kbd className="rounded bg-white/15 px-1 text-[10px] font-normal">↵</kbd>
+          </Button>
         </footer>
       </aside>
+    </div>
+  )
+}
+
+/**
+ * Nova mensagem direto do preview — os mesmos campos do modal da página de
+ * detalhe (texto rico, notificar por e-mail, restringir a visibilidade) e a
+ * mesma mutation (orcamento.addMensagem). Notificar/restringir ficam em
+ * "Mais opções" para caber no painel.
+ */
+function CompositorMensagem({ orcamentoId, onFechar, onSalvo }: { orcamentoId: string; onFechar: () => void; onSalvo: () => void }) {
+  const [texto, setTexto] = useState('')
+  const [notificar, setNotificar] = useState<string[]>([])
+  const [restringir, setRestringir] = useState<string[]>([])
+  const [opcoes, setOpcoes] = useState(false)
+  const [usuarios, setUsuarios] = useState<Array<{ id: string; name: string; email: string | null; image: string | null }>>([])
+  const [salvando, setSalvando] = useState(false)
+  const vazia = !texto || texto.replace(/<[^>]*>/g, '').trim() === ''
+
+  useEffect(() => {
+    let vivo = true
+    ;(trpc.orcamento as any).listUsuarios.query()
+      .then((d: typeof usuarios) => { if (vivo) setUsuarios(d || []) })
+      .catch(() => { /* sem lista, os seletores ficam vazios */ })
+    return () => { vivo = false }
+  }, [])
+
+  async function salvar() {
+    if (vazia) return
+    setSalvando(true)
+    try {
+      await (trpc.orcamento as any).addMensagem.mutate({
+        orcamentoId,
+        mensagem: texto,
+        notificarUsuarios: notificar.length > 0 ? notificar : undefined,
+        acessoUsuarios: restringir.length > 0 ? restringir : undefined,
+      })
+      alerts.toast(notificar.length ? `Mensagem enviada e ${notificar.length} notificado(s)` : 'Mensagem adicionada', { icon: 'success' })
+      onSalvo()
+    } catch (e) {
+      alerts.error('Erro', mensagemErro(e, 'Não foi possível salvar a mensagem.'))
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  return (
+    <div className="preview-item-in mx-2 mt-2 space-y-2.5 rounded-xl border border-border/70 bg-card p-3 shadow-sm" style={{ animationDelay: '0ms' }}>
+      <div className="flex items-center justify-between">
+        <p className="flex items-center gap-1.5 text-[13px] font-semibold"><MessageSquare className="h-3.5 w-3.5" /> Nova mensagem</p>
+        <button type="button" onClick={onFechar} aria-label="Fechar" className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <RichEditor value={texto} onChange={setTexto} placeholder="Escreva aqui o conteúdo da mensagem..." />
+      <button type="button" onClick={() => setOpcoes(v => !v)} className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground">
+        <SlidersHorizontal className="h-3 w-3" /> {opcoes ? 'Menos opções' : 'Mais opções'}
+        {(notificar.length + restringir.length) > 0 && !opcoes && <span className="rounded bg-muted px-1">{notificar.length + restringir.length}</span>}
+      </button>
+      {opcoes && (
+        <div className="space-y-2.5">
+          <div className="space-y-1.5">
+            <Label className="text-[12px] font-semibold">Notificar por e-mail</Label>
+            <UserMultiPicker users={usuarios} value={notificar} onChange={setNotificar} placeholder="Em branco = só grava a mensagem" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-[12px] font-semibold">Restringir aos usuários</Label>
+            <UserMultiPicker users={usuarios} value={restringir} onChange={setRestringir} placeholder="Em branco = pública para a equipe" />
+          </div>
+        </div>
+      )}
+      <div className="flex justify-end gap-1.5">
+        <Button variant="ghost" size="sm" className="h-8 text-[12px]" onClick={onFechar} disabled={salvando}>Cancelar</Button>
+        <Button size="sm" className="h-8 gap-1.5 text-[12px]" onClick={salvar} disabled={salvando || vazia}>
+          {salvando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+          {notificar.length > 0 ? `Enviar e notificar (${notificar.length})` : 'Salvar mensagem'}
+        </Button>
+      </div>
     </div>
   )
 }
