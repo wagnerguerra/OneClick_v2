@@ -761,10 +761,19 @@ function ObrigacoesDoClienteModal({
   return (
     <TooltipProvider delayDuration={200}>
     <Dialog open onOpenChange={(o) => !o && fechar()}>
-      <DialogContent className={cn(
-        'transition-[max-width,height] duration-200',
-        expandido ? 'flex h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] flex-col' : 'max-w-6xl',
-      )}>
+      <DialogContent
+        className={cn(
+          'outline-none transition-[max-width,height] duration-200',
+          expandido ? 'flex h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] flex-col' : 'max-w-6xl',
+        )}
+        // Por padrão o Radix foca o primeiro botão ao abrir — o Expandir, que
+        // vem antes do X — e o Tooltip dele abre com o foco. O foco vai para o
+        // próprio diálogo (tabIndex -1): continua preso nele, sem acender nada.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault()
+          ;(e.currentTarget as HTMLElement | null)?.focus()
+        }}
+      >
         {/* Expandir/contrair — ao lado do X do Dialog, no mesmo estilo. */}
         <Tooltip>
           <TooltipTrigger asChild>
