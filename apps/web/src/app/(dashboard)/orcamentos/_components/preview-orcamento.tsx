@@ -21,7 +21,7 @@ import {
 import {
   AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign, Clock, Download, Hourglass,
   ArrowRightLeft, Bell, Circle, FileSignature, Highlighter, Info, Loader2, MessageSquare, Paperclip, Pause, Pencil, Play,
-  Plus, RotateCcw, Send, SlidersHorizontal, Sparkles, UserCog, UserRound, Workflow, X,
+  Plus, RotateCcw, Send, SlidersHorizontal, Sparkles, Target, UserCog, UserRound, Workflow, X,
 } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
@@ -58,6 +58,9 @@ export interface PreviewOrcamentoRow {
   dtFinalizado?: string | null
   dtEncerrado?: string | null
   decisaoTipo?: string | null
+  /** Card do CRM vinculado (quando o orçamento nasceu de um lead). */
+  oportunidadeId?: string | null
+  oportunidadeNumero?: number | null
 }
 
 type Detalhe = {
@@ -304,6 +307,23 @@ export function PreviewOrcamento({
                   rotulo="Responsável"
                   valor={carregando && !detalhe ? '…' : respServico.length ? respServico.join(', ') : 'A definir'}
                 />
+                {o.oportunidadeId && (
+                  <LinhaDado
+                    icone={Target}
+                    rotulo="Card do CRM"
+                    valor={
+                      <a
+                        href={`/crm?op=${o.oportunidadeId}`}
+                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80"
+                        // Fúcsia inline: é a cor do CRM nos cards (e a classe sofreria retint).
+                        style={{ backgroundColor: '#c026d31A', color: '#c026d3' }}
+                        title="Abrir o card no CRM"
+                      >
+                        <Target className="h-3 w-3" /> {o.oportunidadeNumero != null ? `#${o.oportunidadeNumero}` : 'Abrir'}
+                      </a>
+                    }
+                  />
+                )}
               </dl>
             </section>
 
