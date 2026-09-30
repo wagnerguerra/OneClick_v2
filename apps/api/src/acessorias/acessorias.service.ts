@@ -855,6 +855,24 @@ export class AcessoriasService {
   /** Zera o cache de colaboradores — chamar no início de cada sync. */
   private resetColaboradorCache() {
     this.colaboradorCache = null
+    this.regraMultaCache = null
+  }
+
+  /**
+   * Reclassificações de multa do escritório (`AcessoriasRegraMulta`), chave
+   * `clienteId|nome`. Lidas uma vez por rodada, como os colaboradores.
+   */
+  private regraMultaCache: Map<string, boolean> | null = null
+
+  private async multaReclassificada(clienteId: string, nome: string, empresaId: string | null): Promise<boolean | undefined> {
+    if (!this.regraMultaCache) {
+      const rows = await prisma.acessoriasRegraMulta.findMany({
+        where: empresaId ? { empresaId } : {},
+        select: { clienteId: true, nome: true, multa: true },
+      })
+      this.regraMultaCache = new Map(rows.map(r => [`${r.clienteId}|${r.nome}`, r.multa]))
+    }
+    return this.regraMultaCache.get(`${clienteId}|${nome}`)
   }
 
   private async espelharEntrega(clienteId: string, delivery: Record<string, unknown>, empresaId: string | null) {
@@ -865,9 +883,11 @@ export class AcessoriasService {
     if (!entId) return
 
     const guiaLida = delivery.EntGuiaLida != null ? String(delivery.EntGuiaLida).trim() : null
+    const nome = String(delivery.Nome ?? '').trim()
+    const multaAcessorias = String(delivery.EntMulta ?? '').trim().toUpperCase() === 'S'
 
     const dados = {
-      nome: String(delivery.Nome ?? '').trim(),
+      nome,
       competencia: this.parseDate(String(delivery.EntCompetencia ?? '')),
       prazo: this.parseDate(String(delivery.EntDtPrazo ?? '')),
       dtAtraso: this.parseDate(String(delivery.EntDtAtraso ?? '')),
@@ -876,7 +896,10 @@ export class AcessoriasService {
       guiaLida: guiaLida || null,
       lida: this.interpretarGuiaLida(guiaLida),
       status: String(delivery.Status ?? '').trim() || null,
-      multa: String(delivery.EntMulta ?? '').trim().toUpperCase() === 'S',
+      // A reclassificação do escritório vence o EntMulta; o original fica
+      // guardado para a tela mostrar de onde veio e permitir voltar.
+      multa: (await this.multaReclassificada(clienteId, nome, empresaId)) ?? multaAcessorias,
+      multaAcessorias,
       respPrazo: config.RespPrazo ? String(config.RespPrazo).trim() || null : null,
       respEntrega: config.RespEntrega ? String(config.RespEntrega).trim() || null : null,
       dpto: config.DptoNome ? String(config.DptoNome).trim() || null : null,

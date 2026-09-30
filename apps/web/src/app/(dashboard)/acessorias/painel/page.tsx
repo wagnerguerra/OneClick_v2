@@ -5,13 +5,13 @@ import Link from 'next/link'
 import {
   MailWarning, Loader2, AlertTriangle, Clock, CheckCircle2, ExternalLink,
   Users, ListChecks, RefreshCw, MailOpen, Ban, SlidersHorizontal, Trash2,
-  ArrowUp, ArrowDown, FileText,
+  ArrowUp, ArrowDown, FileText, Maximize2, Minimize2,
 } from 'lucide-react'
 import {
   Button, Card, Badge, Input, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
-  Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
+  Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, Switch,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
@@ -53,6 +53,10 @@ interface Linha {
   entregue: boolean
   dispensada: boolean
   multa: boolean
+  /** EntMulta original do Acessórias (null = linha anterior a guardarmos). */
+  multaAcessorias: boolean | null
+  /** O escritório reclassificou a multa desta obrigação para o cliente. */
+  multaReclassificada: boolean
   dpto: string | null
   respEntrega: string | null
   respPrazo: string | null
@@ -701,6 +705,7 @@ export default function PainelEntregasPage() {
           cliente={drill.cliente} foco={drill.foco} rotulo={drill.rotulo}
           dpto={dpto} responsavel={nomesDoResponsavel} janelaDias={janelaDias} recorte={recorte}
           urlTemplate={urlTemplate}
+          onMultaAlterada={carregar}
           onClose={() => setDrill(null)}
         />
       )}
@@ -738,7 +743,7 @@ function naoLidaComMulta(l: Linha): boolean {
 }
 
 function ObrigacoesDoClienteModal({
-  cliente, foco, rotulo, dpto, responsavel, janelaDias, recorte, urlTemplate, onClose,
+  cliente, foco, rotulo, dpto, responsavel, janelaDias, recorte, urlTemplate, onMultaAlterada, onClose,
 }: {
   cliente: PorCliente; foco: Foco; rotulo: string
   dpto: string; responsavel?: string[]; janelaDias: number
@@ -746,15 +751,45 @@ function ObrigacoesDoClienteModal({
    *  do cliente e não batia com o número do badge. */
   recorte: Recorte
   urlTemplate: string | null
+  /** Recarrega a tela de trás — chamado ao fechar, se alguma multa mudou. */
+  onMultaAlterada: () => void
   onClose: () => void
 }) {
   const [linhas, setLinhas] = useState<Linha[]>([])
+  const [expandido, setExpandido] = useState(false)
+  // Flag do backend: só admin/diretoria reclassificam (a regra mora lá).
+  const [podeReclassificar, setPodeReclassificar] = useState(false)
+  const [salvandoMulta, setSalvandoMulta] = useState(false)
+  const [multaAlterada, setMultaAlterada] = useState(false)
+  const fechar = () => {
+    if (multaAlterada) onMultaAlterada()
+    onClose()
+  }
   const [carregando, setCarregando] = useState(true)
   // Painel de leitura: a obrigação clicada abre ao lado, sem fechar a lista.
   const [selecionadaId, setSelecionadaId] = useState<string | null>(null)
   const selecionada = linhas.find((l) => l.id === selecionadaId) ?? null
   const href = selecionada ? linkNoAcessorias(selecionada, urlTemplate) : null
   const criticas = linhas.filter(naoLidaComMulta).length
+
+  /** Vale para a obrigação no cliente, em todas as competências — então todas
+   *  as linhas de mesmo nome na lista mudam juntas. */
+  const reclassificarMulta = async (l: Linha, multa: boolean) => {
+    setSalvandoMulta(true)
+    try {
+      const r: { multa: boolean; multaReclassificada: boolean } =
+        await (trpc.acessorias as any).reclassificarMulta.mutate({ entregaId: l.id, multa })
+      setLinhas((ls) => ls.map((x) => (x.clienteId === l.clienteId && x.obrigacao === l.obrigacao
+        ? { ...x, multa: r.multa, multaReclassificada: r.multaReclassificada }
+        : x)))
+      setMultaAlterada(true)
+      alerts.toast(multa ? 'Obrigação marcada como sujeita a multa' : 'Obrigação marcada como não sujeita a multa')
+    } catch (e) {
+      alerts.error((e as Error).message || 'Não foi possível reclassificar a multa.')
+    } finally {
+      setSalvandoMulta(false)
+    }
+  }
 
   useEffect(() => {
     setCarregando(true)
@@ -764,7 +799,8 @@ function ObrigacoesDoClienteModal({
         dpto: dpto || undefined, responsavel: responsavel || undefined,
         ...filtroDe(recorte),
       })
-      .then((d: { linhas: Linha[] }) => {
+      .then((d: { linhas: Linha[]; podeReclassificarMulta?: boolean }) => {
+        setPodeReclassificar(!!d.podeReclassificarMulta)
         // Críticas (não lida + multa) primeiro; o resto mantém a ordem do servidor.
         const ls = [...(d.linhas || [])].sort((a, b) => Number(naoLidaComMulta(b)) - Number(naoLidaComMulta(a)))
         setLinhas(ls)
@@ -777,16 +813,33 @@ function ObrigacoesDoClienteModal({
 
   return (
     <TooltipProvider delayDuration={200}>
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-6xl">
+    <Dialog open onOpenChange={(o) => !o && fechar()}>
+      <DialogContent className={cn(
+        'transition-[max-width,height] duration-200',
+        expandido ? 'flex h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] flex-col' : 'max-w-6xl',
+      )}>
+        {/* Expandir/contrair — ao lado do X do Dialog, no mesmo estilo. */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => setExpandido((v) => !v)}
+              aria-label={expandido ? 'Contrair' : 'Expandir'}
+              className="absolute right-11 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-md opacity-60 transition-all duration-200 hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
+            >
+              {expandido ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{expandido ? 'Contrair' : 'Expandir'}</TooltipContent>
+        </Tooltip>
         <DialogHeaderIcon icon={ListChecks} color="sky">
           <DialogTitle>{rotulo}</DialogTitle>
           <DialogDescription>
             #{cliente.clienteCode} — {cliente.clienteNome} · {masks.cpfCnpj(cliente.documento)}
           </DialogDescription>
         </DialogHeaderIcon>
-        <DialogBody className="p-0">
-          <div className="flex max-h-[70vh] flex-col md:flex-row">
+        <DialogBody className={cn('p-0', expandido && 'min-h-0 flex-1')}>
+          <div className={cn('flex flex-col md:flex-row', expandido ? 'h-full' : 'max-h-[70vh]')}>
           <div className="nice-scrollbar min-w-0 flex-1 overflow-y-auto">
           {carregando ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
@@ -829,13 +882,8 @@ function ObrigacoesDoClienteModal({
                       aria-selected={ativa}
                       className={cn(
                         'cursor-pointer transition-colors',
-                        // Crítica: fundo rosado sempre, mesmo selecionada — o
-                        // destaque não pode sumir justamente na linha em foco.
-                        critica && SURFACE.rose,
-                        // Selecionada: filete à esquerda, como item ativo de lista.
-                        ativa && 'shadow-[inset_3px_0_0_var(--mod-administrativo,#0ea5e9)]',
-                        ativa && !critica && 'bg-muted/60',
-                        !ativa && !critica && 'hover:bg-muted/30',
+                        // Selecionada: fundo suave e filete à esquerda, como item ativo de lista.
+                        ativa ? 'bg-muted/60 shadow-[inset_3px_0_0_var(--mod-administrativo,#0ea5e9)]' : 'hover:bg-muted/30',
                       )}
                     >
                       <td className="px-3 py-2">
@@ -850,7 +898,7 @@ function ObrigacoesDoClienteModal({
                               <TooltipContent>Cliente não abriu a guia e a obrigação é sujeita a multa</TooltipContent>
                             </Tooltip>
                           )}
-                          <span className={cn('truncate font-medium', critica && TEXT.rose)}>{l.obrigacao}</span>
+                          <span className="truncate font-medium">{l.obrigacao}</span>
                         </span>
                         <span className="text-[11px] text-muted-foreground">{fmtComp(l.competencia)}</span>
                       </td>
@@ -884,6 +932,40 @@ function ObrigacoesDoClienteModal({
                     </span>
                   )}
                 </div>
+
+                {/* Reclassificação da multa — vale para esta obrigação no
+                    cliente, em todas as competências. */}
+                <div>
+                  <p className="mb-1 text-[13px] font-semibold text-foreground">Multa</p>
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="text-[13px]">Sujeita a multa</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {selecionada.multaReclassificada
+                          ? `Reclassificada pelo escritório${selecionada.multaAcessorias !== null ? ` · no Acessórias: ${selecionada.multaAcessorias ? 'Sim' : 'Não'}` : ''}`
+                          : 'Conforme o Acessórias'}
+                      </p>
+                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        {/* span: o Radix não dispara tooltip em controle desabilitado */}
+                        <span className="inline-flex shrink-0">
+                          <Switch
+                            checked={selecionada.multa}
+                            disabled={!podeReclassificar || salvandoMulta}
+                            onCheckedChange={(v: boolean) => reclassificarMulta(selecionada, v)}
+                            aria-label="Sujeita a multa"
+                          />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-[260px]">
+                        {podeReclassificar
+                          ? 'Vale para esta obrigação deste cliente em todas as competências, inclusive nas próximas sincronizações.'
+                          : 'Só administradores e diretoria podem reclassificar a multa.'}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
                 <DetalheEntregaConteudo linha={selecionada} />
               </div>
             ) : (
@@ -902,7 +984,7 @@ function ObrigacoesDoClienteModal({
               </a>
             </Button>
           )}
-          <Button size="sm" onClick={onClose}>Fechar</Button>
+          <Button size="sm" onClick={fechar}>Fechar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common'
+import { TRPCError } from '@trpc/server'
 import { prisma, Prisma } from '@saas/db'
 import { VinculosAcessoriasService } from './vinculos.service'
 import { daCarteira } from './recorte-carteira'
@@ -67,6 +68,10 @@ export interface LinhaPainel {
   /** Obrigação que o Acessórias marcou como não aplicável no período. */
   dispensada: boolean
   multa: boolean
+  /** EntMulta original do Acessórias (null = espelhada antes de guardarmos). */
+  multaAcessorias: boolean | null
+  /** O escritório reclassificou a multa desta obrigação para este cliente. */
+  multaReclassificada: boolean
   dpto: string | null
   /** Quem ENTREGOU. Só existe depois da entrega. */
   respEntrega: string | null
@@ -199,6 +204,56 @@ export class PainelEntregasService {
     return this.vinculos.restricaoPorArea(escopo, user, ctx.empresaId ?? null)
   }
 
+  /**
+   * Reclassificar multa é decisão de admin/diretoria: muda o que os
+   * indicadores contam como exposição a multa da carteira inteira.
+   */
+  async podeReclassificarMulta(ctx: CtxPainel): Promise<boolean> {
+    if (ctx.isMaster || ctx.isEmpresaMaster) return true
+    const u = await prisma.user.findUnique({ where: { id: ctx.userId }, select: { role: true, profile: true } })
+    return String(u?.role ?? '') === 'DIRETOR' || String(u?.profile ?? '') === 'ADMIN'
+  }
+
+  /**
+   * Marca a obrigação (pelo nome) do cliente da entrega como sujeita ou não a
+   * multa, em todas as competências — as já espelhadas mudam agora, e o sync
+   * aplica a regra nas próximas. Se o valor escolhido é o que o Acessórias
+   * informa, a regra é apagada: a obrigação volta a seguir de lá.
+   */
+  async reclassificarMulta(entregaId: string, multa: boolean, ctx: CtxPainel) {
+    if (!(await this.podeReclassificarMulta(ctx))) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Só administradores e diretoria podem reclassificar a multa.' })
+    }
+    const empresaId = ctx.empresaId
+    if (!empresaId) throw new TRPCError({ code: 'FORBIDDEN', message: 'Selecione a empresa antes de reclassificar.' })
+    const entrega = await prisma.acessoriasEntrega.findFirst({
+      where: { id: entregaId, ...daCarteira(empresaId) },
+      select: { clienteId: true, nome: true, multaAcessorias: true },
+    })
+    if (!entrega) throw new TRPCError({ code: 'NOT_FOUND', message: 'Entrega não encontrada nesta empresa.' })
+
+    const chave = { empresaId, clienteId: entrega.clienteId, nome: entrega.nome }
+    // Linha antiga sem o original guardado: na dúvida, grava a regra.
+    const voltaAoAcessorias = entrega.multaAcessorias !== null && entrega.multaAcessorias === multa
+
+    await prisma.$transaction(async (tx) => {
+      if (voltaAoAcessorias) {
+        await tx.acessoriasRegraMulta.deleteMany({ where: chave })
+      } else {
+        await tx.acessoriasRegraMulta.upsert({
+          where: { empresaId_clienteId_nome: chave },
+          create: { ...chave, multa, criadoPor: ctx.userId },
+          update: { multa, criadoPor: ctx.userId },
+        })
+      }
+      await tx.acessoriasEntrega.updateMany({
+        where: { clienteId: entrega.clienteId, nome: entrega.nome, empresaId },
+        data: { multa },
+      })
+    })
+    return { multa, multaReclassificada: !voltaAoAcessorias }
+  }
+
   /** Filtros da tela — comuns às duas visões. */
   private baseWhere(filtro: FiltroPainel, empresaId?: string): Prisma.AcessoriasEntregaWhereInput {
     return {
@@ -282,12 +337,23 @@ export class PainelEntregasService {
       : filtro.foco === 'atrasadas' ? wAtrasadas
       : where
 
-    const rows = await prisma.acessoriasEntrega.findMany({
-      where: wFoco,
-      orderBy: [{ prazo: 'asc' }, { nome: 'asc' }],
-      take: LIMITE_LINHAS,
-      include: { cliente: { select: { id: true, code: true, razaoSocial: true, documento: true } } },
-    })
+    const [rows, podeReclassificarMulta] = await Promise.all([
+      prisma.acessoriasEntrega.findMany({
+        where: wFoco,
+        orderBy: [{ prazo: 'asc' }, { nome: 'asc' }],
+        take: LIMITE_LINHAS,
+        include: { cliente: { select: { id: true, code: true, razaoSocial: true, documento: true } } },
+      }),
+      this.podeReclassificarMulta(ctx),
+    ])
+    // Reclassificações que tocam as linhas desta página — uma consulta só.
+    const regrasMulta = empresaId && rows.length > 0
+      ? await prisma.acessoriasRegraMulta.findMany({
+          where: { empresaId, clienteId: { in: [...new Set(rows.map((r) => r.clienteId))] } },
+          select: { clienteId: true, nome: true },
+        })
+      : []
+    const reclassificadas = new Set(regrasMulta.map((r) => `${r.clienteId}|${r.nome}`))
 
     const filtradas: LinhaPainel[] = rows.map((r) => ({
       id: r.id,
@@ -317,6 +383,8 @@ export class PainelEntregasService {
       entregue: ehEntregue(r.status, r.dtEntrega),
       dispensada: ehDispensada(r.status),
       multa: r.multa,
+      multaAcessorias: r.multaAcessorias,
+      multaReclassificada: reclassificadas.has(`${r.clienteId}|${r.nome}`),
       dpto: r.dpto,
       respEntrega: r.respEntrega,
       respPrazo: r.respPrazo,
@@ -330,6 +398,7 @@ export class PainelEntregasService {
       // A tela avisa quando bateu no teto. Truncar em silêncio faz uma lista
       // parcial parecer completa.
       truncado: filtradas.length >= LIMITE_LINHAS,
+      podeReclassificarMulta,
       limiteLinhas: LIMITE_LINHAS,
       // Template do atalho para o Acessórias, configurado em /configuracoes.
       // Vazio = a tela simplesmente não mostra o botão, em vez de abrir um link

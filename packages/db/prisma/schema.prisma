@@ -1073,6 +1073,7 @@ model Cliente {
   servicoExecucoes        ServicoExecucao[]            @relation("ClienteServicoExecucoes")
   acessoriasEntregas      AcessoriasEntrega[]
   acessoriasRegras        AcessoriasRegraObrigacao[]
+  acessoriasRegrasMulta   AcessoriasRegraMulta[]
   certificadosDigitais    CertificadoDigital[]
   processos               Processo[]                   @relation("ClienteProcessos")
   obrigacoes              ClienteObrigacao[]
@@ -5670,6 +5671,30 @@ model AcessoriasRegraObrigacao {
   @@map("acessorias_regras_obrigacao")
 }
 
+/// Reclassificação de multa feita pelo escritório (admin/diretoria).
+///
+/// O EntMulta do Acessórias nem sempre bate com a realidade do cliente — e é
+/// regravado a cada sincronização. A regra vale para a obrigação (pelo nome)
+/// daquele cliente, em todas as competências, e o sync a aplica por cima do
+/// valor de lá. Voltar ao que o Acessórias diz = apagar a regra.
+model AcessoriasRegraMulta {
+  id        String  @id @default(cuid())
+  empresaId String  @map("empresa_id")
+  clienteId String  @map("cliente_id")
+  /// Nome exato da obrigação no Acessórias.
+  nome      String
+  multa     Boolean
+  criadoPor String? @map("criado_por")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([empresaId, clienteId, nome])
+  @@index([clienteId])
+  @@map("acessorias_regras_multa")
+}
+
 /// Obrigações observadas no Acessórias — o resultado de "Importar obrigações".
 ///
 /// A importação percorre a carteira inteira lá (dezenas de requisições) e por
@@ -5722,7 +5747,12 @@ model AcessoriasEntrega {
   lida     Boolean?
 
   status      String?
+  /// Sujeita a multa — já com a reclassificação do escritório aplicada
+  /// (`AcessoriasRegraMulta`). É o valor que painel e indicadores usam.
   multa       Boolean @default(false)
+  /// EntMulta como veio do Acessórias, antes de qualquer reclassificação.
+  /// Null = linha espelhada antes desta coluna existir.
+  multaAcessorias Boolean? @map("multa_acessorias")
   respPrazo   String? @map("resp_prazo")
   respEntrega String? @map("resp_entrega")
   dpto        String?

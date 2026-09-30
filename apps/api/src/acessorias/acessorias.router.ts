@@ -252,6 +252,13 @@ export function createAcessoriasRouter(
         if (!painelSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
         return painelSvc.listar(input ?? {}, { userId: ctx.userId, isMaster: ctx.isMaster ?? false, isEmpresaMaster: ctx.isEmpresaMaster ?? false, empresaId: ctx.empresaId })
       }),
+    /** Reclassifica a multa da obrigação no cliente (admin/diretoria — checado no serviço). */
+    reclassificarMulta: painelProc()
+      .input(z.object({ entregaId: z.string().min(1), multa: z.boolean() }))
+      .mutation(({ input, ctx }) => {
+        if (!painelSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return painelSvc.reclassificarMulta(input.entregaId, input.multa, { userId: ctx.userId, isMaster: ctx.isMaster ?? false, isEmpresaMaster: ctx.isEmpresaMaster ?? false, empresaId: ctx.empresaId })
+      }),
     painelEntregasPorCliente: painelProc()
       .input(painelFiltroSchema)
       .query(({ input, ctx }) => {
