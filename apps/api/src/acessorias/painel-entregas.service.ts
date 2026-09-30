@@ -53,6 +53,10 @@ export interface LinhaPainel {
   /** Prazo LEGAL — o do órgão (EntDtAtraso). É a data que conta no painel. */
   vencimento: Date | null
   diasParaVencimento: number | null
+  /** Vencimento impresso na guia (lido do PDF). Null = sem guia legível. */
+  vencimentoGuia: Date | null
+  /** 'lido' | 'nao_encontrado' | 'sem_pdf' | 'erro' | null (ainda não lida). */
+  vencimentoGuiaStatus: string | null
   /** Quando o responsável de fato entregou — pode ser ANTES do prazo. */
   dtEntrega: Date | null
   /** EntDtFinalizacao — quando o responsável fechou a entrega no Acessórias. */
@@ -257,6 +261,8 @@ export async function paraLinhasPainel(rows: EntregaComCliente[], empresaId?: st
     // o legal, com fallback no técnico quando o legal não vem.
     vencimento: r.dtAtraso ?? r.prazo,
     diasParaVencimento: diasAte(r.dtAtraso ?? r.prazo),
+    vencimentoGuia: r.vencimentoGuia,
+    vencimentoGuiaStatus: r.vencimentoGuiaStatus,
     dtEntrega: r.dtEntrega,
     dtFinalizacao: horaDeBrasilia(r.dtFinalizacao),
     lidaEm: horaDeBrasilia(r.lastDH),

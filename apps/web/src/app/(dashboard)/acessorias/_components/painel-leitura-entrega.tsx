@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertTriangle, CheckCircle2, Clock, MailOpen, MailWarning, Send } from 'lucide-react'
+import { AlertTriangle, CalendarClock, CheckCircle2, Clock, MailOpen, MailWarning, Send } from 'lucide-react'
 import { cn, Switch, Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { BADGE, DOT, TEXT, type ColorName } from '@/lib/color-styles'
+import { BADGE, DOT, PILL, TEXT, type ColorName } from '@/lib/color-styles'
 import { BadgeEntrega } from './badge-entrega'
 
 /**
@@ -29,6 +29,10 @@ export interface LinhaEntrega {
   diasParaPrazo: number | null
   vencimento: string | null
   diasParaVencimento: number | null
+  /** Vencimento impresso na guia (lido do PDF). Null = sem guia legível. */
+  vencimentoGuia: string | null
+  /** 'lido' | 'nao_encontrado' | 'sem_pdf' | 'erro' | null (ainda não lida). */
+  vencimentoGuiaStatus: string | null
   dtEntrega: string | null
   dtFinalizacao: string | null
   lidaEm: string | null
@@ -88,6 +92,92 @@ export function aplicarReclassificacao<T extends LinhaEntrega>(linhas: T[], r: M
     : x))
 }
 
+/** Dias de hoje até uma data "YYYY-MM-DD" (negativo = já passou). */
+function diasAte(v: string): number {
+  const [a, m, d] = v.slice(0, 10).split('-').map(Number)
+  const alvo = new Date(a ?? 1970, (m ?? 1) - 1, d ?? 1)
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+  return Math.round((alvo.getTime() - hoje.getTime()) / 86_400_000)
+}
+
+const falaDias = (d: number) =>
+  d === 0 ? 'vence hoje' : d > 0 ? `vence em ${d} dia${d === 1 ? '' : 's'}` : `venceu há ${-d} dia${d === -1 ? '' : 's'}`
+
+/** Tom do vencimento da guia: vencida (rosa), até 3 dias (âmbar), à frente (azul). */
+function corVencimento(d: number): ColorName {
+  return d < 0 ? 'rose' : d <= 3 ? 'amber' : 'sky'
+}
+
+/** Por que não há vencimento da guia — a tela diz, em vez de um "—" mudo. */
+function motivoSemVencimento(status: string | null): string {
+  switch (status) {
+    case 'nao_encontrado': return 'O anexo não traz vencimento (relatório, declaração ou layout não reconhecido).'
+    case 'sem_pdf': return 'O anexo não é um PDF.'
+    case 'erro': return 'Não foi possível baixar ou ler a guia.'
+    default: return 'Guia ainda não lida — a próxima sincronização lê.'
+  }
+}
+
+/**
+ * Vencimento da guia numa célula de tabela: a data num selo colorido pelo que
+ * falta, e a marca "≠" quando difere do prazo legal.
+ */
+export function VencimentoGuiaCelula({ linha: l }: { linha: LinhaEntrega }) {
+  if (!l.vencimentoGuia) {
+    return <span className="text-muted-foreground" title={motivoSemVencimento(l.vencimentoGuiaStatus)}>—</span>
+  }
+  const d = diasAte(l.vencimentoGuia)
+  const difere = !!l.vencimento && l.vencimento.slice(0, 10) !== l.vencimentoGuia.slice(0, 10)
+  return (
+    <span
+      className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold tabular-nums', PILL[corVencimento(d)])}
+      title={`Vencimento impresso na guia · ${falaDias(d)}${difere ? ` · difere do prazo legal (${fmtData(l.vencimento)})` : ''}`}
+    >
+      {fmtData(l.vencimentoGuia)}
+      {difere && <span aria-label="difere do prazo legal">≠</span>}
+    </span>
+  )
+}
+
+/** O vencimento da guia em destaque, no topo do painel de leitura. */
+function VencimentoGuiaDestaque({ linha: l }: { linha: LinhaEntrega }) {
+  if (!l.vencimentoGuia) {
+    return (
+      <div className="flex items-start gap-2.5 rounded-lg border border-dashed border-border px-3 py-2.5">
+        <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+        <div className="min-w-0">
+          <p className="text-[12px] font-semibold text-foreground">Vencimento da guia não identificado</p>
+          <p className="text-[11px] text-muted-foreground">
+            {motivoSemVencimento(l.vencimentoGuiaStatus)} Vale o prazo legal: {fmtData(l.vencimento)}.
+          </p>
+        </div>
+      </div>
+    )
+  }
+  const d = diasAte(l.vencimentoGuia)
+  const cor = corVencimento(d)
+  const difere = !!l.vencimento && l.vencimento.slice(0, 10) !== l.vencimentoGuia.slice(0, 10)
+  return (
+    <div className={cn('rounded-lg border px-3 py-2.5', BADGE[cor])}>
+      <div className="flex items-center gap-2.5">
+        <CalendarClock className="h-5 w-5 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wider opacity-80">Vencimento da guia</p>
+          <p className="text-[20px] font-bold leading-tight tabular-nums">{fmtData(l.vencimentoGuia)}</p>
+        </div>
+        <span className="shrink-0 text-[12px] font-semibold">{falaDias(d)}</span>
+      </div>
+      {difere && (
+        <p className="mt-1.5 border-t border-current/20 pt-1.5 text-[11px]">
+          Diferente do prazo legal ({fmtData(l.vencimento)}) — vale a data impressa na guia.
+        </p>
+      )}
+      <p className="mt-1 text-[10.5px] opacity-75">Lido do PDF anexado no Acessórias.</p>
+    </div>
+  )
+}
+
 /** Uma linha "rótulo: valor" do detalhe. Valor ausente aparece como "—". */
 function Campo({ label, valor, mono }: { label: string; valor: React.ReactNode; mono?: boolean }) {
   const vazio = valor === null || valor === undefined || valor === ''
@@ -125,6 +215,7 @@ export function DetalheEntregaConteudo({ linha: l }: { linha: LinhaEntrega }) {
         <Campo label="Competência" valor={fmtComp(l.competencia)} />
         <Campo label="Prazo técnico (EntDtPrazo)" valor={fmtData(l.prazo)} />
         <Campo label="Prazo legal (EntDtAtraso)" valor={fmtData(l.vencimento)} />
+        <Campo label="Vencimento da guia (PDF)" valor={l.vencimentoGuia ? fmtData(l.vencimentoGuia) : null} />
         <Campo label="Entrega (EntDtEntrega)" valor={<BadgeEntrega entrega={l.dtEntrega} vencimento={l.vencimento} />} />
         <Campo label="Finalização (EntDtFinalizacao)" valor={dh(l.dtFinalizacao)} />
       </Secao>
@@ -332,6 +423,8 @@ export function PainelLeituraEntrega({ linha, podeReclassificar, mostrarCliente,
             </span>
           )}
         </div>
+
+        <VencimentoGuiaDestaque linha={linha} />
 
         {/* Reclassificação da multa — vale para esta obrigação no cliente, em
             todas as competências. */}

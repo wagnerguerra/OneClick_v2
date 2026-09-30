@@ -19,7 +19,7 @@ import { PERIODOS, filtroDe, rotuloCompetencia, competenciasDisponiveis, type Re
 import { AbasAcessorias } from '../_components/abas-acessorias'
 import { BadgeEntrega } from '../_components/badge-entrega'
 import {
-  PainelLeituraEntrega, linkNoAcessorias, aplicarReclassificacao, type LinhaEntrega,
+  PainelLeituraEntrega, linkNoAcessorias, aplicarReclassificacao, VencimentoGuiaCelula, type LinhaEntrega,
 } from '../_components/painel-leitura-entrega'
 import { BADGE, TEXT } from '@/lib/color-styles'
 
@@ -639,6 +639,7 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onMultaAlter
                       Prazo legal
                     </th>
                   )}
+                  <th className="w-[110px] px-3 py-2 text-left">Venc. guia</th>
                   <th className="hidden w-[112px] px-3 py-2 text-left sm:table-cell">Entrega</th>
                 </tr>
                 <tr className="border-b border-border">
@@ -668,6 +669,7 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onMultaAlter
                   )}
                   {colTecnico && <th className="px-2 py-1.5" />}
                   {colLegal && <th className="px-2 py-1.5" />}
+                  <th className="px-2 py-1.5" />
                   <th className="hidden px-2 py-1.5 sm:table-cell" />
                 </tr>
               </thead>
@@ -721,6 +723,7 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onMultaAlter
                           {fmtData(l.vencimento)}
                         </td>
                       )}
+                      <td className="whitespace-nowrap px-3 py-2 text-[12px]"><VencimentoGuiaCelula linha={l} /></td>
                       <td className="hidden whitespace-nowrap px-3 py-2 text-[12px] sm:table-cell">
                         <BadgeEntrega entrega={l.dtEntrega} vencimento={regua === 'tecnico' ? l.prazo : l.vencimento} />
                       </td>

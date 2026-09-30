@@ -2,6 +2,10 @@ import { Injectable, Logger } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import { RegrasObrigacaoService } from './regras-obrigacao.service'
 import { CLIENTE_ATIVO_MENSAL, daCarteira, exigirEmpresa, foraDaCarteira } from './recorte-carteira'
+import { extrairVencimentoGuia, vencimentoMaisProximo, type VencimentoLido } from './vencimento-guia'
+
+/** Teto de PDFs de guia lidos por rodada de sincronização (ver lerVencimentoGuia). */
+const LEITURAS_GUIA_POR_RODADA = 600
 
 /**
  * Cliente HTTP do Acessórias (https://api.acessorias.com).
@@ -696,10 +700,10 @@ export class AcessoriasService {
           // resto do cliente em silêncio, deixando o espelho incompleto sem
           // nenhum sinal no histórico. Agora espera e tenta de novo; se ainda
           // assim falhar, a falha é CONTADA e aparece no log.
-          let res = await this.request<unknown>(`/deliveries/${cnpj}?${qs}&config`)
+          let res = await this.request<unknown>(`/deliveries/${cnpj}?${qs}&config&attachments=S&attachmentsId=S`)
           for (let tentativa = 1; tentativa <= 3 && res.status === 429; tentativa++) {
             await new Promise(r => setTimeout(r, 20_000))
-            res = await this.request<unknown>(`/deliveries/${cnpj}?${qs}&config`)
+            res = await this.request<unknown>(`/deliveries/${cnpj}?${qs}&config&attachments=S&attachmentsId=S`)
           }
           if (!res.ok) {
             falhas.push(`${cli.razaoSocial} p.${pagina}: HTTP ${res.status}`)
@@ -856,6 +860,66 @@ export class AcessoriasService {
   private resetColaboradorCache() {
     this.colaboradorCache = null
     this.regraMultaCache = null
+    this.leiturasGuiaRestantes = LEITURAS_GUIA_POR_RODADA
+  }
+
+  /**
+   * Quantos PDFs de guia ainda podem ser lidos nesta rodada. A primeira rodada
+   * depois do deploy encontra todas as guias recentes sem leitura; com o teto,
+   * ela não vira uma maratona de downloads — o resto fica para as próximas.
+   */
+  private leiturasGuiaRestantes = LEITURAS_GUIA_POR_RODADA
+
+  /**
+   * Lê o vencimento das guias anexadas (ver vencimento-guia.ts) e grava na
+   * entrega. Só roda quando os anexos mudaram desde a última leitura — guia
+   * reemitida traz anexo novo —, então no dia a dia quase nada é baixado.
+   *
+   * Download pelo link da API (getguiaapi.php): testado em 30/09/2026 numa guia
+   * já lida, não alterou EntGuiaLida nem EntLastDH no Acessórias.
+   */
+  private async lerVencimentoGuia(
+    entrega: { id: string; vencimentoGuiaAnexos: string | null; dtAtraso: Date | null; prazo: Date | null },
+    delivery: Record<string, unknown>,
+  ) {
+    const urls = Array.isArray(delivery.Anexos) ? (delivery.Anexos as unknown[]).map(String).filter(Boolean) : []
+    if (urls.length === 0) return
+    const ids = Array.isArray(delivery.AnexosIDs) ? (delivery.AnexosIDs as unknown[]).map(String) : []
+    const chave = (ids.length ? [...ids].sort() : urls.map((_, i) => `sem-id-${i}`)).join(',')
+    if (chave === entrega.vencimentoGuiaAnexos) return
+    // Só o que ainda importa: guia de três meses atrás não muda cobrança.
+    const limite = entrega.dtAtraso ?? entrega.prazo
+    if (limite && limite.getTime() < Date.now() - 90 * 86_400_000) return
+    if (this.leiturasGuiaRestantes <= 0) return
+    this.leiturasGuiaRestantes--
+
+    let status: 'lido' | 'nao_encontrado' | 'sem_pdf' | 'erro' = 'sem_pdf'
+    const lidos: Array<VencimentoLido | null> = []
+    for (const url of urls.slice(0, 3)) {
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(20_000) })
+        if (!res.ok) { status = status === 'sem_pdf' ? 'erro' : status; continue }
+        const buf = Buffer.from(await res.arrayBuffer())
+        if (buf.subarray(0, 4).toString() !== '%PDF') continue // planilha, imagem: não é guia legível
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const data = await require('pdf-parse/lib/pdf-parse.js')(buf)
+        lidos.push(extrairVencimentoGuia(String(data.text ?? '')))
+        status = 'nao_encontrado' // PDF legível; vira 'lido' abaixo se achou a data
+      } catch {
+        if (status === 'sem_pdf') status = 'erro'
+      }
+    }
+    const venc = vencimentoMaisProximo(lidos)
+    if (venc) status = 'lido'
+
+    await prisma.acessoriasEntrega.update({
+      where: { id: entrega.id },
+      data: {
+        vencimentoGuia: venc ? new Date(`${venc.data}T00:00:00`) : null,
+        vencimentoGuiaStatus: status,
+        vencimentoGuiaAnexos: chave,
+      },
+    })
   }
 
   /**
@@ -914,11 +978,14 @@ export class AcessoriasService {
       empresaId,
     }
 
-    await prisma.acessoriasEntrega.upsert({
+    const gravada = await prisma.acessoriasEntrega.upsert({
       where: { clienteId_entId: { clienteId, entId } },
       create: { clienteId, entId, ...dados },
       update: dados,
+      select: { id: true, vencimentoGuiaAnexos: true, dtAtraso: true, prazo: true },
     })
+    // Falha na leitura da guia não pode derrubar o espelho da entrega.
+    await this.lerVencimentoGuia(gravada, delivery).catch(() => null)
   }
 
   private async upsertDelivery(

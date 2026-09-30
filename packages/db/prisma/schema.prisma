@@ -5763,6 +5763,16 @@ model AcessoriasEntrega {
   respEntregaId String? @map("resp_entrega_id")
   dptoId        String? @map("dpto_id")
 
+  /// Vencimento da GUIA, lido do PDF anexado (a API não informa o "Vcto" da
+  /// tela deles). Nem sempre é o prazo legal: parcelamento, DARF recalculado e
+  /// DAM municipal divergem. Null = sem guia legível — vale o prazo legal.
+  vencimentoGuia       DateTime? @map("vencimento_guia") @db.Date
+  /// 'lido' | 'nao_encontrado' (PDF sem vencimento reconhecível, ex.: relatório)
+  /// | 'sem_pdf' | 'erro'. Null = ainda não processada.
+  vencimentoGuiaStatus String?   @map("vencimento_guia_status")
+  /// AnexosIDs já lidos (ordenados, separados por vírgula). Anexo novo — guia
+  /// reemitida — muda a chave e a guia é lida de novo.
+  vencimentoGuiaAnexos String?   @map("vencimento_guia_anexos")
   /// dtFinalizacao e lastDH são horário de BRASÍLIA gravado sem fuso (o
   /// Acessórias não informa fuso) — quem exibe converte (ver horaDeBrasilia).
   lastDH    DateTime? @map("last_dh")

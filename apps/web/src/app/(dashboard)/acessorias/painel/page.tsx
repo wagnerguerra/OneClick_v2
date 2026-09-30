@@ -26,6 +26,7 @@ import { AbasAcessorias } from '../_components/abas-acessorias'
 import { BadgeEntrega } from '../_components/badge-entrega'
 import {
   PainelLeituraEntrega, DetalheEntregaConteudo, linkNoAcessorias, naoLidaComMulta, aplicarReclassificacao,
+  VencimentoGuiaCelula,
   type LinhaEntrega,
 } from '../_components/painel-leitura-entrega'
 import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
@@ -143,7 +144,7 @@ function situacao(l: Linha) {
   return { texto: `vence em ${dias}d`, titulo: t, cor: 'text-muted-foreground' }
 }
 
-type CampoOrdem = 'obrigacao' | 'clienteNome' | 'dpto' | 'respEntrega' | 'competencia' | 'prazo' | 'vencimento' | 'dtEntrega' | 'situacao'
+type CampoOrdem = 'obrigacao' | 'clienteNome' | 'dpto' | 'respEntrega' | 'competencia' | 'prazo' | 'vencimento' | 'vencimentoGuia' | 'dtEntrega' | 'situacao'
 
 /**
  * Chave de ordenação por coluna. Datas viram número (ausente vai para o fim,
@@ -155,6 +156,7 @@ function chaveOrdem(l: Linha, campo: CampoOrdem): string | number {
     case 'competencia': return l.competencia ? new Date(l.competencia).getTime() : Number.MAX_SAFE_INTEGER
     case 'prazo':       return l.prazo ? new Date(l.prazo).getTime() : Number.MAX_SAFE_INTEGER
     case 'vencimento':  return l.vencimento ? new Date(l.vencimento).getTime() : Number.MAX_SAFE_INTEGER
+    case 'vencimentoGuia': return l.vencimentoGuia ? new Date(l.vencimentoGuia).getTime() : Number.MAX_SAFE_INTEGER
     case 'dtEntrega':   return l.dtEntrega ? new Date(l.dtEntrega).getTime() : Number.MAX_SAFE_INTEGER
     case 'situacao': {
       // Mesmo critério de `situacao()`: entregue-mas-não-lida continua sendo
@@ -524,6 +526,7 @@ export default function PainelEntregasPage() {
                   <Th campo="competencia" atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[104px] lg:table-cell">Competência</Th>
                   <Th campo="prazo"       atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[96px] xl:table-cell">Prazo técnico</Th>
                   <Th campo="vencimento"  atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[110px]">Prazo legal</Th>
+                  <Th campo="vencimentoGuia" atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[118px]">Venc. guia</Th>
                   <Th campo="dtEntrega"   atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[104px] sm:table-cell">Entrega</Th>
                   <Th campo="situacao"    atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[126px]">Situação</Th>
                   <Th atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[64px]" />
@@ -621,6 +624,11 @@ export default function PainelEntregasPage() {
                       <td className="px-3 py-2 text-[12px] font-medium tabular-nums"
                         title={`Prazo legal, junto ao órgão · prazo técnico ${fmtData(l.prazo)}`}>
                         {fmtData(l.vencimento)}
+                      </td>
+
+                      {/* Vencimento impresso na guia (PDF) — pode diferir do legal. */}
+                      <td className="px-3 py-2 text-[12px]">
+                        <VencimentoGuiaCelula linha={l} />
                       </td>
 
                       {/* Mesmo selo dos modais: a coluna Entrega responde a
@@ -822,6 +830,7 @@ function ObrigacoesDoClienteModal({
                   <th className="px-3 py-2 text-left">Obrigação</th>
                   <th className="hidden w-[92px] px-3 py-2 text-left xl:table-cell">Área</th>
                   <th className="w-[96px] px-3 py-2 text-left">Prazo legal</th>
+                  <th className="w-[110px] px-3 py-2 text-left">Venc. guia</th>
                   <th className="hidden w-[100px] px-3 py-2 text-left lg:table-cell">Entrega</th>
                   <th className="w-[112px] px-3 py-2 text-left">Situação</th>
                 </tr>
@@ -860,6 +869,7 @@ function ObrigacoesDoClienteModal({
                       </td>
                       <td className="hidden truncate px-3 py-2 text-[12px] text-muted-foreground xl:table-cell">{l.dpto || '—'}</td>
                       <td className="px-3 py-2 text-[12px] tabular-nums">{fmtData(l.vencimento)}</td>
+                      <td className="px-3 py-2 text-[12px]"><VencimentoGuiaCelula linha={l} /></td>
                       <td className="hidden px-3 py-2 text-[12px] lg:table-cell">
                         <BadgeEntrega entrega={l.dtEntrega} vencimento={l.vencimento} />
                       </td>

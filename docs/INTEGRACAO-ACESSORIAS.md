@@ -453,6 +453,10 @@ array vazio. ACAI BRASIL retornou exatamente 50 registros = sinal de mais págin
 | 2026-05-12 | Status de delivery tem muito mais valores que a doc indica. Confirmados: `"Pendente"`, `"Entregue"`, `"Atrasada!"`, `"Atraso justificado"` (entregue tardio justificado), `"Ent. antecipada"` (antes do prazo), `"Ent. PzTéc"` (entre DtPrazo e DtAtraso), `"Dispensada"` (não precisa entregar essa competência) | Teste real |
 | 2026-05-12 | Paginação em `/deliveries` confirmada: 50 registros por página. Loop com `?Pagina=N` até receber array vazio | Teste real |
 | 2026-05-12 | `EntGuiaLida` é metadado separado do `Status` — texto descritivo (`"Guia já acessada/lida"` ou vazio) — só relevante pro portal do cliente, não pro sync | Teste real |
+| 2026-09-30 | `/deliveries` **não expõe** o log de envio por destinatário, os comentários nem o "Vcto (caso seja guia)" da tela — conferido em 146 entregas com `config&attachments=S&attachmentsId=S` | Teste real |
+| 2026-09-30 | `EntDtFinalizacao` e `EntLastDH` vêm **sem fuso, em horário de Brasília** — gravados como estão; quem exibe soma 3h (`horaDeBrasilia`) | Teste real |
+| 2026-09-30 | `Anexos` são links `app.acessorias.com/getguiaapi.php?AnxKey=…` (60 min). O download devolve `Content-Disposition` com o nome real do arquivo e, numa guia já lida, **não alterou** `EntGuiaLida` nem `EntLastDH` | Teste real |
+| 2026-09-30 | Vencimento da guia lido do PDF (`vencimento-guia.ts`): 56 de 59 tipos reconhecidos; 22 divergiam do prazo legal (parcelamentos, DAM, DARF recalculado). Sem texto (PDF escaneado) ou layout ambíguo → cai no prazo legal | Teste real |
 
 > **Como manter**: a cada chamada nova que fizermos e descobrirmos shape de
 > resposta, formato de erro, campos não-documentados — adicionar uma linha aqui.
