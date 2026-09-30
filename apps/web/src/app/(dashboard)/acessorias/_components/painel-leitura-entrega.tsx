@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, MailOpen, MailWarning, Send } from 'lucide-react'
 import { cn, Switch, Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { BADGE } from '@/lib/color-styles'
+import { BADGE, DOT, TEXT, type ColorName } from '@/lib/color-styles'
 import { BadgeEntrega } from './badge-entrega'
 
 /**
@@ -170,6 +170,121 @@ export function DetalheEntregaConteudo({ linha: l }: { linha: LinhaEntrega }) {
   )
 }
 
+interface EventoRastreio {
+  quando: string | null
+  titulo: string
+  detalhe?: string | null
+  cor: ColorName
+  icone: typeof Send
+  /** Etapa ainda não aconteceu (ex.: cliente abrir a guia). */
+  aguardando?: boolean
+}
+
+/**
+ * A linha do tempo que dá para montar com o que a API do Acessórias devolve:
+ * finalização (quem e quando), a última movimentação e a leitura da guia.
+ *
+ * O log de envio por destinatário e os comentários NÃO vêm pela API (conferido
+ * em 30/09 contra /deliveries com attachments e config) — ficam só na tela do
+ * Acessórias, e o rodapé do painel diz isso em vez de fingir completude.
+ */
+function eventosDoRastreio(l: LinhaEntrega): EventoRastreio[] {
+  const ev: EventoRastreio[] = []
+  if (!l.entregue) {
+    ev.push({
+      quando: null,
+      titulo: l.dispensada ? 'Dispensada' : 'Aguardando a entrega pelo escritório',
+      detalhe: l.dispensada ? l.status : (l.respPrazo ? `Responsável: ${l.respPrazo}` : null),
+      cor: l.dispensada ? 'slate' : 'amber',
+      icone: Clock,
+      aguardando: !l.dispensada,
+    })
+    return ev
+  }
+
+  ev.push({
+    quando: l.dtFinalizacao ?? l.dtEntrega,
+    titulo: `Entregue${l.respEntrega ? ` por ${l.respEntrega}` : ''}`,
+    detalhe: l.status ? `Status: ${l.status}` : null,
+    cor: 'emerald',
+    icone: CheckCircle2,
+  })
+
+  // EntLastDH é "a última alteração" — depois da finalização, costuma ser o
+  // envio (agendado) da guia ou a abertura pelo cliente. Só entra se for
+  // posterior à finalização, senão repetiria o evento acima.
+  const depois = l.lidaEm && (!l.dtFinalizacao || new Date(l.lidaEm) > new Date(l.dtFinalizacao))
+  if (l.lida === true) {
+    ev.push({
+      quando: depois ? l.lidaEm : null,
+      titulo: 'Cliente abriu a guia',
+      detalhe: l.guiaLida,
+      cor: 'emerald',
+      icone: MailOpen,
+    })
+  } else if (l.lida === false) {
+    if (depois) {
+      ev.push({
+        quando: l.lidaEm,
+        titulo: 'Última movimentação no Acessórias',
+        detalhe: 'Normalmente o envio da guia ao cliente',
+        cor: 'sky',
+        icone: Send,
+      })
+    }
+    ev.push({
+      quando: null,
+      titulo: 'Aguardando o cliente abrir a guia',
+      detalhe: l.guiaLida,
+      cor: l.multa ? 'rose' : 'amber',
+      icone: MailWarning,
+      aguardando: true,
+    })
+  }
+  return ev
+}
+
+function Rastreio({ linha }: { linha: LinhaEntrega }) {
+  const eventos = eventosDoRastreio(linha)
+  const dh = (v: string) => new Date(v).toLocaleString('pt-BR', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit',
+  })
+  return (
+    <div>
+      <p className="mb-1 text-[13px] font-semibold text-foreground">Rastreio da entrega</p>
+      <div className="rounded-lg border border-border bg-muted/20 px-3 py-3">
+        <ol className="relative space-y-3">
+          {eventos.map((e, i) => {
+            const Icone = e.icone
+            return (
+              <li key={i} className="relative flex gap-2.5">
+                {/* Trilho entre os marcadores — some no último. */}
+                {i < eventos.length - 1 && (
+                  <span className="absolute left-[9px] top-5 h-[calc(100%-4px)] w-px bg-border" aria-hidden />
+                )}
+                <span className={cn(
+                  'relative z-[1] flex h-[19px] w-[19px] shrink-0 items-center justify-center rounded-full',
+                  e.aguardando ? 'border border-dashed border-border bg-card' : DOT[e.cor],
+                )}>
+                  <Icone className={cn('h-3 w-3', e.aguardando ? TEXT[e.cor] : 'text-white')} />
+                </span>
+                <div className="min-w-0 pb-0.5">
+                  <p className={cn('text-[12.5px] font-medium leading-tight', e.aguardando && TEXT[e.cor])}>{e.titulo}</p>
+                  {e.quando && <p className="text-[11px] tabular-nums text-muted-foreground">{dh(e.quando)}</p>}
+                  {e.detalhe && <p className="text-[11px] text-muted-foreground">{e.detalhe}</p>}
+                </div>
+              </li>
+            )
+          })}
+        </ol>
+        <p className="mt-3 border-t border-border/60 pt-2 text-[10.5px] leading-snug text-muted-foreground">
+          O envio para cada destinatário e os comentários ficam só no Acessórias — a API deles não os expõe.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 /**
  * O painel lateral inteiro: cabeçalho da obrigação, reclassificação de multa e
  * os campos. `podeReclassificar` vem do backend (flag no payload) — a regra de
@@ -251,6 +366,8 @@ export function PainelLeituraEntrega({ linha, podeReclassificar, mostrarCliente,
             </Tooltip>
           </div>
         </div>
+
+        <Rastreio linha={linha} />
 
         <DetalheEntregaConteudo linha={linha} />
       </div>
