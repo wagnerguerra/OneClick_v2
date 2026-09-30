@@ -191,6 +191,78 @@ export interface CtxPainel {
   empresaId?: string
 }
 
+/**
+ * Reclassificar multa é decisão de admin/diretoria: muda o que os indicadores
+ * contam como exposição a multa da carteira inteira. Exportada porque o
+ * detalhe dos indicadores também devolve a flag.
+ */
+export async function podeReclassificarMulta(ctx: CtxPainel): Promise<boolean> {
+  if (ctx.isMaster || ctx.isEmpresaMaster) return true
+  const u = await prisma.user.findUnique({ where: { id: ctx.userId }, select: { role: true, profile: true } })
+  return String(u?.role ?? '') === 'DIRETOR' || String(u?.profile ?? '') === 'ADMIN'
+}
+
+/** Atalho para a entrega no Acessórias, configurado em /configuracoes. */
+export function urlEntregaTemplate(): string | null {
+  return process.env.ACESSORIAS_APP_ENTREGA_URL?.trim() || null
+}
+
+type EntregaComCliente = Prisma.AcessoriasEntregaGetPayload<{
+  include: { cliente: { select: { id: true; code: true; razaoSocial: true; documento: true } } }
+}>
+
+/**
+ * A linha completa de uma entrega, como o painel de leitura a mostra. Uma só
+ * montagem para o painel de entregas e o detalhe dos indicadores — senão os
+ * dois painéis de leitura divergem no primeiro campo novo.
+ */
+export async function paraLinhasPainel(rows: EntregaComCliente[], empresaId?: string): Promise<LinhaPainel[]> {
+  // Reclassificações que tocam estas linhas — uma consulta só.
+  const regrasMulta = empresaId && rows.length > 0
+    ? await prisma.acessoriasRegraMulta.findMany({
+        where: { empresaId, clienteId: { in: [...new Set(rows.map((r) => r.clienteId))] } },
+        select: { clienteId: true, nome: true },
+      })
+    : []
+  const reclassificadas = new Set(regrasMulta.map((r) => `${r.clienteId}|${r.nome}`))
+
+  return rows.map((r) => ({
+    id: r.id,
+    entId: r.entId,
+    clienteId: r.clienteId,
+    clienteCode: r.cliente.code,
+    clienteNome: r.cliente.razaoSocial,
+    documento: r.cliente.documento,
+    obrigacao: r.nome,
+    competencia: r.competencia,
+    prazo: r.prazo,
+    diasParaPrazo: diasAte(r.prazo),
+    // O Acessórias trabalha com DOIS prazos: EntDtPrazo é o TÉCNICO, acordado
+    // com o cliente, e EntDtAtraso é o LEGAL, junto ao órgão. Conferido contra
+    // prazos conhecidos: FGTS, DAS e DCTFWeb caem no dia 20, e a folha do 5º
+    // dia útil cai no 5º dia útil — sempre em EntDtAtraso. A régua do painel é
+    // o legal, com fallback no técnico quando o legal não vem.
+    vencimento: r.dtAtraso ?? r.prazo,
+    diasParaVencimento: diasAte(r.dtAtraso ?? r.prazo),
+    dtEntrega: r.dtEntrega,
+    dtFinalizacao: r.dtFinalizacao,
+    lidaEm: r.lastDH,
+    syncedAt: r.syncedAt,
+    status: r.status,
+    lida: r.lida,
+    guiaLida: r.guiaLida,
+    entregue: ehEntregue(r.status, r.dtEntrega),
+    dispensada: ehDispensada(r.status),
+    multa: r.multa,
+    multaAcessorias: r.multaAcessorias,
+    multaReclassificada: reclassificadas.has(`${r.clienteId}|${r.nome}`),
+    dpto: r.dpto,
+    respEntrega: r.respEntrega,
+    respPrazo: r.respPrazo,
+    ...responsavelDe(r.respEntrega, r.respPrazo),
+  }))
+}
+
 @Injectable()
 export class PainelEntregasService {
   constructor(private readonly vinculos: VinculosAcessoriasService) {}
@@ -204,14 +276,8 @@ export class PainelEntregasService {
     return this.vinculos.restricaoPorArea(escopo, user, ctx.empresaId ?? null)
   }
 
-  /**
-   * Reclassificar multa é decisão de admin/diretoria: muda o que os
-   * indicadores contam como exposição a multa da carteira inteira.
-   */
-  async podeReclassificarMulta(ctx: CtxPainel): Promise<boolean> {
-    if (ctx.isMaster || ctx.isEmpresaMaster) return true
-    const u = await prisma.user.findUnique({ where: { id: ctx.userId }, select: { role: true, profile: true } })
-    return String(u?.role ?? '') === 'DIRETOR' || String(u?.profile ?? '') === 'ADMIN'
+  podeReclassificarMulta(ctx: CtxPainel): Promise<boolean> {
+    return podeReclassificarMulta(ctx)
   }
 
   /**
@@ -346,50 +412,8 @@ export class PainelEntregasService {
       }),
       this.podeReclassificarMulta(ctx),
     ])
-    // Reclassificações que tocam as linhas desta página — uma consulta só.
-    const regrasMulta = empresaId && rows.length > 0
-      ? await prisma.acessoriasRegraMulta.findMany({
-          where: { empresaId, clienteId: { in: [...new Set(rows.map((r) => r.clienteId))] } },
-          select: { clienteId: true, nome: true },
-        })
-      : []
-    const reclassificadas = new Set(regrasMulta.map((r) => `${r.clienteId}|${r.nome}`))
 
-    const filtradas: LinhaPainel[] = rows.map((r) => ({
-      id: r.id,
-      entId: r.entId,
-      clienteId: r.clienteId,
-      clienteCode: r.cliente.code,
-      clienteNome: r.cliente.razaoSocial,
-      documento: r.cliente.documento,
-      obrigacao: r.nome,
-      competencia: r.competencia,
-      prazo: r.prazo,
-      diasParaPrazo: diasAte(r.prazo),
-      // O Acessórias trabalha com DOIS prazos: EntDtPrazo é o TÉCNICO, acordado
-      // com o cliente, e EntDtAtraso é o LEGAL, junto ao órgão. Conferido contra
-      // prazos conhecidos: FGTS, DAS e DCTFWeb caem no dia 20, e a folha do 5º
-      // dia útil cai no 5º dia útil — sempre em EntDtAtraso. A régua do painel é
-      // o legal, com fallback no técnico quando o legal não vem.
-      vencimento: r.dtAtraso ?? r.prazo,
-      diasParaVencimento: diasAte(r.dtAtraso ?? r.prazo),
-      dtEntrega: r.dtEntrega,
-      dtFinalizacao: r.dtFinalizacao,
-      lidaEm: r.lastDH,
-      syncedAt: r.syncedAt,
-      status: r.status,
-      lida: r.lida,
-      guiaLida: r.guiaLida,
-      entregue: ehEntregue(r.status, r.dtEntrega),
-      dispensada: ehDispensada(r.status),
-      multa: r.multa,
-      multaAcessorias: r.multaAcessorias,
-      multaReclassificada: reclassificadas.has(`${r.clienteId}|${r.nome}`),
-      dpto: r.dpto,
-      respEntrega: r.respEntrega,
-      respPrazo: r.respPrazo,
-      ...responsavelDe(r.respEntrega, r.respPrazo),
-    }))
+    const filtradas = await paraLinhasPainel(rows, empresaId)
 
     return {
       linhas: filtradas,
@@ -403,7 +427,7 @@ export class PainelEntregasService {
       // Template do atalho para o Acessórias, configurado em /configuracoes.
       // Vazio = a tela simplesmente não mostra o botão, em vez de abrir um link
       // quebrado.
-      urlEntregaTemplate: process.env.ACESSORIAS_APP_ENTREGA_URL?.trim() || null,
+      urlEntregaTemplate: urlEntregaTemplate(),
     }
   }
 

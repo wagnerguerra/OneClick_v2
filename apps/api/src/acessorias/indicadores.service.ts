@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { prisma, Prisma } from '@saas/db'
 import { VinculosAcessoriasService } from './vinculos.service'
 import { daCarteira } from './recorte-carteira'
+import { paraLinhasPainel, podeReclassificarMulta, urlEntregaTemplate } from './painel-entregas.service'
 
 /**
  * Painel de indicadores das obrigações — seis números por cartão.
@@ -420,11 +421,7 @@ export class IndicadoresAcessoriasService {
     const rows = await prisma.acessoriasEntrega.findMany({
       where: { AND: filtros },
       orderBy: [{ dtAtraso: 'asc' }, { prazo: 'asc' }],
-      select: {
-        id: true, nome: true, competencia: true, prazo: true, dtAtraso: true, dtEntrega: true,
-        status: true, multa: true, lida: true, dpto: true, respPrazo: true, respEntrega: true, clienteId: true,
-        cliente: { select: { id: true, code: true, razaoSocial: true } },
-      },
+      include: { cliente: { select: { id: true, code: true, razaoSocial: true, documento: true } } },
     })
 
     // Fica com as linhas que caem na medida pedida — mesma classificação de
@@ -435,21 +432,17 @@ export class IndicadoresAcessoriasService {
       return acc[input.medida] > 0
     })
 
-    return linhas.map((r) => ({
-      id: r.id,
-      obrigacao: r.nome,
-      competencia: r.competencia,
-      prazo: r.prazo,
-      vencimento: r.dtAtraso ?? r.prazo,
-      dtEntrega: r.dtEntrega,
-      status: r.status,
-      multa: r.multa,
-      dpto: r.dpto,
-      responsavel: r.respEntrega ?? r.respPrazo,
-      clienteId: r.cliente.id,
-      clienteCode: r.cliente.code,
-      clienteNome: r.cliente.razaoSocial,
-    }))
+    // A linha completa (a mesma do painel de entregas): o modal tem painel de
+    // leitura, e ele mostra tudo que o Acessórias devolveu.
+    const [completas, pode] = await Promise.all([
+      paraLinhasPainel(linhas, ctx.empresaId),
+      podeReclassificarMulta(ctx),
+    ])
+    return {
+      linhas: completas,
+      podeReclassificarMulta: pode,
+      urlEntregaTemplate: urlEntregaTemplate(),
+    }
   }
 
   /** As obrigações ainda em aberto, para a lista do colaborador. */
