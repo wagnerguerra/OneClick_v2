@@ -11,6 +11,7 @@ import {
   Button, Card, Badge, Input, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
@@ -23,7 +24,7 @@ import { PERIODOS, filtroDe, rotuloCompetencia, competenciasDisponiveis, type Re
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { AbasAcessorias } from '../_components/abas-acessorias'
 import { BadgeEntrega } from '../_components/badge-entrega'
-import { BADGE, TEXT } from '@/lib/color-styles'
+import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
 
@@ -730,6 +731,12 @@ export default function PainelEntregasPage() {
  * aqui a busca só fixa o cliente. Assim o modal nunca discorda do número que
  * foi clicado.
  */
+/** Guia que o cliente ainda não abriu numa obrigação sujeita a multa — o caso
+ *  que mais pede cobrança, por isso vem destacado e primeiro no modal do cliente. */
+function naoLidaComMulta(l: Linha): boolean {
+  return l.lida === false && l.multa
+}
+
 function ObrigacoesDoClienteModal({
   cliente, foco, rotulo, dpto, responsavel, janelaDias, recorte, urlTemplate, onClose,
 }: {
@@ -747,6 +754,7 @@ function ObrigacoesDoClienteModal({
   const [selecionadaId, setSelecionadaId] = useState<string | null>(null)
   const selecionada = linhas.find((l) => l.id === selecionadaId) ?? null
   const href = selecionada ? linkNoAcessorias(selecionada, urlTemplate) : null
+  const criticas = linhas.filter(naoLidaComMulta).length
 
   useEffect(() => {
     setCarregando(true)
@@ -757,7 +765,8 @@ function ObrigacoesDoClienteModal({
         ...filtroDe(recorte),
       })
       .then((d: { linhas: Linha[] }) => {
-        const ls = d.linhas || []
+        // Críticas (não lida + multa) primeiro; o resto mantém a ordem do servidor.
+        const ls = [...(d.linhas || [])].sort((a, b) => Number(naoLidaComMulta(b)) - Number(naoLidaComMulta(a)))
         setLinhas(ls)
         // Abre já com a primeira selecionada: o painel nunca começa vazio.
         setSelecionadaId(ls[0]?.id ?? null)
@@ -767,6 +776,7 @@ function ObrigacoesDoClienteModal({
   }, [cliente.clienteId, foco, janelaDias, dpto, responsavel, recorte])
 
   return (
+    <TooltipProvider delayDuration={200}>
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-6xl">
         <DialogHeaderIcon icon={ListChecks} color="sky">
@@ -785,6 +795,15 @@ function ObrigacoesDoClienteModal({
           ) : linhas.length === 0 ? (
             <p className="py-12 text-center text-sm text-muted-foreground">Nenhuma obrigação aqui.</p>
           ) : (
+            <>
+            {criticas > 0 && (
+              <div className={cn('flex items-center gap-2 border-b px-3 py-2 text-[12px]', SURFACE.rose, TEXT.rose)}>
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span>
+                  <strong>{criticas}</strong> {criticas === 1 ? 'guia não lida sujeita' : 'guias não lidas sujeitas'} a multa — {criticas === 1 ? 'destacada' : 'destacadas'} abaixo.
+                </span>
+              </div>
+            )}
             <table className="w-full table-fixed border-collapse text-sm">
               {/* O fundo vai no <th>: <thead> com position:sticky não pinta
                   background de forma confiável, e a translucidez deixava as
@@ -801,19 +820,38 @@ function ObrigacoesDoClienteModal({
               <tbody className="divide-y divide-border/60">
                 {linhas.map((l) => {
                   const p = situacao(l)
+                  const critica = naoLidaComMulta(l)
+                  const ativa = l.id === selecionadaId
                   return (
                     <tr
                       key={l.id}
                       onClick={() => setSelecionadaId(l.id)}
-                      aria-selected={l.id === selecionadaId}
+                      aria-selected={ativa}
                       className={cn(
                         'cursor-pointer transition-colors',
-                        // Selecionada: fundo suave e filete à esquerda, como item ativo de lista.
-                        l.id === selecionadaId ? 'bg-muted/60 shadow-[inset_3px_0_0_var(--mod-administrativo,#0ea5e9)]' : 'hover:bg-muted/30',
+                        // Crítica: fundo rosado sempre, mesmo selecionada — o
+                        // destaque não pode sumir justamente na linha em foco.
+                        critica && SURFACE.rose,
+                        // Selecionada: filete à esquerda, como item ativo de lista.
+                        ativa && 'shadow-[inset_3px_0_0_var(--mod-administrativo,#0ea5e9)]',
+                        ativa && !critica && 'bg-muted/60',
+                        !ativa && !critica && 'hover:bg-muted/30',
                       )}
                     >
                       <td className="px-3 py-2">
-                        <span className="block truncate font-medium">{l.obrigacao}</span>
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          {critica && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex shrink-0">
+                                  <AlertTriangle className={cn('h-3.5 w-3.5', TEXT.rose)} />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>Cliente não abriu a guia e a obrigação é sujeita a multa</TooltipContent>
+                            </Tooltip>
+                          )}
+                          <span className={cn('truncate font-medium', critica && TEXT.rose)}>{l.obrigacao}</span>
+                        </span>
                         <span className="text-[11px] text-muted-foreground">{fmtComp(l.competencia)}</span>
                       </td>
                       <td className="hidden truncate px-3 py-2 text-[12px] text-muted-foreground xl:table-cell">{l.dpto || '—'}</td>
@@ -827,6 +865,7 @@ function ObrigacoesDoClienteModal({
                 })}
               </tbody>
             </table>
+            </>
           )}
           </div>
 
@@ -839,6 +878,11 @@ function ObrigacoesDoClienteModal({
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
                     {fmtComp(selecionada.competencia)}{selecionada.dpto ? ` · ${selecionada.dpto}` : ''}
                   </p>
+                  {naoLidaComMulta(selecionada) && (
+                    <span className={cn('mt-2 inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium', BADGE.rose)}>
+                      <AlertTriangle className="h-3 w-3" />Não lida · sujeita a multa
+                    </span>
+                  )}
                 </div>
                 <DetalheEntregaConteudo linha={selecionada} />
               </div>
@@ -862,6 +906,7 @@ function ObrigacoesDoClienteModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </TooltipProvider>
   )
 }
 
