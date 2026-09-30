@@ -698,7 +698,7 @@ export default function PainelEntregasPage() {
       {drill && (
         <ObrigacoesDoClienteModal
           cliente={drill.cliente} foco={drill.foco} rotulo={drill.rotulo}
-          dpto={dpto} responsavel={nomesDoResponsavel} janelaDias={janelaDias}
+          dpto={dpto} responsavel={nomesDoResponsavel} janelaDias={janelaDias} recorte={recorte}
           onAbrirDetalhe={(l) => { setDrill(null); setDetalhe(l) }}
           onClose={() => setDrill(null)}
         />
@@ -731,10 +731,13 @@ export default function PainelEntregasPage() {
  * foi clicado.
  */
 function ObrigacoesDoClienteModal({
-  cliente, foco, rotulo, dpto, responsavel, janelaDias, onAbrirDetalhe, onClose,
+  cliente, foco, rotulo, dpto, responsavel, janelaDias, recorte, onAbrirDetalhe, onClose,
 }: {
   cliente: PorCliente; foco: Foco; rotulo: string
   dpto: string; responsavel?: string[]; janelaDias: number
+  /** Período/competência da tela — sem ele o modal listava todo o histórico
+   *  do cliente e não batia com o número do badge. */
+  recorte: Recorte
   onAbrirDetalhe: (l: Linha) => void
   onClose: () => void
 }) {
@@ -747,11 +750,12 @@ function ObrigacoesDoClienteModal({
       .query({
         foco, janelaDias, clienteId: cliente.clienteId,
         dpto: dpto || undefined, responsavel: responsavel || undefined,
+        ...filtroDe(recorte),
       })
       .then((d: { linhas: Linha[] }) => setLinhas(d.linhas || []))
       .catch(() => setLinhas([]))
       .finally(() => setCarregando(false))
-  }, [cliente.clienteId, foco, janelaDias, dpto, responsavel])
+  }, [cliente.clienteId, foco, janelaDias, dpto, responsavel, recorte])
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
