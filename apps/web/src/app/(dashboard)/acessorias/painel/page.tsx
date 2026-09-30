@@ -699,7 +699,7 @@ export default function PainelEntregasPage() {
         <ObrigacoesDoClienteModal
           cliente={drill.cliente} foco={drill.foco} rotulo={drill.rotulo}
           dpto={dpto} responsavel={nomesDoResponsavel} janelaDias={janelaDias} recorte={recorte}
-          onAbrirDetalhe={(l) => { setDrill(null); setDetalhe(l) }}
+          urlTemplate={urlTemplate}
           onClose={() => setDrill(null)}
         />
       )}
@@ -731,18 +731,22 @@ export default function PainelEntregasPage() {
  * foi clicado.
  */
 function ObrigacoesDoClienteModal({
-  cliente, foco, rotulo, dpto, responsavel, janelaDias, recorte, onAbrirDetalhe, onClose,
+  cliente, foco, rotulo, dpto, responsavel, janelaDias, recorte, urlTemplate, onClose,
 }: {
   cliente: PorCliente; foco: Foco; rotulo: string
   dpto: string; responsavel?: string[]; janelaDias: number
   /** Período/competência da tela — sem ele o modal listava todo o histórico
    *  do cliente e não batia com o número do badge. */
   recorte: Recorte
-  onAbrirDetalhe: (l: Linha) => void
+  urlTemplate: string | null
   onClose: () => void
 }) {
   const [linhas, setLinhas] = useState<Linha[]>([])
   const [carregando, setCarregando] = useState(true)
+  // Painel de leitura: a obrigação clicada abre ao lado, sem fechar a lista.
+  const [selecionadaId, setSelecionadaId] = useState<string | null>(null)
+  const selecionada = linhas.find((l) => l.id === selecionadaId) ?? null
+  const href = selecionada ? linkNoAcessorias(selecionada, urlTemplate) : null
 
   useEffect(() => {
     setCarregando(true)
@@ -752,21 +756,28 @@ function ObrigacoesDoClienteModal({
         dpto: dpto || undefined, responsavel: responsavel || undefined,
         ...filtroDe(recorte),
       })
-      .then((d: { linhas: Linha[] }) => setLinhas(d.linhas || []))
+      .then((d: { linhas: Linha[] }) => {
+        const ls = d.linhas || []
+        setLinhas(ls)
+        // Abre já com a primeira selecionada: o painel nunca começa vazio.
+        setSelecionadaId(ls[0]?.id ?? null)
+      })
       .catch(() => setLinhas([]))
       .finally(() => setCarregando(false))
   }, [cliente.clienteId, foco, janelaDias, dpto, responsavel, recorte])
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-6xl">
         <DialogHeaderIcon icon={ListChecks} color="sky">
           <DialogTitle>{rotulo}</DialogTitle>
           <DialogDescription>
             #{cliente.clienteCode} — {cliente.clienteNome} · {masks.cpfCnpj(cliente.documento)}
           </DialogDescription>
         </DialogHeaderIcon>
-        <DialogBody className="max-h-[65vh] p-0">
+        <DialogBody className="p-0">
+          <div className="flex max-h-[70vh] flex-col md:flex-row">
+          <div className="nice-scrollbar min-w-0 flex-1 overflow-y-auto">
           {carregando ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -781,28 +792,33 @@ function ObrigacoesDoClienteModal({
               <thead className="sticky top-0 z-10 [&_th]:bg-muted">
                 <tr className="border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground">
                   <th className="px-3 py-2 text-left">Obrigação</th>
-                  <th className="hidden w-[92px] px-3 py-2 text-left sm:table-cell">Área</th>
-                  <th className="w-[104px] px-3 py-2 text-left">Prazo legal</th>
-                  <th className="hidden w-[100px] px-3 py-2 text-left sm:table-cell">Entrega</th>
-                  <th className="w-[118px] px-3 py-2 text-left">Situação</th>
+                  <th className="hidden w-[92px] px-3 py-2 text-left xl:table-cell">Área</th>
+                  <th className="w-[96px] px-3 py-2 text-left">Prazo legal</th>
+                  <th className="hidden w-[100px] px-3 py-2 text-left lg:table-cell">Entrega</th>
+                  <th className="w-[112px] px-3 py-2 text-left">Situação</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
                 {linhas.map((l) => {
                   const p = situacao(l)
                   return (
-                    <tr key={l.id} className="hover:bg-muted/30">
+                    <tr
+                      key={l.id}
+                      onClick={() => setSelecionadaId(l.id)}
+                      aria-selected={l.id === selecionadaId}
+                      className={cn(
+                        'cursor-pointer transition-colors',
+                        // Selecionada: fundo suave e filete à esquerda, como item ativo de lista.
+                        l.id === selecionadaId ? 'bg-muted/60 shadow-[inset_3px_0_0_var(--mod-administrativo,#0ea5e9)]' : 'hover:bg-muted/30',
+                      )}
+                    >
                       <td className="px-3 py-2">
-                        <button type="button" onClick={() => onAbrirDetalhe(l)}
-                          className="block w-full truncate text-left font-medium hover:underline"
-                          title="Ver tudo que veio do Acessórias nesta entrega">
-                          {l.obrigacao}
-                        </button>
+                        <span className="block truncate font-medium">{l.obrigacao}</span>
                         <span className="text-[11px] text-muted-foreground">{fmtComp(l.competencia)}</span>
                       </td>
-                      <td className="hidden truncate px-3 py-2 text-[12px] text-muted-foreground sm:table-cell">{l.dpto || '—'}</td>
+                      <td className="hidden truncate px-3 py-2 text-[12px] text-muted-foreground xl:table-cell">{l.dpto || '—'}</td>
                       <td className="px-3 py-2 text-[12px] tabular-nums">{fmtData(l.vencimento)}</td>
-                      <td className="hidden px-3 py-2 text-[12px] sm:table-cell">
+                      <td className="hidden px-3 py-2 text-[12px] lg:table-cell">
                         <BadgeEntrega entrega={l.dtEntrega} vencimento={l.vencimento} />
                       </td>
                       <td className={cn('px-3 py-2 text-[12px]', p.cor)} title={p.titulo}>{p.texto}</td>
@@ -812,8 +828,36 @@ function ObrigacoesDoClienteModal({
               </tbody>
             </table>
           )}
+          </div>
+
+          {/* Painel de leitura — detalhes da obrigação selecionada */}
+          <aside className="nice-scrollbar w-full shrink-0 overflow-y-auto border-t border-border bg-muted/10 md:w-[400px] md:border-l md:border-t-0">
+            {selecionada ? (
+              <div key={selecionada.id} className="space-y-4 p-4" style={{ animation: 'fadeSlideIn 0.2s ease-out' }}>
+                <div>
+                  <p className="text-[14px] font-semibold leading-snug">{selecionada.obrigacao}</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {fmtComp(selecionada.competencia)}{selecionada.dpto ? ` · ${selecionada.dpto}` : ''}
+                  </p>
+                </div>
+                <DetalheEntregaConteudo linha={selecionada} />
+              </div>
+            ) : (
+              <p className="p-8 text-center text-sm text-muted-foreground">
+                {carregando ? '' : 'Selecione uma obrigação para ver os detalhes.'}
+              </p>
+            )}
+          </aside>
+          </div>
         </DialogBody>
         <DialogFooter>
+          {href && (
+            <Button variant="outline" size="sm" asChild>
+              <a href={href} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />Abrir no Acessórias
+              </a>
+            </Button>
+          )}
           <Button size="sm" onClick={onClose}>Fechar</Button>
         </DialogFooter>
       </DialogContent>
@@ -850,14 +894,76 @@ function Secao({ titulo, children }: { titulo: string; children: React.ReactNode
  * quando um número do painel surpreende, a pergunta seguinte é sempre "o que
  * exatamente veio de lá?".
  */
+/** Link da entrega no Acessórias (quando a integração informa o modelo de URL). */
+function linkNoAcessorias(l: Linha, urlTemplate: string | null): string | null {
+  return urlTemplate
+    ? urlTemplate.replace('{entId}', l.entId).replace('{cnpj}', l.documento.replace(/\D/g, ''))
+    : null
+}
+
+/**
+ * Os campos da entrega (datas, situação, leitura da guia, responsáveis e
+ * origem) — usado pelo modal de detalhe e pelo painel de leitura do modal do
+ * cliente, para os dois mostrarem exatamente o mesmo.
+ */
+function DetalheEntregaConteudo({ linha: l }: { linha: Linha }) {
+  const dh = (v: string | null) => (v ? new Date(v).toLocaleString('pt-BR') : null)
+  const sim = (b: boolean) => (b ? 'Sim' : 'Não')
+  return (
+    <>
+    <Secao titulo="Datas">
+      <Campo label="Competência" valor={fmtComp(l.competencia)} />
+      <Campo label="Prazo técnico (EntDtPrazo)" valor={fmtData(l.prazo)} />
+      <Campo label="Prazo legal (EntDtAtraso)" valor={fmtData(l.vencimento)} />
+      <Campo label="Entrega (EntDtEntrega)" valor={<BadgeEntrega entrega={l.dtEntrega} vencimento={l.vencimento} />} />
+      <Campo label="Finalização (EntDtFinalizacao)" valor={dh(l.dtFinalizacao)} />
+    </Secao>
+
+    <Secao titulo="Situação">
+      <Campo label="Status no Acessórias" valor={l.status} mono />
+      <Campo label="Entregue" valor={sim(l.entregue)} />
+      <Campo label="Dispensada" valor={sim(l.dispensada)} />
+      <Campo label="Sujeita a multa (EntMulta)" valor={sim(l.multa)} />
+      <Campo
+        label="Dias até o prazo legal"
+        valor={l.diasParaVencimento === null ? null : `${l.diasParaVencimento}d`}
+      />
+    </Secao>
+
+    <Secao titulo="Leitura da guia pelo cliente">
+      {/* O texto cru importa: vazio significa "não tem guia para abrir",
+          que é diferente de "não abriu". */}
+      <Campo label="EntGuiaLida (texto original)" valor={l.guiaLida} mono />
+      <Campo
+        label="Interpretação"
+        valor={l.lida === null ? 'Sem guia para abrir' : l.lida ? 'Lida' : 'Não lida'}
+      />
+      <Campo label="Última atividade (EntLastDH)" valor={dh(l.lidaEm)} />
+    </Secao>
+
+    <Secao titulo="Responsáveis e área">
+      <Campo label="Área / departamento" valor={l.dpto} />
+      <Campo label="Responsável pelo prazo" valor={l.respPrazo} />
+      <Campo label="Quem entregou" valor={l.respEntrega} />
+    </Secao>
+
+    <Secao titulo="Origem">
+      <Campo label="EntID no Acessórias" valor={l.entId} mono />
+      <Campo label="Espelhado em" valor={dh(l.syncedAt)} />
+    </Secao>
+
+    <p className="text-[11px] text-muted-foreground">
+      Estes são todos os campos que a API do Acessórias devolve para uma entrega.
+      O log por destinatário do e-mail existe só na tela deles e não é exposto pela API.
+    </p>
+    </>
+  )
+}
+
 function DetalheEntregaModal({ linha: l, urlTemplate, onClose }: {
   linha: Linha; urlTemplate: string | null; onClose: () => void
 }) {
-  const dh = (v: string | null) => (v ? new Date(v).toLocaleString('pt-BR') : null)
-  const sim = (b: boolean) => (b ? 'Sim' : 'Não')
-  const href = urlTemplate
-    ? urlTemplate.replace('{entId}', l.entId).replace('{cnpj}', l.documento.replace(/\D/g, ''))
-    : null
+  const href = linkNoAcessorias(l, urlTemplate)
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -869,51 +975,7 @@ function DetalheEntregaModal({ linha: l, urlTemplate, onClose }: {
           </DialogDescription>
         </DialogHeaderIcon>
         <DialogBody className="max-h-[65vh] space-y-4">
-          <Secao titulo="Datas">
-            <Campo label="Competência" valor={fmtComp(l.competencia)} />
-            <Campo label="Prazo técnico (EntDtPrazo)" valor={fmtData(l.prazo)} />
-            <Campo label="Prazo legal (EntDtAtraso)" valor={fmtData(l.vencimento)} />
-            <Campo label="Entrega (EntDtEntrega)" valor={<BadgeEntrega entrega={l.dtEntrega} vencimento={l.vencimento} />} />
-            <Campo label="Finalização (EntDtFinalizacao)" valor={dh(l.dtFinalizacao)} />
-          </Secao>
-
-          <Secao titulo="Situação">
-            <Campo label="Status no Acessórias" valor={l.status} mono />
-            <Campo label="Entregue" valor={sim(l.entregue)} />
-            <Campo label="Dispensada" valor={sim(l.dispensada)} />
-            <Campo label="Sujeita a multa (EntMulta)" valor={sim(l.multa)} />
-            <Campo
-              label="Dias até o prazo legal"
-              valor={l.diasParaVencimento === null ? null : `${l.diasParaVencimento}d`}
-            />
-          </Secao>
-
-          <Secao titulo="Leitura da guia pelo cliente">
-            {/* O texto cru importa: vazio significa "não tem guia para abrir",
-                que é diferente de "não abriu". */}
-            <Campo label="EntGuiaLida (texto original)" valor={l.guiaLida} mono />
-            <Campo
-              label="Interpretação"
-              valor={l.lida === null ? 'Sem guia para abrir' : l.lida ? 'Lida' : 'Não lida'}
-            />
-            <Campo label="Última atividade (EntLastDH)" valor={dh(l.lidaEm)} />
-          </Secao>
-
-          <Secao titulo="Responsáveis e área">
-            <Campo label="Área / departamento" valor={l.dpto} />
-            <Campo label="Responsável pelo prazo" valor={l.respPrazo} />
-            <Campo label="Quem entregou" valor={l.respEntrega} />
-          </Secao>
-
-          <Secao titulo="Origem">
-            <Campo label="EntID no Acessórias" valor={l.entId} mono />
-            <Campo label="Espelhado em" valor={dh(l.syncedAt)} />
-          </Secao>
-
-          <p className="text-[11px] text-muted-foreground">
-            Estes são todos os campos que a API do Acessórias devolve para uma entrega.
-            O log por destinatário do e-mail existe só na tela deles e não é exposto pela API.
-          </p>
+          <DetalheEntregaConteudo linha={l} />
         </DialogBody>
         <DialogFooter>
           {href && (
