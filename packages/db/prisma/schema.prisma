@@ -5763,6 +5763,8 @@ model AcessoriasEntrega {
   respEntregaId String? @map("resp_entrega_id")
   dptoId        String? @map("dpto_id")
 
+  /// dtFinalizacao e lastDH são horário de BRASÍLIA gravado sem fuso (o
+  /// Acessórias não informa fuso) — quem exibe converte (ver horaDeBrasilia).
   lastDH    DateTime? @map("last_dh")
   syncedAt  DateTime  @default(now()) @map("synced_at")
   empresaId String?   @map("empresa_id")

@@ -539,7 +539,10 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onMultaAlter
     && casa(l.responsavel, filtros.responsavel)
     && casa(fmtComp(l.competencia), filtros.competencia))
 
-  const selecionada = linhas.find((l) => l.id === selecionadaId) ?? null
+  // O painel só mostra o que está na lista: se o filtro esconder a selecionada,
+  // a seleção passa para a primeira visível. Sem isso o painel ficava com a
+  // obrigação de outro cliente enquanto a lista mostrava só a filtrada.
+  const selecionada = visiveis.find((l) => l.id === selecionadaId) ?? visiveis[0] ?? null
   const href = selecionada ? linkNoAcessorias(selecionada, urlTemplate) : null
 
   const limpar = () => setFiltros({ obrigacao: '', cliente: '', responsavel: '', competencia: '' })
@@ -670,7 +673,7 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onMultaAlter
               </thead>
               <tbody className="divide-y divide-border/60">
                 {visiveis.map((l) => {
-                  const ativa = l.id === selecionadaId
+                  const ativa = l.id === selecionada?.id
                   return (
                     <tr
                       key={l.id}

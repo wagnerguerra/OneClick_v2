@@ -207,6 +207,19 @@ export function urlEntregaTemplate(): string | null {
   return process.env.ACESSORIAS_APP_ENTREGA_URL?.trim() || null
 }
 
+/**
+ * O Acessórias manda data-hora sem fuso ("2026-08-24 11:08:27"), no horário de
+ * Brasília. O sync grava esses componentes como estão, numa coluna sem fuso —
+ * e o Prisma os devolve como se fossem UTC, então a tela mostrava 3h a menos
+ * (08:08 em vez de 11:08). A correção fica aqui, na saída, e não no sync:
+ * `acessoriasLastDH` também é a chave de "mudou?" das execuções, e mudar o
+ * valor gravado faria todas parecerem alteradas de uma vez.
+ * Brasília é UTC−3 fixo desde o fim do horário de verão (2019).
+ */
+function horaDeBrasilia(d: Date | null): Date | null {
+  return d ? new Date(d.getTime() + 3 * 60 * 60 * 1000) : null
+}
+
 type EntregaComCliente = Prisma.AcessoriasEntregaGetPayload<{
   include: { cliente: { select: { id: true; code: true; razaoSocial: true; documento: true } } }
 }>
@@ -245,8 +258,8 @@ export async function paraLinhasPainel(rows: EntregaComCliente[], empresaId?: st
     vencimento: r.dtAtraso ?? r.prazo,
     diasParaVencimento: diasAte(r.dtAtraso ?? r.prazo),
     dtEntrega: r.dtEntrega,
-    dtFinalizacao: r.dtFinalizacao,
-    lidaEm: r.lastDH,
+    dtFinalizacao: horaDeBrasilia(r.dtFinalizacao),
+    lidaEm: horaDeBrasilia(r.lastDH),
     syncedAt: r.syncedAt,
     status: r.status,
     lida: r.lida,
