@@ -20,7 +20,8 @@ import {
 } from '@saas/ui'
 import {
   AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign, Clock, Download, Hourglass,
-  Info, Loader2, MessageSquare, Paperclip, Plus, Send, SlidersHorizontal, UserCog, UserRound, Workflow, X,
+  ArrowRightLeft, Bell, Circle, FileSignature, Highlighter, Info, Loader2, MessageSquare, Paperclip, Pause, Pencil, Play,
+  Plus, RotateCcw, Send, SlidersHorizontal, Sparkles, UserCog, UserRound, Workflow, X,
 } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
@@ -62,10 +63,10 @@ export interface PreviewOrcamentoRow {
 type Detalhe = {
   itens?: Array<{ id: string; descricao: string; tipo: string; valorTotal?: number | null; quantidade?: number | null; valorUnitario?: number | null }>
   arquivos?: Array<{ id: string; fileName: string; fileUrl: string; fileSize?: number | null; mimeType?: string | null; createdAt: string }>
-  eventos?: Array<{ createdAt: string; descricao?: string | null }>
+  eventos?: Array<{ createdAt: string; descricao?: string | null; tipo?: string | null; usuario?: { name?: string | null } | null }>
   /** Responsáveis pela execução de cada serviço (o quadro da página de detalhe). */
   responsaveis?: Array<{ responsavelNome: string | null; responsavelImage: string | null }>
-  mensagens?: Array<{ createdAt: string }>
+  mensagens?: Array<{ createdAt: string; mensagem?: string | null; usuario?: { name?: string | null } | null }>
 }
 
 /** Cores fixas (inline): em classe, rosa/vermelho sofrem o retint do módulo. */
@@ -574,6 +575,35 @@ function MedidorCompletude({ pct, nivel }: { pct?: number; nivel: NivelCompletud
  * mês atual; abre no mês atual.
  */
 const SEMANA = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB']
+
+/** Uma linha da tabela do dia: evento da linha do tempo ou mensagem. */
+interface AtividadeDia { em: string; tipo: string; texto: string; autor: string | null }
+
+/**
+ * Ícone e cor por tipo de atividade (tipos do OrcamentoEvento + "mensagem").
+ * Cores em hex: o tooltip é escuro e elas precisam aparecer sobre ele.
+ */
+function tipoAtividade(tipo: string): { Icon: typeof Clock; cor: string } {
+  switch (tipo) {
+    case 'status_change': return { Icon: ArrowRightLeft, cor: '#60a5fa' }
+    case 'envio': return { Icon: Send, cor: '#60a5fa' }
+    case 'notificacao':
+    case 'notificacao_mensagem': return { Icon: Bell, cor: '#fbbf24' }
+    case 'created':
+    case 'criacao': return { Icon: Sparkles, cor: '#34d399' }
+    case 'edicao':
+    case 'edicao_data': return { Icon: Pencil, cor: '#cbd5e1' }
+    case 'servico_iniciado':
+    case 'servicos_concluidos': return { Icon: Play, cor: '#a78bfa' }
+    case 'destaque': return { Icon: Highlighter, cor: '#fbbf24' }
+    case 'contrato_fechado': return { Icon: FileSignature, cor: '#34d399' }
+    case 'reabertura':
+    case 'retroacao_aprovacao': return { Icon: RotateCcw, cor: '#fb923c' }
+    case 'paralizacao': return { Icon: Pause, cor: '#fbbf24' }
+    case 'mensagem': return { Icon: MessageSquare, cor: '#7dd3fc' }
+    default: return { Icon: Circle, cor: '#94a3b8' }
+  }
+}
 const chaveDia = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
 
 function CalendarioAtividade({ detalhe, criadoEm }: { detalhe: Detalhe | null; criadoEm: string }) {
@@ -582,15 +612,22 @@ function CalendarioAtividade({ detalhe, criadoEm }: { detalhe: Detalhe | null; c
 
   // Atividades por dia (chave ano-mês-dia).
   const porDia = useMemo(() => {
-    const m = new Map<string, string[]>()
-    const add = (iso: string, txt: string) => {
-      const k = chaveDia(new Date(iso))
+    const m = new Map<string, AtividadeDia[]>()
+    const add = (a: AtividadeDia) => {
+      const k = chaveDia(new Date(a.em))
       const l = m.get(k) ?? []
-      l.push(txt)
+      l.push(a)
       m.set(k, l)
     }
-    for (const e of detalhe?.eventos ?? []) add(e.createdAt, (e.descricao || 'Evento').replace(/<[^>]*>/g, ''))
-    for (const msg of detalhe?.mensagens ?? []) add(msg.createdAt, 'Nova mensagem')
+    for (const e of detalhe?.eventos ?? []) {
+      add({ em: e.createdAt, tipo: e.tipo || 'evento', texto: (e.descricao || 'Evento').replace(/<[^>]*>/g, '').trim(), autor: e.usuario?.name ?? null })
+    }
+    for (const msg of detalhe?.mensagens ?? []) {
+      const trecho = (msg.mensagem || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+      add({ em: msg.createdAt, tipo: 'mensagem', texto: trecho ? `Mensagem: ${trecho}` : 'Nova mensagem', autor: msg.usuario?.name ?? null })
+    }
+    // Dentro do dia, em ordem cronológica.
+    for (const l of m.values()) l.sort((a, b) => a.em.localeCompare(b.em))
     return m
   }, [detalhe])
 
@@ -660,14 +697,39 @@ function CalendarioAtividade({ detalhe, criadoEm }: { detalhe: Detalhe | null; c
           return (
             <Tooltip key={i}>
               <TooltipTrigger asChild>{quadrado}</TooltipTrigger>
-              <TooltipContent side="top" sideOffset={6} className="tooltip-fade max-w-[260px] text-[11px]">
-                <p className="font-semibold">
-                  {data.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })} · {n} {n === 1 ? 'atividade' : 'atividades'}
+              <TooltipContent side="top" sideOffset={6} className="tooltip-fade w-[340px] p-0 text-[11px]">
+                <p className="px-3 pb-1.5 pt-2.5 font-semibold capitalize">
+                  {data.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'short' })} · {n} {n === 1 ? 'atividade' : 'atividades'}
                 </p>
-                <ul className="mt-0.5 space-y-0.5">
-                  {lista.slice(0, 6).map((t, j) => <li key={j} className="line-clamp-2">• {t}</li>)}
-                  {n > 6 && <li className="opacity-70">+ {n - 6} outras</li>}
-                </ul>
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="border-y border-background/15 text-left opacity-70">
+                      <th className="px-3 py-1 font-medium">Hora</th>
+                      <th className="px-1 py-1 font-medium">Evento</th>
+                      <th className="px-3 py-1 text-right font-medium">Quem</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lista.slice(0, 8).map((a, j) => {
+                      const t = tipoAtividade(a.tipo)
+                      return (
+                        <tr key={j} className="border-b border-background/10 align-top last:border-0">
+                          <td className="whitespace-nowrap px-3 py-1 tabular-nums opacity-80">
+                            {new Date(a.em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td className="px-1 py-1">
+                            <span className="flex items-start gap-1.5">
+                              <t.Icon className="mt-px h-3 w-3 shrink-0" style={{ color: t.cor }} />
+                              <span className="line-clamp-2">{a.texto}</span>
+                            </span>
+                          </td>
+                          <td className="max-w-[90px] truncate px-3 py-1 text-right opacity-80">{a.autor?.split(' ')[0] ?? '—'}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+                {n > 8 && <p className="px-3 pb-2 pt-1 opacity-70">+ {n - 8} outras atividades</p>}
               </TooltipContent>
             </Tooltip>
           )
