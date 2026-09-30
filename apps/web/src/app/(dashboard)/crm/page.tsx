@@ -8,7 +8,7 @@ import {
   CheckSquare, MessageSquare, Trash2, Send, LayoutGrid, List,
   Download, FileText, Settings2, GripVertical, Save, Paperclip, UploadCloud, File, History, Archive, SlidersHorizontal, Tag, Layers, Sparkles,
   Flame, Thermometer, Snowflake, Megaphone, RotateCcw,
-  Search as SearchIcon, Printer, PhoneCall, AlertTriangle, Building2, IdCard,
+  Search as SearchIcon, Printer, PhoneCall, AlertTriangle, Building2, IdCard, X,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, RichEditor,
@@ -17,7 +17,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
-  Sheet, SheetContent, SheetHeader, SheetBody, SheetTitle, SheetDescription,
+  Sheet, SheetContent, SheetHeader, SheetBody, SheetTitle,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   RichContent,
 } from '@saas/ui'
@@ -31,9 +31,10 @@ import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrate
 import { CSS } from '@dnd-kit/utilities'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { trpc } from '@/lib/trpc'
-import { getApiUrl } from '@/lib/api-url'
+import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { formatDocumento } from '@saas/types'
 import { AvatarPequeno, DicaIcone, LinhaCard, LogoCliente } from '@/components/kanban/card-partes'
+import { PainelPreview } from '@/components/kanban/painel-preview'
 import { alerts } from '@/lib/alerts'
 import { mensagemErro } from '@/lib/errors'
 import { moedaParaNumero, masks } from '@/lib/masks'
@@ -750,6 +751,9 @@ export default function CrmPage() {
   }
 
   // ── Detail ──
+  // Fecha o preview e atualiza o quadro (o que a folha antiga fazia no onOpenChange).
+  const fecharDetalhe = useCallback(() => { setDetailOpen(false); fetchAll(true) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const openDetail = async (id: string) => {
     setDetailOpen(true)
     setDetailLoading(true)
@@ -1457,18 +1461,28 @@ export default function CrmPage() {
         </SheetContent>
       </Sheet>
 
-      {/* ── Detail Sheet (slide-over) ── */}
-      <Sheet open={detailOpen} onOpenChange={open => { setDetailOpen(open); if (!open) fetchAll(true) }}>
-        <SheetContent side="right" size="xl" className="w-full sm:w-[75vw] max-w-[1200px]">
+      {/* ── Preview do card (painel lateral animado, no molde do de orçamentos) ──
+          Mesmo conteúdo e funções da antiga folha lateral: cabeçalho com título
+          editável, imprimir e salvar, e as abas Detalhes / Conversa (IA) / Ações
+          / Interações / Anotações / Arquivos / Histórico. */}
+      <PainelPreview aberto={detailOpen} onFechar={fecharDetalhe} rotulo={detail ? `Oportunidade ${detail.titulo}` : 'Oportunidade'}>
           {detailLoading || !detail ? (
-            <div className="flex items-center justify-center py-16 flex-1">
-              <SheetTitle className="sr-only">Carregando</SheetTitle>
+            <div className="flex flex-1 items-center justify-center py-16">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : (
+          ) : (() => {
+            // Card do quadro (logo do cliente, orçamento vinculado) + situação no tempo.
+            const cardQuadro = oportunidades.find(o => o.id === detail.id) as any
+            const clienteQuadro = cardQuadro?.cliente as { razaoSocial?: string | null; nomeFantasia?: string | null; logoUrl?: string | null } | null
+            const etapaAtual = etapas.find(e => e.id === detail.etapaId) ?? (detail as any).etapa
+            const sitDetalhe = situacaoCrm(detail, etapaAtual, declinioDias)
+            const razaoDetalhe: string | null = (detail as any).razaoSocial || (detail as any).cliente?.razaoSocial || clienteQuadro?.razaoSocial || null
+            const valorDetalhe = Number(detail.valor ?? 0)
+            const orcVinculado = cardQuadro?.orcamento as { id: string; numero: number } | null | undefined
+            return (
             <>
-              <SheetHeader className="border-b-0 bg-transparent">
-                <div className="absolute right-14 top-4 z-10 flex items-center gap-1">
+              <header className="relative flex items-start gap-3 px-5 pb-3 pt-4">
+                <div className="absolute right-3 top-3 z-10 flex items-center gap-1">
                   {/* Imprimir a ficha da oportunidade — mesma posição que o
                       orçamento usa no cabeçalho do detalhe. */}
                   <button className="flex h-7 w-7 items-center justify-center rounded-md opacity-60 transition-all hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10"
@@ -1481,13 +1495,15 @@ export default function CrmPage() {
                   }} title="Salvar">
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   </button>
+                  <button className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    onClick={fecharDetalhe} title="Fechar" aria-label="Fechar">
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-                <div className="flex items-center gap-3 pr-24">
-                  {(detail as any).responsavel ? (
-                    <UserAvatar user={(detail as any).responsavel} bg="bg-muted" fg="text-muted-foreground" className="h-10 w-10 text-sm shrink-0 border-2 border-background shadow-sm" />
-                  ) : null}
+                <LogoPreview nome={clienteQuadro?.nomeFantasia || razaoDetalhe || detail.titulo} logoUrl={clienteQuadro?.logoUrl} />
+                <div className="flex min-w-0 flex-1 items-center gap-3 pr-28">
                   <div className="flex-1 min-w-0">
-                    <SheetTitle className="text-base">
+                    <h2 className="text-[15px] font-semibold leading-tight">
                       {editingTitle ? (
                         <input
                           type="text"
@@ -1509,24 +1525,53 @@ export default function CrmPage() {
                           {detail.titulo}
                         </span>
                       )}
-                    </SheetTitle>
-                    {((detail as any).razaoSocial || (detail as any).cliente?.razaoSocial) && (
-                      <SheetDescription className="mt-0.5">
-                        {(detail as any).razaoSocial || (detail as any).cliente?.razaoSocial}
-                      </SheetDescription>
-                    )}
-                    {detail.temperatura && (
-                      <div className="mt-1.5 flex items-center gap-1.5">
-                        <TemperaturaBadge temperatura={detail.temperatura} score={detail.score} />
-                        {detail.origem === 'lead-ia' && <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground"><Sparkles className="h-3 w-3" /> Captado pela IA</span>}
-                      </div>
-                    )}
+                    </h2>
+                    {razaoDetalhe && <p className="mt-0.5 truncate text-[12px] text-muted-foreground">{razaoDetalhe}</p>}
+                    {/* Badges: nº do card, etapa (na cor dela), temperatura, IA, valor */}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                      {detail.numero != null && <span className="rounded-md bg-muted px-1.5 py-0.5 font-semibold tabular-nums text-foreground/80">#{detail.numero}</span>}
+                      {etapaAtual && (
+                        <span className="rounded-md px-1.5 py-0.5 font-semibold" style={{ backgroundColor: `${etapaAtual.cor || '#818cf8'}1A`, color: etapaAtual.cor || '#818cf8' }}>
+                          {etapaAtual.nome}
+                        </span>
+                      )}
+                      <TemperaturaBadge temperatura={detail.temperatura} score={detail.score} />
+                      {detail.origem === 'lead-ia' && <span className="inline-flex items-center gap-1 font-medium text-muted-foreground"><Sparkles className="h-3 w-3" /> Captado pela IA</span>}
+                      {valorDetalhe > 0 && (
+                        <span className="rounded-md px-1.5 py-0.5 font-semibold tabular-nums" style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 12%, transparent)`, color: MODULE_COLOR }}>
+                          {valorDetalhe.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </SheetHeader>
+              </header>
 
-              {/* Tabs */}
-              <div className="flex gap-4 px-6 shrink-0 border-b border-border/40">
+              {/* Resumo: situação no tempo, responsável e orçamento vinculado */}
+              <div className="preview-item-in flex flex-wrap items-center gap-x-5 gap-y-1.5 border-y border-dashed border-border px-5 py-2 text-[12px]" style={{ animationDelay: '240ms' }}>
+                <span className={cn('flex items-center gap-1.5', sitDetalhe.cor)} title={sitDetalhe.texto}>
+                  <Clock className="h-3.5 w-3.5" strokeWidth={1.75} /> {sitDetalhe.titulo}
+                </span>
+                {(detail as any).responsavel && (
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <AvatarPequeno user={(detail as any).responsavel} />
+                    <span className="text-foreground">{(detail as any).responsavel.name}</span>
+                  </span>
+                )}
+                {orcVinculado && (
+                  <Link href={`/orcamentos/${orcVinculado.id}`} className={cn('flex items-center gap-1.5 hover:underline', TEXT.sky)}>
+                    <FileText className="h-3.5 w-3.5" strokeWidth={1.75} /> Orçamento #{orcVinculado.numero}
+                  </Link>
+                )}
+                {sitDetalhe.aviso && (
+                  <span className="ml-auto inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: `${sitDetalhe.aviso.cor}1A`, color: sitDetalhe.aviso.cor }}>
+                    <sitDetalhe.aviso.Icon className="h-3 w-3" /> {sitDetalhe.aviso.curto}
+                  </span>
+                )}
+              </div>
+
+              {/* Abas */}
+              <div className="preview-item-in nice-scrollbar flex shrink-0 gap-1 overflow-x-auto px-4 pb-2 pt-2.5" style={{ animationDelay: '280ms' }}>
                 {([
                   { key: 'detalhes' as const, label: 'Detalhes', icon: Target },
                   ...((detail.origem === 'lead-ia' || detail.temperatura)
@@ -1542,12 +1587,12 @@ export default function CrmPage() {
                     key={tab.key}
                     onClick={() => setDetailTab(tab.key)}
                     className={cn(
-                      'px-1 py-2.5 text-xs font-medium flex items-center gap-1.5 border-b-2 -mb-px transition-colors',
+                      'flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
                       detailTab === tab.key
-                        ? 'text-foreground'
-                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                        ? 'text-white shadow-sm'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                     )}
-                    style={detailTab === tab.key ? { borderBottomColor: MODULE_COLOR } : undefined}
+                    style={detailTab === tab.key ? { backgroundColor: MODULE_COLOR } : undefined}
                   >
                     <tab.icon className="h-3.5 w-3.5" />
                     {tab.label}
@@ -1555,7 +1600,7 @@ export default function CrmPage() {
                 ))}
               </div>
 
-              <SheetBody key={detailTab} className="px-6 py-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+              <div key={detailTab} className="preview-item-in nice-scrollbar mx-2 mb-2 flex-1 overflow-y-auto rounded-xl border border-border/60 bg-card px-5 py-5" style={{ animationDelay: '320ms' }}>
                 {/* ── Detalhes Tab ── */}
                 {detailTab === 'detalhes' && (
                   <DetailTab detail={detail} etapas={etapas} clientes={clientes} onSave={saveDetail} onMove={moverPara} saving={saving} tags={tags} opcoesAtividade={opcoesAtividade} opcoesOrigem={opcoesOrigem} campanhas={campanhasList} loadClientes={async () => {
@@ -1658,12 +1703,11 @@ export default function CrmPage() {
                 {detailTab === 'historico' && (
                   <HistoricoTab eventos={detail.eventos || []} />
                 )}
-              </SheetBody>
-
+              </div>
             </>
-          )}
-        </SheetContent>
-      </Sheet>
+            )
+          })()}
+      </PainelPreview>
 
       {/* ── Gerenciar Tags Modal ── */}
       <Dialog open={tagsModal} onOpenChange={setTagsModal}>
@@ -2284,6 +2328,18 @@ function KanbanCardOverlay({ op, diasDesde, velocityX, width }: { op: Oportunida
     >
       <KanbanCardContent op={op} etapas={[]} onMover={() => {}} onDelete={() => {}} diasDesde={diasDesde} showMenu={false} />
     </div>
+  )
+}
+
+/** Logo (ou inicial) no cabeçalho do preview — a mesma do card, maior. */
+function LogoPreview({ nome, logoUrl }: { nome?: string | null; logoUrl?: string | null }) {
+  const [falhou, setFalhou] = useState(false)
+  const src = logoUrl && !falhou ? resolveAssetUrl(logoUrl) : ''
+  if (src) return <img src={src} alt="" onError={() => setFalhou(true)} className="h-10 w-10 shrink-0 rounded-lg border border-border/60 bg-white object-contain" />
+  return (
+    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-[15px] font-bold text-muted-foreground">
+      {(nome || '?').trim().charAt(0).toUpperCase()}
+    </span>
   )
 }
 
