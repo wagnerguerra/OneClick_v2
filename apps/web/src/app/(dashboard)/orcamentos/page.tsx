@@ -29,6 +29,7 @@ import { UserCombobox } from './_components/user-combobox'
 import { CatalogoCombobox } from './_components/catalogo-combobox'
 import { RelatorioColunaModal } from './_components/relatorio-coluna-modal'
 import { PreviewOrcamento } from './_components/preview-orcamento'
+import { AvatarPequeno, DicaIcone, LinhaCard, LogoCliente } from '@/components/kanban/card-partes'
 import { ReprocessarServicosModal } from './_components/reprocessar-servicos-modal'
 import { cn } from '@saas/ui'
 import { TEXT, BADGE } from '@/lib/color-styles'
@@ -43,7 +44,7 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from '@dnd-kit/utilities'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { resolveAssetUrl, getApiUrl } from '@/lib/api-url'
+import { getApiUrl } from '@/lib/api-url'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 // ============================================================
@@ -1814,7 +1815,7 @@ function KanbanCardContent({ orc, cliente, onDuplicar, onArquivar, onCancelar, o
         className="flex items-center gap-2 px-3 py-2.5 border-b border-dashed border-border transition-colors duration-500 ease-out"
         style={{ backgroundColor: orc.destacadoEm ? `${DESTAQUE_COR[corDoDestaque(orc)]}12` : 'transparent' }}
       >
-        <LogoCliente cliente={cliente} />
+        <LogoCliente nome={cliente?.nomeFantasia || cliente?.razaoSocial} logoUrl={cliente?.logoUrl} />
         <DadosClienteTooltip numero={orc.numero} cliente={cliente}>
           <span className="min-w-0 flex-1 cursor-help truncate text-[13px] font-semibold">{nomeCurto}</span>
         </DadosClienteTooltip>
@@ -1990,39 +1991,6 @@ function KanbanCardContent({ orc, cliente, onDuplicar, onArquivar, onCancelar, o
   )
 }
 
-/** Linha do corpo do card: ícone fixo à esquerda + conteúdo numa linha só. */
-function LinhaCard({ icone: Icone, children }: { icone: typeof Clock; children: React.ReactNode }) {
-  return (
-    <div className="flex min-w-0 items-center gap-2">
-      <Icone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={1.75} />
-      <div className="flex min-w-0 flex-1 items-center gap-1">{children}</div>
-    </div>
-  )
-}
-
-/** Logo do cliente (cadastro); sem logo, a inicial num quadrado neutro. */
-function LogoCliente({ cliente }: { cliente: ClienteDoc | null }) {
-  const [falhou, setFalhou] = useState(false)
-  const src = cliente?.logoUrl && !falhou ? resolveAssetUrl(cliente.logoUrl) : ''
-  if (src) {
-    return <img src={src} alt="" onError={() => setFalhou(true)} className="h-6 w-6 shrink-0 rounded-md border border-border/60 bg-white object-contain" />
-  }
-  const inicial = (cliente?.nomeFantasia || cliente?.razaoSocial || '?').trim().charAt(0).toUpperCase()
-  return (
-    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted text-[11px] font-bold text-muted-foreground">{inicial}</span>
-  )
-}
-
-/** Avatar do solicitante na linha do corpo (foto ou iniciais). */
-function AvatarPequeno({ user }: { user: UserRef }) {
-  const iniciais = (user.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
-  return user.image ? (
-    <img src={resolveAssetUrl(user.image)} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover" />
-  ) : (
-    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[8px] font-bold text-muted-foreground">{iniciais}</span>
-  )
-}
-
 /**
  * Tooltip do título do card: nome completo (o título corta com "…") e os dados
  * que saíram do card para liberar espaço — CNPJ formatado e se é matriz ou
@@ -2044,23 +2012,6 @@ function DadosClienteTooltip({ numero, cliente, children }: { numero: number; cl
       <TooltipContent side="top" align="start" sideOffset={6} className="tooltip-fade text-[11px] max-w-[320px]">
         <p className="font-semibold">#{numero} {cliente?.razaoSocial || 'Sem cliente'}</p>
         {linhaDoc && <p>{linhaDoc}</p>}
-      </TooltipContent>
-    </Tooltip>
-  )
-}
-
-/**
- * Ícone do rodapé do card com o mesmo tooltip do prazo e do CRM (título em
- * negrito + explicação). Radix em vez de `title`: o nativo demora, tem outro
- * visual e é cortado pelas colunas com rolagem.
- */
-function DicaIcone({ titulo, texto, children }: { titulo: string; texto: string; children: React.ReactElement }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6} className="tooltip-fade text-[11px]">
-        <p className="font-semibold">{titulo}</p>
-        <p>{texto}</p>
       </TooltipContent>
     </Tooltip>
   )

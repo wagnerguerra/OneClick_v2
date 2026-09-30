@@ -8,7 +8,7 @@ import {
   CheckSquare, MessageSquare, Trash2, Send, LayoutGrid, List,
   Download, FileText, Settings2, GripVertical, Save, Paperclip, UploadCloud, File, History, Archive, SlidersHorizontal, Tag, Layers, Sparkles,
   Flame, Thermometer, Snowflake, Megaphone, RotateCcw,
-  Search as SearchIcon, Printer, PhoneCall,
+  Search as SearchIcon, Printer, PhoneCall, AlertTriangle, Building2, IdCard,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, RichEditor,
@@ -32,6 +32,8 @@ import { CSS } from '@dnd-kit/utilities'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
+import { formatDocumento } from '@saas/types'
+import { AvatarPequeno, DicaIcone, LinhaCard, LogoCliente } from '@/components/kanban/card-partes'
 import { alerts } from '@/lib/alerts'
 import { mensagemErro } from '@/lib/errors'
 import { moedaParaNumero, masks } from '@/lib/masks'
@@ -1258,6 +1260,7 @@ export default function CrmPage() {
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         )}
+        <TooltipProvider delayDuration={200}>
         <DndContext sensors={kanbanSensors} collisionDetection={closestCenter} onDragStart={handleKanbanDragStart} onDragMove={handleKanbanDragMove} onDragOver={handleKanbanDragOver} onDragEnd={handleKanbanDragEnd} onDragCancel={handleKanbanDragCancel}>
         <div className="overflow-x-auto nice-scrollbar pb-4 -mx-1 flex-1">
           <div className="flex gap-4 px-1 h-full" style={{ minWidth: etapas.length > 0 ? `${etapas.length * 250}px` : undefined, width: '100%' }}>
@@ -1271,6 +1274,7 @@ export default function CrmPage() {
           {activeCard && <KanbanCardOverlay op={activeCard} diasDesde={diasDesde} velocityX={dragDeltaX} width={activeCardWidth} />}
         </DragOverlay>
         </DndContext>
+        </TooltipProvider>
         </div>
       )}
 
@@ -2222,19 +2226,12 @@ function KanbanCard({ op, isDraggingAny, etapas, onOpenDetail, onMover, onDelete
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: op.id })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }
 
-  const etapaCor = op.etapa?.cor || '#818cf8'
-
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}
-      className={cn('rounded-xl bg-white dark:bg-card shadow-sm cursor-pointer active:cursor-grabbing group touch-none overflow-hidden', isDragging ? 'border border-transparent opacity-30' : 'border border-border/60', !isDragging && !isDraggingAny && 'hover:shadow-md transition-shadow')}
+      className={cn('rounded-md bg-white dark:bg-card cursor-pointer active:cursor-grabbing group touch-none overflow-hidden', isDragging ? 'border border-transparent opacity-30' : 'border border-border/60')}
       onClick={() => { if (!isDraggingAny) onOpenDetail(op.id) }}
     >
-      <div className="flex">
-        <div className="w-1 shrink-0" style={{ backgroundColor: etapaCor }} />
-        <div className="flex-1 min-w-0">
-          <KanbanCardContent op={op} etapas={etapas} onMover={onMover} onDelete={onDelete} diasDesde={diasDesde} showMenu={!isDraggingAny} declinioDias={declinioDias} />
-        </div>
-      </div>
+      <KanbanCardContent op={op} etapas={etapas} onMover={onMover} onDelete={onDelete} diasDesde={diasDesde} showMenu={!isDraggingAny} declinioDias={declinioDias} />
     </div>
   )
 }
@@ -2273,13 +2270,11 @@ function KanbanCardOverlay({ op, diasDesde, velocityX, width }: { op: Oportunida
     return () => cancelAnimationFrame(rafRef.current)
   }, [])
 
-  const etapaCor = op.etapa?.cor || '#818cf8'
-
   return (
     <div
       // Largura dinamica capturada do card de origem (colunas usam flex-1).
       // Fallback 260px caso o measurement falhe.
-      className="rounded-xl bg-white dark:bg-card overflow-hidden"
+      className="rounded-md bg-white dark:bg-card overflow-hidden"
       style={{
         width: width ?? 260,
         transform: `rotate(${rotation.toFixed(2)}deg) scale(1.02)`,
@@ -2287,14 +2282,50 @@ function KanbanCardOverlay({ op, diasDesde, velocityX, width }: { op: Oportunida
         boxShadow: `0 10px 25px rgba(0,0,0,0.15)`,
       }}
     >
-      <div className="flex">
-        <div className="w-1 shrink-0" style={{ backgroundColor: etapaCor }} />
-        <div className="flex-1 min-w-0">
-          <KanbanCardContent op={op} etapas={[]} onMover={() => {}} onDelete={() => {}} diasDesde={diasDesde} showMenu={false} />
-        </div>
-      </div>
+      <KanbanCardContent op={op} etapas={[]} onMover={() => {}} onDelete={() => {}} diasDesde={diasDesde} showMenu={false} />
     </div>
   )
+}
+
+/**
+ * Situação do card no tempo — o relógio do rodapé e, quando pede atenção, o
+ * badge informativo do cabeçalho. Mesma regra do antigo SlaIndicator:
+ * Declínio conta até o arquivamento; etapas finais (orçamento, ganho, perda)
+ * mostram o tempo de vida; as demais, os dias na etapa contra o SLA.
+ */
+function situacaoCrm(op: Oportunidade, etapa: Etapa | undefined, declinioDias: number): {
+  curto: string
+  cor: string
+  titulo: string
+  texto: string
+  aviso: { curto: string; label: string; detalhe?: string; Icon: typeof Clock; cor: string } | null
+} {
+  const nome = (etapa?.nome || op.etapa?.nome || '').toLowerCase()
+  if (nome.includes('decl')) {
+    const restantes = Math.max(0, declinioDias - diasDesde(op.updatedAt))
+    return restantes === 0
+      ? { curto: '0d', cor: cn(TEXT.red, 'font-semibold'), titulo: 'Arquivamento iminente', texto: 'O card será arquivado automaticamente.',
+          aviso: { curto: 'Expirando', label: 'Arquivamento iminente', detalhe: 'O card será arquivado automaticamente', Icon: Archive, cor: '#e11d48' } }
+      : { curto: `${restantes}d`, cor: TEXT.amber, titulo: `Arquiva em ${restantes} dia(s)`, texto: 'Contagem do Declínio até o arquivamento automático.',
+          aviso: { curto: 'Arquivando', label: `Arquivamento em ${restantes} dia(s)`, detalhe: 'Card em Declínio', Icon: Archive, cor: '#d97706' } }
+  }
+  if (nome.includes('orçamento') || nome.includes('orcamento') || etapa?.ehGanho || etapa?.ehPerda || op.etapa?.ehGanho || op.etapa?.ehPerda) {
+    const dias = diasDesde(op.createdAt)
+    return { curto: `${dias}d`, cor: 'text-muted-foreground', titulo: `${dias} dia(s) de vida`, texto: 'Desde a criação do card.', aviso: null }
+  }
+  const dias = diasDesde(op.updatedAt)
+  const sla = getSlaStatus(op.updatedAt, etapa?.slaDias)
+  if (!sla) return { curto: `${dias}d`, cor: 'text-muted-foreground', titulo: `${dias} dia(s) nesta etapa`, texto: 'Etapa sem SLA definido.', aviso: null }
+  const texto = `SLA da etapa: ${sla.limite} dia(s). Está há ${sla.dias} dia(s).`
+  if (sla.status === 'expired') {
+    return { curto: `${dias}d`, cor: cn(TEXT.red, 'font-semibold'), titulo: 'SLA vencido', texto,
+      aviso: { curto: 'Vencido', label: 'SLA vencido', detalhe: texto, Icon: AlertTriangle, cor: '#e11d48' } }
+  }
+  if (sla.status === 'warning') {
+    return { curto: `${dias}d`, cor: TEXT.amber, titulo: 'SLA vencendo', texto,
+      aviso: { curto: 'Vencendo', label: 'SLA vencendo', detalhe: texto, Icon: Clock, cor: '#d97706' } }
+  }
+  return { curto: `${dias}d`, cor: 'text-muted-foreground', titulo: 'No prazo', texto, aviso: null }
 }
 
 function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }: {
@@ -2304,110 +2335,184 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
   // Router local: ver o item "Imprimir" abaixo. Evita passar mais um callback
   // por Column -> Card -> Content (e pelo Overlay, que so passa no-ops).
   const routerCard = useRouter()
-  // Empresa/Cliente da oportunidade: prioriza o cliente cadastrado (FK),
-  // cai pro nome avulso (razaoSocial digitada). Quando existe, vai ACIMA do título.
-  const empresaCliente = (op as any).cliente?.razaoSocial || (op as any).razaoSocial || null
+  const x = op as any
+  const cliente = x.cliente as { razaoSocial?: string | null; nomeFantasia?: string | null; logoUrl?: string | null; documento?: string | null } | null
+  // Cliente cadastrado (FK) primeiro; senão os dados do lead digitados no card.
+  const razao: string | null = cliente?.razaoSocial || x.razaoSocial || null
+  const nomeCurto: string = cliente?.nomeFantasia?.trim() || x.nomeFantasia?.trim() || razao || op.titulo
+  const docBruto: string | null = x.cpfCnpj || cliente?.documento || null
+  const doc = docBruto ? formatDocumento(docBruto) : ''
+  const ehCnpj = doc.length > 14
+  const valor = Number(op.valor ?? 0)
+
+  const etapa = etapas.find(e => e.id === op.etapaId)
+  const sit = situacaoCrm(op, etapa, declinioDias)
+  // Badge informativo: o que pede atenção no tempo (SLA/Declínio) e a
+  // temperatura do lead. O badge mostra o primeiro; o tooltip, todos.
+  const avisos = [
+    ...(sit.aviso ? [sit.aviso] : []),
+    ...(op.temperatura && TEMP_META[op.temperatura]
+      ? [{
+          curto: TEMP_META[op.temperatura]!.label,
+          label: `Lead ${TEMP_META[op.temperatura]!.label.toLowerCase()}`,
+          detalhe: typeof op.score === 'number' ? `Score ${op.score}` : undefined,
+          Icon: TEMP_META[op.temperatura]!.icon,
+          cor: TEMP_META[op.temperatura]!.cor,
+        }]
+      : []),
+  ]
+  const aviso = avisos[0] ?? null
+  const tags: Array<{ id: string; tag?: { nome?: string; cor?: string } }> = x.tags ?? []
+
   return (
     <div className="flex flex-col">
-      {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-1 px-3 pt-2.5 pb-1">
-        <div className="min-w-0 flex-1">
-          {empresaCliente && (
-            <p className="text-[10px] font-semibold uppercase tracking-wide truncate mb-0.5" style={{ color: MODULE_COLOR }}>
-              {empresaCliente}
-            </p>
+      {/* Cabeçalho — logo + nome curto; nº do card e badge informativo à direita */}
+      <div className="flex items-center gap-2 border-b border-dashed border-border px-3 py-2.5">
+        <LogoCliente nome={nomeCurto} logoUrl={cliente?.logoUrl} />
+        <DicaIcone titulo={razao || op.titulo} texto={doc ? `${ehCnpj ? 'CNPJ' : 'CPF'} ${doc}` : 'Sem CPF/CNPJ no card'}>
+          <span className="min-w-0 flex-1 cursor-help truncate text-[13px] font-semibold">{nomeCurto}</span>
+        </DicaIcone>
+        <div className="flex shrink-0 items-center gap-1">
+          {op.numero != null && (
+            <span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-foreground/80">#{op.numero}</span>
           )}
-          <h4 className="text-[13px] font-semibold leading-tight line-clamp-2">
-            {op.numero != null && <span className="text-muted-foreground/70 font-bold tabular-nums mr-1">#{op.numero}</span>}
-            {op.titulo}
-          </h4>
-        </div>
-        <div className="flex flex-wrap items-center gap-0.5 sm:shrink-0 -mr-1 -mt-0.5">
-          <div className="h-6 w-6">
-          {showMenu && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
-                <button className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded hover:bg-muted">
-                  <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
-                <DropdownMenuItem onClick={() => routerCard.push(`/crm/${op.id}/imprimir`)}>
-                  <Printer className="h-3.5 w-3.5 mr-2" /> Imprimir
-                </DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive" onClick={() => onDelete(op.id, op.titulo)}>
-                  <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          {aviso && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="inline-flex max-w-[110px] cursor-help items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold"
+                  // Cor inline (fundo = a cor com ~10% de alfa): em classe, o vermelho sofre o retint do módulo.
+                  style={{ backgroundColor: `${aviso.cor}1A`, color: aviso.cor }}
+                  onClick={e => e.stopPropagation()}
+                  onPointerDown={e => e.stopPropagation()}
+                >
+                  <aviso.Icon className="h-3 w-3 shrink-0" strokeWidth={2.25} />
+                  <span className="truncate">{aviso.curto}</span>
+                  {avisos.length > 1 && <span className="shrink-0 opacity-70">+{avisos.length - 1}</span>}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="end" sideOffset={6} className="tooltip-fade max-w-[280px] text-[11px]">
+                <div className="space-y-1.5">
+                  {avisos.map(a => (
+                    <div key={a.label}>
+                      <p className="flex items-center gap-1 font-semibold"><a.Icon className="h-3 w-3 shrink-0" /> {a.label}</p>
+                      {a.detalhe && <p>{a.detalhe}</p>}
+                    </div>
+                  ))}
+                </div>
+              </TooltipContent>
+            </Tooltip>
           )}
+          <div className="-mr-1 h-6 w-6 shrink-0">
+            {showMenu && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
+                  <button className="flex h-6 w-6 items-center justify-center rounded opacity-100 transition-opacity hover:bg-muted sm:opacity-0 sm:group-hover:opacity-100">
+                    <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+                  <DropdownMenuItem onClick={() => routerCard.push(`/crm/${op.id}/imprimir`)}>
+                    <Printer className="mr-2 h-3.5 w-3.5" /> Imprimir
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-destructive" onClick={() => onDelete(op.id, op.titulo)}>
+                    <Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
+        </div>
+      </div>
+
+      {/* Corpo — uma informação por linha, cada uma com seu ícone */}
+      <div className="space-y-1.5 px-3 py-2.5 text-[12px] text-foreground/85">
+        {razao && (
+          <LinhaCard icone={Building2}>
+            <span className="truncate">{razao}</span>
+          </LinhaCard>
+        )}
+        {doc && (
+          <LinhaCard icone={IdCard}>
+            <span className="truncate tabular-nums">{ehCnpj ? `CNPJ ${doc}` : `CPF ${doc}`}</span>
+          </LinhaCard>
+        )}
+        <LinhaCard icone={Target}>
+          <span className="truncate">{op.titulo}</span>
+          {valor > 0 && (
+            <span className="ml-auto shrink-0 pl-2 font-semibold tabular-nums" style={{ color: MODULE_COLOR }}>
+              {valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </span>
+          )}
+        </LinhaCard>
+        {x.campanha && (
+          <LinhaCard icone={Megaphone}>
+            <span className="truncate">{x.campanha.nome || x.campanha.slug}</span>
+          </LinhaCard>
+        )}
+        {tags.length > 0 && (
+          <LinhaCard icone={Tag}>
+            <span className="flex min-w-0 flex-wrap gap-1">
+              {tags.map(t => (
+                <span key={t.id} className="inline-flex items-center rounded-full px-1.5 text-[10px] font-medium text-white" style={{ backgroundColor: t.tag?.cor || '#94a3b8' }}>
+                  {t.tag?.nome}
+                </span>
+              ))}
+            </span>
+          </LinhaCard>
+        )}
+        {x.responsavel && (
+          <div className="flex min-w-0 items-center gap-2">
+            <AvatarPequeno user={x.responsavel} />
+            <span className="truncate">{x.responsavel.name}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Rodapé — contadores à esquerda (só os que têm algo), relógio à direita */}
+      <div className="flex items-center justify-between gap-2 border-t border-dashed border-border px-3 py-2 text-[11px] text-muted-foreground">
+        <div className="flex min-w-0 items-center gap-3">
           {(op._count?.agendaEventos ?? 0) > 0 && (
-            <span
-              className={cn('inline-flex items-center justify-center h-5 w-5 rounded-md bg-sky-50 dark:bg-sky-900/30 shrink-0', TEXT.sky)}
-              title={`${op._count!.agendaEventos} evento(s) de agenda vinculado(s)`}
-            >
-              <Calendar className="h-3 w-3" />
-            </span>
+            <DicaIcone titulo={`${op._count!.agendaEventos} ${op._count!.agendaEventos === 1 ? 'evento' : 'eventos'} de agenda`} texto="Reuniões e compromissos vinculados ao card">
+              <span className="flex cursor-help items-center gap-1"><Calendar className="h-3.5 w-3.5" strokeWidth={1.5} /> {op._count!.agendaEventos}</span>
+            </DicaIcone>
           )}
-        </div>
-      </div>
-
-      {/* ── Body ── */}
-      <div className="px-3 pb-2 space-y-1.5">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <TemperaturaBadge temperatura={op.temperatura} score={op.score} />
-          {(op as any).campanha && (
-            <span
-              className={cn('inline-flex items-center gap-1 text-[10px] font-medium bg-rose-50 dark:bg-rose-900/30 rounded-sm px-1.5 py-0.5', TEXT.rose)}
-              title={`Campanha: ${(op as any).campanha.nome || (op as any).campanha.slug}`}
-            >
-              <Megaphone className="h-3 w-3" /> {(op as any).campanha.nome || (op as any).campanha.slug}
-            </span>
-          )}
-          {(op as any).orcamento && (
-            <Link
-              href={`/orcamentos/${(op as any).orcamento.id}`}
-              onClick={e => e.stopPropagation()}
-              className={cn('inline-flex items-center gap-1 text-[10px] font-medium bg-sky-50 dark:bg-sky-900/30 rounded-sm px-1.5 py-0.5 hover:bg-sky-100 dark:hover:bg-sky-900/50 hover:underline transition-colors', TEXT.sky)}
-              title={`Abrir orçamento #${(op as any).orcamento.numero}`}
-            >
-              <FileText className="h-3 w-3" /> Orc. #{(op as any).orcamento.numero}
-            </Link>
-          )}
-          {(op as any).tags?.map((t: any) => (
-            <span key={t.id} className="inline-flex items-center rounded-full px-1.5 py-0 text-[9px] font-medium text-white" style={{ backgroundColor: t.tag?.cor || '#94a3b8' }}>
-              {t.tag?.nome}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Footer ── */}
-      <div className="flex items-center justify-between px-3 pb-2.5 pt-1">
-        <div className="flex items-center gap-2">
-          {(op as any).responsavel ? (
-            <UserAvatar user={(op as any).responsavel} bg="bg-muted" fg="text-muted-foreground" className="h-6 w-6 text-[8px] shrink-0 border border-background shadow-sm" />
-          ) : null}
-          <SlaIndicator op={op} etapas={etapas} declinioDias={declinioDias} />
-        </div>
-        <div className="flex items-center gap-2">
           {(op._count?.agendaTarefas ?? 0) > 0 && (
-            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title="Ações">
-              <CheckSquare className="h-3 w-3" /> {op._count!.agendaTarefas}
-            </span>
+            <DicaIcone titulo={`${op._count!.agendaTarefas} ${op._count!.agendaTarefas === 1 ? 'ação' : 'ações'}`} texto="Ações em aberto do atendimento">
+              <span className="flex cursor-help items-center gap-1"><CheckSquare className="h-3.5 w-3.5" strokeWidth={1.5} /> {op._count!.agendaTarefas}</span>
+            </DicaIcone>
           )}
           {(op._count?.mensagens ?? 0) > 0 && (
-            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title="Anotações">
-              <MessageSquare className="h-3 w-3" /> {op._count!.mensagens}
-            </span>
+            <DicaIcone titulo={`${op._count!.mensagens} ${op._count!.mensagens === 1 ? 'anotação' : 'anotações'}`} texto="Anotações do card">
+              <span className="flex cursor-help items-center gap-1"><MessageSquare className="h-3.5 w-3.5" strokeWidth={1.5} /> {op._count!.mensagens}</span>
+            </DicaIcone>
           )}
           {(op._count?.arquivos ?? 0) > 0 && (
-            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title="Arquivos">
-              <Paperclip className="h-3 w-3" /> {op._count!.arquivos}
-            </span>
+            <DicaIcone titulo={`${op._count!.arquivos} ${op._count!.arquivos === 1 ? 'arquivo' : 'arquivos'}`} texto="Arquivos do card">
+              <span className="flex cursor-help items-center gap-1"><Paperclip className="h-3.5 w-3.5" strokeWidth={1.5} /> {op._count!.arquivos}</span>
+            </DicaIcone>
+          )}
+          {x.orcamento && (
+            <DicaIcone titulo={`Orçamento #${x.orcamento.numero}`} texto="Orçamento gerado a partir deste card — clique para abrir">
+              <Link
+                href={`/orcamentos/${x.orcamento.id}`}
+                onClick={e => e.stopPropagation()}
+                onPointerDown={e => e.stopPropagation()}
+                className={cn('flex items-center gap-1 tabular-nums hover:underline', TEXT.sky)}
+              >
+                <FileText className="h-3.5 w-3.5" strokeWidth={1.5} /> {x.orcamento.numero}
+              </Link>
+            </DicaIcone>
           )}
         </div>
+        <DicaIcone titulo={sit.titulo} texto={sit.texto}>
+          <span className={cn('flex shrink-0 cursor-help items-center gap-1 tabular-nums', sit.cor)}>
+            {(etapa?.nome || op.etapa?.nome || '').toLowerCase().includes('decl')
+              ? <Archive className="h-3.5 w-3.5" strokeWidth={1.5} />
+              : <Clock className="h-3.5 w-3.5" strokeWidth={1.5} />}
+            {sit.curto}
+          </span>
+        </DicaIcone>
       </div>
     </div>
   )
@@ -2616,64 +2721,6 @@ function HistoricoTab({ eventos }: { eventos: Evento[] }) {
 // ============================================================
 // SLA Indicator (no card do kanban)
 // ============================================================
-
-function SlaIndicator({ op, etapas, declinioDias = 30 }: { op: Oportunidade; etapas: Etapa[]; declinioDias?: number }) {
-  const etapa = etapas.find(e => e.id === op.etapaId)
-  const nomeEtapa = (etapa?.nome || '').toLowerCase()
-
-  // Declinio — contagem regressiva ate arquivamento
-  if (nomeEtapa.includes('decl')) {
-    const dias = diasDesde(op.updatedAt)
-    const restantes = Math.max(0, declinioDias - dias)
-    if (restantes === 0) {
-      return (
-        <span className={cn('text-[10px] font-medium flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-red-50 dark:bg-red-900/20', TEXT.red)} title="Arquivamento automatico iminente">
-          <Archive className="h-3 w-3 animate-pulse" /> Expirando
-        </span>
-      )
-    }
-    return (
-      <span className={cn('text-[10px] font-medium flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/20', TEXT.amber)} title={`Arquivamento automatico em ${restantes} dia(s)`}>
-        <Archive className="h-3 w-3" /> {restantes}d
-      </span>
-    )
-  }
-
-  // Etapas finais (orçamento, ganho, perdido) — exibir tempo de vida total
-  if (nomeEtapa.includes('orçamento') || nomeEtapa.includes('orcamento') || etapa?.ehGanho || etapa?.ehPerda) {
-    const dias = diasDesde(op.createdAt)
-    return (
-      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title={`Tempo de vida: ${dias} dias`}>
-        <Clock className="h-3 w-3" /> {dias}d
-      </span>
-    )
-  }
-
-  const sla = getSlaStatus(op.updatedAt, etapa?.slaDias)
-  const dias = diasDesde(op.updatedAt)
-
-  if (!sla) {
-    return (
-      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title={`${dias}d nesta etapa`}>
-        <Clock className="h-3 w-3" /> {dias}d
-      </span>
-    )
-  }
-
-  const config = {
-    ok: { label: 'No prazo', text: TEXT.emerald, bg: 'bg-emerald-50 dark:bg-emerald-900/20', pulse: false },
-    warning: { label: 'Vencendo', text: TEXT.amber, bg: 'bg-amber-50 dark:bg-amber-900/20', pulse: false },
-    expired: { label: 'Vencido', text: TEXT.red, bg: 'bg-red-50 dark:bg-red-900/20', pulse: true },
-  }
-  const c = config[sla.status]
-
-  return (
-    <span className={cn('text-[10px] font-medium flex items-center gap-0.5 rounded px-1.5 py-0.5', c.text, c.bg)} title={`${sla.dias}d / ${sla.limite}d`}>
-      <Clock className={cn('h-3 w-3', c.pulse && 'animate-pulse')} />
-      {c.label}
-    </span>
-  )
-}
 
 function SortableEtapaRow({ etapa, onSave, onChangeName, onChangeSla, onDelete }: {
   etapa: Etapa; idx: number

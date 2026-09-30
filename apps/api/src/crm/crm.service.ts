@@ -342,9 +342,21 @@ export class CrmService {
         } catch { /* coluna pode não existir ainda */ }
       }
 
+      // Cliente vinculado (razão social, fantasia e logo) — o card do quadro
+      // mostra a logo e o nome curto, no mesmo desenho do quadro de orçamentos.
+      const clienteIds = [...new Set(ops.map(o => o.clienteId).filter(Boolean))] as string[]
+      const clientes = clienteIds.length > 0
+        ? await prisma.cliente.findMany({
+            where: { id: { in: clienteIds } },
+            select: { id: true, razaoSocial: true, nomeFantasia: true, logoUrl: true, documento: true, tipoDocumento: true },
+          }).catch(() => [])
+        : []
+      const clienteMap = new Map(clientes.map(c => [c.id, c]))
+
       let result = ops.map(o => ({
         ...o,
         numero: numeroMap.get(o.id) ?? null,
+        cliente: o.clienteId ? clienteMap.get(o.clienteId) ?? null : null,
         responsavel: o.responsavelId ? userMap.get(o.responsavelId) || null : null,
         orcamento: orcamentoMap.get(o.id) || null,
         campanha: campanhaMap.get(o.id) || null,
