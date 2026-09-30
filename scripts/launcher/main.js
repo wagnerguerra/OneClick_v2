@@ -3453,27 +3453,73 @@ function registerIpcHandlers() {
       //
       // Mora em arquivo, e nao no banco, porque e registro do DEPLOY, nao da
       // aplicacao — e porque no banco o Prisma o apagava (ver acima).
-      const listSql = await sshExec(cfg, 'ls /opt/oneclick-src/packages/db/prisma/sql/*.sql 2>/dev/null | sort', null, 30000)
-      const sqlFiles = (listSql.stdout || '').trim().split('\n').filter(Boolean)
+      // FALHA FECHADA. Em 30/09 o `cat` do livro estourou os 30s com a VPS sob
+      // carga logo apos o build; a saida vazia foi lida como "nada aplicado" e o
+      // deploy reexecutou os 161 arquivos em producao (parou no 48o, cancelado).
+      // Nem todo SQL aguenta rodar duas vezes — a auditoria daquele dia achou 17
+      // que revertem ajuste feito na tela ou duplicam dado. Por isso as tres
+      // leituras abaixo so valem se CHEGAREM INTEIRAS (codigo 0 e o marcador
+      // @@FIM no fim da saida); senao, tenta de novo com mais folga e, esgotadas
+      // as tentativas, o deploy PARA. Parar custa uma republicacao; seguir as
+      // cegas pode custar dado de cliente.
+      const lerInteiro = async (comando, oQue) => {
+        for (const limite of [60000, 120000, 180000]) {
+          const r = await sshExec(cfg, `${comando}; echo @@FIM`, null, limite).catch(() => ({ code: -1, stdout: '' }))
+          const saida = r.stdout || ''
+          if (r.code === 0 && !r.timedOut && /(^|\n)@@FIM\s*$/.test(saida)) {
+            return saida.replace(/(^|\n)@@FIM\s*$/, '')
+          }
+          deployEmit(66, 'sql', `  · leitura ${oQue} ${r.timedOut ? `expirou (${limite / 1000}s)` : 'veio incompleta'} — tentando de novo`, 'warn')
+          deployCheckAbort('sql', 66)
+        }
+        return null
+      }
+      const pararSql = (motivo) => {
+        deployEmit(66, 'sql', `✗ ${motivo} — deploy interrompido para NÃO reaplicar SQLs já aplicados. Republique quando a VPS aliviar.`, 'err')
+        deployRunning = false
+        return { ok: false, error: motivo }
+      }
+
+      const listSql = await lerInteiro('ls /opt/oneclick-src/packages/db/prisma/sql/*.sql 2>/dev/null | sort', 'da lista de SQLs')
+      if (listSql === null) return pararSql('Não foi possível listar os SQLs cirúrgicos')
+      const sqlFiles = listSql.trim().split('\n').filter(Boolean)
+      if (sqlFiles.length === 0) return pararSql('Nenhum SQL cirúrgico encontrado no repositório da VPS')
 
       // Hashes e livro-caixa numa ida so cada — 128 chamadas SSH para descobrir
       // que nao ha nada a fazer seria pior que o problema.
-      const hashesOut = await sshExec(cfg, 'md5sum /opt/oneclick-src/packages/db/prisma/sql/*.sql 2>/dev/null', null, 60000)
+      const hashesOut = await lerInteiro('md5sum /opt/oneclick-src/packages/db/prisma/sql/*.sql', 'dos hashes')
+      if (hashesOut === null) return pararSql('Não foi possível calcular os hashes dos SQLs')
       const hashPorArquivo = new Map()
-      for (const linha of (hashesOut.stdout || '').trim().split('\n')) {
+      for (const linha of hashesOut.trim().split('\n')) {
         const m = linha.trim().match(/^([0-9a-f]{32})\s+(.+)$/)
         if (m) hashPorArquivo.set(m[2].trim(), m[1])
       }
-      const aplicadosOut = await sshExec(cfg, `cat ${LIVRO} 2>/dev/null`, null, 30000)
-      const jaAplicados = new Set((aplicadosOut.stdout || '').trim().split('\n').map(l => l.trim()).filter(Boolean))
+      // Arquivo sem hash antes entrava na fila "por garantia" — era o mesmo
+      // buraco por outra porta. Agora todo arquivo tem que ter hash.
+      const semHash = sqlFiles.filter(f => !hashPorArquivo.has(f))
+      if (semHash.length > 0) return pararSql(`Sem hash para ${semHash.length} SQL(s) (${semHash.slice(0, 3).map(f => f.split('/').pop()).join(', ')}…)`)
 
-      const pendentes = sqlFiles.filter(f => {
-        const nome = f.split('/').pop()
-        const hash = hashPorArquivo.get(f)
-        // Sem hash (md5sum falhou) o arquivo entra na fila: melhor reaplicar um
-        // SQL idempotente do que pular uma alteracao de schema por engano.
-        return !hash || !jaAplicados.has(`${nome}:${hash}`)
-      })
+      // @@EXISTE confirma que a leitura achou o arquivo. A semeadura la em cima
+      // o cria VAZIO numa instalacao nova (sem tabela antiga para copiar) — ai
+      // aplicar tudo e o certo, e a trava de volume abaixo nao se aplica.
+      const livroOut = await lerInteiro(`if [ -f ${LIVRO} ]; then echo @@EXISTE; cat ${LIVRO}; fi`, 'do livro de SQLs aplicados')
+      if (livroOut === null) return pararSql('Não foi possível ler o livro de SQLs aplicados')
+      const linhasLivro = livroOut.split('\n').map(l => l.trim()).filter(Boolean)
+      const livroExiste = linhasLivro[0] === '@@EXISTE'
+      const jaAplicados = new Set(linhasLivro.filter(l => l !== '@@EXISTE'))
+
+      const pendentes = sqlFiles.filter(f => !jaAplicados.has(`${f.split('/').pop()}:${hashPorArquivo.get(f)}`))
+
+      // Trava de volume: um deploy normal traz 0 a 5 SQLs novos. Com o livro ja
+      // em uso, dezenas pendentes de uma vez significa livro truncado ou
+      // perdido — nao trabalho legitimo. So passa com o livro vazio ou ausente
+      // (instalacao nova, ex.: wpsis).
+      const LIMITE_PENDENTES = 15
+      if (livroExiste && jaAplicados.size > 0 && pendentes.length > LIMITE_PENDENTES) {
+        return pararSql(
+          `${pendentes.length} de ${sqlFiles.length} SQLs aparecem como pendentes (limite ${LIMITE_PENDENTES}) — o livro ${LIVRO} parece incompleto. Confira-o antes de republicar`,
+        )
+      }
 
       const jaFeitos = sqlFiles.length - pendentes.length
       if (pendentes.length === 0) {
@@ -3481,6 +3527,7 @@ function registerIpcHandlers() {
       } else {
         deployEmit(66, 'sql', `→ ${pendentes.length} SQL(s) a aplicar${jaFeitos > 0 ? ` (${jaFeitos} ja aplicado[s])` : ''}`, 'info')
         let sqlFailed = false
+        const naoRegistrados = []
         for (const sqlFile of pendentes) {
           const fname = sqlFile.split('/').pop()
           deployEmit(67, 'sql', `  → ${fname}`, 'info')
@@ -3538,20 +3585,23 @@ function registerIpcHandlers() {
             break
           }
 
-          // Registra no livro-caixa. Falhar aqui nao invalida o deploy: o pior
-          // efeito e o arquivo rodar de novo na proxima publicacao.
+          // Registra no livro-caixa, com ate 3 tentativas. Se ainda assim falhar
+          // o deploy segue (o SQL ja rodou), mas o aviso no fim diz qual linha
+          // falta — senao o arquivo roda de novo na proxima publicacao.
           const hashArquivo = hashPorArquivo.get(sqlFile)
           // Nome vem do `ls` do nosso proprio repo, mas escapar aspas custa
-          // nada e evita que um arquivo mal nomeado quebre o INSERT.
+          // nada e evita que um arquivo mal nomeado quebre o comando.
           const fnameSh = fname.replace(/'/g, "'\\''")
-          if (hashArquivo) {
-            await sshExec(
-              cfg,
-              `echo '${fnameSh}:${hashArquivo}' >> ${LIVRO}`,
-              null,
-              30000,
-            ).catch(() => {})
+          let registrou = false
+          for (const limite of [60000, 120000, 120000]) {
+            const r = await sshExec(cfg, `echo '${fnameSh}:${hashArquivo}' >> ${LIVRO}`, null, limite).catch(() => null)
+            if (r && r.code === 0 && !r.timedOut) { registrou = true; break }
           }
+          if (!registrou) naoRegistrados.push(`${fname}:${hashArquivo}`)
+        }
+        if (naoRegistrados.length > 0) {
+          deployEmit(68, 'sql', `⚠ ${naoRegistrados.length} SQL(s) aplicado(s) mas NÃO registrado(s) no livro — acrescente em ${LIVRO}:`, 'warn')
+          for (const linha of naoRegistrados) deployEmit(68, 'sql', `    ${linha}`, 'warn')
         }
         if (sqlFailed) {
           deployRunning = false

@@ -7,6 +7,8 @@ name: SQL de deploy — ensaio contra banco limpo
 #   1. o schema do Prisma cria as tabelas   (em produção: `prisma db push`)
 #   2. os 143 arquivos de packages/db/prisma/sql/*.sql são aplicados em ordem
 #      alfabética, com ON_ERROR_STOP
+#   3. todos são aplicados DE NOVO, e nenhuma tabela pode mudar — o que o
+#      deploy faz se perder o livro de SQLs aplicados (30/09)
 #
 # POR QUE A ORDEM É O PONTO
 # Em 04/09 um seed derrubou o deploy em produção com
@@ -116,3 +118,17 @@ jobs:
             exit 1
           fi
           echo "Todos os $total arquivos aplicaram limpos."
+
+      # Reaplica tudo por cima e exige que NADA mude. Motivo: em 30/09 o Service
+      # Manager não leu o livro de SQLs aplicados e reexecutou os arquivos em
+      # produção. Arquivo novo tem que aguentar isso.
+      #
+      # Limite honesto: o banco aqui é vazio, então UPDATE sem dado não faz
+      # nada. Esta etapa pega o que quebra ou duplica sozinho (CREATE sem IF NOT
+      # EXISTS, INSERT sem ON CONFLICT/NOT EXISTS, seed que reescreve valor),
+      # não o UPDATE que reverte ajuste feito na tela — esse é regra de revisão:
+      # todo UPDATE/DELETE de correção de dado precisa de condição de "ainda não
+      # corrigido" no WHERE. A defesa principal continua sendo o SM não reaplicar
+      # (leitura do livro em falha fechada + trava de volume).
+      - name: Etapa 3 — reaplica tudo e exige que nada mude (idempotência)
+        run: bash scripts/sql-ensaio-reaplicar.sh packages/db/prisma/sql
