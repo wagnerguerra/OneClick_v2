@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { AlertTriangle, CalendarClock, CheckCircle2, Clock, MailOpen, MailWarning, Send } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { AlertTriangle, CalendarClock, CheckCircle2, Clock, ExternalLink, FileText, Loader2, Mail, MailOpen, MailWarning, Phone, Send, Users } from 'lucide-react'
 import { cn, Switch, Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -181,6 +181,83 @@ function VencimentoGuiaDestaque({ linha: l }: { linha: LinhaEntrega }) {
         </p>
       )}
       <p className="mt-1 text-[10.5px] opacity-75">Lido do PDF anexado no Acessórias.</p>
+    </div>
+  )
+}
+
+interface GuiaAnexada { id: string; nome: string; url: string }
+
+/**
+ * Acesso à guia anexada no Acessórias. O link de lá vale 60 minutos, então é
+ * pedido no clique. A aba nova é aberta JÁ no clique (antes da resposta) —
+ * aberta depois de um await, o navegador a trataria como pop-up e bloquearia.
+ * Mais de um anexo: o painel lista cada um pelo nome real do arquivo.
+ */
+function GuiaDaEntrega({ linha }: { linha: LinhaEntrega }) {
+  const [carregando, setCarregando] = useState(false)
+  const [guias, setGuias] = useState<GuiaAnexada[] | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
+
+  // Outra entrega selecionada: a lista (e os links, que expiram) não vale mais.
+  useEffect(() => { setGuias(null); setErro(null) }, [linha.id])
+
+  const abrir = async () => {
+    const aba = window.open('about:blank', '_blank')
+    setCarregando(true)
+    setErro(null)
+    try {
+      const r: { ok: boolean; guias: GuiaAnexada[]; erro?: string } =
+        await (trpc.acessorias as any).guiasDaEntrega.query({ entregaId: linha.id })
+      if (!r.ok || r.guias.length === 0) {
+        aba?.close()
+        setErro(r.ok ? 'Esta entrega não tem guia anexada no Acessórias.' : (r.erro ?? 'Não foi possível buscar a guia.'))
+        return
+      }
+      if (r.guias.length === 1 && aba) {
+        aba.location.href = r.guias[0]!.url
+      } else {
+        aba?.close()
+      }
+      setGuias(r.guias)
+    } catch {
+      aba?.close()
+      setErro('Não foi possível consultar o Acessórias.')
+    } finally {
+      setCarregando(false)
+    }
+  }
+
+  return (
+    <div>
+      <p className="mb-1 text-[13px] font-semibold text-foreground">Guia</p>
+      <div className="rounded-lg border border-border bg-muted/20 px-3 py-2.5">
+        <button
+          type="button"
+          onClick={abrir}
+          disabled={carregando}
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-[12px] font-medium transition-colors hover:bg-muted disabled:opacity-60"
+        >
+          {carregando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+          Abrir guia
+        </button>
+        {erro && <p className="mt-1.5 text-[11px] text-muted-foreground">{erro}</p>}
+        {guias && guias.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {guias.map((g) => (
+              <li key={g.id}>
+                <a href={g.url} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex max-w-full items-center gap-1.5 text-[12px] text-foreground hover:underline" title={g.nome}>
+                  <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{g.nome}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-1.5 text-[10.5px] leading-snug text-muted-foreground">
+          Arquivo anexado no Acessórias. Abrir por aqui não conta como leitura do cliente.
+        </p>
+      </div>
     </div>
   )
 }
@@ -375,10 +452,77 @@ function Rastreio({ linha }: { linha: LinhaEntrega }) {
             )
           })}
         </ol>
-        <p className="mt-3 border-t border-border/60 pt-2 text-[10.5px] leading-snug text-muted-foreground">
-          O envio para cada destinatário e os comentários ficam só no Acessórias — a API deles não os expõe.
-        </p>
+        <ContatosDoCliente clienteId={linha.clienteId} />
       </div>
+    </div>
+  )
+}
+
+interface Contato { nome: string; email: string | null; celular: string | null }
+
+/**
+ * Contatos da empresa no Acessórias, dentro do rastreio. A API não diz quais
+ * receberam ESTA guia (cada contato recebe só alguns departamentos, e isso não
+ * é exposto) — então o bloco se apresenta como "quem pode ter recebido".
+ */
+function ContatosDoCliente({ clienteId }: { clienteId: string }) {
+  const [estado, setEstado] = useState<{ carregando: boolean; contatos: Contato[]; erro: string | null }>(
+    { carregando: true, contatos: [], erro: null },
+  )
+
+  useEffect(() => {
+    let vivo = true
+    setEstado({ carregando: true, contatos: [], erro: null })
+    ;(trpc.acessorias as any).contatosDoCliente
+      .query({ clienteId })
+      .then((r: { ok: boolean; contatos: Contato[]; erro?: string }) => {
+        if (vivo) setEstado({ carregando: false, contatos: r.contatos ?? [], erro: r.ok ? null : (r.erro ?? 'Falha ao consultar.') })
+      })
+      .catch(() => vivo && setEstado({ carregando: false, contatos: [], erro: 'Falha ao consultar o Acessórias.' }))
+    return () => { vivo = false }
+  }, [clienteId])
+
+  return (
+    <div className="mt-3 border-t border-border/60 pt-2.5">
+      <p className="flex items-center gap-1.5 text-[11.5px] font-semibold text-foreground">
+        <Users className="h-3.5 w-3.5 text-muted-foreground" />
+        Contatos do cliente no Acessórias
+      </p>
+      <p className="mb-1.5 text-[10.5px] leading-snug text-muted-foreground">
+        Quem pode ter recebido a guia. O Acessórias não informa pela API quais destes receberam este envio.
+      </p>
+      {estado.carregando ? (
+        <p className="flex items-center gap-1.5 py-1 text-[11px] text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" />Consultando o Acessórias…
+        </p>
+      ) : estado.erro ? (
+        <p className="py-1 text-[11px] text-muted-foreground">{estado.erro}</p>
+      ) : estado.contatos.length === 0 ? (
+        <p className="py-1 text-[11px] text-muted-foreground">Nenhum contato cadastrado no Acessórias.</p>
+      ) : (
+        <ul className="divide-y divide-border/50">
+          {estado.contatos.map((c, i) => (
+            <li key={`${c.nome}-${i}`} className="py-1.5">
+              <p className="truncate text-[12px] font-medium" title={c.nome}>{c.nome}</p>
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                {c.email && (
+                  <a href={`mailto:${c.email}`} className="inline-flex min-w-0 items-center gap-1 hover:text-foreground hover:underline">
+                    <Mail className="h-3 w-3 shrink-0" /><span className="truncate">{c.email}</span>
+                  </a>
+                )}
+                {c.celular && (
+                  <a href={`tel:${c.celular.replace(/[^\d+]/g, '')}`} className="inline-flex items-center gap-1 hover:text-foreground hover:underline">
+                    <Phone className="h-3 w-3 shrink-0" />{c.celular}
+                  </a>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-2 text-[10.5px] leading-snug text-muted-foreground">
+        O log de envio por destinatário e os comentários ficam só na tela do Acessórias.
+      </p>
     </div>
   )
 }
@@ -434,6 +578,8 @@ export function PainelLeituraEntrega({ linha, podeReclassificar, mostrarCliente,
         </div>
 
         <VencimentoGuiaDestaque linha={linha} />
+
+        <GuiaDaEntrega linha={linha} />
 
         {/* Reclassificação da multa — vale para esta obrigação no cliente, em
             todas as competências. */}

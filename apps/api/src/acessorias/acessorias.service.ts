@@ -1666,6 +1666,98 @@ export class AcessoriasService {
    * "41 entrega(s)" que aparece no resumo da sincronização. Sai do espelho
    * local, não da API: instantâneo e sem gastar requisição.
    */
+  /**
+   * Contatos da empresa cadastrados no Acessórias (`/companies/{CNPJ}/?contacts`).
+   *
+   * É o mais perto que a API chega de "para quem a guia foi enviada": o log de
+   * envio por destinatário só existe na tela deles, e a configuração de quais
+   * departamentos cada contato recebe também não vem (conferido em 30/09/2026 —
+   * a Darwin tem 6 contatos e 5 receberam a guia de ISS). A tela apresenta como
+   * "quem pode ter recebido", nunca como confirmação de envio.
+   *
+   * Buscado na hora em que o painel abre, com cache curto: contato muda pouco,
+   * e o teto da API é 100 req/min.
+   */
+  private contatosCache = new Map<string, { em: number; contatos: Array<{ nome: string; email: string | null; celular: string | null }> }>()
+
+  async contatosDoCliente(clienteId: string, empresaId?: string | null) {
+    const empresa = exigirEmpresa(empresaId)
+    const cli = await prisma.cliente.findFirst({
+      where: { id: clienteId, empresaId: empresa },
+      select: { cnpjAcessorias: true, documento: true },
+    })
+    if (!cli) return { ok: false as const, erro: 'Cliente não encontrado nesta empresa.', contatos: [] }
+    const cache = this.contatosCache.get(clienteId)
+    if (cache && Date.now() - cache.em < 10 * 60_000) return { ok: true as const, contatos: cache.contatos }
+
+    const cnpj = this.normCnpj(cli.cnpjAcessorias ?? cli.documento)
+    const res = await this.request<unknown>(`/companies/${cnpj}/?contacts`)
+    if (!res.ok) return { ok: false as const, erro: `O Acessórias não respondeu (HTTP ${res.status}).`, contatos: [] }
+    const emp = ([] as unknown[]).concat(res.data ?? [])[0] as Record<string, unknown> | undefined
+    const lista = Array.isArray(emp?.ContatosNaEmpresa) ? (emp?.ContatosNaEmpresa as Array<Record<string, unknown>>) : []
+    const texto = (v: unknown) => (v == null ? null : String(v).trim() || null)
+    const contatos = lista
+      .map((c) => ({ nome: texto(c.Nome) ?? '(sem nome)', email: texto(c['E-mail']), celular: texto(c.Celular) }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+    this.contatosCache.set(clienteId, { em: Date.now(), contatos })
+    return { ok: true as const, contatos }
+  }
+
+  /**
+   * Links das guias anexadas a uma entrega, para abrir no painel de leitura.
+   *
+   * Os links do Acessórias (getguiaapi.php?AnxKey=…) valem 60 minutos, então
+   * são pedidos na hora do clique, nunca guardados. O nome do arquivo vem só no
+   * Content-Disposition do download — lido com Range de 1 byte, sem baixar a
+   * guia inteira. Baixar/abrir por esse link não conta como leitura do cliente
+   * (testado e conferido no histórico deles em 30/09/2026).
+   */
+  async guiasDaEntrega(entregaId: string, empresaId?: string | null) {
+    const empresa = exigirEmpresa(empresaId)
+    const e = await prisma.acessoriasEntrega.findFirst({
+      where: { id: entregaId, ...daCarteira(empresa) },
+      select: { entId: true, prazo: true, cliente: { select: { cnpjAcessorias: true, documento: true } } },
+    })
+    if (!e) return { ok: false as const, erro: 'Entrega não encontrada nesta empresa.', guias: [] }
+    if (!e.prazo) return { ok: false as const, erro: 'Entrega sem prazo — não dá para localizá-la no Acessórias.', guias: [] }
+
+    // DtInitial/DtFinal filtram pelo prazo técnico (EntDtPrazo) — o `prazo` daqui.
+    const dia = e.prazo.toISOString().slice(0, 10)
+    const cnpj = this.normCnpj(e.cliente.cnpjAcessorias ?? e.cliente.documento)
+    const res = await this.request<unknown>(`/deliveries/${cnpj}?DtInitial=${dia}&DtFinal=${dia}&config&attachments=S&attachmentsId=S`)
+    if (!res.ok) return { ok: false as const, erro: `O Acessórias não respondeu (HTTP ${res.status}).`, guias: [] }
+
+    let entrega: Record<string, unknown> | undefined
+    for (const emp of ([] as unknown[]).concat(res.data ?? [])) {
+      for (const d of ((emp as Record<string, unknown>).Entregas as Array<Record<string, unknown>> | undefined) ?? []) {
+        if (String((d.Config as Record<string, unknown> | undefined)?.EntID ?? '') === e.entId) entrega = d
+      }
+    }
+    const urls = Array.isArray(entrega?.Anexos) ? (entrega?.Anexos as unknown[]).map(String).filter(Boolean) : []
+    const ids = Array.isArray(entrega?.AnexosIDs) ? (entrega?.AnexosIDs as unknown[]).map(String) : []
+
+    const guias = await Promise.all(urls.slice(0, 10).map(async (url, i) => {
+      let nome: string | null = null
+      try {
+        const r = await fetch(url, { headers: { Range: 'bytes=0-0' }, signal: AbortSignal.timeout(10_000) })
+        // O Acessórias manda o nome em UTF-8 cru, e o fetch expõe cabeçalho como
+        // latin1 ("SERVIÃOS"): reinterpreta os bytes, e só fica com a versão
+        // UTF-8 se ela for válida.
+        const cru = r.headers.get('content-disposition') ?? ''
+        const utf8 = Buffer.from(cru, 'latin1').toString('utf8')
+        const cd = utf8.includes('�') ? cru : utf8
+        const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+        if (m?.[1]) {
+          const bruto = m[1].trim()
+          try { nome = decodeURIComponent(bruto) } catch { nome = bruto }
+        }
+        await r.body?.cancel().catch(() => null)
+      } catch { /* sem nome: a tela mostra "Guia N" */ }
+      return { id: ids[i] ?? String(i + 1), nome: nome ?? `Guia ${i + 1}`, url }
+    }))
+    return { ok: true as const, guias }
+  }
+
   async entregasDoCliente(input: { clienteId: string; de?: string; ate?: string }, empresaId?: string | null) {
     const rows = await prisma.acessoriasEntrega.findMany({
       where: {
