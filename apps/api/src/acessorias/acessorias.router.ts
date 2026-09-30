@@ -114,7 +114,7 @@ export function createAcessoriasRouter(
      */
     cancelarSync: integracaoProc()
       .input(z.object({ logId: z.string().min(1) }))
-      .mutation(({ input }) => svc.cancelarSync(input.logId)),
+      .mutation(({ input, ctx }) => svc.cancelarSync(input.logId, ctx.empresaId ?? null)),
 
     // Varre a carteira no Acessórias e GRAVA o resultado — ação sob demanda.
     listObligationsObserved: integracaoProc()
@@ -141,11 +141,11 @@ export function createAcessoriasRouter(
 
     removeObligationServico: integracaoProc()
       .input(z.object({ mapId: z.string() }))
-      .mutation(({ input }) => svc.removeObligationServico(input.mapId)),
+      .mutation(({ input, ctx }) => svc.removeObligationServico(input.mapId, ctx.empresaId ?? null)),
 
     setObligationServicoActive: integracaoProc()
       .input(z.object({ mapId: z.string(), ativo: z.boolean() }))
-      .mutation(({ input }) => svc.setObligationServicoActive(input.mapId, input.ativo)),
+      .mutation(({ input, ctx }) => svc.setObligationServicoActive(input.mapId, input.ativo, ctx.empresaId ?? null)),
 
     setObligationIgnored: integracaoProc()
       .input(z.object({ nome: z.string(), ignored: z.boolean() }))
@@ -191,7 +191,7 @@ export function createAcessoriasRouter(
         idAcessorias: z.coerce.number().int().positive(),
         cnpjAcessorias: z.string().optional(),
       }))
-      .mutation(({ input }) => svc.vincularEmpresaCliente(input)),
+      .mutation(({ input, ctx }) => svc.vincularEmpresaCliente(input, ctx.empresaId ?? null)),
 
     resumoVinculos: integracaoProc()
       .query(({ ctx }) => svc.resumoVinculos(ctx.empresaId ?? null)),
@@ -219,6 +219,7 @@ export function createAcessoriasRouter(
       .mutation(({ input, ctx }) =>
         svc.createCompanyInAcessorias(input.clienteId, {
           triggeredBy: ctx.userId ?? undefined,
+          empresaId: ctx.empresaId ?? null,
         }),
       ),
 
@@ -277,9 +278,9 @@ export function createAcessoriasRouter(
 
     removerRegraObrigacao: integracaoProc()
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => {
+      .mutation(({ input, ctx }) => {
         if (!regrasSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
-        return regrasSvc.remover(input.id)
+        return regrasSvc.remover(input.id, ctx.empresaId ?? null)
       }),
 
     // Recebe o filtro atual: cada campo passa a oferecer só o que ainda produz
@@ -341,16 +342,16 @@ export function createAcessoriasRouter(
 
     vincularColaborador: integracaoProc()
       .input(z.object({ id: z.string(), userId: z.string().nullable() }))
-      .mutation(({ input }) => {
+      .mutation(({ input, ctx }) => {
         if (!vinculosSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
-        return vinculosSvc.vincularColaborador(input.id, input.userId)
+        return vinculosSvc.vincularColaborador(input.id, input.userId, ctx.empresaId ?? null)
       }),
 
     vincularDepartamento: integracaoProc()
       .input(z.object({ id: z.string(), areaId: z.string().nullable() }))
-      .mutation(({ input }) => {
+      .mutation(({ input, ctx }) => {
         if (!vinculosSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
-        return vinculosSvc.vincularDepartamento(input.id, input.areaId)
+        return vinculosSvc.vincularDepartamento(input.id, input.areaId, ctx.empresaId ?? null)
       }),
 
     painelEntregasOpcoes: painelProc()

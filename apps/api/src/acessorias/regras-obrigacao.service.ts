@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import { exigirEmpresa } from './recorte-carteira'
 
 /**
  * Regras de aplicabilidade das obrigações do Acessórias.
@@ -109,8 +110,10 @@ export class RegrasObrigacaoService {
     return { regra: { id: regra.id }, removidos }
   }
 
-  async remover(id: string) {
-    await prisma.acessoriasRegraObrigacao.delete({ where: { id } })
+  async remover(id: string, empresaId?: string | null) {
+    // Só regra da empresa carregada.
+    const r = await prisma.acessoriasRegraObrigacao.deleteMany({ where: { id, empresaId: exigirEmpresa(empresaId) } })
+    if (r.count === 0) throw new Error('Regra não encontrada.')
     return { ok: true }
   }
 

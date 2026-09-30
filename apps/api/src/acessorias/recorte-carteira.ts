@@ -25,3 +25,21 @@ export function daCarteira(empresaId?: string | null): Prisma.AcessoriasEntregaW
     cliente: { is: { ...CLIENTE_ATIVO_MENSAL, ...(empresaId ? { empresaId } : {}) } },
   }
 }
+
+/**
+ * Rotinas que GRAVAM (sincronizar, vincular, remover…) só agem na empresa
+ * carregada. Sem empresa no contexto, recusam — antes caíam num "sem filtro"
+ * e alcançavam clientes e registros de todas as empresas.
+ */
+export function exigirEmpresa(empresaId: string | null | undefined): string {
+  if (!empresaId) throw new Error('Selecione a empresa antes de usar a integração com o Acessórias.')
+  return empresaId
+}
+
+/** Entregas da empresa cujo cliente saiu da carteira (inativo, avulso, paralisado…). */
+export function foraDaCarteira(empresaId: string): Prisma.AcessoriasEntregaWhereInput {
+  return {
+    empresaId,
+    cliente: { is: { OR: [{ status: { not: CLIENTE_ATIVO_MENSAL.status } }, { situacao: { not: CLIENTE_ATIVO_MENSAL.situacao } }] } },
+  }
+}

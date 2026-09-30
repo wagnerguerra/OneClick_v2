@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import { RegrasObrigacaoService } from './regras-obrigacao.service'
-import { CLIENTE_ATIVO_MENSAL, daCarteira } from './recorte-carteira'
+import { CLIENTE_ATIVO_MENSAL, daCarteira, exigirEmpresa, foraDaCarteira } from './recorte-carteira'
 
 /**
  * Cliente HTTP do Acessórias (https://api.acessorias.com).
@@ -308,6 +308,7 @@ export class AcessoriasService {
    *   - Cliente não existe → ignora (apenas conta) — NÃO cria cliente novo
    *     automaticamente (decisão consciente: cliente vem da nossa origem). */
   async syncCompanies(opts: { triggeredBy?: string; empresaId?: string | null }) {
+    const empresaDaSync = exigirEmpresa(opts.empresaId)
     const log = await prisma.acessoriasSyncLog.create({
       data: {
         tipo: 'companies',
@@ -353,6 +354,8 @@ export class AcessoriasService {
           const cliente = await prisma.cliente.findFirst({
             where: {
               ...CLIENTE_ATIVO_MENSAL,
+              // Só clientes da empresa carregada — antes casava com o de qualquer empresa.
+              empresaId: empresaDaSync,
               OR: [
                 { idAcessorias: idAcess },
                 { documento: cnpjKey },
@@ -477,6 +480,7 @@ export class AcessoriasService {
     triggeredBy?: string
     empresaId?: string | null
   }) {
+    exigirEmpresa(opts.empresaId)
     const log = await prisma.acessoriasSyncLog.create({
       data: {
         tipo: 'deliveries',
@@ -545,9 +549,9 @@ export class AcessoriasService {
    * O que separa os dois é o sinal de vida: um laço vivo bate o ponto a cada
    * cliente. Silêncio prolongado significa que não há ninguém do outro lado.
    */
-  async cancelarSync(logId: string) {
-    const log = await prisma.acessoriasSyncLog.findUnique({
-      where: { id: logId },
+  async cancelarSync(logId: string, empresaId?: string | null) {
+    const log = await prisma.acessoriasSyncLog.findFirst({
+      where: { id: logId, empresaId: exigirEmpresa(empresaId) },
       select: { id: true, status: true, heartbeatEm: true, startedAt: true, progressoAtual: true, progressoTotal: true },
     })
     if (!log) throw new Error('Sincronização não encontrada.')
@@ -621,9 +625,17 @@ export class AcessoriasService {
       }
 
       // Resolve lista de clientes a sincronizar
+      // Quem saiu da carteira desde a última leitura (inativado, virou avulso…)
+      // deixa de ter entregas no espelho — senão elas se acumulavam (em 30/09/2026
+      // eram 2.914). As telas já filtram na leitura; isto mantém a tabela limpa.
+      await prisma.acessoriasEntrega.deleteMany({ where: foraDaCarteira(exigirEmpresa(opts.empresaId)) })
+        .catch(() => null)
+
       const clientes = await prisma.cliente.findMany({
         where: {
           ...CLIENTE_ATIVO_MENSAL,
+          // Só clientes da empresa carregada — antes sincronizava os de todas.
+          empresaId: exigirEmpresa(opts.empresaId),
           ...(opts.clienteId ? { id: opts.clienteId } : { idAcessorias: { not: null } }),
         },
         select: { id: true, documento: true, idAcessorias: true, cnpjAcessorias: true, empresaId: true, razaoSocial: true },
@@ -1089,13 +1101,17 @@ export class AcessoriasService {
   }
 
   /** Remove um vínculo específico (uma row). */
-  async removeObligationServico(mapId: string) {
-    return prisma.acessoriasObligationMap.delete({ where: { id: mapId } })
+  async removeObligationServico(mapId: string, empresaId?: string | null) {
+    const r = await prisma.acessoriasObligationMap.deleteMany({ where: { id: mapId, empresaId: exigirEmpresa(empresaId) } })
+    if (r.count === 0) throw new Error('Vínculo não encontrado.')
+    return { ok: true }
   }
 
   /** Toggle ativo de um vínculo específico. */
-  async setObligationServicoActive(mapId: string, ativo: boolean) {
-    return prisma.acessoriasObligationMap.update({ where: { id: mapId }, data: { ativo } })
+  async setObligationServicoActive(mapId: string, ativo: boolean, empresaId?: string | null) {
+    const r = await prisma.acessoriasObligationMap.updateMany({ where: { id: mapId, empresaId: exigirEmpresa(empresaId) }, data: { ativo } })
+    if (r.count === 0) throw new Error('Vínculo não encontrado.')
+    return prisma.acessoriasObligationMap.findUnique({ where: { id: mapId } })
   }
 
   /** Marca/desmarca obrigação como "explicitamente ignorada" (row com servicoId=null).
@@ -1228,9 +1244,9 @@ export class AcessoriasService {
    *  geral do escritório. Pra customizar quais obrigações estão ativas pra
    *  esse cliente específico, ainda é necessário entrar no portal do Acessórias.
    *  (A API não expõe endpoint pra (des)ativar obrigações por cliente.) */
-  async createCompanyInAcessorias(clienteId: string, opts?: { triggeredBy?: string }) {
-    const cliente = await prisma.cliente.findUnique({
-      where: { id: clienteId },
+  async createCompanyInAcessorias(clienteId: string, opts?: { triggeredBy?: string; empresaId?: string | null }) {
+    const cliente = await prisma.cliente.findFirst({
+      where: { id: clienteId, empresaId: exigirEmpresa(opts?.empresaId) },
       select: {
         id: true, razaoSocial: true, nomeFantasia: true, documento: true, tipoDocumento: true,
         tributacao: true, inscricaoEstadual: true, inscricaoMunicipal: true,
@@ -1623,16 +1639,18 @@ export class AcessoriasService {
     clienteId: string
     idAcessorias: number
     cnpjAcessorias?: string | null
-  }) {
+  }, empresaId?: string | null) {
+    const empresa = exigirEmpresa(empresaId)
     const alvo = await prisma.cliente.findFirst({
-      where: { id: input.clienteId, ...CLIENTE_ATIVO_MENSAL },
+      where: { id: input.clienteId, ...CLIENTE_ATIVO_MENSAL, empresaId: empresa },
       select: { id: true },
     })
     if (!alvo) {
       throw new Error('Só é possível vincular a um cliente ativo e de situação mensal.')
     }
     const jaUsado = await prisma.cliente.findFirst({
-      where: { idAcessorias: input.idAcessorias, id: { not: input.clienteId } },
+      // Duplicidade dentro da empresa: cada instalação tem a sua conta do Acessórias.
+      where: { idAcessorias: input.idAcessorias, id: { not: input.clienteId }, empresaId: empresa },
       select: { id: true, code: true, razaoSocial: true },
     })
     if (jaUsado) {

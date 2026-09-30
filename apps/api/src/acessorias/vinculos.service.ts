@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { prisma, Prisma } from '@saas/db'
+import { exigirEmpresa } from './recorte-carteira'
 
 /**
  * Liga o que vem do Acessórias ao nosso cadastro: colaborador → usuário e
@@ -102,8 +103,17 @@ export class VinculosAcessoriasService {
       // responsável no histórico do Acessórias, e só dá para ocultar a pessoa
       // se soubermos QUEM ela é. Filtrar aqui deixaria o ex-colaborador como
       // "sem vínculo", indistinguível de um nome que não casou.
-      prisma.user.findMany({ select: { id: true, name: true, areaId: true, isActive: true } }),
-      prisma.area.findMany({ select: { id: true, name: true } }),
+      // Só usuários e áreas da empresa (ou globais, sem empresa — como o
+      // master), o mesmo critério dos filtros do painel. Antes buscava em
+      // todas as empresas e podia casar com a pessoa de outra instalação.
+      prisma.user.findMany({
+        where: empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {},
+        select: { id: true, name: true, areaId: true, isActive: true },
+      }),
+      prisma.area.findMany({
+        where: empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {},
+        select: { id: true, name: true },
+      }),
       prisma.acessoriasColaborador.findMany({ where: escopo, select: { id: true, nome: true, origem: true, userId: true, acessoriasId: true } }),
       prisma.acessoriasDepartamento.findMany({ where: escopo, select: { id: true, nome: true, origem: true, areaId: true, acessoriasId: true } }),
     ])
@@ -326,17 +336,26 @@ export class VinculosAcessoriasService {
   }
 
   /** Correção manual — a partir daqui a rotina automática não mexe mais nesta linha. */
-  async vincularColaborador(id: string, userId: string | null) {
-    return prisma.acessoriasColaborador.update({
-      where: { id }, data: { userId, origem: 'MANUAL' },
-      select: { id: true, nome: true, userId: true, origem: true },
-    })
+  async vincularColaborador(id: string, userId: string | null, empresaId?: string | null) {
+    const empresa = exigirEmpresa(empresaId)
+    // O colaborador e o usuário escolhido precisam ser da empresa carregada.
+    if (userId) {
+      const u = await prisma.user.findFirst({ where: { id: userId, OR: [{ empresaId: empresa }, { empresaId: null }] }, select: { id: true } })
+      if (!u) throw new Error('Usuário não encontrado.')
+    }
+    const r = await prisma.acessoriasColaborador.updateMany({ where: { id, empresaId: empresa }, data: { userId, origem: 'MANUAL' } })
+    if (r.count === 0) throw new Error('Colaborador não encontrado.')
+    return prisma.acessoriasColaborador.findUnique({ where: { id }, select: { id: true, nome: true, userId: true, origem: true } })
   }
 
-  async vincularDepartamento(id: string, areaId: string | null) {
-    return prisma.acessoriasDepartamento.update({
-      where: { id }, data: { areaId, origem: 'MANUAL' },
-      select: { id: true, nome: true, areaId: true, origem: true },
-    })
+  async vincularDepartamento(id: string, areaId: string | null, empresaId?: string | null) {
+    const empresa = exigirEmpresa(empresaId)
+    if (areaId) {
+      const a = await prisma.area.findFirst({ where: { id: areaId, OR: [{ empresaId: empresa }, { empresaId: null }] }, select: { id: true } })
+      if (!a) throw new Error('Área não encontrada.')
+    }
+    const r = await prisma.acessoriasDepartamento.updateMany({ where: { id, empresaId: empresa }, data: { areaId, origem: 'MANUAL' } })
+    if (r.count === 0) throw new Error('Departamento não encontrado.')
+    return prisma.acessoriasDepartamento.findUnique({ where: { id }, select: { id: true, nome: true, areaId: true, origem: true } })
   }
 }
