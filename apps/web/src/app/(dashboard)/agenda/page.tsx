@@ -2363,7 +2363,7 @@ export default function AgendaPage() {
                           onClick={() => setViewTab(t.value as typeof viewTab)}
                           className={cn(
                             'px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5',
-                            viewTab === t.value ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+                            viewTab === t.value ? 'border-primary-on-surface text-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground'
                           )}
                         >
                           <t.icon className="h-3.5 w-3.5 shrink-0" />{t.label}
@@ -2417,7 +2417,7 @@ export default function AgendaPage() {
                             href={ev.link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={cn('inline-flex items-center gap-1.5 hover:underline truncate max-w-full', TEXT.sky)}
+                            className="inline-flex items-center gap-1.5 hover:underline truncate max-w-full text-primary-on-surface"
                           >
                             <span className="truncate">{ev.link}</span>
                             <ExternalLink className="h-3.5 w-3.5 shrink-0" />
