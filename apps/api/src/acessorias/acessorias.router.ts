@@ -324,7 +324,7 @@ export function createAcessoriasRouter(
         tipo: z.enum(['pessoa', 'area']),
         medida: z.enum([
           'pendenteNoPrazo', 'pendenteAtrasado', 'pendenteComMulta',
-          'entregueNoPrazo', 'entregueComAtraso', 'entregueComMulta',
+          'entregueNoPrazo', 'entregueComAtraso', 'entregueComMulta', 'entregueNaoLidaComMulta',
         ]),
       }))
       .query(({ input, ctx }) => {

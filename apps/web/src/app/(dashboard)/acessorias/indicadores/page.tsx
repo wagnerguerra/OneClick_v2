@@ -37,6 +37,7 @@ interface Cartao {
   entregueNoPrazo: number
   entregueComAtraso: number
   entregueComMulta: number
+  entregueNaoLidaComMulta: number
 }
 interface Pendente {
   id: string
@@ -102,7 +103,15 @@ const MEDIDAS = [
     cor: TEXT.violet,  bg: 'bg-violet-100 dark:bg-violet-900/30', hex: '#7c3aed' },
   { campo: 'entregueComMulta',  label: 'Entregues com multa',  ajuda: 'Das entregues com atraso, as que geram multa.',
     cor: 'text-rose-700 dark:text-rose-300',      bg: 'bg-rose-100 dark:bg-rose-900/30',     hex: '#be123c' },
+  // Recorte das entregues (no prazo ou não): fica FORA da rosca e do total,
+  // senão a mesma entrega contaria duas vezes.
+  { campo: 'entregueNaoLidaComMulta', label: 'Entregues, não abertas e passíveis de multa',
+    ajuda: 'Guias entregues que o cliente ainda não abriu, em obrigação sujeita a multa. Cobre a leitura: se não pagar, a multa vem.',
+    cor: TEXT.orange, bg: 'bg-orange-100 dark:bg-orange-900/30', hex: '#ea580c', recorte: true },
 ] as const
+
+/** As medidas que particionam o período — as que entram na rosca e no total. */
+const MEDIDAS_ROSCA = MEDIDAS.filter((m) => !('recorte' in m))
 
 const TITULO_ESCOPO: Record<Retorno['escopo'], { titulo: string; nota: string }> = {
   PROPRIO:       { titulo: 'Minhas obrigações',   nota: 'o que está sob a sua responsabilidade' },
@@ -315,10 +324,10 @@ function RoscaSituacao({ cartao, tamanho = 96, destaque }: {
   const espessuraMax = espessura + 6
   const raio = (tamanho - espessuraMax) / 2
   const circunferencia = 2 * Math.PI * raio
-  const total = MEDIDAS.reduce((soma, m) => soma + cartao[m.campo], 0)
+  const total = MEDIDAS_ROSCA.reduce((soma, m) => soma + cartao[m.campo], 0)
 
   let percorrido = 0
-  const fatias = total === 0 ? [] : MEDIDAS.flatMap((m) => {
+  const fatias = total === 0 ? [] : MEDIDAS_ROSCA.flatMap((m) => {
     const valor = cartao[m.campo]
     if (valor === 0) return []
     const comprimento = (valor / total) * circunferencia
@@ -426,7 +435,7 @@ function AvisoCobertura({ dados, recorte }: { dados: Retorno | null; recorte: Re
 function CartaoIndicador({ cartao, destaque, onAbrir }: {
   cartao: Cartao; destaque?: boolean; onAbrir?: (medida: Medida) => void
 }) {
-  const total = MEDIDAS.reduce((soma, m) => soma + cartao[m.campo], 0)
+  const total = MEDIDAS_ROSCA.reduce((soma, m) => soma + cartao[m.campo], 0)
   const [emFoco, setEmFoco] = useState<Medida | null>(null)
   return (
     <Card className={cn('overflow-hidden', destaque && 'border-current')} style={destaque ? { borderColor: MODULE_COLOR } : undefined}>
@@ -448,9 +457,9 @@ function CartaoIndicador({ cartao, destaque, onAbrir }: {
               type="button"
               disabled={!clicavel}
               onClick={clicavel ? () => onAbrir?.(m.campo) : undefined}
-              onMouseEnter={() => valor > 0 && setEmFoco(m.campo)}
+              onMouseEnter={() => valor > 0 && !('recorte' in m) && setEmFoco(m.campo)}
               onMouseLeave={() => setEmFoco(null)}
-              onFocus={() => valor > 0 && setEmFoco(m.campo)}
+              onFocus={() => valor > 0 && !('recorte' in m) && setEmFoco(m.campo)}
               onBlur={() => setEmFoco(null)}
               title={clicavel ? `${m.ajuda} Clique para ver a lista.` : m.ajuda}
               className={cn(

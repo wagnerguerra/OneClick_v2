@@ -36,6 +36,12 @@ export interface Indicadores {
   entregueNoPrazo: number
   entregueComAtraso: number
   entregueComMulta: number
+  /**
+   * Entregues, sujeitas a multa, cuja guia o cliente ainda não abriu. É um
+   * recorte das entregues (atravessa "no prazo" e "com atraso"), não um balde
+   * a mais — a tela não o soma no total nem na rosca.
+   */
+  entregueNaoLidaComMulta: number
 }
 
 export interface CartaoIndicadores extends Indicadores {
@@ -51,6 +57,7 @@ export interface CartaoIndicadores extends Indicadores {
 const zerado = (): Indicadores => ({
   pendenteNoPrazo: 0, pendenteAtrasado: 0, pendenteComMulta: 0,
   entregueNoPrazo: 0, entregueComAtraso: 0, entregueComMulta: 0,
+  entregueNaoLidaComMulta: 0,
 })
 
 const STATUS_ENTREGUE = ['ent. antecipada', 'ent. pztéc', 'ent. pztec', 'ent. atrasada', 'entregue']
@@ -66,6 +73,8 @@ interface LinhaCrua {
   dtAtraso: Date | null
   dtEntrega: Date | null
   multa: boolean
+  /** true = lida, false = não lida, null = sem guia para abrir. */
+  lida: boolean | null
   respPrazo: string | null
   respEntrega: string | null
   dpto: string | null
@@ -103,6 +112,10 @@ export class IndicadoresAcessoriasService {
 
     const entregue = l.dtEntrega !== null || STATUS_ENTREGUE.some((x) => s.startsWith(norm(x)))
     if (entregue) {
+      // Guia entregue que o cliente não abriu, em obrigação sujeita a multa: o
+      // escritório cumpriu, mas se o cliente não pagar a multa vem do mesmo
+      // jeito. Independe de ter sido no prazo — por isso conta antes da régua.
+      if (l.multa && l.lida === false) acc.entregueNaoLidaComMulta++
       // Comparar a data de entrega com o limite responde às duas réguas com a
       // mesma conta. Pela legal, o "Ent. PzTéc" cai como em dia (foi entregue
       // antes do prazo do órgão); pela técnica, cai como atraso — que é
@@ -225,7 +238,7 @@ export class IndicadoresAcessoriasService {
     const linhas = await prisma.acessoriasEntrega.findMany({
       where,
       select: {
-        status: true, prazo: true, dtAtraso: true, dtEntrega: true, multa: true,
+        status: true, prazo: true, dtAtraso: true, dtEntrega: true, multa: true, lida: true,
         respPrazo: true, respEntrega: true, dpto: true, nome: true, clienteId: true,
       },
     })
@@ -313,6 +326,7 @@ export class IndicadoresAcessoriasService {
       total.entregueNoPrazo += c.entregueNoPrazo
       total.entregueComAtraso += c.entregueComAtraso
       total.entregueComMulta += c.entregueComMulta
+      total.entregueNaoLidaComMulta += c.entregueNaoLidaComMulta
     }
 
     return {
@@ -408,7 +422,7 @@ export class IndicadoresAcessoriasService {
       orderBy: [{ dtAtraso: 'asc' }, { prazo: 'asc' }],
       select: {
         id: true, nome: true, competencia: true, prazo: true, dtAtraso: true, dtEntrega: true,
-        status: true, multa: true, dpto: true, respPrazo: true, respEntrega: true, clienteId: true,
+        status: true, multa: true, lida: true, dpto: true, respPrazo: true, respEntrega: true, clienteId: true,
         cliente: { select: { id: true, code: true, razaoSocial: true } },
       },
     })
