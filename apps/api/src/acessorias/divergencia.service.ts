@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import { AcessoriasService } from './acessorias.service'
+import { CLIENTE_ATIVO_MENSAL } from './recorte-carteira'
 
 /**
  * Relatório de divergências entre o cadastro de clientes do OneClick e as
@@ -118,7 +119,7 @@ export class DivergenciaAcessoriasService {
       // Mesmo recorte da sincronização: ativo e mensal. Comparar prospect e
       // avulso encheria o relatório de divergência que ninguém vai conciliar.
       where: {
-        status: 'ATIVO', situacao: 'MENSAL',
+        ...CLIENTE_ATIVO_MENSAL,
         ...(empresaId ? { empresaId } : {}),
       },
       select: {

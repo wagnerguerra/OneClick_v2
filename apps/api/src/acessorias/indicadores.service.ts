@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { prisma, Prisma } from '@saas/db'
 import { VinculosAcessoriasService } from './vinculos.service'
+import { daCarteira } from './recorte-carteira'
 
 /**
  * Painel de indicadores das obrigações — seis números por cartão.
@@ -166,8 +167,10 @@ export class IndicadoresAcessoriasService {
     const hoje = new Date()
     hoje.setHours(0, 0, 0, 0)
 
-    const escopoEmpresa: Prisma.AcessoriasEntregaWhereInput =
-      !ctx.isMaster && empresaId ? { empresaId } : {}
+    // Empresa carregada — também para o master: a tela mostra a carteira da
+    // empresa em que ele está, como o painel de entregas. E só cliente mensal
+    // ativo (ver recorte-carteira.ts).
+    const escopoEmpresa: Prisma.AcessoriasEntregaWhereInput = daCarteira(empresaId)
 
     // Competência e período são excludentes: quem escolheu a competência quer o
     // fechamento daquele mês inteiro, independentemente de quando vence.
@@ -321,7 +324,7 @@ export class IndicadoresAcessoriasService {
       areaNome: user?.area?.name ?? null,
       ocultosInativos,
       cobertura,
-      foraPorRegra: await this.foraPorRegra(),
+      foraPorRegra: await this.foraPorRegra(empresaId),
     }
   }
 
@@ -336,9 +339,10 @@ export class IndicadoresAcessoriasService {
    * Sem isso alguém compara com o e-mail, acha 51 entregas de diferença e
    * desconfia do sistema — foi exatamente o que aconteceu em 10/08.
    */
-  private async foraPorRegra() {
+  private async foraPorRegra(empresaId?: string | null) {
+    // Regras e contagem da empresa carregada (antes somava todas as empresas).
     const regras = await prisma.acessoriasRegraObrigacao.findMany({
-      where: { considerar: false },
+      where: { considerar: false, ...(empresaId ? { empresaId } : {}) },
       select: { nome: true, clienteId: true },
     }).catch(() => [])
     if (regras.length === 0) return { nomes: [] as string[], ocorrencias: 0 }
@@ -351,6 +355,7 @@ export class IndicadoresAcessoriasService {
       SELECT coalesce(sum(ocorrencias), 0)::bigint AS n
       FROM acessorias_obrigacoes_observadas
       WHERE lower(btrim(nome)) = ANY(${nomes.map(n => n.toLowerCase())}::text[])
+        AND (${empresaId ?? null}::text IS NULL OR empresa_id = ${empresaId ?? null})
     `.catch(() => [{ n: BigInt(0) }])
 
     return { nomes, ocorrencias: Number(observadas[0]?.n ?? 0) }
@@ -376,7 +381,7 @@ export class IndicadoresAcessoriasService {
     hoje.setHours(0, 0, 0, 0)
 
     const filtros: Prisma.AcessoriasEntregaWhereInput[] = [
-      ...(!ctx.isMaster && empresaId ? [{ empresaId }] : []),
+      daCarteira(empresaId),
       ...(input.competencia ? [{ competencia: this.mesDaCompetencia(input.competencia) }] : []),
       ...(input.competencia || !input.de ? [] : [this.limiteNoPeriodo(regua, 'gte', input.de)]),
       ...(input.competencia || !input.ate ? [] : [this.limiteNoPeriodo(regua, 'lte', input.ate)]),

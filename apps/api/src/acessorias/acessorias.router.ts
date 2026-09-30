@@ -179,7 +179,7 @@ export function createAcessoriasRouter(
         de: z.string().optional(),
         ate: z.string().optional(),
       }))
-      .query(({ input }) => svc.entregasDoCliente(input)),
+      .query(({ input, ctx }) => svc.entregasDoCliente(input, ctx.empresaId ?? null)),
 
     empresasDaUltimaSync: integracaoProc()
       .input(z.object({ situacao: z.enum(['casada', 'atualizada', 'ignorada', 'inativa']) }))
@@ -209,7 +209,7 @@ export function createAcessoriasRouter(
 
     listSyncLogs: integracaoProc()
       .input(z.object({ limit: z.coerce.number().int().min(1).max(200).optional() }).optional())
-      .query(({ input }) => svc.listSyncLogs(input?.limit)),
+      .query(({ input, ctx }) => svc.listSyncLogs(input?.limit, ctx.empresaId ?? null)),
 
     /** Cadastra (ou atualiza) o Cliente no Acessórias via POST /companies.
      *  Lê Cliente local, mapeia tributacao→regime, dispara request e grava

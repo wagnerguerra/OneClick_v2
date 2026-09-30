@@ -341,7 +341,7 @@ export default function PainelEntregasPage() {
           </Button>
           <BackButton href="/" label="Voltar" />
       </>}>
-        <h1 className="truncate">Entregas e leitura das guias</h1>
+        <h1 className="truncate">Acessórias</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
           <span className="text-muted-foreground/50">›</span>
@@ -349,7 +349,7 @@ export default function PainelEntregasPage() {
           <span className="text-muted-foreground/50">›</span>
           <span>Acessórias</span>
           <span className="text-muted-foreground/50">›</span>
-          <span>Entregas e leitura das guias</span>
+          <span>Entregas e guias</span>
         </p>
       </PageHeaderBar>
 

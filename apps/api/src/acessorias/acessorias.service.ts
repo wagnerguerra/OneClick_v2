@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import { RegrasObrigacaoService } from './regras-obrigacao.service'
+import { CLIENTE_ATIVO_MENSAL, daCarteira } from './recorte-carteira'
 
 /**
  * Cliente HTTP do Acessórias (https://api.acessorias.com).
@@ -44,7 +45,6 @@ export interface AcessoriasResponse<T = unknown> {
  * prospect, potencial, avulso e paralisado — gasta requisição, infla o
  * histórico e enche a lista de pendências com quem não deveria estar lá.
  */
-const CLIENTE_ATIVO_MENSAL = { status: 'ATIVO', situacao: 'MENSAL' } as const
 
 /**
  * Silêncio a partir do qual uma sincronização "rodando" é dada como morta.
@@ -1325,8 +1325,10 @@ export class AcessoriasService {
     return { ok: true, idAcessorias: respId, mensagem: msg, atualizou: cliente.idAcessorias === respId }
   }
 
-  async listSyncLogs(limit = 50) {
+  async listSyncLogs(limit = 50, empresaId?: string | null) {
     return prisma.acessoriasSyncLog.findMany({
+      // Histórico da empresa carregada (antes listava o de todas).
+      ...(empresaId ? { where: { empresaId } } : {}),
       orderBy: { startedAt: 'desc' },
       take: Math.min(limit, 200),
     })
@@ -1557,9 +1559,12 @@ export class AcessoriasService {
    * "41 entrega(s)" que aparece no resumo da sincronização. Sai do espelho
    * local, não da API: instantâneo e sem gastar requisição.
    */
-  async entregasDoCliente(input: { clienteId: string; de?: string; ate?: string }) {
+  async entregasDoCliente(input: { clienteId: string; de?: string; ate?: string }, empresaId?: string | null) {
     const rows = await prisma.acessoriasEntrega.findMany({
       where: {
+        // Só da carteira da empresa carregada: sem isto, qualquer clienteId de
+        // outra empresa era aceito.
+        ...daCarteira(empresaId),
         clienteId: input.clienteId,
         ...(input.de || input.ate
           ? {

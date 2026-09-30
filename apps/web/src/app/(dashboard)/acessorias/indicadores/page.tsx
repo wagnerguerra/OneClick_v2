@@ -207,20 +207,22 @@ export default function IndicadoresPage() {
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}Atualizar
           </Button>
       </>}>
-        <h1 className="truncate">{cab.titulo}</h1>
+        <h1 className="truncate">Acessórias</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
           <span className="text-muted-foreground/50">›</span>
           <span>Administrativo</span>
           <span className="text-muted-foreground/50">›</span>
           <span>Acessórias</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Indicadores</span>
+          <span
+            className="ml-1.5 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-foreground/70"
+            title={`Indicadores das obrigações — ${cab.nota}`}
+          >
+            {cab.titulo}{dados?.escopo === 'COLABORADORES' && dados.areaNome ? ` · ${dados.areaNome}` : ''}
+          </span>
         </p>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            <p className="text-sm text-muted-foreground">
-              Indicadores das obrigações — {cab.nota}
-              {dados?.escopo === 'COLABORADORES' && dados.areaNome ? ` · ${dados.areaNome}` : ''}
-            </p>
-        </div>
       </PageHeaderBar>
 
       <AbasAcessorias />

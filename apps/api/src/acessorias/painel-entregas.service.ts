@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { prisma, Prisma } from '@saas/db'
 import { VinculosAcessoriasService } from './vinculos.service'
+import { daCarteira } from './recorte-carteira'
 
 /**
  * Painel de acompanhamento das entregas do Acessórias.
@@ -201,7 +202,8 @@ export class PainelEntregasService {
   /** Filtros da tela — comuns às duas visões. */
   private baseWhere(filtro: FiltroPainel, empresaId?: string): Prisma.AcessoriasEntregaWhereInput {
     return {
-      ...(empresaId ? { empresaId } : {}),
+      // Só cliente mensal ativo da empresa carregada (ver recorte-carteira.ts).
+      ...daCarteira(empresaId),
       ...(filtro.clienteId ? { clienteId: filtro.clienteId } : {}),
       ...(filtro.dpto ? { dpto: filtro.dpto } : {}),
       // Casa nos dois papéis: quem entregou OU quem responde pelo prazo. Só
@@ -443,7 +445,7 @@ export class PainelEntregasService {
     // que o usuário não pode ver só produziria tela vazia — e vazaria os nomes.
     const recorte = await this.recorte(ctx)
     const escopoWhere: Prisma.AcessoriasEntregaWhereInput = e(
-      empresaId ? { empresaId } : {},
+      daCarteira(empresaId),
       recorte,
     )
     const porDpto = filtro.dpto ? { dpto: filtro.dpto } : {}
