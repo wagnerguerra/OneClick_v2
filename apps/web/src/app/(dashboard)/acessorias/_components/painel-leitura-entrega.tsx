@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { AlertTriangle, CalendarClock, CheckCircle2, Clock, ExternalLink, FileText, Loader2, Mail, MailOpen, MailWarning, Phone, Send, Users } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { AlertTriangle, CalendarClock, CheckCircle2, Clock, Download, Eye, FileText, Loader2, Mail, MailOpen, MailWarning, Phone, Send, Users, X } from 'lucide-react'
 import { cn, Switch, Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -185,42 +185,75 @@ function VencimentoGuiaDestaque({ linha: l }: { linha: LinhaEntrega }) {
   )
 }
 
-interface GuiaAnexada { id: string; nome: string; url: string }
+interface GuiaAnexada { id: string; nome: string }
+
+/** A guia aberta no painel ao lado: blob local do PDF, com o nome real. */
+export interface GuiaAberta { entregaId: string; anexoId: string; nome: string; blobUrl: string }
 
 /**
- * Acesso à guia anexada no Acessórias. O link de lá vale 60 minutos, então é
- * pedido no clique. A aba nova é aberta JÁ no clique (antes da resposta) —
- * aberta depois de um await, o navegador a trataria como pop-up e bloquearia.
- * Mais de um anexo: o painel lista cada um pelo nome real do arquivo.
+ * Estado do painel da guia, para o modal que hospeda o painel de leitura.
+ * Cuida de liberar o blob (revokeObjectURL) ao trocar ou fechar, e fecha
+ * sozinho quando outra obrigação é selecionada.
  */
-function GuiaDaEntrega({ linha }: { linha: LinhaEntrega }) {
+export function useGuiaAberta(entregaSelecionada: string | null | undefined) {
+  const [guia, setGuia] = useState<GuiaAberta | null>(null)
+  const atual = useRef<GuiaAberta | null>(null)
+  const abrir = useCallback((g: GuiaAberta | null) => {
+    if (atual.current) URL.revokeObjectURL(atual.current.blobUrl)
+    atual.current = g
+    setGuia(g)
+  }, [])
+  useEffect(() => { if (atual.current && atual.current.entregaId !== entregaSelecionada) abrir(null) }, [entregaSelecionada, abrir])
+  useEffect(() => () => { if (atual.current) URL.revokeObjectURL(atual.current.blobUrl) }, [])
+  return [guia, abrir] as const
+}
+
+/**
+ * Acesso à guia anexada no Acessórias. "Abrir guia" lista os anexos (nome
+ * real do arquivo); com um só, já exibe. A exibição é no painel ao lado — o
+ * PDF vem pelo nosso servidor, porque o link de lá força download.
+ */
+function GuiaDaEntrega({ linha, aberta, onVerGuia }: {
+  linha: LinhaEntrega
+  aberta: GuiaAberta | null
+  onVerGuia: (g: GuiaAberta | null) => void
+}) {
   const [carregando, setCarregando] = useState(false)
+  const [abrindo, setAbrindo] = useState<string | null>(null)
   const [guias, setGuias] = useState<GuiaAnexada[] | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
-  // Outra entrega selecionada: a lista (e os links, que expiram) não vale mais.
+  // Outra entrega selecionada: a lista anterior não vale mais.
   useEffect(() => { setGuias(null); setErro(null) }, [linha.id])
 
-  const abrir = async () => {
-    const aba = window.open('about:blank', '_blank')
+  const ver = async (g: GuiaAnexada) => {
+    setAbrindo(g.id)
+    setErro(null)
+    try {
+      const r: { ok: boolean; nome?: string; base64?: string; erro?: string } =
+        await (trpc.acessorias as any).guiaPdf.query({ entregaId: linha.id, anexoId: g.id })
+      if (!r.ok || !r.base64) { setErro(r.erro ?? 'Não foi possível carregar a guia.'); return }
+      const bytes = Uint8Array.from(atob(r.base64), (c) => c.charCodeAt(0))
+      const blobUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
+      onVerGuia({ entregaId: linha.id, anexoId: g.id, nome: r.nome ?? g.nome, blobUrl })
+    } catch {
+      setErro('Não foi possível consultar o Acessórias.')
+    } finally {
+      setAbrindo(null)
+    }
+  }
+
+  const listar = async () => {
     setCarregando(true)
     setErro(null)
     try {
       const r: { ok: boolean; guias: GuiaAnexada[]; erro?: string } =
         await (trpc.acessorias as any).guiasDaEntrega.query({ entregaId: linha.id })
-      if (!r.ok || r.guias.length === 0) {
-        aba?.close()
-        setErro(r.ok ? 'Esta entrega não tem guia anexada no Acessórias.' : (r.erro ?? 'Não foi possível buscar a guia.'))
-        return
-      }
-      if (r.guias.length === 1 && aba) {
-        aba.location.href = r.guias[0]!.url
-      } else {
-        aba?.close()
-      }
+      if (!r.ok) { setErro(r.erro ?? 'Não foi possível buscar a guia.'); return }
+      if (r.guias.length === 0) { setErro('Esta entrega não tem guia anexada no Acessórias.'); return }
       setGuias(r.guias)
+      if (r.guias.length === 1) await ver(r.guias[0]!)
     } catch {
-      aba?.close()
       setErro('Não foi possível consultar o Acessórias.')
     } finally {
       setCarregando(false)
@@ -231,34 +264,84 @@ function GuiaDaEntrega({ linha }: { linha: LinhaEntrega }) {
     <div>
       <p className="mb-1 text-[13px] font-semibold text-foreground">Guia</p>
       <div className="rounded-lg border border-border bg-muted/20 px-3 py-2.5">
-        <button
-          type="button"
-          onClick={abrir}
-          disabled={carregando}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-[12px] font-medium transition-colors hover:bg-muted disabled:opacity-60"
-        >
-          {carregando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
-          Abrir guia
-        </button>
-        {erro && <p className="mt-1.5 text-[11px] text-muted-foreground">{erro}</p>}
+        {!guias && (
+          <button
+            type="button"
+            onClick={listar}
+            disabled={carregando}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-[12px] font-medium transition-colors hover:bg-muted disabled:opacity-60"
+          >
+            {carregando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+            Abrir guia
+          </button>
+        )}
         {guias && guias.length > 0 && (
-          <ul className="mt-2 space-y-1">
-            {guias.map((g) => (
-              <li key={g.id}>
-                <a href={g.url} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex max-w-full items-center gap-1.5 text-[12px] text-foreground hover:underline" title={g.nome}>
-                  <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
-                  <span className="truncate">{g.nome}</span>
-                </a>
-              </li>
-            ))}
+          <ul className="space-y-0.5">
+            {guias.map((g) => {
+              const ativa = aberta?.entregaId === linha.id && aberta.anexoId === g.id
+              return (
+                <li key={g.id}>
+                  <button
+                    type="button"
+                    onClick={() => (ativa ? onVerGuia(null) : ver(g))}
+                    disabled={abrindo !== null}
+                    title={ativa ? 'Fechar a guia' : 'Exibir a guia ao lado'}
+                    className={cn(
+                      'flex w-full min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[12px] transition-colors',
+                      ativa ? 'bg-muted font-medium text-foreground' : 'hover:bg-muted/60',
+                    )}
+                  >
+                    {abrindo === g.id
+                      ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+                      : <Eye className={cn('h-3.5 w-3.5 shrink-0', ativa ? 'text-foreground' : 'text-muted-foreground')} />}
+                    <span className="truncate">{g.nome}</span>
+                  </button>
+                </li>
+              )
+            })}
           </ul>
         )}
+        {erro && <p className="mt-1.5 text-[11px] text-muted-foreground">{erro}</p>}
         <p className="mt-1.5 text-[10.5px] leading-snug text-muted-foreground">
           Arquivo anexado no Acessórias. Abrir por aqui não conta como leitura do cliente.
         </p>
       </div>
     </div>
+  )
+}
+
+/**
+ * Painel da guia, à direita do painel de leitura — só existe com uma guia
+ * aberta. O PDF é exibido pelo visualizador do próprio navegador (blob).
+ */
+export function VisualizadorGuia({ guia, onFechar }: { guia: GuiaAberta; onFechar: () => void }) {
+  return (
+    <section
+      className="flex min-h-[60vh] w-full shrink-0 flex-col border-t border-border bg-muted/20 md:min-h-0 md:w-[44%] md:border-l md:border-t-0"
+      style={{ animation: 'fadeSlideIn 0.2s ease-out' }}
+    >
+      <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-2">
+        <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <p className="min-w-0 flex-1 truncate text-[12.5px] font-medium" title={guia.nome}>{guia.nome}</p>
+        <a
+          href={guia.blobUrl}
+          download={guia.nome}
+          title="Baixar a guia"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <Download className="h-4 w-4" />
+        </a>
+        <button
+          type="button"
+          onClick={onFechar}
+          title="Fechar a guia"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <iframe key={guia.blobUrl} src={guia.blobUrl} title={guia.nome} className="min-h-0 w-full flex-1 bg-white" />
+    </section>
   )
 }
 
@@ -532,9 +615,12 @@ function ContatosDoCliente({ clienteId }: { clienteId: string }) {
  * os campos. `podeReclassificar` vem do backend (flag no payload) — a regra de
  * quem pode mora lá, e o servidor barra de novo na mutation.
  */
-export function PainelLeituraEntrega({ linha, podeReclassificar, mostrarCliente, onReclassificada }: {
+export function PainelLeituraEntrega({ linha, podeReclassificar, mostrarCliente, onReclassificada, guiaAberta, onVerGuia }: {
   linha: LinhaEntrega
   podeReclassificar: boolean
+  /** Guia exibida no painel ao lado (do modal) — marca o item ativo. */
+  guiaAberta: GuiaAberta | null
+  onVerGuia: (g: GuiaAberta | null) => void
   /** No detalhe dos indicadores a lista mistura clientes — o painel diz qual é. */
   mostrarCliente?: boolean
   onReclassificada: (r: MultaReclassificada) => void
@@ -579,7 +665,7 @@ export function PainelLeituraEntrega({ linha, podeReclassificar, mostrarCliente,
 
         <VencimentoGuiaDestaque linha={linha} />
 
-        <GuiaDaEntrega linha={linha} />
+        <GuiaDaEntrega linha={linha} aberta={guiaAberta} onVerGuia={onVerGuia} />
 
         {/* Reclassificação da multa — vale para esta obrigação no cliente, em
             todas as competências. */}

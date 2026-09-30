@@ -257,6 +257,11 @@ export function createAcessoriasRouter(
       .input(z.object({ entregaId: z.string().min(1) }))
       .query(({ input, ctx }) => svc.guiasDaEntrega(input.entregaId, ctx.empresaId ?? null)),
 
+    /** PDF da guia em base64, para exibir no painel ao lado do de leitura. */
+    guiaPdf: painelProc()
+      .input(z.object({ entregaId: z.string().min(1), anexoId: z.string().min(1) }))
+      .query(({ input, ctx }) => svc.guiaPdf(input.entregaId, input.anexoId, ctx.empresaId ?? null)),
+
     /** Contatos do cliente no Acessórias — "quem pode ter recebido" no rastreio. */
     contatosDoCliente: painelProc()
       .input(z.object({ clienteId: z.string().min(1) }))

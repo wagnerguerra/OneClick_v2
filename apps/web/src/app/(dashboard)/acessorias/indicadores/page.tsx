@@ -19,7 +19,8 @@ import { PERIODOS, filtroDe, rotuloCompetencia, competenciasDisponiveis, type Re
 import { AbasAcessorias } from '../_components/abas-acessorias'
 import { BadgeEntrega } from '../_components/badge-entrega'
 import {
-  PainelLeituraEntrega, linkNoAcessorias, aplicarReclassificacao, VencimentoGuiaCelula, type LinhaEntrega,
+  PainelLeituraEntrega, linkNoAcessorias, aplicarReclassificacao, VencimentoGuiaCelula,
+  VisualizadorGuia, useGuiaAberta, type LinhaEntrega,
 } from '../_components/painel-leitura-entrega'
 import { BADGE, TEXT } from '@/lib/color-styles'
 
@@ -543,6 +544,8 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onMultaAlter
   // a seleção passa para a primeira visível. Sem isso o painel ficava com a
   // obrigação de outro cliente enquanto a lista mostrava só a filtrada.
   const selecionada = visiveis.find((l) => l.id === selecionadaId) ?? visiveis[0] ?? null
+  // Guia exibida no painel à direita do de leitura (fecha ao trocar de obrigação).
+  const [guiaAberta, setGuiaAberta] = useGuiaAberta(selecionada?.id)
   const href = selecionada ? linkNoAcessorias(selecionada, urlTemplate) : null
 
   const limpar = () => setFiltros({ obrigacao: '', cliente: '', responsavel: '', competencia: '' })
@@ -746,6 +749,12 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onMultaAlter
                   setLinhas((ls) => aplicarReclassificacao(ls, r))
                   setMultaAlterada(true)
                 }}
+                guiaAberta={guiaAberta}
+                onVerGuia={(g) => {
+                  setGuiaAberta(g)
+                  // Três colunas não cabem no tamanho normal: a guia expande o modal.
+                  if (g) setExpandido(true)
+                }}
               />
             ) : (
               <p className="p-8 text-center text-sm text-muted-foreground">
@@ -753,6 +762,9 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onMultaAlter
               </p>
             )}
           </aside>
+
+          {/* Guia — só existe enquanto uma está aberta */}
+          {guiaAberta && <VisualizadorGuia guia={guiaAberta} onFechar={() => setGuiaAberta(null)} />}
           </div>
         </DialogBody>
         <DialogFooter>

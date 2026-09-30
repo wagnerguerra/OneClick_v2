@@ -1713,19 +1713,78 @@ export class AcessoriasService {
    * (testado e conferido no histórico deles em 30/09/2026).
    */
   async guiasDaEntrega(entregaId: string, empresaId?: string | null) {
+    const achados = await this.anexosDaEntrega(entregaId, empresaId)
+    if (!achados.ok) return { ok: false as const, erro: achados.erro, guias: [] }
+    const { urls, ids } = achados
+
+    const guias = await Promise.all(urls.slice(0, 10).map(async (url, i) => {
+      let nome: string | null = null
+      try {
+        const r = await fetch(url, { headers: { Range: 'bytes=0-0' }, signal: AbortSignal.timeout(10_000) })
+        nome = this.nomeDoAnexo(r.headers.get('content-disposition'))
+        await r.body?.cancel().catch(() => null)
+      } catch { /* sem nome: a tela mostra "Guia N" */ }
+      return { id: ids[i] ?? String(i + 1), nome: nome ?? `Guia ${i + 1}`, url }
+    }))
+    return { ok: true as const, guias }
+  }
+
+  /**
+   * O PDF da guia, para exibir DENTRO do painel de leitura. O link do
+   * Acessórias responde `Content-Disposition: attachment` e
+   * `application/octet-stream` — num iframe o navegador baixaria em vez de
+   * mostrar. Então o servidor busca o arquivo e devolve os bytes, e a tela
+   * monta um blob `application/pdf`, que o visualizador do navegador exibe.
+   */
+  async guiaPdf(entregaId: string, anexoId: string, empresaId?: string | null) {
+    const achados = await this.anexosDaEntrega(entregaId, empresaId)
+    if (!achados.ok) return { ok: false as const, erro: achados.erro }
+    const i = achados.ids.indexOf(anexoId)
+    const url = achados.urls[i >= 0 ? i : Number(anexoId) - 1]
+    if (!url) return { ok: false as const, erro: 'Anexo não encontrado — a guia pode ter sido substituída no Acessórias.' }
+
+    const r = await fetch(url, { signal: AbortSignal.timeout(30_000) })
+    if (!r.ok) return { ok: false as const, erro: `O Acessórias não entregou o arquivo (HTTP ${r.status}).` }
+    const buf = Buffer.from(await r.arrayBuffer())
+    const nome = this.nomeDoAnexo(r.headers.get('content-disposition')) ?? 'guia.pdf'
+    if (buf.subarray(0, 4).toString() !== '%PDF') {
+      return { ok: false as const, erro: 'O anexo não é um PDF — não dá para exibir aqui.', nome }
+    }
+    // Guia é pequena (100–300 KB); o teto só protege de um anexo fora do comum.
+    if (buf.length > 15 * 1024 * 1024) return { ok: false as const, erro: 'Arquivo grande demais para exibir aqui.', nome }
+    return { ok: true as const, nome, base64: buf.toString('base64') }
+  }
+
+  /** Nome real do arquivo, do Content-Disposition. */
+  private nomeDoAnexo(cru: string | null): string | null {
+    if (!cru) return null
+    // O Acessórias manda o nome em UTF-8 cru, e o fetch expõe cabeçalho como
+    // latin1 ("SERVIÃOS"): reinterpreta os bytes, e só fica com a versão UTF-8
+    // se ela for válida.
+    const utf8 = Buffer.from(cru, 'latin1').toString('utf8')
+    const cd = utf8.includes('\uFFFD') ? cru : utf8
+    const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+    if (!m?.[1]) return null
+    const bruto = m[1].trim()
+    try { return decodeURIComponent(bruto) } catch { return bruto }
+  }
+
+  /** Links frescos dos anexos de uma entrega (valem 60 min), da empresa carregada. */
+  private async anexosDaEntrega(entregaId: string, empresaId?: string | null):
+    Promise<{ ok: true; urls: string[]; ids: string[] } | { ok: false; erro: string }> {
     const empresa = exigirEmpresa(empresaId)
     const e = await prisma.acessoriasEntrega.findFirst({
       where: { id: entregaId, ...daCarteira(empresa) },
       select: { entId: true, prazo: true, cliente: { select: { cnpjAcessorias: true, documento: true } } },
     })
-    if (!e) return { ok: false as const, erro: 'Entrega não encontrada nesta empresa.', guias: [] }
-    if (!e.prazo) return { ok: false as const, erro: 'Entrega sem prazo — não dá para localizá-la no Acessórias.', guias: [] }
+    if (!e) return { ok: false, erro: 'Entrega não encontrada nesta empresa.' }
+    if (!e.prazo) return { ok: false, erro: 'Entrega sem prazo — não dá para localizá-la no Acessórias.' }
 
     // DtInitial/DtFinal filtram pelo prazo técnico (EntDtPrazo) — o `prazo` daqui.
     const dia = e.prazo.toISOString().slice(0, 10)
     const cnpj = this.normCnpj(e.cliente.cnpjAcessorias ?? e.cliente.documento)
     const res = await this.request<unknown>(`/deliveries/${cnpj}?DtInitial=${dia}&DtFinal=${dia}&config&attachments=S&attachmentsId=S`)
-    if (!res.ok) return { ok: false as const, erro: `O Acessórias não respondeu (HTTP ${res.status}).`, guias: [] }
+    if (!res.ok) return { ok: false, erro: `O Acessórias não respondeu (HTTP ${res.status}).` }
 
     let entrega: Record<string, unknown> | undefined
     for (const emp of ([] as unknown[]).concat(res.data ?? [])) {
@@ -1736,26 +1795,7 @@ export class AcessoriasService {
     const urls = Array.isArray(entrega?.Anexos) ? (entrega?.Anexos as unknown[]).map(String).filter(Boolean) : []
     const ids = Array.isArray(entrega?.AnexosIDs) ? (entrega?.AnexosIDs as unknown[]).map(String) : []
 
-    const guias = await Promise.all(urls.slice(0, 10).map(async (url, i) => {
-      let nome: string | null = null
-      try {
-        const r = await fetch(url, { headers: { Range: 'bytes=0-0' }, signal: AbortSignal.timeout(10_000) })
-        // O Acessórias manda o nome em UTF-8 cru, e o fetch expõe cabeçalho como
-        // latin1 ("SERVIÃOS"): reinterpreta os bytes, e só fica com a versão
-        // UTF-8 se ela for válida.
-        const cru = r.headers.get('content-disposition') ?? ''
-        const utf8 = Buffer.from(cru, 'latin1').toString('utf8')
-        const cd = utf8.includes('�') ? cru : utf8
-        const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
-        if (m?.[1]) {
-          const bruto = m[1].trim()
-          try { nome = decodeURIComponent(bruto) } catch { nome = bruto }
-        }
-        await r.body?.cancel().catch(() => null)
-      } catch { /* sem nome: a tela mostra "Guia N" */ }
-      return { id: ids[i] ?? String(i + 1), nome: nome ?? `Guia ${i + 1}`, url }
-    }))
-    return { ok: true as const, guias }
+    return { ok: true, urls, ids }
   }
 
   async entregasDoCliente(input: { clienteId: string; de?: string; ate?: string }, empresaId?: string | null) {
