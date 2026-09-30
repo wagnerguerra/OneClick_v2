@@ -1950,8 +1950,9 @@ function KanbanCardContent({ orc, cliente, onDuplicar, onArquivar, onCancelar, o
           )}
           {orc.oportunidadeId && (
             <DicaIcone titulo={`CRM${orc.oportunidadeNumero != null ? ` #${orc.oportunidadeNumero}` : ''}`} texto="Card de CRM vinculado">
-              <span className={cn('flex cursor-help items-center', TEXT.fuchsia)}>
+              <span className={cn('flex cursor-help items-center gap-1 tabular-nums', TEXT.fuchsia)}>
                 <Target className="h-3.5 w-3.5" strokeWidth={1.5} />
+                {orc.oportunidadeNumero != null && orc.oportunidadeNumero}
               </span>
             </DicaIcone>
           )}
