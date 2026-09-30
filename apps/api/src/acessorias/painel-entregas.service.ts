@@ -237,11 +237,12 @@ export async function paraLinhasPainel(rows: EntregaComCliente[], empresaId?: st
   // Reclassificações que tocam estas linhas — uma consulta só.
   const regrasMulta = empresaId && rows.length > 0
     ? await prisma.acessoriasRegraMulta.findMany({
-        where: { empresaId, clienteId: { in: [...new Set(rows.map((r) => r.clienteId))] } },
+        where: { empresaId, nome: { in: [...new Set(rows.map((r) => r.nome))] } },
         select: { clienteId: true, nome: true },
       })
     : []
-  const reclassificadas = new Set(regrasMulta.map((r) => `${r.clienteId}|${r.nome}`))
+  // clienteId null = regra geral ("*|nome"), vale para todos os clientes.
+  const reclassificadas = new Set(regrasMulta.map((r) => `${r.clienteId ?? '*'}|${r.nome}`))
 
   return rows.map((r) => ({
     id: r.id,
@@ -274,7 +275,7 @@ export async function paraLinhasPainel(rows: EntregaComCliente[], empresaId?: st
     dispensada: ehDispensada(r.status),
     multa: r.multa,
     multaAcessorias: r.multaAcessorias,
-    multaReclassificada: reclassificadas.has(`${r.clienteId}|${r.nome}`),
+    multaReclassificada: reclassificadas.has(`${r.clienteId}|${r.nome}`) || reclassificadas.has(`*|${r.nome}`),
     dpto: r.dpto,
     respEntrega: r.respEntrega,
     respPrazo: r.respPrazo,
@@ -300,10 +301,13 @@ export class PainelEntregasService {
   }
 
   /**
-   * Marca a obrigação (pelo nome) do cliente da entrega como sujeita ou não a
-   * multa, em todas as competências — as já espelhadas mudam agora, e o sync
-   * aplica a regra nas próximas. Se o valor escolhido é o que o Acessórias
-   * informa, a regra é apagada: a obrigação volta a seguir de lá.
+   * Marca a obrigação (pelo nome) como sujeita ou não a multa em TODAS as
+   * ocorrências — todos os clientes da empresa, todas as competências. As já
+   * espelhadas mudam agora, e o sync aplica a regra nas próximas.
+   *
+   * Se o valor escolhido é o que o Acessórias informa para esta entrega, a
+   * regra é apagada e cada entrega volta ao próprio valor de lá
+   * (`multa_acessorias`) — desfazer não pode forçar um valor único em todas.
    */
   async reclassificarMulta(entregaId: string, multa: boolean, ctx: CtxPainel) {
     if (!(await this.podeReclassificarMulta(ctx))) {
@@ -313,30 +317,30 @@ export class PainelEntregasService {
     if (!empresaId) throw new TRPCError({ code: 'FORBIDDEN', message: 'Selecione a empresa antes de reclassificar.' })
     const entrega = await prisma.acessoriasEntrega.findFirst({
       where: { id: entregaId, ...daCarteira(empresaId) },
-      select: { clienteId: true, nome: true, multaAcessorias: true },
+      select: { nome: true, multaAcessorias: true },
     })
     if (!entrega) throw new TRPCError({ code: 'NOT_FOUND', message: 'Entrega não encontrada nesta empresa.' })
 
-    const chave = { empresaId, clienteId: entrega.clienteId, nome: entrega.nome }
     // Linha antiga sem o original guardado: na dúvida, grava a regra.
     const voltaAoAcessorias = entrega.multaAcessorias !== null && entrega.multaAcessorias === multa
 
     await prisma.$transaction(async (tx) => {
+      // Sai tudo da obrigação — a geral e as por cliente do alcance antigo —,
+      // senão uma regra de cliente contrariaria o "todas as ocorrências".
+      await tx.acessoriasRegraMulta.deleteMany({ where: { empresaId, nome: entrega.nome } })
       if (voltaAoAcessorias) {
-        await tx.acessoriasRegraMulta.deleteMany({ where: chave })
+        await tx.$executeRaw`
+          UPDATE acessorias_entregas
+             SET multa = coalesce(multa_acessorias, multa)
+           WHERE empresa_id = ${empresaId} AND nome = ${entrega.nome}`
       } else {
-        await tx.acessoriasRegraMulta.upsert({
-          where: { empresaId_clienteId_nome: chave },
-          create: { ...chave, multa, criadoPor: ctx.userId },
-          update: { multa, criadoPor: ctx.userId },
+        await tx.acessoriasRegraMulta.create({
+          data: { empresaId, clienteId: null, nome: entrega.nome, multa, criadoPor: ctx.userId },
         })
+        await tx.acessoriasEntrega.updateMany({ where: { empresaId, nome: entrega.nome }, data: { multa } })
       }
-      await tx.acessoriasEntrega.updateMany({
-        where: { clienteId: entrega.clienteId, nome: entrega.nome, empresaId },
-        data: { multa },
-      })
     })
-    return { multa, multaReclassificada: !voltaAoAcessorias }
+    return { obrigacao: entrega.nome, multa, multaReclassificada: !voltaAoAcessorias }
   }
 
   /** Filtros da tela — comuns às duas visões. */

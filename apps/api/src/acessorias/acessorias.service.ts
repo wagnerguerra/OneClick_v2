@@ -934,9 +934,10 @@ export class AcessoriasService {
         where: empresaId ? { empresaId } : {},
         select: { clienteId: true, nome: true, multa: true },
       })
-      this.regraMultaCache = new Map(rows.map(r => [`${r.clienteId}|${r.nome}`, r.multa]))
+      // clienteId null = regra geral, chave "*|nome".
+      this.regraMultaCache = new Map(rows.map(r => [`${r.clienteId ?? '*'}|${r.nome}`, r.multa]))
     }
-    return this.regraMultaCache.get(`${clienteId}|${nome}`)
+    return this.regraMultaCache.get(`${clienteId}|${nome}`) ?? this.regraMultaCache.get(`*|${nome}`)
   }
 
   private async espelharEntrega(clienteId: string, delivery: Record<string, unknown>, empresaId: string | null) {

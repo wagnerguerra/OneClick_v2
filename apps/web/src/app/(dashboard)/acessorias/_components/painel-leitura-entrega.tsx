@@ -54,9 +54,8 @@ export interface LinhaEntrega {
   responsavelEntregou: boolean
 }
 
-/** Resultado da reclassificação — vale para a obrigação no cliente inteira. */
+/** Resultado da reclassificação — vale para TODAS as ocorrências da obrigação. */
 export interface MultaReclassificada {
-  clienteId: string
   obrigacao: string
   multa: boolean
   multaReclassificada: boolean
@@ -85,10 +84,18 @@ export function linkNoAcessorias(l: LinhaEntrega, urlTemplate: string | null): s
     : null
 }
 
-/** Aplica a reclassificação em todas as linhas da mesma obrigação no cliente. */
+/**
+ * Aplica a reclassificação em todas as linhas da obrigação, de qualquer
+ * cliente. Desfeita, cada linha volta ao próprio valor do Acessórias — como o
+ * servidor fez.
+ */
 export function aplicarReclassificacao<T extends LinhaEntrega>(linhas: T[], r: MultaReclassificada): T[] {
-  return linhas.map((x) => (x.clienteId === r.clienteId && x.obrigacao === r.obrigacao
-    ? { ...x, multa: r.multa, multaReclassificada: r.multaReclassificada }
+  return linhas.map((x) => (x.obrigacao === r.obrigacao
+    ? {
+        ...x,
+        multa: r.multaReclassificada ? r.multa : (x.multaAcessorias ?? r.multa),
+        multaReclassificada: r.multaReclassificada,
+      }
     : x))
 }
 
@@ -393,10 +400,12 @@ export function PainelLeituraEntrega({ linha, podeReclassificar, mostrarCliente,
   const reclassificar = async (multa: boolean) => {
     setSalvando(true)
     try {
-      const r: { multa: boolean; multaReclassificada: boolean } =
+      const r: MultaReclassificada =
         await (trpc.acessorias as any).reclassificarMulta.mutate({ entregaId: linha.id, multa })
-      onReclassificada({ clienteId: linha.clienteId, obrigacao: linha.obrigacao, ...r })
-      alerts.toast(multa ? 'Obrigação marcada como sujeita a multa' : 'Obrigação marcada como não sujeita a multa')
+      onReclassificada(r)
+      alerts.toast(!r.multaReclassificada
+        ? 'Multa volta a seguir o Acessórias em todas as ocorrências'
+        : multa ? 'Sujeita a multa em todas as ocorrências' : 'Não sujeita a multa em todas as ocorrências')
     } catch (e) {
       alerts.error((e as Error).message || 'Não foi possível reclassificar a multa.')
     } finally {
@@ -435,7 +444,7 @@ export function PainelLeituraEntrega({ linha, podeReclassificar, mostrarCliente,
               <p className="text-[13px]">Sujeita a multa</p>
               <p className="text-[11px] text-muted-foreground">
                 {linha.multaReclassificada
-                  ? `Reclassificada pelo escritório${linha.multaAcessorias !== null ? ` · no Acessórias: ${linha.multaAcessorias ? 'Sim' : 'Não'}` : ''}`
+                  ? `Reclassificada pelo escritório para todos os clientes${linha.multaAcessorias !== null ? ` · no Acessórias: ${linha.multaAcessorias ? 'Sim' : 'Não'}` : ''}`
                   : 'Conforme o Acessórias'}
               </p>
             </div>
@@ -453,7 +462,7 @@ export function PainelLeituraEntrega({ linha, podeReclassificar, mostrarCliente,
               </TooltipTrigger>
               <TooltipContent className="max-w-[260px]">
                 {podeReclassificar
-                  ? 'Vale para esta obrigação deste cliente em todas as competências, inclusive nas próximas sincronizações.'
+                  ? 'Vale para todas as ocorrências desta obrigação — todos os clientes e competências, inclusive nas próximas sincronizações. Voltar ao valor do Acessórias desfaz para todas.'
                   : 'Só administradores e diretoria podem reclassificar a multa.'}
               </TooltipContent>
             </Tooltip>

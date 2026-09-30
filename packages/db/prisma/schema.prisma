@@ -5673,14 +5673,18 @@ model AcessoriasRegraObrigacao {
 
 /// Reclassificação de multa feita pelo escritório (admin/diretoria).
 ///
-/// O EntMulta do Acessórias nem sempre bate com a realidade do cliente — e é
-/// regravado a cada sincronização. A regra vale para a obrigação (pelo nome)
-/// daquele cliente, em todas as competências, e o sync a aplica por cima do
-/// valor de lá. Voltar ao que o Acessórias diz = apagar a regra.
+/// O EntMulta do Acessórias nem sempre bate com a realidade — e é regravado a
+/// cada sincronização. A regra vale para a obrigação (pelo nome) em todas as
+/// competências, e o sync a aplica por cima do valor de lá. Voltar ao que o
+/// Acessórias diz = apagar a regra.
+///
+/// `clienteId` null = vale para TODOS os clientes da empresa — é o que a tela
+/// grava desde 30/09 ("marcar uma, desmarca todas as ocorrências"). Regra com
+/// cliente (o alcance anterior) ainda é respeitada e vence a geral.
 model AcessoriasRegraMulta {
   id        String  @id @default(cuid())
   empresaId String  @map("empresa_id")
-  clienteId String  @map("cliente_id")
+  clienteId String? @map("cliente_id")
   /// Nome exato da obrigação no Acessórias.
   nome      String
   multa     Boolean
@@ -5688,10 +5692,13 @@ model AcessoriasRegraMulta {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: Cascade)
 
+  // Com clienteId null o Postgres não barra duplicata — a unicidade da regra
+  // geral é garantida pelo serviço (apaga as da obrigação antes de gravar).
   @@unique([empresaId, clienteId, nome])
   @@index([clienteId])
+  @@index([empresaId, nome])
   @@map("acessorias_regras_multa")
 }
 
