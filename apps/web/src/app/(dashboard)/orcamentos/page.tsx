@@ -1955,15 +1955,22 @@ function KanbanCardContent({ orc, cliente, onDuplicar, onArquivar, onCancelar, o
               </span>
             </DicaIcone>
           )}
-          <DicaIcone titulo={`${orc._count?.itens ?? 0} ${(orc._count?.itens ?? 0) === 1 ? 'item' : 'itens'}`} texto="Serviços, taxas e despesas do orçamento">
-            <span className="flex cursor-help items-center gap-1"><ListChecks className="h-3.5 w-3.5" strokeWidth={1.5} /> {orc._count?.itens ?? 0}</span>
-          </DicaIcone>
-          <DicaIcone titulo={`${orc._count?.mensagens ?? 0} ${(orc._count?.mensagens ?? 0) === 1 ? 'mensagem' : 'mensagens'}`} texto="Mensagens trocadas no orçamento">
-            <span className="flex cursor-help items-center gap-1"><MessageSquare className="h-3.5 w-3.5" strokeWidth={1.5} /> {orc._count?.mensagens ?? 0}</span>
-          </DicaIcone>
-          <DicaIcone titulo={`${orc._count?.arquivos ?? 0} ${(orc._count?.arquivos ?? 0) === 1 ? 'arquivo' : 'arquivos'}`} texto="Anexos do orçamento">
-            <span className="flex cursor-help items-center gap-1"><Paperclip className="h-3.5 w-3.5" strokeWidth={1.5} /> {orc._count?.arquivos ?? 0}</span>
-          </DicaIcone>
+          {/* Contadores só aparecem com algo a contar — zero não informa nada. */}
+          {(orc._count?.itens ?? 0) > 0 && (
+            <DicaIcone titulo={`${orc._count!.itens} ${orc._count!.itens === 1 ? 'item' : 'itens'}`} texto="Serviços, taxas e despesas do orçamento">
+              <span className="flex cursor-help items-center gap-1"><ListChecks className="h-3.5 w-3.5" strokeWidth={1.5} /> {orc._count!.itens}</span>
+            </DicaIcone>
+          )}
+          {(orc._count?.mensagens ?? 0) > 0 && (
+            <DicaIcone titulo={`${orc._count!.mensagens} ${orc._count!.mensagens === 1 ? 'mensagem' : 'mensagens'}`} texto="Mensagens trocadas no orçamento">
+              <span className="flex cursor-help items-center gap-1"><MessageSquare className="h-3.5 w-3.5" strokeWidth={1.5} /> {orc._count!.mensagens}</span>
+            </DicaIcone>
+          )}
+          {(orc._count?.arquivos ?? 0) > 0 && (
+            <DicaIcone titulo={`${orc._count!.arquivos} ${orc._count!.arquivos === 1 ? 'arquivo' : 'arquivos'}`} texto="Anexos do orçamento">
+              <span className="flex cursor-help items-center gap-1"><Paperclip className="h-3.5 w-3.5" strokeWidth={1.5} /> {orc._count!.arquivos}</span>
+            </DicaIcone>
+          )}
           {orc.pesquisaRespondida && (
             <DicaIcone titulo="Pesquisa respondida" texto="O cliente respondeu a pesquisa de satisfação">
               <span className="flex cursor-help items-center" style={{ color: 'var(--mod-comercial, #fb7185)' }}>
