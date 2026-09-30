@@ -1,12 +1,15 @@
 'use client'
 
-import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@saas/ui'
+import { useEffect, useState } from 'react'
+import { PainelPreview } from '@/components/kanban/painel-preview'
 import { TicketDetalheCompleto } from './ticket-detalhe-completo'
 
 /**
- * Modal lateral do ticket (abre ao clicar num card do kanban): renderiza a
- * PÁGINA DE DETALHE COMPLETA (`TicketDetalheCompleto` em `variant="sheet"`)
- * dentro de um Sheet, reaproveitando a mesma UI da rota `/helpdesk/[id]`.
+ * Preview do ticket (abre ao clicar num card do kanban): a PÁGINA DE DETALHE
+ * COMPLETA (`TicketDetalheCompleto` em `variant="sheet"`, a mesma UI da rota
+ * `/helpdesk/[id]`) dentro do painel animado dos quadros — véu, painel que se
+ * desenrola, fade ao fechar (✕ da página, Esc ou clique fora). Mesmo padrão
+ * do preview de /orcamentos e /crm.
  */
 export function TicketDetalheCompletoSheet({
   ticketId,
@@ -17,27 +20,21 @@ export function TicketDetalheCompletoSheet({
   onClose: () => void
   onChange?: () => void
 }) {
+  // Guarda o último id durante a animação de saída (o pai zera ao fechar).
+  const [idVisivel, setIdVisivel] = useState(ticketId)
+  useEffect(() => { if (ticketId) setIdVisivel(ticketId) }, [ticketId])
   return (
-    <Sheet open={!!ticketId} onOpenChange={(o) => { if (!o) onClose() }}>
-      <SheetContent
-        side="right"
-        size="xl"
-        hideClose
-        className="w-full sm:w-[80vw] max-w-[1280px] p-0 overflow-hidden flex flex-col"
-      >
-        {/* Radix exige um título acessível no Content; o header visível é o
-            próprio da página completa. */}
-        <SheetTitle className="sr-only">Detalhe do ticket</SheetTitle>
-        <SheetDescription className="sr-only">Página completa do ticket exibida em modal lateral.</SheetDescription>
-        {ticketId && (
+    <PainelPreview aberto={!!ticketId} onFechar={onClose} rotulo="Detalhe do ticket" className="w-[min(1280px,calc(100vw-16px))]">
+      {idVisivel && (
+        <div className="flex min-h-0 flex-1 flex-col">
           <TicketDetalheCompleto
-            ticketId={ticketId}
+            ticketId={idVisivel}
             variant="sheet"
             onClose={onClose}
             onChanged={onChange}
           />
-        )}
-      </SheetContent>
-    </Sheet>
+        </div>
+      )}
+    </PainelPreview>
   )
 }
