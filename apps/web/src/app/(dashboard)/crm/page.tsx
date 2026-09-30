@@ -34,6 +34,7 @@ import { trpc } from '@/lib/trpc'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
 import { moedaParaNumero, masks } from '@/lib/masks'
+import { coresTipoEvento } from '@/lib/event-type-colors'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { useAutoHideScrollbar } from '@/hooks/use-autohide-scrollbar'
 import { TarefaModal } from '../agenda/_components/tarefa-modal'
@@ -2167,7 +2168,7 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
       {(() => {
         const agendaEventos = (detail as unknown as { agendaEventos?: Array<{
           id: string; titulo: string; data: string; horaInicio: string | null; diaInteiro: boolean
-          tipo: { nome: string; cor: string } | null
+          tipo: { nome: string; cor: string; corBorda?: string | null } | null
         }> }).agendaEventos ?? []
         if (agendaEventos.length === 0) return null
         return (
@@ -2187,7 +2188,8 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
                     href={`/agenda?verEvento=${ev.id}`}
                     className="flex items-center gap-2.5 rounded-md border border-border px-2.5 py-2 hover:bg-muted/40 transition-colors"
                   >
-                    <span className="h-7 w-1.5 rounded-full shrink-0" style={{ backgroundColor: ev.tipo?.cor || '#818cf8' }} />
+                    {/* Mesma cor da borda do evento na agenda (coresTipoEvento().borda). */}
+                    <span className="h-7 w-1.5 rounded-full shrink-0" style={{ backgroundColor: ev.tipo ? coresTipoEvento(ev.tipo, false).borda : '#818cf8' }} />
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-medium truncate">{ev.titulo}</p>
                       <p className="text-[11px] text-muted-foreground tabular-nums">

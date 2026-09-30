@@ -369,7 +369,7 @@ export class CrmService {
             data: true,
             horaInicio: true,
             diaInteiro: true,
-            tipo: { select: { nome: true, cor: true } },
+            tipo: { select: { nome: true, cor: true, corBorda: true } },
           },
         },
       },
