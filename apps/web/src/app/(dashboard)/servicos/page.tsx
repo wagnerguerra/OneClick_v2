@@ -1652,13 +1652,13 @@ export default function ServicosPage() {
                 >
                   <TabsTrigger
                     value="geral"
-                    className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/60 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary gap-1.5 leading-none"
+                    variant="sliding" className="leading-none"
                   >
                     <FileText className="h-3.5 w-3.5" /> Geral
                   </TabsTrigger>
                   <TabsTrigger
                     value="etapas"
-                    className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/60 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary gap-1.5 leading-none"
+                    variant="sliding" className="leading-none"
                   >
                     <ListChecks className="h-3.5 w-3.5" /> Etapas
                     {formEtapas.length > 0 && (
@@ -1667,7 +1667,7 @@ export default function ServicosPage() {
                   </TabsTrigger>
                   <TabsTrigger
                     value="texto"
-                    className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/60 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary gap-1.5 leading-none"
+                    variant="sliding" className="leading-none"
                   >
                     <Type className="h-3.5 w-3.5" /> Texto padrão
                   </TabsTrigger>

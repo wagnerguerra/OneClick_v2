@@ -3138,7 +3138,7 @@ export default function AgendaPage() {
                         <TabsTrigger
                           key={t.value}
                           value={t.value}
-                          className="gap-2 px-4 py-2.5 text-xs font-medium whitespace-nowrap rounded-none border-b-2 -mb-px border-transparent text-muted-foreground transition-all hover:text-foreground hover:border-border data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"
+                          className="gap-2 px-4 py-2.5 text-xs font-medium whitespace-nowrap rounded-none border-b-2 -mb-px border-transparent text-muted-foreground transition-all hover:text-foreground hover:border-border data-[state=active]:border-primary-on-surface data-[state=active]:text-primary-on-surface data-[state=active]:shadow-none"
                         >
                           <t.icon className="h-3.5 w-3.5 shrink-0" />{t.label}
                         </TabsTrigger>

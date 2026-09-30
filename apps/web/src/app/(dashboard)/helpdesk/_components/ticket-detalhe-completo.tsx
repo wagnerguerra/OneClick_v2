@@ -987,18 +987,18 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
               só quando sobra espaço (`sm:justify-center`). */}
           <div className="relative z-10 flex justify-start overflow-x-auto nice-scrollbar px-4 pb-2 sm:justify-center sm:px-6">
             <SlidingTabsList activeValue={activeTab} className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit">
-              <TabsTrigger value="conversa" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary gap-1.5">
+              <TabsTrigger value="conversa" variant="sliding">
                 <MessageSquare className="h-3.5 w-3.5" /> Conversação
                 {ticket.mensagens.length > 0 && (
                   <Badge variant="secondary" className="text-[10px] ml-1.5 h-4 px-1.5">{ticket.mensagens.length}</Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="timeline" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary gap-1.5">
+              <TabsTrigger value="timeline" variant="sliding">
                 <History className="h-3.5 w-3.5" /> Histórico
               </TabsTrigger>
               {/* Só aparece quando a categoria do chamado tem checklist vinculado. */}
               {ticket.checklist && (
-                <TabsTrigger value="checklist" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary gap-1.5">
+                <TabsTrigger value="checklist" variant="sliding">
                   <ListChecks className="h-3.5 w-3.5" /> Checklist
                   {ticket.checklist.execucaoId && (
                     <Badge variant="secondary" className="text-[10px] ml-1.5 h-4 px-1.5">

@@ -42,7 +42,12 @@ const TabsTrigger = React.forwardRef<
   React.ComponentRef<typeof TabsPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger> & {
     icon?: React.ReactNode
-    variant?: 'default' | 'pills'
+    /**
+     * `sliding`: aba de dentro de um `SlidingTabsList` (pill que desliza por
+     * trás). Texto neutro; a ativa fica na primária legível sobre a superfície
+     * (`text-primary-on-surface`). Os `!` vencem a regra global de abas.
+     */
+    variant?: 'default' | 'pills' | 'sliding'
   }
 >(({ className, icon, children, variant = 'default', ...props }, ref) => (
   <TabsPrimitive.Trigger
@@ -58,10 +63,18 @@ const TabsTrigger = React.forwardRef<
             'data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm',
             'focus-visible:outline-none',
           ]
-        : [
-            'inline-flex items-center gap-2 cursor-pointer',
-            'focus-visible:outline-none',
-          ],
+        : variant === 'sliding'
+          ? [
+              'inline-flex items-center gap-1.5 cursor-pointer focus-visible:outline-none',
+              '!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold',
+              '!text-foreground/70 hover:!text-foreground transition-colors',
+              'data-[state=active]:!bg-transparent dark:data-[state=active]:!bg-transparent data-[state=active]:!shadow-none',
+              'data-[state=active]:!text-primary-on-surface',
+            ]
+          : [
+              'inline-flex items-center gap-2 cursor-pointer',
+              'focus-visible:outline-none',
+            ],
       className,
     )}
     style={variant === 'default' ? undefined : undefined}
@@ -109,10 +122,9 @@ TabsContent.displayName = TabsPrimitive.Content.displayName
 // trigger com [data-state="active"] e atualizamos transform/width.
 // CSS transition nas propriedades garante o slide.
 //
-// IMPORTANTE: nas TabsTrigger filhas, NÃO use `data-[state=active]:!bg-*`
-// nem `!shadow-sm` no estado ativo — o pill flutuante é a indicação
-// visual. Mantenha apenas `data-[state=active]:!text-<cor>` e adicione
-// `relative z-10` para o texto ficar acima do indicador.
+// Nas TabsTrigger filhas, use `variant="sliding"`: já traz o texto acima do
+// indicador (relative z-10), sem fundo/sombra próprios no estado ativo (o pill
+// flutuante é a indicação visual) e a cor ativa padrão (primary-on-surface).
 // ─────────────────────────────────────────────────────────────────
 type SlidingTabsListProps = React.ComponentPropsWithoutRef<typeof TabsPrimitive.List> & {
   activeValue: string

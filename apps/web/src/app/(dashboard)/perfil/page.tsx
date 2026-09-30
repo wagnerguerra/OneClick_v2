@@ -875,13 +875,13 @@ export default function MeuPerfilPage() {
         {/* Tabs em pills — mesmo padrão de /orcamentos/[id] (cor do módulo: blue/sky) */}
         <div className="relative z-10 px-4 sm:px-6 pb-2 overflow-x-auto nice-scrollbar flex justify-center">
           <SlidingTabsList activeValue={activeTab} className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit">
-            <TabsTrigger value="overview" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary dark:data-[state=active]:!bg-transparent gap-1.5">
+            <TabsTrigger value="overview" variant="sliding">
               <UserIcon className="h-3.5 w-3.5" /> Visão Geral
             </TabsTrigger>
-            <TabsTrigger value="dados" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary dark:data-[state=active]:!bg-transparent gap-1.5">
+            <TabsTrigger value="dados" variant="sliding">
               <Pencil className="h-3.5 w-3.5" /> Meus Dados
             </TabsTrigger>
-            <TabsTrigger value="carteira" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary dark:data-[state=active]:!bg-transparent gap-1.5">
+            <TabsTrigger value="carteira" variant="sliding">
               <Users className="h-3.5 w-3.5" /> Carteira
               {!carteiraLoading && carteira.length > 0 && (
                 <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary/15 text-primary text-[10px] font-bold tabular-nums">
@@ -889,10 +889,10 @@ export default function MeuPerfilPage() {
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="assinatura" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary dark:data-[state=active]:!bg-transparent gap-1.5">
+            <TabsTrigger value="assinatura" variant="sliding">
               <Mail className="h-3.5 w-3.5" /> Assinatura
             </TabsTrigger>
-            <TabsTrigger value="seguranca" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary dark:data-[state=active]:!bg-transparent gap-1.5">
+            <TabsTrigger value="seguranca" variant="sliding">
               <Shield className="h-3.5 w-3.5" /> Segurança
             </TabsTrigger>
           </SlidingTabsList>

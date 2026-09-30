@@ -487,27 +487,27 @@ export default function ContratoDetailPage() {
           >
             <TabsTrigger
               value="detalhes"
-              className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary dark:data-[state=active]:!bg-transparent gap-1.5"
+              variant="sliding"
             >
               <FileText className="h-3.5 w-3.5" /> Detalhes
             </TabsTrigger>
             <TabsTrigger
               value="clausulas"
-              className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary dark:data-[state=active]:!bg-transparent gap-1.5"
+              variant="sliding"
             >
               <FileCheck2 className="h-3.5 w-3.5" /> Cláusulas
               <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{contrato.snapshots.length}</Badge>
             </TabsTrigger>
             <TabsTrigger
               value="assinaturas"
-              className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary dark:data-[state=active]:!bg-transparent gap-1.5"
+              variant="sliding"
             >
               <FileSignature className="h-3.5 w-3.5" /> Assinaturas
               <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{contrato.assinaturas.length}/2</Badge>
             </TabsTrigger>
             <TabsTrigger
               value="timeline"
-              className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary dark:data-[state=active]:!bg-transparent gap-1.5"
+              variant="sliding"
             >
               <History className="h-3.5 w-3.5" /> Timeline
               <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{contrato.eventos.length}</Badge>
