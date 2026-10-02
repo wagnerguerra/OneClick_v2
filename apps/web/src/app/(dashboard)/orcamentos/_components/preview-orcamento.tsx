@@ -592,7 +592,12 @@ function MedidorCompletude({ pct, nivel }: { pct?: number; nivel: NivelCompletud
  * Cada dia com eventos (linha do tempo) ou mensagens fica azul, mais escuro
  * quanto mais coisa aconteceu; o tooltip lista o que foi. Fins de semana sem
  * atividade ficam mais apagados. Setas navegam da criação do orçamento até o
- * mês atual; abre no mês atual.
+ * mês atual.
+ *
+ * Abre no mês da atividade MAIS RECENTE (02/10/2026): abrir sempre no mês
+ * atual mostrava "0 atividades" em todo orçamento antigo, e as setas, pequenas
+ * no canto, não eram vistas — parecia que só existia o mês corrente. Os meses
+ * com atividade viram atalhos logo abaixo.
  */
 const SEMANA = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB']
 
@@ -651,11 +656,39 @@ function CalendarioAtividade({ detalhe, criadoEm }: { detalhe: Detalhe | null; c
     return m
   }, [detalhe])
 
+  // Meses que têm alguma atividade (1º dia de cada), em ordem.
+  const mesesComAtividade = useMemo(() => {
+    const vistos = new Map<string, Date>()
+    for (const k of porDia.keys()) {
+      const [a, m] = k.split('-').map(Number)
+      const d = new Date(a ?? 1970, m ?? 0, 1)
+      vistos.set(`${d.getFullYear()}-${d.getMonth()}`, d)
+    }
+    return [...vistos.values()].sort((x, y) => x.getTime() - y.getTime())
+  }, [porDia])
+
+  // Abre no mês da última atividade — uma vez por orçamento; depois quem manda
+  // é a navegação de quem está olhando.
+  const posicionado = useRef(false)
+  useEffect(() => {
+    if (posicionado.current || !detalhe) return
+    const ultima = mesesComAtividade[mesesComAtividade.length - 1]
+    if (ultima) setMes(ultima)
+    posicionado.current = true
+  }, [detalhe, mesesComAtividade])
+
   const inicioOrc = new Date(criadoEm)
-  const primeiroMes = new Date(inicioOrc.getFullYear(), inicioOrc.getMonth(), 1)
+  const criacao = Number.isNaN(inicioOrc.getTime()) ? hoje : inicioOrc
+  // O limite é a criação ou a atividade mais antiga, o que vier antes.
+  const primeiroMes = new Date(Math.min(
+    new Date(criacao.getFullYear(), criacao.getMonth(), 1).getTime(),
+    mesesComAtividade[0]?.getTime() ?? Infinity,
+  ))
   const ultimoMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
   const podeVoltar = mes > primeiroMes
   const podeAvancar = mes < ultimoMes
+  const noMesAtual = mes.getTime() === ultimoMes.getTime()
+  const mesCurto = (d: Date) => d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '').replace(' de ', '/')
 
   const diasNoMes = new Date(mes.getFullYear(), mes.getMonth() + 1, 0).getDate()
   const offset = mes.getDay() // DOM = 0
@@ -666,21 +699,46 @@ function CalendarioAtividade({ detalhe, criadoEm }: { detalhe: Detalhe | null; c
 
   return (
     <>
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-[11px] text-muted-foreground">
-          {totalMes} {totalMes === 1 ? 'atividade' : 'atividades'} em <span className="capitalize">{nomeMes}</span>
-        </p>
-        <div className="flex items-center gap-0.5">
-          <button type="button" disabled={!podeVoltar} onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() - 1, 1))}
-            aria-label="Mês anterior" className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent">
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </button>
-          <button type="button" disabled={!podeAvancar} onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() + 1, 1))}
-            aria-label="Próximo mês" className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent">
-            <ChevronRight className="h-3.5 w-3.5" />
-          </button>
+      {/* Navegação: setas com o mês entre elas, e "Hoje" quando fora do atual */}
+      <div className="mb-1.5 flex items-center gap-1.5">
+        <button type="button" disabled={!podeVoltar} onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() - 1, 1))}
+          aria-label="Mês anterior" title="Mês anterior"
+          className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent">
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <div className="min-w-0 flex-1 text-center">
+          <p className="text-[12.5px] font-semibold capitalize leading-tight">{nomeMes}</p>
+          <p className="text-[10.5px] leading-tight text-muted-foreground">{totalMes} {totalMes === 1 ? 'atividade' : 'atividades'}</p>
         </div>
+        <button type="button" disabled={!podeAvancar} onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() + 1, 1))}
+          aria-label="Próximo mês" title="Próximo mês"
+          className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent">
+          <ChevronRight className="h-4 w-4" />
+        </button>
+        {!noMesAtual && (
+          <button type="button" onClick={() => setMes(ultimoMes)}
+            className="h-7 rounded-md border border-border px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+            Hoje
+          </button>
+        )}
       </div>
+      {/* Atalhos: os meses que têm atividade */}
+      {mesesComAtividade.length > 1 && (
+        <div className="nice-scrollbar mb-2 flex gap-1 overflow-x-auto pb-0.5">
+          {mesesComAtividade.map((m) => {
+            const ativo = m.getTime() === mes.getTime()
+            return (
+              <button key={m.getTime()} type="button" onClick={() => setMes(m)}
+                className={cn(
+                  'shrink-0 rounded-full border px-2 py-0.5 text-[10.5px] font-medium capitalize transition-colors',
+                  ativo ? 'border-transparent bg-foreground text-background' : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}>
+                {mesCurto(m)}
+              </button>
+            )
+          })}
+        </div>
+      )}
       <div className="grid w-full grid-cols-7 gap-1">
         {SEMANA.map(d => (
           <span key={d} className="pb-0.5 text-center text-[8px] font-semibold tracking-wide text-muted-foreground/70">{d}</span>
