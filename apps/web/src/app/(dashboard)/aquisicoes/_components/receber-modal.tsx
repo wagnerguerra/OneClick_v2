@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { Loader2, PackageCheck } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { FileCheck2, Loader2, PackageCheck, Paperclip, X } from 'lucide-react'
 import {
   Button, Input, Label, Checkbox, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
@@ -10,6 +10,12 @@ import {
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { getApiUrl } from '@/lib/api-url'
+
+/** NF lida do DANFE anexado (compra.lerNfDoAnexo). */
+interface NfLida { anexoId: string; leitura: string | null; numero: string | null; valor: number | null; emitente: string | null }
+
+const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 /**
  * Registrar uma entrega do pedido — o recebimento é POR ITEM (25/09/2026).
@@ -46,6 +52,11 @@ export function ReceberModal({ open, compraId, codigo, itens, itemInicial, onClo
   const [qtd, setQtd] = useState<Record<string, string>>({})
   const [data, setData] = useState(hojeIso())
   const [nf, setNf] = useState('')
+  const [nfValor, setNfValor] = useState('')
+  // DANFE anexado nesta entrega: vira anexo do pedido e é lido na hora.
+  const [danfe, setDanfe] = useState<{ nome: string; lida: NfLida } | null>(null)
+  const [lendo, setLendo] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   const [obs, setObs] = useState('')
   const [salvando, setSalvando] = useState(false)
 
@@ -57,7 +68,7 @@ export function ReceberModal({ open, compraId, codigo, itens, itemInicial, onClo
       m[i.id] = itemInicial ? i.id === itemInicial : true
       q[i.id] = String(i.quantidade - i.quantidadeRecebida)
     }
-    setMarcados(m); setQtd(q); setData(hojeIso()); setNf(''); setObs('')
+    setMarcados(m); setQtd(q); setData(hojeIso()); setNf(''); setNfValor(''); setDanfe(null); setObs('')
   }, [open, pendentes, itemInicial])
 
   const selecionados = pendentes.filter(i => marcados[i.id])
@@ -71,6 +82,36 @@ export function ReceberModal({ open, compraId, codigo, itens, itemInicial, onClo
 
   const todos = pendentes.length > 0 && selecionados.length === pendentes.length
 
+  /**
+   * Anexa o DANFE (PDF) e lê número, valor e vendedor para preencher os campos.
+   * O arquivo fica nos anexos do pedido mesmo que a leitura falhe.
+   */
+  async function anexarNf(file: File) {
+    setLendo(true)
+    try {
+      const fd = new FormData(); fd.append('file', file, file.name)
+      const res = await fetch(`${getApiUrl()}/api/upload`, { method: 'POST', credentials: 'include', body: fd })
+      if (!res.ok) throw new Error(`Upload falhou (HTTP ${res.status})`)
+      const up = await res.json() as { url: string }
+      const nomesItens = selecionados.map(i => i.descricao).join(', ')
+      const anexo = await (trpc.compra as any).addAnexo.mutate({
+        compraId, fileUrl: up.url, fileName: file.name, mimeType: file.type || undefined, tamanho: file.size,
+        descricao: `NF do recebimento${nomesItens ? ` — ${nomesItens.slice(0, 120)}` : ''}`,
+      }) as { id: string }
+      const lida: NfLida = await (trpc.compra as any).lerNfDoAnexo.mutate({ anexoId: anexo.id })
+      setDanfe({ nome: file.name, lida })
+      if (lida.leitura === 'lido') {
+        if (lida.numero) setNf(lida.numero)
+        if (lida.valor != null) setNfValor(String(lida.valor))
+      }
+    } catch (e) {
+      alerts.error('Erro ao anexar a NF', (e as Error).message)
+    } finally {
+      setLendo(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
   async function registrar() {
     if (!selecionados.length || problema || !data) return
     setSalvando(true)
@@ -79,6 +120,8 @@ export function ReceberModal({ open, compraId, codigo, itens, itemInicial, onClo
         compraId,
         data,
         nfNumero: nf.trim() || undefined,
+        nfValor: nfValor.trim() && Number(nfValor) >= 0 ? Number(nfValor) : undefined,
+        anexoId: danfe?.lida.anexoId,
         observacao: obs.trim() || undefined,
         itens: selecionados.map(i => ({ itemId: i.id, quantidade: Number(qtd[i.id]) })),
       })
@@ -106,9 +149,40 @@ export function ReceberModal({ open, compraId, codigo, itens, itemInicial, onClo
               <Label className="text-[13px] font-semibold">Data do recebimento</Label>
               <Input type="date" className="h-9 text-sm" value={data} max={hojeIso()} onChange={(e) => setData(e.target.value)} />
             </div>
-            <div className="col-span-12 sm:col-span-8 space-y-1.5">
+            <div className="col-span-12 sm:col-span-4 space-y-1.5">
               <Label className="text-[13px] font-semibold">Nota fiscal <span className="font-normal text-muted-foreground">(opcional)</span></Label>
-              <Input className="h-9 text-sm" value={nf} onChange={(e) => setNf(e.target.value)} placeholder="Número da NF da entrega" />
+              <Input className="h-9 text-sm" value={nf} onChange={(e) => setNf(e.target.value)} placeholder="Número da NF" />
+            </div>
+            <div className="col-span-12 sm:col-span-4 space-y-1.5">
+              <Label className="text-[13px] font-semibold">Valor da NF (R$)</Label>
+              <Input type="number" step="0.01" min={0} className="h-9 text-sm tabular-nums" value={nfValor} onChange={(e) => setNfValor(e.target.value)} placeholder="0,00" />
+            </div>
+
+            {/* DANFE: anexar já preenche número e valor */}
+            <div className="col-span-12">
+              <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) anexarNf(f) }} />
+              {!danfe ? (
+                <button type="button" onClick={() => fileRef.current?.click()} disabled={lendo}
+                  className="flex w-full items-center gap-2 rounded-md border border-dashed border-border px-3 py-2.5 text-left text-[12.5px] text-muted-foreground transition-colors hover:bg-muted/40 disabled:opacity-60">
+                  {lendo ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <Paperclip className="h-4 w-4 shrink-0" />}
+                  {lendo ? 'Anexando e lendo a nota…' : 'Anexar a NF desta entrega (PDF do DANFE) — número e valor são preenchidos sozinhos'}
+                </button>
+              ) : (
+                <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 px-3 py-2">
+                  <FileCheck2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1 text-[12px]">
+                    <p className="truncate font-medium" title={danfe.nome}>{danfe.nome}</p>
+                    <p className="text-muted-foreground">
+                      {danfe.lida.leitura === 'lido'
+                        ? <>NF {danfe.lida.numero}{danfe.lida.valor != null ? ` · ${brl(danfe.lida.valor)}` : ''}{danfe.lida.emitente ? ` · ${danfe.lida.emitente}` : ''} — conferida a partir do PDF.</>
+                        : 'Anexada aos arquivos do pedido, mas não deu para ler a nota — preencha o número e o valor.'}
+                    </p>
+                  </div>
+                  <button type="button" onClick={() => setDanfe(null)} title="Desvincular desta entrega (o arquivo continua nos anexos)"
+                    className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -168,7 +242,7 @@ export function ReceberModal({ open, compraId, codigo, itens, itemInicial, onClo
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose} disabled={salvando}>Cancelar</Button>
-          <Button size="sm" onClick={registrar} disabled={salvando || !selecionados.length || !!problema || !data}>
+          <Button size="sm" onClick={registrar} disabled={salvando || lendo || !selecionados.length || !!problema || !data}>
             {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackageCheck className="h-4 w-4" />}
             Registrar recebimento
           </Button>

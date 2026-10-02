@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Check, ClipboardCheck, Loader2 } from 'lucide-react'
+import { Check, ClipboardCheck, FileText, Loader2 } from 'lucide-react'
 import {
   Button, Input, Label, Checkbox, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle,
@@ -15,6 +15,11 @@ import { TIPO_FORNECIMENTO_LABELS } from '@saas/types'
 /**
  * Avaliação do fornecimento (P1..P5 + NF + tipo + melhoria). Saiu da página do
  * pedido em 25/09/2026, quando ela foi refeita no padrão de detalhe.
+ *
+ * Desde 02/10/2026 a NF vem pronta: o pedido pode ter várias notas (compra de
+ * marketplace entregue por vários vendedores), lidas dos DANFEs anexados. Os
+ * números são juntados e os valores somados; quem avalia só confere. Os
+ * critérios são opcionais — dá para concluir sem responder nenhum.
  */
 const TIPO_FORN_OPCOES = ['NORMAL', 'CONTRATO_PERMANENTE', 'CONTRATO_TEMPORARIO', 'CURSO_TREINAMENTO', 'MANUTENCAO_SOFTWARE']
 
@@ -25,7 +30,17 @@ export interface CompraAvaliavel {
 }
 
 interface CritRow { id: string; criterio: string; ordem: number; atende: boolean | null }
-export function AvaliarModal({ compra, onClose, onDone }: { compra: CompraAvaliavel; onClose: () => void; onDone: () => void }) {
+interface NotaDoPedido { numero: string; serie: string | null; valor: number | null; emitente: string | null; arquivo: string | null }
+interface NotasDoPedido { notas: NotaDoPedido[]; total: number; semValor: number }
+
+const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+export function AvaliarModal({ compra, totalPedido, onClose, onDone }: {
+  compra: CompraAvaliavel
+  /** Total do pedido (itens + frete), para comparar com a soma das notas. */
+  totalPedido?: number
+  onClose: () => void
+  onDone: () => void
+}) {
   const [criterios, setCriterios] = useState<CritRow[]>([])
   const [loading, setLoading] = useState(true)
   const [nfNumero, setNfNumero] = useState(compra.nfNumero ?? '')
@@ -34,10 +49,21 @@ export function AvaliarModal({ compra, onClose, onDone }: { compra: CompraAvalia
   const [melhoria, setMelhoria] = useState(compra.melhoria ?? false)
   const [melhoriaObs, setMelhoriaObs] = useState(compra.melhoriaObs ?? '')
   const [saving, setSaving] = useState(false)
+  const [notas, setNotas] = useState<NotasDoPedido | null>(null)
 
   useEffect(() => {
     ;(trpc.compra as any).getAvaliacao.query({ compraId: compra.id }).then((d: CritRow[]) => setCriterios(d || [])).catch(() => setCriterios([])).finally(() => setLoading(false))
-  }, [compra.id])
+    // Notas do pedido: pré-preenche só o que ainda está vazio — a avaliação
+    // revista não perde o que alguém já digitou.
+    ;(trpc.compra as any).notasFiscais.query({ compraId: compra.id })
+      .then((d: NotasDoPedido) => {
+        setNotas(d)
+        if (!d?.notas.length) return
+        if (!compra.nfNumero) setNfNumero(d.notas.map((n) => n.numero).join(', '))
+        if (compra.nfValor == null && d.total > 0) setNfValor(String(d.total))
+      })
+      .catch(() => setNotas(null))
+  }, [compra.id, compra.nfNumero, compra.nfValor])
 
   function resp(id: string, atende: boolean) { setCriterios((prev) => prev.map((c) => c.id === id ? { ...c, atende } : c)) }
 
@@ -59,16 +85,45 @@ export function AvaliarModal({ compra, onClose, onDone }: { compra: CompraAvalia
         <DialogHeaderIcon icon={ClipboardCheck} color="emerald"><DialogTitle>Avaliar fornecimento — Pedido #{compra.code}</DialogTitle></DialogHeaderIcon>
         <DialogBody className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <div><Label>Nota Fiscal (nº)</Label><Input value={nfNumero} onChange={(e) => setNfNumero(e.target.value)} className="mt-1.5 h-9" /></div>
-            <div><Label>Valor da NF (R$)</Label><Input type="number" step="0.01" value={nfValor} onChange={(e) => setNfValor(e.target.value)} className="mt-1.5 h-9" /></div>
+            <div><Label>{(notas?.notas.length ?? 0) > 1 ? 'Notas Fiscais (nº)' : 'Nota Fiscal (nº)'}</Label><Input value={nfNumero} onChange={(e) => setNfNumero(e.target.value)} className="mt-1.5 h-9" /></div>
+            <div><Label>{(notas?.notas.length ?? 0) > 1 ? 'Valor das NFs (R$)' : 'Valor da NF (R$)'}</Label><Input type="number" step="0.01" value={nfValor} onChange={(e) => setNfValor(e.target.value)} className="mt-1.5 h-9" /></div>
           </div>
+
+          {/* Notas lidas dos DANFEs anexados — origem do pré-preenchimento */}
+          {notas && notas.notas.length > 0 && (
+            <div className="rounded-md border border-border">
+              <p className="flex items-center gap-1.5 border-b border-border bg-muted/40 px-3 py-1.5 text-[12px] font-semibold">
+                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                {notas.notas.length === 1 ? '1 nota fiscal no pedido' : `${notas.notas.length} notas fiscais no pedido`}
+              </p>
+              <div className="nice-scrollbar max-h-[150px] divide-y divide-border/60 overflow-y-auto">
+                {notas.notas.map((n, i) => (
+                  <div key={`${n.numero}-${i}`} className="flex items-center gap-2 px-3 py-1.5 text-[12px]">
+                    <span className="w-[86px] shrink-0 font-medium tabular-nums">NF {n.numero}</span>
+                    <span className="min-w-0 flex-1 truncate text-muted-foreground" title={n.emitente ?? n.arquivo ?? ''}>
+                      {n.emitente ?? n.arquivo ?? 'digitada no recebimento'}
+                    </span>
+                    <span className="shrink-0 tabular-nums">{n.valor != null ? brl(n.valor) : '—'}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between border-t border-border px-3 py-1.5 text-[12px]">
+                <span className="text-muted-foreground">
+                  {totalPedido != null && notas.total > 0 && Math.abs(notas.total - totalPedido) >= 0.01
+                    ? `Pedido: ${brl(totalPedido)} · diferença ${brl(notas.total - totalPedido)}`
+                    : notas.semValor > 0 ? `${notas.semValor} sem valor lido` : 'Soma das notas'}
+                </span>
+                <span className="font-semibold tabular-nums">{brl(notas.total)}</span>
+              </div>
+            </div>
+          )}
           <div><Label>Tipo de Fornecimento</Label>
             <Select value={tipo} onValueChange={setTipo}><SelectTrigger className="mt-1.5 h-9"><SelectValue /></SelectTrigger>
               <SelectContent>{TIPO_FORN_OPCOES.map((t) => <SelectItem key={t} value={t}>{TIPO_FORNECIMENTO_LABELS[t]}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div>
-            <Label>Critérios de avaliação</Label>
+            <Label>Critérios de avaliação <span className="font-normal text-muted-foreground">(opcional)</span></Label>
             {loading ? <div className="py-4 text-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin inline" /></div>
               : criterios.length === 0 ? <p className="text-xs text-muted-foreground py-2">Nenhum critério cadastrado (cadastre em Aquisições › critérios).</p>
               : <div className="mt-1.5 divide-y divide-border/60 rounded-md border border-border">

@@ -86,6 +86,14 @@ export function createCompraRouter(compraService: CompraService, cotacaoService:
     listAnexos: readProcedure(MODULE).input(z.object({ compraId: z.string() })).query(({ input, ctx }) => compraService.listAnexos(input.compraId, ctx.tenantSchema)),
     addAnexo: writeProcedure(MODULE).input(createCompraAnexoSchema).mutation(({ input, ctx }) => compraService.addAnexo(input, ctx.userId, ctx.tenantSchema)),
     updateAnexo: writeProcedure(MODULE).input(updateCompraAnexoSchema).mutation(({ input, ctx }) => compraService.updateAnexo(input, ctx.tenantSchema)),
+    /** Lê o DANFE anexado (número, valor, vendedor) — usado logo após anexar no recebimento. */
+    lerNfDoAnexo: writeProcedure(MODULE)
+      .input(z.object({ anexoId: z.string(), forcar: z.boolean().optional() }))
+      .mutation(({ input, ctx }) => compraService.lerNfDoAnexo(input.anexoId, { isMaster: ctx.isMaster ?? false, empresaId: ctx.empresaId }, ctx.tenantSchema, input.forcar)),
+    /** Notas fiscais do pedido (DANFEs anexados + números do recebimento). */
+    notasFiscais: readProcedure(MODULE)
+      .input(z.object({ compraId: z.string() }))
+      .query(({ input, ctx }) => compraService.notasFiscais(input.compraId, { isMaster: ctx.isMaster ?? false, empresaId: ctx.empresaId }, ctx.tenantSchema)),
     removeAnexo: deleteProcedure(MODULE).input(z.object({ id: z.string() })).mutation(({ input, ctx }) => compraService.removeAnexo(input.id, ctx.tenantSchema)),
 
     // ── Mensagens ──

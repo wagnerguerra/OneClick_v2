@@ -7,6 +7,9 @@ import { invalidateUserPermissionsCache } from '../trpc/trpc.service'
 import { CompraPdfService } from './compra-pdf.service'
 import { STATUS_COMPRA_LABELS } from '@saas/types'
 import { quantidadeRecebida, situacaoDoItem, statusPeloRecebimento, validarEntrega } from './recebimento'
+import { extrairNotaFiscal } from './nota-fiscal-pdf'
+import { readFile } from 'fs/promises'
+import { basename, join } from 'path'
 import type {
   CreateCompraInput, UpdateCompraInput, ListCompraInput,
   CreateCompraItemInput, UpdateCompraItemInput,
@@ -199,7 +202,8 @@ export class CompraService {
       const recebimentos = c.itens
         .flatMap(i => i.recebimentos.map(r => ({
           id: r.id, itemId: i.id, item: i.descricao, unidade: i.unidade, quantidade: r.quantidade,
-          dataRecebimento: r.dataRecebimento, nfNumero: r.nfNumero, observacao: r.observacao, createdAt: r.createdAt,
+          dataRecebimento: r.dataRecebimento, nfNumero: r.nfNumero, nfValor: r.nfValor != null ? Number(r.nfValor) : null,
+          observacao: r.observacao, createdAt: r.createdAt,
           recebedor: r.recebedorId ? uMap.get(r.recebedorId) ?? null : null,
         })))
         .sort((a, b) => b.dataRecebimento.getTime() - a.dataRecebimento.getTime() || b.createdAt.getTime() - a.createdAt.getTime())
@@ -433,7 +437,8 @@ export class CompraService {
       await db.compraItemRecebimento.createMany({
         data: input.itens.map(e => ({
           compraId: input.compraId, itemId: e.itemId, quantidade: e.quantidade, dataRecebimento: quando,
-          nfNumero: input.nfNumero || null, observacao: input.observacao || null, recebedorId: userId || null,
+          nfNumero: input.nfNumero || null, nfValor: input.nfValor ?? null, anexoId: input.anexoId || null,
+          observacao: input.observacao || null, recebedorId: userId || null,
         })),
       })
       const doEntregue = new Map(input.itens.map(e => [e.itemId, e.quantidade]))
@@ -539,6 +544,90 @@ export class CompraService {
       db.compraAnexo.create({ data: { compraId: input.compraId, descricao: input.descricao || null, fileUrl: input.fileUrl, fileName: input.fileName, mimeType: input.mimeType || null, tamanho: input.tamanho ?? null, uploadedById: userId || null } }),
     )
   }
+  /**
+   * Lê o DANFE de um anexo PDF (número, série, chave, valor, emitente) e guarda
+   * no anexo. Lido uma vez: depois a resposta sai do banco. `forcar` relê.
+   */
+  async lerNfDoAnexo(anexoId: string, ctx: { isMaster: boolean; empresaId?: string }, tenantSchema?: string, forcar = false) {
+    return scoped(tenantSchema, (db) => this.lerNf(db, anexoId, ctx, forcar))
+  }
+
+  private async lerNf(db: ScopedDb, anexoId: string, ctx: { isMaster: boolean; empresaId?: string }, forcar = false) {
+    const a = await db.compraAnexo.findUniqueOrThrow({
+      where: { id: anexoId },
+      include: { compra: { select: { empresaId: true } } },
+    })
+    if (!ctx.isMaster && ctx.empresaId && a.compra.empresaId !== ctx.empresaId) throw new Error('Acesso negado.')
+    const resposta = (x: typeof a) => ({
+      anexoId: x.id, leitura: x.nfLeitura, numero: x.nfNumero, serie: x.nfSerie, chave: x.nfChave,
+      valor: x.nfValor != null ? Number(x.nfValor) : null, emitente: x.nfEmitente,
+    })
+    if (a.nfLeitura && !forcar) return resposta(a)
+
+    let dados: Prisma.CompraAnexoUpdateInput = { nfLeitura: 'nao_nf' }
+    try {
+      // Só arquivo do nosso upload (`/api/upload/<nome>`): o nome passa por
+      // basename para nunca sair da pasta.
+      if (!a.fileUrl.startsWith('/api/upload/') || !/\.pdf$/i.test(a.fileName + a.fileUrl)) {
+        dados = { nfLeitura: 'nao_nf' }
+      } else {
+        const buf = await readFile(join(process.cwd(), 'uploads', basename(a.fileUrl)))
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const texto = String((await require('pdf-parse/lib/pdf-parse.js')(buf)).text ?? '')
+        const nf = extrairNotaFiscal(texto)
+        dados = nf
+          ? { nfLeitura: 'lido', nfNumero: nf.numero, nfSerie: nf.serie, nfChave: nf.chave, nfValor: nf.valor, nfEmitente: nf.emitente }
+          : { nfLeitura: 'nao_nf' }
+      }
+    } catch {
+      dados = { nfLeitura: 'erro' }
+    }
+    return resposta(await db.compraAnexo.update({
+      where: { id: anexoId }, data: dados, include: { compra: { select: { empresaId: true } } },
+    }))
+  }
+
+  /**
+   * As notas fiscais do pedido — uma compra de marketplace chega por vários
+   * vendedores, cada um com a sua (pedido #617: 4 itens, 4 notas). Junta os
+   * DANFEs anexados (lidos agora, se ainda não foram) e os números digitados no
+   * recebimento sem anexo. Base do pré-preenchimento da avaliação.
+   */
+  async notasFiscais(compraId: string, ctx: { isMaster: boolean; empresaId?: string }, tenantSchema?: string) {
+    return scoped(tenantSchema, async (db) => {
+      const c = await db.compra.findUniqueOrThrow({ where: { id: compraId }, select: { empresaId: true } })
+      if (!ctx.isMaster && ctx.empresaId && c.empresaId !== ctx.empresaId) throw new Error('Acesso negado.')
+
+      const anexos = await db.compraAnexo.findMany({
+        where: { compraId, isActive: true }, orderBy: { createdAt: 'asc' }, select: { id: true, fileName: true },
+      })
+      const notas: Array<{
+        numero: string; serie: string | null; valor: number | null; emitente: string | null
+        anexoId: string | null; arquivo: string | null
+      }> = []
+      for (const a of anexos) {
+        const nf = await this.lerNf(db, a.id, ctx)
+        if (nf.leitura === 'lido' && nf.numero) {
+          notas.push({ numero: nf.numero, serie: nf.serie, valor: nf.valor, emitente: nf.emitente, anexoId: a.id, arquivo: a.fileName })
+        }
+      }
+      // Número digitado no recebimento, sem DANFE anexado (ou com um ilegível).
+      const recs = await db.compraItemRecebimento.findMany({
+        where: { compraId, nfNumero: { not: null } }, select: { nfNumero: true, nfValor: true },
+      })
+      const so = (n: string) => n.replace(/\D/g, '').replace(/^0+/, '') || n.trim()
+      const vistos = new Set(notas.map((n) => so(n.numero)))
+      for (const r of recs) {
+        const num = (r.nfNumero ?? '').trim()
+        if (!num || vistos.has(so(num))) continue
+        vistos.add(so(num))
+        notas.push({ numero: num, serie: null, valor: r.nfValor != null ? Number(r.nfValor) : null, emitente: null, anexoId: null, arquivo: null })
+      }
+      const total = notas.reduce((t, n) => t + (n.valor ?? 0), 0)
+      return { notas, total: Math.round(total * 100) / 100, semValor: notas.filter((n) => n.valor === null).length }
+    })
+  }
+
   async updateAnexo(input: UpdateCompraAnexoInput, tenantSchema?: string) {
     return scoped(tenantSchema, (db) => db.compraAnexo.update({ where: { id: input.id }, data: { descricao: input.descricao || null } }))
   }

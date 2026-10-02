@@ -81,6 +81,9 @@ export const receberItensSchema = z.object({
   /** AAAA-MM-DD — o dia em que chegou (pode ser retroativo). */
   data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   nfNumero: z.string().max(60).optional().or(z.literal('')),
+  nfValor: z.number().nonnegative().optional(),
+  /** DANFE anexado nesta entrega (CompraAnexo.id). */
+  anexoId: z.string().optional(),
   observacao: z.string().max(2000).optional().or(z.literal('')),
   itens: z.array(z.object({
     itemId: z.string(),

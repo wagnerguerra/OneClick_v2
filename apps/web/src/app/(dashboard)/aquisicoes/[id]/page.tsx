@@ -90,6 +90,8 @@ export default function PedidoDetalhePage() {
   const [reprovarOpen, setReprovarOpen] = useState(false)
   const [motivo, setMotivo] = useState('')
   const [avaliarOpen, setAvaliarOpen] = useState(false)
+  // Recebimento com DANFE cria anexo: a versão força o card de anexos a recarregar.
+  const [anexosVersao, setAnexosVersao] = useState(0)
   const [receberOpen, setReceberOpen] = useState(false)
   const [receberItem, setReceberItem] = useState<string | null>(null)
   const [aba, setAba] = useState<Aba>('detalhes')
@@ -477,7 +479,7 @@ export default function PedidoDetalhePage() {
               </ol>
             </div>
           </SectionCard>
-          <AnexosCard compraId={c.id} />
+          <AnexosCard key={anexosVersao} compraId={c.id} />
         </div>
       </div>
 
@@ -503,10 +505,10 @@ export default function PedidoDetalhePage() {
         itens={c.itens}
         itemInicial={receberItem}
         onClose={() => setReceberOpen(false)}
-        onDone={() => { setReceberOpen(false); carregar(true) }}
+        onDone={() => { setReceberOpen(false); setAnexosVersao((v) => v + 1); carregar(true) }}
       />
 
-      {avaliarOpen && <AvaliarModal compra={c} onClose={() => setAvaliarOpen(false)} onDone={() => { setAvaliarOpen(false); carregar(true) }} />}
+      {avaliarOpen && <AvaliarModal compra={c} totalPedido={Number(c.total) || undefined} onClose={() => setAvaliarOpen(false)} onDone={() => { setAvaliarOpen(false); carregar(true) }} />}
     </div>
   )
 }
