@@ -175,8 +175,11 @@ export function createClienteRouter(
     // contratos, sócios, etc.). Qualquer usuário logado pode consultar — retorna
     // só metadata mínima (id, razaoSocial, nomeFantasia, code, documento, situacao),
     // não dados sensíveis. Filtragem por empresa via ctx.empresaId é mantida.
+    // `incluirInativos`: ex-clientes também (marcados por `status`) — usado no
+    // novo orçamento, onde quem volta a pedir serviço precisa ser achado.
     listForSelect: protectedProcedure
-      .query(({ ctx }) => clienteService.listForSelect(ctx.isMaster, ctx.empresaId)),
+      .input(z.object({ incluirInativos: z.boolean().optional() }).optional())
+      .query(({ input, ctx }) => clienteService.listForSelect(ctx.isMaster, ctx.empresaId, input?.incluirInativos ?? false)),
 
     // ── Opcoes editaveis (Atividade, Origem) ───────────────
     listOpcoes: readProcedure(MODULE)

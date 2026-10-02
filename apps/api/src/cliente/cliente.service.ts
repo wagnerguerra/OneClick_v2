@@ -1041,18 +1041,20 @@ export class ClienteService {
    * Isolamento estrito para quem não é master: nunca clientes órfãos
    * (empresaId=null) nem de outra empresa.
    */
-  async listForSelect(isMaster?: boolean, empresaId?: string) {
+  async listForSelect(isMaster?: boolean, empresaId?: string, incluirInativos = false) {
+    // Ex-cliente só quando pedido; o padrão continua sendo só ativos (57 telas usam isto).
+    const status: Prisma.ClienteWhereInput = incluirInativos ? { status: { in: ['ATIVO', 'INATIVO'] } } : { status: 'ATIVO' }
     const where: Prisma.ClienteWhereInput = empresaId
-      ? { status: 'ATIVO', empresaId }
+      ? { ...status, empresaId }
       : isMaster
-        ? { status: 'ATIVO' }
-        : { status: 'ATIVO', empresaId: '__none__' }
+        ? status
+        : { ...status, empresaId: '__none__' }
     return prisma.cliente.findMany({
       where,
       // tipoDocumento/ehMatriz: o final do CNPJ e o selo Matriz/Filial nas
       // listas que usam este seletor (#HLP0410).
       // logoUrl: a logo do cliente no card do quadro de orçamentos.
-      select: { id: true, razaoSocial: true, nomeFantasia: true, code: true, documento: true, situacao: true, tipoDocumento: true, ehMatriz: true, logoUrl: true },
+      select: { id: true, razaoSocial: true, nomeFantasia: true, code: true, documento: true, situacao: true, tipoDocumento: true, ehMatriz: true, logoUrl: true, status: true },
       orderBy: { razaoSocial: 'asc' },
     })
   }

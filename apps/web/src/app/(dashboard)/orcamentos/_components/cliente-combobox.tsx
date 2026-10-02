@@ -23,8 +23,23 @@ function formatDocumento(doc: string | null | undefined): string {
  * ou documento (CNPJ/CPF). Usado no modal de criacao e no detalhe do
  * orcamento.
  */
-export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabled, onCreate }: {
-  clientes: Array<{ id: string; razaoSocial: string; documento?: string | null }>
+/**
+ * Marca de ex-cliente (status INATIVO) — mesmo selo da busca do botão "+".
+ * Ex-cliente entra na lista porque é assim que ele volta, mas IDENTIFICADO:
+ * escolher sem saber levaria a orçar para uma conta encerrada sem perceber.
+ */
+function SeloExCliente() {
+  return (
+    <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-px text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+      Ex-cliente
+    </span>
+  )
+}
+
+export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabled, onCreate, marcarExClientes }: {
+  clientes: Array<{ id: string; razaoSocial: string; documento?: string | null; status?: string | null }>
+  /** A lista inclui ex-clientes (status INATIVO): mostra o selo neles. */
+  marcarExClientes?: boolean
   value: string
   onSelect: (id: string) => void
   placeholder?: string
@@ -87,7 +102,10 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
       >
         {selected ? (
           <span className="flex flex-col items-start min-w-0 flex-1 truncate">
-            <span className="truncate text-sm font-medium leading-tight">{selected.razaoSocial}</span>
+            <span className="flex max-w-full items-center gap-1.5">
+              <span className="truncate text-sm font-medium leading-tight">{selected.razaoSocial}</span>
+              {marcarExClientes && selected.status === 'INATIVO' && <SeloExCliente />}
+            </span>
             {selected.documento && (
               <span className="text-[11px] text-muted-foreground font-mono leading-tight">{formatDocumento(selected.documento)}</span>
             )}
@@ -125,7 +143,10 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
                 )}
                 onClick={() => { onSelect(c.id); close() }}
               >
-                <span className="text-sm font-medium leading-tight truncate">{c.razaoSocial}</span>
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="text-sm font-medium leading-tight truncate">{c.razaoSocial}</span>
+                  {marcarExClientes && c.status === 'INATIVO' && <SeloExCliente />}
+                </span>
                 {c.documento && (
                   <span className="text-[11px] text-muted-foreground font-mono leading-tight">{formatDocumento(c.documento)}</span>
                 )}

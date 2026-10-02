@@ -566,7 +566,7 @@ export default function OrcamentosPage() {
     try { setFormasCatalogo((await (trpc.orcamento as any).listFormasPagamento.query()) || []) } catch { /* sem permissão no módulo */ }
   }, [])
   useEffect(() => { void loadFormasCatalogo() }, [loadFormasCatalogo])
-  const [clientes, setClientes] = useState<{ id: string; razaoSocial: string; documento?: string | null }[]>([])
+  const [clientes, setClientes] = useState<{ id: string; razaoSocial: string; documento?: string | null; status?: string | null }[]>([])
   const [usuarios, setUsuarios] = useState<{ id: string; name: string }[]>([])
   const [creating, setCreating] = useState(false)
   // Áreas a notificar — lista + pills compartilhadas com o balão do FAB
@@ -858,7 +858,9 @@ export default function OrcamentosPage() {
     setCreateOpen(true)
     try {
       const [cls, usrs] = await Promise.all([
-        (trpc.cliente as any).listForSelect.query(),
+        // Ex-clientes também, como no botão "+" (solicitar orçamento): é assim
+        // que um cliente que saiu volta. Vêm marcados no combobox.
+        (trpc.cliente as any).listForSelect.query({ incluirInativos: true }),
         (trpc.orcamento as any).listUsuarios.query(),
       ])
       setClientes(cls)
@@ -1364,6 +1366,7 @@ export default function OrcamentosPage() {
                 value={form.clienteId}
                 onSelect={v => setForm({ ...form, clienteId: v })}
                 placeholder="Selecione o cliente ou digite o nome"
+                marcarExClientes
                 onCreate={async (nome) => {
                   try {
                     const novo = await (trpc.orcamento as any).criarClienteRapido.mutate({ nome }) as { id: string; razaoSocial: string; documento?: string | null } | null
@@ -1379,6 +1382,7 @@ export default function OrcamentosPage() {
                 }}
               />
               <p className="text-[11px] text-muted-foreground">
+                A busca cobre os clientes da empresa carregada, inclusive ex-clientes (marcados na lista).
                 Cliente não cadastrado? Digite o nome — cadastramos automaticamente como prospect.
               </p>
             </div>
