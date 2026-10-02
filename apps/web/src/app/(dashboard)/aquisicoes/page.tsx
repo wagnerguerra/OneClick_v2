@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Trash2, Pencil, Settings, FileSpreadsheet, Printer,
+  Plus, Trash2, Pencil, Settings, FileSpreadsheet, Printer, BarChart3,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react'
 import {
@@ -93,6 +93,9 @@ export default function AquisicoesPage() {
           <Button variant="success" size="sm" asChild><Link href="/aquisicoes/new"><Plus className="h-4 w-4" />Novo Pedido</Link></Button>
           <Button variant="outline" size="sm" asChild>
             <Link href="/aquisicoes/cotacoes"><FileSpreadsheet className="h-4 w-4" />Cotações</Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/aquisicoes/relatorios"><BarChart3 className="h-4 w-4" />Relatórios</Link>
           </Button>
           {podeConfigurar && (
             <Button variant="outline" size="icon-sm" asChild title="Configurações do módulo">

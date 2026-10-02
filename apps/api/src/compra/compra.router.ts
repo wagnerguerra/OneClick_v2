@@ -90,6 +90,13 @@ export function createCompraRouter(compraService: CompraService, cotacaoService:
     lerNfDoAnexo: writeProcedure(MODULE)
       .input(z.object({ anexoId: z.string(), forcar: z.boolean().optional() }))
       .mutation(({ input, ctx }) => compraService.lerNfDoAnexo(input.anexoId, { isMaster: ctx.isMaster ?? false, empresaId: ctx.empresaId }, ctx.tenantSchema, input.forcar)),
+    /** IQF dos fornecedores, gastos com curva ABC e conferência pedido × nota. */
+    relatorios: readProcedure(MODULE)
+      .input(z.object({
+        de: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        ate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      }))
+      .query(({ input, ctx }) => compraService.relatorios(input, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
     /** Notas fiscais do pedido (DANFEs anexados + números do recebimento). */
     notasFiscais: readProcedure(MODULE)
       .input(z.object({ compraId: z.string() }))

@@ -8,6 +8,7 @@ import { CompraPdfService } from './compra-pdf.service'
 import { STATUS_COMPRA_LABELS } from '@saas/types'
 import { quantidadeRecebida, situacaoDoItem, statusPeloRecebimento, validarEntrega } from './recebimento'
 import { extrairNotaFiscal } from './nota-fiscal-pdf'
+import { montarConferencia, montarGastos, montarIqf, type PedidoRelatorio } from './relatorios'
 import { readFile } from 'fs/promises'
 import { basename, join } from 'path'
 import type {
@@ -625,6 +626,56 @@ export class CompraService {
       }
       const total = notas.reduce((t, n) => t + (n.valor ?? 0), 0)
       return { notas, total: Math.round(total * 100) / 100, semValor: notas.filter((n) => n.valor === null).length }
+    })
+  }
+
+  /**
+   * Os três relatórios do módulo (IQF, gastos/ABC, pedido × nota) para um
+   * período. Uma consulta só e o cálculo em relatorios.ts: são centenas de
+   * pedidos, não vale agregar em SQL e perder os testes.
+   *
+   * Período pela data do pedido (solicitação, senão criação); no IQF vale a
+   * data da avaliação, que é quando o fornecimento foi julgado.
+   */
+  async relatorios(input: { de?: string; ate?: string }, isMaster: boolean, empresaId?: string, tenantSchema?: string) {
+    return scoped(tenantSchema, async (db) => {
+      const rows = await db.compra.findMany({
+        where: { ...empresaFilter(isMaster, empresaId), isActive: true },
+        include: {
+          fornecedor: { select: { id: true, razaoSocial: true } },
+          itens: { where: { isActive: true }, select: { valorUnitario: true, quantidade: true } },
+          recebimentos: { select: { nfValor: true } },
+          anexos: { where: { isActive: true, nfLeitura: 'lido' }, select: { nfValor: true } },
+          avaliacoes: { include: { criterio: { select: { criterio: true, ordem: true } } } },
+        },
+      })
+      const de = input.de ? new Date(`${input.de}T00:00:00-03:00`) : null
+      const ate = input.ate ? new Date(`${input.ate}T23:59:59-03:00`) : null
+      const dentro = (d: Date) => (!de || d >= de) && (!ate || d <= ate)
+      const soma = (vs: Array<{ nfValor: unknown }>) => {
+        const com = vs.filter((v) => v.nfValor != null)
+        return com.length ? com.reduce((t, v) => t + Number(v.nfValor), 0) : null
+      }
+
+      const todos: PedidoRelatorio[] = rows.map((c) => ({
+        id: c.id, code: c.code, status: c.status,
+        fornecedorId: c.fornecedorId, fornecedor: c.fornecedor.razaoSocial,
+        data: c.dataSolicitacao ?? c.createdAt, dataAvaliacao: c.dataAvaliacao,
+        totalPedido: this.total(c.itens, c.frete),
+        nfValorAvaliacao: c.nfValor != null ? Number(c.nfValor) : null,
+        nfValorRecebimentos: soma(c.recebimentos),
+        nfValorAnexos: soma(c.anexos),
+        tipoFornecimento: c.tipoFornecimento, melhoria: c.melhoria,
+        respostas: c.avaliacoes.map((a) => ({ criterio: a.criterio.criterio, ordem: a.criterio.ordem, atende: a.atende })),
+      }))
+      const doPeriodo = todos.filter((p) => dentro(p.data))
+      const avaliadosNoPeriodo = todos.filter((p) => dentro(p.dataAvaliacao ?? p.data))
+      return {
+        periodo: { de: input.de ?? null, ate: input.ate ?? null },
+        iqf: montarIqf(avaliadosNoPeriodo),
+        gastos: montarGastos(doPeriodo),
+        conferencia: montarConferencia(doPeriodo),
+      }
     })
   }
 
