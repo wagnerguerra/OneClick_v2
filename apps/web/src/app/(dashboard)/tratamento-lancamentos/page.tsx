@@ -313,7 +313,7 @@ export default function TratamentoLancamentosPage() {
             </Select>
             <div className="flex flex-col items-start gap-1.5 text-[11px]">
               {canManage && (
-                <button className="text-sm text-primary underline" onClick={goCreateModel}>
+                <button className="text-sm text-primary-on-surface underline" onClick={goCreateModel}>
                   + Criar novo modelo{file ? ' a partir do arquivo enviado' : ''}
                 </button>
               )}
