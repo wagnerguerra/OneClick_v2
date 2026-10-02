@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import {
   Workflow, Search, Loader2, AlertTriangle, PlayCircle, Clock, Pause, CheckCircle2,
-  ArrowLeft, Filter, Users, X, LayoutGrid, UserCircle2, CalendarRange,
+  Filter, Users, X, LayoutGrid, UserCircle2, CalendarRange,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, CardContent,
@@ -13,25 +12,25 @@ import {
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT, BADGE, FILL } from '@/lib/color-styles'
+import { BADGE, FILL } from '@/lib/color-styles'
+import { statusHex, statusText } from '../_lib/status-cores'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { BackButton } from '@/components/ui/back-button'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { SEGMENTO_SLUGS, SEGMENTO_META, type SegmentoSlug } from '@saas/types'
 
-const PRIMARY = 'var(--color-primary)'
-
-// Paleta de status do painel — fonte única p/ ícones de KPI, cabeçalhos de coluna,
-// barras do gantt e swatches de legenda (estilo inline/SVG, onde não cabe classe
-// Tailwind). "andamento" = cor primária do sistema; os demais são status universais.
+// Hex de cada situação do painel — só para preenchimento inline (barras do gantt e
+// legenda). Texto/ícone usam statusText (classe com variante dark). Tudo deriva da
+// fonte única de cores de status de Processos (_lib/status-cores).
 const STATUS_COR = {
-  atrasado:   '#ef4444', // red-500
-  andamento:  PRIMARY,
-  aguardando: '#f59e0b', // amber-500
-  pausado:    '#64748b', // slate-500
-  concluido:  '#10b981', // emerald-500
+  atrasado:   statusHex('ATRASADO'),
+  andamento:  statusHex('EM_ANDAMENTO'),
+  aguardando: statusHex('AGUARDANDO_INICIO'),
+  pausado:    statusHex('PAUSADO'),
+  concluido:  statusHex('CONCLUIDO'),
 } as const
 
 interface Execucao {
@@ -56,16 +55,16 @@ interface Execucao {
 
 type Coluna = 'atrasados' | 'em_andamento' | 'aguardando' | 'pausados' | 'concluidos'
 
-const COLUNAS: { id: Coluna; label: string; icon: typeof Workflow; cor: string; bg: string }[] = [
-  { id: 'atrasados',    label: 'Atrasados',         icon: AlertTriangle, cor: STATUS_COR.atrasado,   bg: 'bg-red-50 dark:bg-red-950/20' },
-  { id: 'em_andamento', label: 'Em andamento',      icon: PlayCircle,    cor: STATUS_COR.andamento,  bg: 'bg-primary/10' },
-  { id: 'aguardando',   label: 'Aguardando início', icon: Clock,         cor: STATUS_COR.aguardando, bg: 'bg-amber-50 dark:bg-amber-950/20' },
-  { id: 'pausados',     label: 'Pausados',          icon: Pause,         cor: STATUS_COR.pausado,    bg: 'bg-slate-50 dark:bg-slate-900/30' },
-  { id: 'concluidos',   label: 'Concluídos (7d)',   icon: CheckCircle2,  cor: STATUS_COR.concluido,  bg: 'bg-emerald-50 dark:bg-emerald-950/20' },
+// `texto`: classe de texto/ícone (com variante dark) da fonte única de status.
+const COLUNAS: { id: Coluna; label: string; icon: typeof Workflow; texto: string; bg: string }[] = [
+  { id: 'atrasados',    label: 'Atrasados',         icon: AlertTriangle, texto: statusText('ATRASADO'),          bg: 'bg-red-50 dark:bg-red-950/20' },
+  { id: 'em_andamento', label: 'Em andamento',      icon: PlayCircle,    texto: statusText('EM_ANDAMENTO'),      bg: 'bg-blue-50 dark:bg-blue-950/20' },
+  { id: 'aguardando',   label: 'Aguardando início', icon: Clock,         texto: statusText('AGUARDANDO_INICIO'), bg: 'bg-amber-50 dark:bg-amber-950/20' },
+  { id: 'pausados',     label: 'Pausados',          icon: Pause,         texto: statusText('PAUSADO'),           bg: 'bg-slate-50 dark:bg-slate-900/30' },
+  { id: 'concluidos',   label: 'Concluídos (7d)',   icon: CheckCircle2,  texto: statusText('CONCLUIDO'),         bg: 'bg-emerald-50 dark:bg-emerald-950/20' },
 ]
 
 export default function PainelOperacionalPage() {
-  const router = useRouter()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [segmentosFilter, setSegmentosFilter] = useState<string[]>([])
@@ -189,22 +188,14 @@ export default function PainelOperacionalPage() {
 
   return (
     <div className="space-y-4">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Button variant="ghost" size="sm" className="h-7 px-2 -ml-2 gap-1.5 text-xs" onClick={() => router.push('/processos')}>
-          <ArrowLeft className="h-3.5 w-3.5" />Processos
-        </Button>
-        <span>/</span>
-        <span className="font-medium text-primary">Painel Operacional</span>
-      </div>
-
-      {/* Header */}
-      {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
+      {/* Topo — PADRAO_PAGINAS §1.1 (subpágina: BackButton por último) */}
+      <PageHeaderBar actions={<>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="tabular-nums">{execucoes.length} execuções</span>
           {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
         </div>
+        {/* ml-2 + o gap-2 das ações = gap-4 até o contador */}
+        <BackButton href="/processos" label="Voltar" className="ml-2" />
       </>}>
         <h1 className="truncate">Painel Operacional</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -225,11 +216,11 @@ export default function PainelOperacionalPage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-        <KpiCard label="Atrasados"        value={kpis.atrasados}     icon={AlertTriangle} color={STATUS_COR.atrasado} critico={kpis.atrasados > 0} onClick={() => setApenasAtrasados(true)} />
-        <KpiCard label="Em andamento"     value={kpis.em_andamento}  icon={PlayCircle}    color={STATUS_COR.andamento} />
-        <KpiCard label="Aguardando"       value={kpis.aguardando}    icon={Clock}         color={STATUS_COR.aguardando} />
-        <KpiCard label="Pausados"         value={kpis.pausados}      icon={Pause}         color={STATUS_COR.pausado} />
-        <KpiCard label="Concluídos hoje"  value={kpis.concluidosHoje} icon={CheckCircle2} color={STATUS_COR.concluido} />
+        <KpiCard label="Atrasados"        value={kpis.atrasados}     icon={AlertTriangle} status="ATRASADO" critico={kpis.atrasados > 0} onClick={() => setApenasAtrasados(true)} />
+        <KpiCard label="Em andamento"     value={kpis.em_andamento}  icon={PlayCircle}    status="EM_ANDAMENTO" />
+        <KpiCard label="Aguardando"       value={kpis.aguardando}    icon={Clock}         status="AGUARDANDO_INICIO" />
+        <KpiCard label="Pausados"         value={kpis.pausados}      icon={Pause}         status="PAUSADO" />
+        <KpiCard label="Concluídos hoje"  value={kpis.concluidosHoje} icon={CheckCircle2} status="CONCLUIDO" />
       </div>
 
       {/* Toolbar */}
@@ -324,7 +315,7 @@ export default function PainelOperacionalPage() {
                 className={cn(
                   'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
                   ativo
-                    ? 'bg-primary/10 text-primary'
+                    ? 'bg-primary/10 text-primary-on-surface'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
               >
@@ -344,14 +335,14 @@ export default function PainelOperacionalPage() {
             const Icon = c.icon
             return (
               <div key={c.id} className={cn('rounded-lg border', c.bg)}>
-                <div className="flex items-center justify-between gap-2 p-3 border-b">
+                <div className={cn('flex items-center justify-between gap-2 p-3 border-b', c.texto)}>
                   <div className="flex items-center gap-2">
-                    <Icon className="h-4 w-4" style={{ color: c.cor }} />
-                    <span className="text-xs font-bold uppercase tracking-wide" style={{ color: c.cor }}>
+                    <Icon className="h-4 w-4" />
+                    <span className="text-xs font-bold uppercase tracking-wide">
                       {c.label}
                     </span>
                   </div>
-                  <span className="text-[11px] tabular-nums font-semibold" style={{ color: c.cor }}>
+                  <span className="text-[11px] tabular-nums font-semibold">
                     {items.length}
                   </span>
                 </div>
@@ -574,7 +565,7 @@ function TimelineView({ execucoes, apenasAtrasados, onCardClick }: { execucoes: 
                       )
                     })}
                     {/* Marker hoje */}
-                    <div className="absolute top-0 bottom-0 w-0.5 bg-sky-500/70 z-10" style={{ left: 0 }} />
+                    <div className="absolute top-0 bottom-0 w-0.5 bg-primary-on-surface/70 z-10" style={{ left: 0 }} />
                     {/* Barra da execução */}
                     {b && (
                       <div
@@ -618,10 +609,14 @@ function TimelineView({ execucoes, apenasAtrasados, onCardClick }: { execucoes: 
   )
 }
 
-function KpiCard({ label, value, icon: Icon, color, critico, onClick }: {
-  label: string; value: number; icon: typeof Workflow; color: string; critico?: boolean; onClick?: () => void
+function KpiCard({ label, value, icon: Icon, status, critico, onClick }: {
+  label: string; value: number; icon: typeof Workflow
+  /** Status da fonte única (_lib/status-cores): define texto/ícone e a borda do crítico. */
+  status: string
+  critico?: boolean; onClick?: () => void
 }) {
   const Component = onClick ? 'button' : 'div'
+  const textClass = statusText(status)
   return (
     <Component
       onClick={onClick}
@@ -630,15 +625,15 @@ function KpiCard({ label, value, icon: Icon, color, critico, onClick }: {
         onClick && 'cursor-pointer hover:shadow-md',
         critico && 'animate-pulse',
       )}
-      style={{ borderColor: critico ? color : undefined }}
+      style={{ borderColor: critico ? statusHex(status) : undefined }}
     >
       <div className="flex items-center gap-2 mb-1">
-        <Icon className="h-3.5 w-3.5" style={{ color }} />
+        <Icon className={cn('h-3.5 w-3.5', textClass)} />
         <span className="text-[10px] uppercase font-bold tracking-wide text-muted-foreground">
           {label}
         </span>
       </div>
-      <div className="text-2xl font-bold tabular-nums" style={{ color }}>
+      <div className={cn('text-2xl font-bold tabular-nums', textClass)}>
         {value}
       </div>
     </Component>
@@ -706,7 +701,7 @@ function ExecucaoCard({ exec, onClick }: { exec: Execucao; onClick?: () => void 
           <Link
             href={`/processos/${exec.processoId}`}
             onClick={ev => ev.stopPropagation()}
-            className={cn('text-[9px]', TEXT.sky, 'hover:underline truncate max-w-[120px]')}
+            className="text-[9px] text-primary-on-surface hover:underline truncate max-w-[120px]"
             title={`Processo: ${exec.processoNome}`}
           >
             ↗ {exec.processoNome}
@@ -723,7 +718,7 @@ function ExecucaoCard({ exec, onClick }: { exec: Execucao; onClick?: () => void 
           </div>
           <div className="h-1 rounded-full bg-muted overflow-hidden">
             <div
-              className={cn('h-full transition-all', FILL.sky)}
+              className={cn('h-full transition-all', FILL.emerald)}
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -851,7 +846,7 @@ function ChecklistDialog({ execucaoId, onClose, onChanged }: {
               {/* Barra de progresso */}
               <div className="h-2 rounded-full bg-muted overflow-hidden">
                 <div
-                  className={cn('h-full transition-all', data.status === 'CONCLUIDO' ? FILL.emerald : FILL.sky)}
+                  className={cn('h-full transition-all', FILL.emerald)}
                   style={{ width: `${pct}%` }}
                 />
               </div>
@@ -874,7 +869,7 @@ function ChecklistDialog({ execucaoId, onClose, onChanged }: {
                               'mt-0.5 h-4 w-4 shrink-0 rounded border-2 flex items-center justify-center transition-colors',
                               p.concluido && 'bg-emerald-500 border-emerald-500',
                               p.ignorado && 'bg-amber-400 border-amber-400',
-                              !fechado && 'border-border hover:border-sky-500',
+                              !fechado && 'border-border hover:border-emerald-500',
                             )}
                             title={p.concluido ? 'Concluído (clique pra reabrir)' : p.ignorado ? 'Ignorado' : 'Marcar como concluído'}
                           >
@@ -907,7 +902,7 @@ function ChecklistDialog({ execucaoId, onClose, onChanged }: {
         <DialogFooter className="flex items-center justify-between gap-2">
           <Link
             href={`/meus-servicos?exec=${execucaoId}`}
-            className={cn('text-xs', TEXT.sky, 'hover:underline')}
+            className="text-xs text-primary-on-surface hover:underline"
           >
             Abrir checklist completo →
           </Link>

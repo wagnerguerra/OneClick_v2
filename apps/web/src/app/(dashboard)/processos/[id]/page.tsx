@@ -18,6 +18,7 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { useTheme } from '@/hooks/use-theme'
 import { TEXT, BADGE, SURFACE, FILL, BORDER, DOT } from '@/lib/color-styles'
+import { statusBadge, statusSurface } from '../_lib/status-cores'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -88,16 +89,6 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELADO: 'Cancelado',
 }
 
-// EM_ANDAMENTO = sky (cor do módulo, retingida sob .mod-administrativo); os demais
-// são status universais. Todos derivam do helper BADGE (par claro+dark garantido).
-const STATUS_BADGE: Record<string, string> = {
-  EM_ANDAMENTO: BADGE.sky,
-  CONCLUIDO:    BADGE.emerald,
-  CANCELADO:    BADGE.rose,
-  AGUARDANDO_INICIO: BADGE.amber,
-  AGUARDANDO_RESPOSTA: BADGE.orange,
-  PULADO:       BADGE.slate,
-}
 
 const EXEC_STATUS_LABELS: Record<string, string> = {
   EM_ANDAMENTO: 'Em andamento',
@@ -277,7 +268,7 @@ export default function ProcessoDetalhePage() {
             <span>Processos</span>
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase border ${STATUS_BADGE[proc.status]}`}>
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase border ${statusBadge(proc.status)}`}>
               {proc.status === 'EM_ANDAMENTO' && <PlayCircle className="h-3 w-3" />}
               {proc.status === 'CONCLUIDO' && <CheckCircle2 className="h-3 w-3" />}
               {proc.status === 'CANCELADO' && <XCircle className="h-3 w-3" />}
@@ -338,10 +329,11 @@ export default function ProcessoDetalhePage() {
         {/* Visão geral */}
         <TabsContent value="visao" className="mt-4 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <KpiCard label="Execuções" value={totalExec} Icon={Layers} color="sky" />
-            <KpiCard label="Em andamento" value={emAndamento} Icon={PlayCircle} color="sky" />
-            <KpiCard label="Concluídas" value={concluidas} Icon={CheckCircle2} color="emerald" />
-            <KpiCard label="Aguardando" value={pendentes} Icon={Clock} color="amber" />
+            {/* Total = neutro (não é status); os demais = cor do status (fonte única). */}
+            <KpiCard label="Execuções" value={totalExec} Icon={Layers} className={cn(SURFACE.slate, TEXT.slate)} />
+            <KpiCard label="Em andamento" value={emAndamento} Icon={PlayCircle} className={statusSurface('EM_ANDAMENTO')} />
+            <KpiCard label="Concluídas" value={concluidas} Icon={CheckCircle2} className={statusSurface('CONCLUIDO')} />
+            <KpiCard label="Aguardando" value={pendentes} Icon={Clock} className={statusSurface('AGUARDANDO_INICIO')} />
           </div>
 
           <Card>
@@ -453,7 +445,7 @@ export default function ProcessoDetalhePage() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap mb-1">
                                 <span className="text-sm font-semibold">{sv.nome}</span>
-                                <Badge variant="outline" className={`text-[10px] h-5 ${STATUS_BADGE.AGUARDANDO_RESPOSTA}`}>
+                                <Badge variant="outline" className={`text-[10px] h-5 ${statusBadge('AGUARDANDO_RESPOSTA')}`}>
                                   Aguardando resposta
                                 </Badge>
                                 <Badge variant="outline" className="text-[10px] h-5">
@@ -534,7 +526,7 @@ export default function ProcessoDetalhePage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap mb-1">
                               <span className="text-sm font-semibold">{exec.servico.nome}</span>
-                              <Badge variant="outline" className={`text-[10px] h-5 ${STATUS_BADGE.AGUARDANDO_INICIO}`}>
+                              <Badge variant="outline" className={`text-[10px] h-5 ${statusBadge('AGUARDANDO_INICIO')}`}>
                                 <Clock className="h-2.5 w-2.5 mr-1" />Aguardando início
                               </Badge>
                               {!podePular && (
@@ -692,18 +684,13 @@ export default function ProcessoDetalhePage() {
 // Sub-componentes
 // ─────────────────────────────────────────────────────────────
 
-function KpiCard({ label, value, Icon, color }: {
-  label: string; value: number; Icon: typeof Workflow; color: 'sky' | 'emerald' | 'amber'
+function KpiCard({ label, value, Icon, className }: {
+  label: string; value: number; Icon: typeof Workflow
+  /** Cor (fundo+borda+texto) — de statusSurface() ou do helper. Largura `border` fica no layout. */
+  className: string
 }) {
-  // sky = cor do módulo (retingida sob .mod-administrativo); emerald/amber = status.
-  // Derivam do helper (SURFACE = fundo+borda, TEXT = texto); a largura `border` fica no layout.
-  const styles: Record<string, string> = {
-    sky:     cn(SURFACE.sky, TEXT.sky),
-    emerald: cn(SURFACE.emerald, TEXT.emerald),
-    amber:   cn(SURFACE.amber, TEXT.amber),
-  }
   return (
-    <div className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${styles[color]}`}>
+    <div className={cn('flex items-center gap-3 rounded-lg border px-3 py-2.5', className)}>
       <Icon className="h-5 w-5 shrink-0" />
       <div>
         <p className="text-lg font-bold leading-none tabular-nums">{value}</p>
@@ -734,7 +721,7 @@ function ExecucaoCard({ exec }: { exec: Execucao }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <span className="text-sm font-semibold">{exec.servico.nome}</span>
-              <Badge variant="outline" className={`text-[10px] h-5 ${STATUS_BADGE[exec.status] || ''}`}>
+              <Badge variant="outline" className={`text-[10px] h-5 ${statusBadge(exec.status)}`}>
                 {EXEC_STATUS_LABELS[exec.status] || exec.status}
               </Badge>
               {exec.predecessorExecucaoId && (

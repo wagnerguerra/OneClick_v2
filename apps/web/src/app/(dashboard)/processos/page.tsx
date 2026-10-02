@@ -16,6 +16,7 @@ import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { BADGE, FILL } from '@/lib/color-styles'
+import { statusBadge } from './_lib/status-cores'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -50,13 +51,6 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELADO: 'Cancelado',
 }
 
-// EM_ANDAMENTO = sky (cor do módulo Administrativo, retingida sob .mod-administrativo);
-// CONCLUIDO/CANCELADO = status universais. Todos derivam do helper BADGE.
-const STATUS_BADGE: Record<string, string> = {
-  EM_ANDAMENTO: BADGE.sky,
-  CONCLUIDO:    BADGE.emerald,
-  CANCELADO:    BADGE.rose,
-}
 
 export default function ProcessosPage() {
   const router = useRouter()
@@ -186,7 +180,7 @@ export default function ProcessosPage() {
                     </div>
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
-                    <Badge variant="outline" className={`text-[10px] h-5 ${STATUS_BADGE[p.status]}`}>
+                    <Badge variant="outline" className={`text-[10px] h-5 ${statusBadge(p.status)}`}>
                       {p.status === 'EM_ANDAMENTO' && <PlayCircle className="h-2.5 w-2.5 mr-1" />}
                       {p.status === 'CONCLUIDO' && <CheckCircle2 className="h-2.5 w-2.5 mr-1" />}
                       {p.status === 'CANCELADO' && <XCircle className="h-2.5 w-2.5 mr-1" />}

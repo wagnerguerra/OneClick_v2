@@ -141,7 +141,7 @@ export const TEXT: Record<ColorName, string> = {
   blue: 'text-blue-600 dark:text-blue-400',
   red: 'text-red-600 dark:text-red-400',
   purple: 'text-purple-600 dark:text-purple-400',
-  slate: 'text-slate-600 dark:text-slate-400',
+  slate: 'text-slate-500 dark:text-slate-300',
 }
 
 /**
@@ -165,7 +165,7 @@ export const SURFACE: Record<ColorName, string> = {
   blue: 'bg-blue-100 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800',
   red: 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800',
   purple: 'bg-purple-50 border-purple-200 dark:bg-purple-950/30 dark:border-purple-800',
-  slate: 'bg-slate-50 border-slate-200 dark:bg-slate-800/50 dark:border-slate-700',
+  slate: 'bg-slate-200/70 border-slate-300 dark:bg-slate-800/50 dark:border-slate-600',
 }
 
 /** Cor da borda apenas (a largura `border`/`border-2` fica no layout). */

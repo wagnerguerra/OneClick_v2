@@ -17,7 +17,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT, STRONG, BADGE, SURFACE } from '@/lib/color-styles'
+import { TEXT, STRONG, BADGE, SURFACE, FILL } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { trpc } from '@/lib/trpc'
@@ -968,7 +968,7 @@ export default function MeusServicosPage() {
                                   style={{ borderColor: `color-mix(in srgb, ${PRIMARY} 33%, transparent)`, backgroundColor: `color-mix(in srgb, ${PRIMARY} 4%, transparent)` }}
                                   title={`Etapa: ${atualKb.etapaNome} · Passo: ${atualKb.passoNome}`}
                                 >
-                                  <span className="inline-flex items-center gap-1 font-semibold uppercase tracking-wider" style={{ color: PRIMARY }}>
+                                  <span className="inline-flex items-center gap-1 font-semibold uppercase tracking-wider text-primary-on-surface">
                                     <ListChecks className="h-2.5 w-2.5" /> {atualKb.etapaNome}
                                   </span>
                                   <span className="text-foreground/85 leading-tight line-clamp-2">
@@ -1002,16 +1002,10 @@ export default function MeusServicosPage() {
                                   <span className="font-semibold tabular-nums">{progressPct}% ({cPassos}/{totalPassos})</span>
                                 </div>
                                 <div className="h-1 rounded-full bg-muted overflow-hidden">
+                                  {/* Progresso = verde; pausado (e não concluído) = âmbar. */}
                                   <div
-                                    className="h-full rounded-full transition-all"
-                                    style={{
-                                      width: `${progressPct}%`,
-                                      backgroundColor: progressPct === 100
-                                        ? '#10b981'
-                                        : exec.pausado
-                                          ? '#f59e0b'
-                                          : PRIMARY,
-                                    }}
+                                    className={cn('h-full rounded-full transition-all', exec.pausado && progressPct < 100 ? FILL.amber : FILL.emerald)}
+                                    style={{ width: `${progressPct}%` }}
                                   />
                                 </div>
                               </div>
@@ -1247,8 +1241,7 @@ export default function MeusServicosPage() {
                           title={`Etapa: ${atual.etapaNome} · Passo: ${atual.passoNome}`}
                         >
                           <span
-                            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-semibold"
-                            style={{ backgroundColor: `color-mix(in srgb, ${PRIMARY} 10%, transparent)`, color: PRIMARY }}
+                            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-semibold bg-primary/10 text-primary-on-surface"
                           >
                             <ListChecks className="h-3 w-3" /> {atual.etapaNome}
                           </span>
@@ -1325,16 +1318,10 @@ export default function MeusServicosPage() {
                         <span className="font-semibold tabular-nums">{progressPct}% ({concluidos}/{totalPassos})</span>
                       </div>
                       <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        {/* Progresso = verde; pausado (e não concluído) = âmbar ("congelada"). */}
                         <div
-                          className="h-full rounded-full transition-all"
-                          style={{
-                            width: `${progressPct}%`,
-                            backgroundColor: progressPct === 100
-                              ? '#10b981'
-                              : exec.pausado
-                                ? '#f59e0b' // amber-500: barra "congelada" indica pausa
-                                : PRIMARY,
-                          }}
+                          className={cn('h-full rounded-full transition-all', exec.pausado && progressPct < 100 ? FILL.amber : FILL.emerald)}
+                          style={{ width: `${progressPct}%` }}
                         />
                       </div>
                     </div>

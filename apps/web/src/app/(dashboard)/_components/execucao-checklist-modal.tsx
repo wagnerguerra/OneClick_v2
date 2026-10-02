@@ -10,6 +10,7 @@ import {
   Collapsible, CollapsibleTrigger, CollapsibleContent,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { FILL, TEXT } from '@/lib/color-styles'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -387,10 +388,11 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Progresso</span>
-                    <span className="font-semibold" style={{ color: accentColor }}>{progressPct}% ({concluidos}/{totalPassos})</span>
+                    {/* Progresso = verde semântico (não a cor de destaque da página). */}
+                    <span className={cn('font-semibold', TEXT.emerald)}>{progressPct}% ({concluidos}/{totalPassos})</span>
                   </div>
                   <div className="h-2.5 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-300" style={{ width: `${progressPct}%`, backgroundColor: accentColor }} />
+                    <div className={cn('h-full rounded-full transition-all duration-300', FILL.emerald)} style={{ width: `${progressPct}%` }} />
                   </div>
                 </div>
 

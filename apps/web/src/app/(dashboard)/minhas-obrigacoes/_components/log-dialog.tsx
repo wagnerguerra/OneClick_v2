@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react'
 import { History, Loader2, CircleDot } from 'lucide-react'
 import {
-  Button, cn,
+  Button,
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { DOT, STRONG } from '@/lib/color-styles'
+import { STRONG } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 
 interface Evento {
@@ -81,7 +81,7 @@ export function LogDialog({ open, onOpenChange, execucao }: LogDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
-        <DialogHeaderIcon icon={History} color="sky">
+        <DialogHeaderIcon icon={History}>
           <DialogTitle>Histórico da entrega</DialogTitle>
           <DialogDescription>
             {execucao.servico.mininome ?? execucao.servico.nome}
@@ -91,7 +91,7 @@ export function LogDialog({ open, onOpenChange, execucao }: LogDialogProps) {
         <DialogBody className="max-h-[60vh]">
           {loading ? (
             <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground text-sm">
-              <Loader2 className="h-4 w-4 animate-spin text-sky-500" />Carregando histórico...
+              <Loader2 className="h-4 w-4 animate-spin text-primary-on-surface" />Carregando histórico...
             </div>
           ) : !eventos.length ? (
             <div className="text-center py-8 text-sm text-muted-foreground">
@@ -101,7 +101,7 @@ export function LogDialog({ open, onOpenChange, execucao }: LogDialogProps) {
             <ol className="relative ml-4 border-l border-border/60 space-y-4 pt-1">
               {eventos.map((e) => (
                 <li key={e.id} className="ml-4">
-                  <span className={cn('absolute -left-[7px] mt-1.5 h-3 w-3 rounded-full border-2 border-background', DOT.sky)} />
+                  <span className="absolute -left-[7px] mt-1.5 h-3 w-3 rounded-full border-2 border-background bg-primary" />
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${TIPO_CORES[e.tipo] ?? STRONG.slate}`}>
                       {TIPO_LABELS[e.tipo] ?? e.tipo}
