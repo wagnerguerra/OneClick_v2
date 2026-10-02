@@ -266,7 +266,7 @@ export default function FolhaBiPage() {
 
           <Button size="sm" variant="success" className="h-9" onClick={sincronizar}
             disabled={!clienteId || pedindo || temAlgumAtivo || intervaloInvalido || excedeLimite || competencias.length === 0}
-            title="Pede ao Service Manager que busque este período no SCI">
+            title="Busca este período no SCI">
             {temAlgumAtivo || pedindo
               ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sincronizando…</>
               : <><RefreshCw className="h-3.5 w-3.5" /> Sincronizar{competencias.length > 1 ? ` ${competencias.length} meses` : ''}</>}
@@ -330,6 +330,22 @@ export default function FolhaBiPage() {
               <p className="text-sm text-muted-foreground">
                 A lista traz os clientes <b>mensais</b> com <b>ID SCI</b> preenchido no cadastro. Sem o ID SCI não há
                 como localizar a empresa no Firebird.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Cliente sem nenhuma competencia sincronizada e sem pedido: sem isto a
+          tela ficava em branco abaixo da barra, parecendo que nao carregou. */}
+      {clienteSel && !loading && compsComDados.length === 0 && lote.total === 0 && (
+        <Card className="border-dashed p-6">
+          <div className="flex items-start gap-3">
+            <Database className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+            <div className="space-y-1">
+              <p className="font-medium text-foreground">Nenhuma competência sincronizada para este cliente</p>
+              <p className="text-sm text-muted-foreground">
+                Escolha o período acima e clique em <b>Sincronizar</b> — a folha é buscada no SCI e aparece aqui.
               </p>
             </div>
           </div>
@@ -439,7 +455,7 @@ export default function FolhaBiPage() {
                     ? <><Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" style={{ color: PRIMARY }} />
                         <span className="text-foreground">
                           {jobDaSelecao.status === 'PENDENTE'
-                            ? 'Na fila — aguardando o Service Manager que roda perto do SCI.'
+                            ? 'Na fila — a busca no SCI começa em instantes.'
                             : 'Consultando o SCI…'}
                         </span></>
                     : jobDaSelecao.status === 'CONCLUIDO'
