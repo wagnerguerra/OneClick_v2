@@ -611,7 +611,8 @@ export default function OrcamentosPage() {
     void (async () => {
       try {
         const [cls, usrs, cat] = await Promise.all([
-          (trpc.cliente as any).listForSelect.query(),
+          // Filtro por cliente alcança os orçamentos de ex-clientes também.
+          (trpc.cliente as any).listForSelect.query({ incluirInativos: true }),
           (trpc.orcamento as any).listUsuarios.query(),
           (trpc.orcamento as any).listCatalogo.query({ somenteDisponiveis: true, tipoOrcamento: null }),
         ])
@@ -683,7 +684,9 @@ export default function OrcamentosPage() {
       const clienteIds = [...new Set(result.data.map((o: OrcamentoRow) => o.clienteId).filter(Boolean))] as string[]
       if (clienteIds.length > 0) {
         try {
-          const cls = await (trpc.cliente as any).listForSelect.query()
+          // Ex-clientes também: orçamento de cliente que foi inativado (a
+          // própria baixa da empresa, p.ex. #4783) aparecia como "Sem cliente".
+          const cls = await (trpc.cliente as any).listForSelect.query({ incluirInativos: true })
           const map = new Map<string, ClienteDoc>()
           for (const c of cls) map.set(c.id, { razaoSocial: c.razaoSocial, documento: c.documento, tipoDocumento: c.tipoDocumento, ehMatriz: c.ehMatriz, nomeFantasia: c.nomeFantasia, logoUrl: c.logoUrl })
           setClientesMap(map)

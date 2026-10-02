@@ -563,7 +563,7 @@ export default function OrcamentoDetailPage() {
   const initialLoadRef = useRef(true)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savedHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [clientes, setClientes] = useState<{ id: string; razaoSocial: string; documento?: string | null }[]>([])
+  const [clientes, setClientes] = useState<{ id: string; razaoSocial: string; documento?: string | null; status?: string | null }[]>([])
 
   // Imagem de fundo do header (config global) — apenas Master pode editar
   const [headerCover, setHeaderCover] = useState<string>('')
@@ -1002,7 +1002,9 @@ export default function OrcamentoDetailPage() {
   useEffect(() => {
     ;(async () => {
       try {
-        const list = await (trpc.cliente as any).listForSelect.query()
+        // Ex-clientes também: sem eles, orçamento de cliente inativado ficava
+        // com o campo Cliente vazio (o cabeçalho mostrava, o campo não).
+        const list = await (trpc.cliente as any).listForSelect.query({ incluirInativos: true })
         setClientes(list)
       } catch { /* silent */ }
     })()
@@ -2326,6 +2328,7 @@ export default function OrcamentoDetailPage() {
                             value={formClienteId}
                             onSelect={(id) => setFormClienteId(id)}
                             placeholder="Selecione um cliente"
+                            marcarExClientes
                             onCreate={async (nome) => {
                               try {
                                 const novo = await (trpc.orcamento as any).criarClienteRapido.mutate({ nome }) as { id: string; razaoSocial: string; documento?: string | null } | null
