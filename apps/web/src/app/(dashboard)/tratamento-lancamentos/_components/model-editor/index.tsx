@@ -8,10 +8,14 @@ import {
 } from 'lucide-react'
 import {
   Button, Input, Label, Checkbox, Card, TooltipProvider, cn,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { BADGE, TEXT } from '@/lib/color-styles'
-import type { TreatmentDefinition } from '@saas/types'
-import { EMPTY_TREATMENT_DEFINITION, formatValorExibicao, extrairMarcadorDC, matchPalavraChaveIndex } from '@saas/types'
+import type { TreatmentDefinition, TipoArquivoModelo } from '@saas/types'
+import {
+  EMPTY_TREATMENT_DEFINITION, formatValorExibicao, extrairMarcadorDC, matchPalavraChaveIndex,
+  TIPO_ARQUIVO_MODELO, TIPO_ARQUIVO_MODELO_LABELS,
+} from '@saas/types'
 import { normalizeDefinition } from '../treatment-definition'
 import { DetectedRowsStatus } from '../detected-rows-status'
 import { trpc } from '@/lib/trpc'
@@ -110,6 +114,8 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   // Dados de identificação do Modelo. (Conta corrente vive na definição —
   // etapa "Contas correntes" — pois pode ser única ou múltipla.)
   const [nome, setNome] = useState('')
+  // null = modelo anterior ao campo (ou criação ainda sem escolha).
+  const [tipoArquivo, setTipoArquivo] = useState<TipoArquivoModelo | null>(null)
   const [isActive, setIsActive] = useState(true)
   const [note, setNote] = useState('')
 
@@ -154,10 +160,11 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         if (!active) return
         const loadedDef = m.definition ? normalizeDefinition(m.definition) : EMPTY_TREATMENT_DEFINITION
         setNome(m.nome)
+        setTipoArquivo(m.tipoArquivo)
         setIsActive(m.isActive)
         setDef(loadedDef)
         setDocFixoAtivo(!!loadedDef.columnMapping.documentoFixo)
-        baselineRef.current = serializeForm(m.nome, m.isActive, loadedDef)
+        baselineRef.current = serializeForm(m.nome, m.tipoArquivo, m.isActive, loadedDef)
       } catch {
         alerts.error('Erro', 'Não foi possível carregar o Modelo.')
       } finally {
@@ -169,7 +176,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
 
   // Baseline do modo criação (parte do estado vazio).
   useEffect(() => {
-    if (mode === 'create') baselineRef.current = serializeForm('', true, EMPTY_TREATMENT_DEFINITION)
+    if (mode === 'create') baselineRef.current = serializeForm('', null, true, EMPTY_TREATMENT_DEFINITION)
   }, [mode])
 
   // A cada mudança de etapa do wizard, volta ao topo da página (a etapa de
@@ -418,6 +425,8 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   function probDados(): string[] {
     const p: string[] = []
     if (!nome.trim() || nome.trim().length < 2) p.push('Informe um <b>nome</b> para o modelo (mínimo 2 caracteres).')
+    // Obrigatório só na criação: modelos anteriores ao campo seguem salvando sem ele.
+    if (mode === 'create' && !tipoArquivo) p.push('Selecione o <b>tipo de arquivo</b> do modelo.')
     return p
   }
   function probArquivo(): string[] {
@@ -605,12 +614,12 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       if (mode === 'edit' && modelId) {
         const res = await trpc.tratamentoLancamentos.update.mutate({
           id: modelId,
-          data: { nome, isActive, definition, note: note || undefined },
+          data: { nome, tipoArquivo: tipoArquivo ?? undefined, isActive, definition, note: note || undefined },
         })
         await alerts.success('Modelo salvo', res.versionCreated ? 'As alterações foram salvas (nova versão gerada).' : 'As alterações foram salvas.')
         savedModelId = modelId
-      } else {
-        const created = await trpc.tratamentoLancamentos.create.mutate({ nome, isActive, definition, note: note || undefined })
+      } else if (tipoArquivo) {
+        const created = await trpc.tratamentoLancamentos.create.mutate({ nome, tipoArquivo, isActive, definition, note: note || undefined })
         await alerts.success('Modelo criado', `"${nome}" foi criado com sucesso.`)
         savedModelId = created.id
       }
@@ -636,8 +645,8 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
 
   // Alterações não salvas: compara o estado atual com o baseline.
   const dirty = useMemo(
-    () => baselineRef.current !== '' && serializeForm(nome, isActive, def) !== baselineRef.current,
-    [nome, isActive, def],
+    () => baselineRef.current !== '' && serializeForm(nome, tipoArquivo, isActive, def) !== baselineRef.current,
+    [nome, tipoArquivo, isActive, def],
   )
   dirtyRef.current = dirty
 
@@ -682,12 +691,27 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     <Card className="p-5 space-y-4">
       <StepHeader
         icon={Tag} color="bg-violet-500" title="Informações básicas"
-        hint="Dê um nome fácil de reconhecer para este modelo (por exemplo, o nome do banco ou do cliente). A conta corrente é definida na etapa Contas correntes."
+        hint="Dê um nome fácil de reconhecer para este modelo (por exemplo, o nome do banco ou do cliente) e diga que tipo de arquivo ele trata. A conta corrente é definida na etapa Contas correntes."
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-1.5">
           <Label className="text-[13px] font-semibold">Nome do modelo <span className="text-destructive">*</span></Label>
           <Input className="h-9 text-sm" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: nome da empresa, nome do banco..." />
+        </div>
+        <div className="space-y-1.5">
+          {/* Label inline (como o do nome): em flex, a altura mudava e desalinhava os campos. */}
+          <Label className="text-[13px] font-semibold">
+            Tipo de arquivo {mode === 'create' && <span className="text-destructive">*</span>}
+            <span className="ml-1.5 inline-flex align-middle"><HelpTip text="Extrato bancário: o dinheiro passou na conta, confirmado pelo banco. Planilha do cliente: o que o cliente declarou (contas a pagar/receber, controle do financeiro)." /></span>
+          </Label>
+          <Select value={tipoArquivo ?? ''} onValueChange={(v) => setTipoArquivo(v as TipoArquivoModelo)}>
+            <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+            <SelectContent>
+              {TIPO_ARQUIVO_MODELO.map((t) => (
+                <SelectItem key={t} value={t}>{TIPO_ARQUIVO_MODELO_LABELS[t]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         {/* "Ativo" só na edição — na criação o modelo nasce sempre ativo. */}
         {mode === 'edit' && (

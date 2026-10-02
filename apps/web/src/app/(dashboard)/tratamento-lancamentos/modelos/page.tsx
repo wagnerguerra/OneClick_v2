@@ -3,13 +3,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Pencil, Trash2, Copy, History, MoreVertical,
+  Plus, Pencil, Trash2, Copy, History, MoreVertical, FileJson, Download, Loader2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
-  
 } from 'lucide-react'
 import {
-  Button, Input, Badge,
+  Button, Input, Badge, Checkbox, cn,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Card, Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -21,6 +20,10 @@ import { alerts } from '@/lib/alerts'
 import { BackButton } from '@/components/ui/back-button'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { VersionHistoryDialog } from '../_components/version-history-dialog'
+import {
+  buildModeloJson, downloadModeloJson, downloadArquivo, exportarModelosZip, nomeZipModelos,
+} from '../lib/export-modelos'
+import { esc } from '../_components/model-editor/utils'
 
 interface TreatmentModelRow {
   id: string
@@ -48,6 +51,9 @@ export default function ModelosTratamentoPage() {
   const [loading, setLoading] = useState(true)
   // Modelo cujo histórico de versões está aberto (null = fechado).
   const [historyModel, setHistoryModel] = useState<{ id: string; nome: string } | null>(null)
+  // Modelos selecionados para exportar (id → nome) e progresso da exportação (null = parado).
+  const [selected, setSelected] = useState<Map<string, string>>(new Map())
+  const [exportProgress, setExportProgress] = useState<{ feitos: number; total: number } | null>(null)
   const router = useRouter()
 
   // Gerenciar Modelos é restrito à sub-permissão "gerenciar_modelos".
@@ -103,6 +109,7 @@ export default function ModelosTratamentoPage() {
     if (!confirmed) return
     try {
       await trpc.tratamentoLancamentos.delete.mutate({ id })
+      setSelected((prev) => { const next = new Map(prev); next.delete(id); return next })
       await alerts.success('Modelo excluído', `"${nome}" foi movido para a lixeira.`)
       fetchModels()
     } catch {
@@ -124,6 +131,81 @@ export default function ModelosTratamentoPage() {
       fetchModels()
     } catch {
       alerts.error('Erro ao duplicar', 'Não foi possível duplicar o Modelo.')
+    }
+  }
+
+  /** Exporta a versão atual de um modelo como `.json` (contrato de importação do Centria). */
+  /** Devolve true se baixou o arquivo. */
+  async function handleExportJson(id: string, nome: string): Promise<boolean> {
+    try {
+      const m = await trpc.tratamentoLancamentos.getById.query({ id })
+      const r = buildModeloJson(m.nome, m.tipoArquivo, m.definition)
+      if (!r.ok) { alerts.error('Não foi possível exportar', `"${nome}": ${r.error}`); return false }
+      downloadModeloJson(r.fileName, r.json)
+      return true
+    } catch {
+      alerts.error('Erro ao exportar', 'Não foi possível carregar o Modelo.')
+      return false
+    }
+  }
+
+  // ---- Seleção (padrão de /gestao-certificados; id → nome p/ o relatório) ----
+  const pageRows = data?.data ?? []
+  const allPageSelected = pageRows.length > 0 && pageRows.every((r) => selected.has(r.id))
+
+  function toggleRow(row: TreatmentModelRow) {
+    setSelected((prev) => {
+      const next = new Map(prev)
+      if (next.has(row.id)) next.delete(row.id)
+      else next.set(row.id, row.nome)
+      return next
+    })
+  }
+
+  /** Todos da página já marcados → limpa a seleção; senão seleciona a página. */
+  function togglePage() {
+    setSelected((prev) =>
+      pageRows.every((r) => prev.has(r.id)) ? new Map() : new Map(pageRows.map((r) => [r.id, r.nome])),
+    )
+  }
+
+  /** Exporta os modelos selecionados num `.zip` (um `.json` por modelo). */
+  async function handleExportSelected() {
+    const modelos = [...selected].map(([id, nome]) => ({ id, nome }))
+    if (!modelos.length) return
+    // Um só → baixa o .json direto (sem .zip), como no "Exportar JSON" da linha.
+    if (modelos.length === 1) {
+      const [m] = modelos
+      if (await handleExportJson(m!.id, m!.nome)) setSelected(new Map())
+      return
+    }
+
+    setExportProgress({ feitos: 0, total: modelos.length })
+    try {
+      const res = await exportarModelosZip(
+        modelos,
+        async (id) => {
+          const m = await trpc.tratamentoLancamentos.getById.query({ id })
+          return { nome: m.nome, tipoArquivo: m.tipoArquivo, definition: m.definition }
+        },
+        (feitos, total) => setExportProgress({ feitos, total }),
+      )
+      if (res.zip) downloadArquivo(nomeZipModelos(), res.zip)
+      const resumo = `${res.exportados} de ${modelos.length} ${modelos.length === 1 ? 'modelo exportado' : 'modelos exportados'}.`
+      if (!res.falhas.length) {
+        setSelected(new Map())
+        await alerts.success('Modelos exportados', resumo)
+      } else {
+        await alerts.custom({
+          title: res.exportados ? 'Exportação concluída com falhas' : 'Nenhum modelo exportado',
+          icon: res.exportados ? 'warning' : 'error',
+          showCancelButton: false,
+          confirmButtonText: 'Entendi',
+          html: `<div style="text-align:left"><p style="margin:0 0 8px">${resumo} Não foram exportados:</p><ul style="margin:0;padding-left:1.2em;line-height:1.6">${res.falhas.map((f) => `<li><b>${esc(f.nome)}</b> — ${esc(f.motivo)}</li>`).join('')}</ul></div>`,
+        })
+      }
+    } finally {
+      setExportProgress(null)
     }
   }
 
@@ -194,10 +276,36 @@ export default function ModelosTratamentoPage() {
           </div>
         </div>
 
+        {/* Barra de ações em massa — só aparece com seleção ativa */}
+        {/* Mesmo padrão de /gestao-certificados. */}
+        {selected.size > 0 && (
+          <div className="flex items-center justify-between gap-3 border-b bg-primary/10 px-4 py-2">
+            <div className="text-sm font-medium">
+              {selected.size} selecionado(s)
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setSelected(new Map())} disabled={exportProgress !== null}>
+                Limpar seleção
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleExportSelected} disabled={exportProgress !== null} className="gap-1.5">
+                {exportProgress ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                {exportProgress ? `Exportando ${exportProgress.feitos} de ${exportProgress.total}...` : `Exportar ${selected.size}`}
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Table */}
         <Table className="table-fixed">
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[44px]">
+                <Checkbox
+                  checked={allPageSelected}
+                  onCheckedChange={togglePage}
+                  aria-label="Selecionar todos"
+                />
+              </TableHead>
               <TableHead className="w-[70px]">
                 <button onClick={() => toggleSort('code')} className="flex items-center gap-1 hover:text-foreground transition-colors">
                   ID <SortIcon column="code" />
@@ -216,7 +324,7 @@ export default function ModelosTratamentoPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-10">
+                <TableCell colSpan={6} className="text-center py-10">
                   <div className="flex items-center justify-center gap-2 text-muted-foreground">
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                     Carregando...
@@ -225,13 +333,24 @@ export default function ModelosTratamentoPage() {
               </TableRow>
             ) : !data?.data.length ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
                   Nenhum Modelo de Tratamento cadastrado
                 </TableCell>
               </TableRow>
             ) : (
               data.data.map((row) => (
-                <TableRow key={row.id} className="cursor-pointer" onClick={() => openEdit(row)}>
+                <TableRow
+                  key={row.id}
+                  className={cn('cursor-pointer hover:bg-muted/50', selected.has(row.id) && 'bg-primary/10')}
+                  onClick={() => openEdit(row)}
+                >
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selected.has(row.id)}
+                      onCheckedChange={() => toggleRow(row)}
+                      aria-label={`Selecionar ${row.nome}`}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono text-muted-foreground text-xs">{row.code}</TableCell>
                   <TableCell className="font-medium text-sm truncate">
                     {row.nome}
@@ -263,6 +382,9 @@ export default function ModelosTratamentoPage() {
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setHistoryModel({ id: row.id, nome: row.nome })}>
                             <History className="h-4 w-4" />Ver histórico
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleExportJson(row.id, row.nome)}>
+                            <FileJson className="h-4 w-4" />Exportar JSON
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
