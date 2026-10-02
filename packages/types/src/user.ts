@@ -470,6 +470,14 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
       default: ORCAMENTO_SCOPE_DEFAULT,
       observacao: 'Define quais orçamentos o usuário pode visualizar.',
     },
+    // Ao clicar num orçamento (card do quadro ou linha da lista): marcado vai
+    // direto para a página de detalhes; desmarcado abre o preview lateral.
+    {
+      key: 'abrir_detalhes_direto',
+      label: 'Abrir direto os detalhes do orçamento ao clicar (sem o preview)',
+      group: 'Visualização',
+      observacao: 'Desmarcado, o clique no card ou na linha abre o preview; os detalhes ficam a um clique, no próprio preview.',
+    },
     // Painéis — espelha legado painel_indicadores / painel_consultas
     { key: 'panel_indicadores', label: 'Acesso ao painel de indicadores', group: 'Painéis' },
     {

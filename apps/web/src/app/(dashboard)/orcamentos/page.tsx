@@ -298,6 +298,10 @@ export default function OrcamentosPage() {
   const canCadastroCompleto = isMaster || subPerms.cadastro_completo === true
   // Mover cards no kanban — só com sub-permissão explícita ou master
   const canMoverKanban = isMaster || subPerms.mover_kanban === true
+  // Clique no orçamento: detalhes direto (sub-permissão) ou preview. É
+  // preferência de navegação, não acesso — por isso o master também segue a
+  // marcação, sem bypass.
+  const abrirDetalhesDireto = subPerms.abrir_detalhes_direto === true
   // panel_consultas: pagina de consultas ainda nao implementada (legado index-consulta.asp); flag pronta para uso futuro
   // Escopo de listagem — escolha ÚNICA gravada na permissão do usuário, com
   // 'proprios' como padrão e fallback (#HLP0266). Master/EmpresaMaster vê tudo.
@@ -1127,7 +1131,7 @@ export default function OrcamentosPage() {
                       onArquivar={handleArquivar}
                       onCancelar={handleCancelar}
                       onDestacar={handleDestacar}
-                      onPreview={setPreviewId}
+                      onPreview={(id) => (abrirDetalhesDireto ? router.push(`/orcamentos/${id}`) : setPreviewId(id))}
                     />
                   )
                 })}
@@ -1246,7 +1250,7 @@ export default function OrcamentosPage() {
                   Nenhum orçamento encontrado
                 </TableCell></TableRow>
               ) : orcamentos.map(orc => (
-                <TableRow key={orc.id} className="cursor-pointer hover:bg-muted/40 sm:whitespace-nowrap" onClick={() => router.push(`/orcamentos/${orc.id}`)}>
+                <TableRow key={orc.id} className="cursor-pointer hover:bg-muted/40 sm:whitespace-nowrap" onClick={() => (abrirDetalhesDireto ? router.push(`/orcamentos/${orc.id}`) : setPreviewId(orc.id))}>
                   <TableCell className="hidden sm:table-cell font-mono text-xs font-medium">{orc.numero}</TableCell>
                   <TableCell className="hidden sm:table-cell"><StatusBadge status={orc.status} /></TableCell>
                   <TableCell className="text-sm">
