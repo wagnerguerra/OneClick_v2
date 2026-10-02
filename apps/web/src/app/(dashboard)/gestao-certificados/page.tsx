@@ -10,7 +10,7 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react'
 import {
-  Button, Input, Badge, Card, Label, cn, Checkbox,
+  Button, Input, Badge, Card, Label, cn, Checkbox, Switch,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
@@ -802,11 +802,11 @@ export default function GestaoCertificadosPage() {
           </DialogHeaderIcon>
           <DialogBody className="space-y-4">
             <label className="flex items-start gap-3 cursor-pointer select-none">
-              <Checkbox
-                className="mt-0.5"
+              <Switch
+                className="mt-0.5 shrink-0"
                 checked={reautObrigatoria ?? true}
                 disabled={reautObrigatoria === null || savingConfig}
-                onCheckedChange={v => salvarReautConfig(!!v)}
+                onCheckedChange={v => salvarReautConfig(v)}
               />
               <span className="text-sm">
                 <span className="font-semibold text-foreground">Exigir senha e justificativa</span>

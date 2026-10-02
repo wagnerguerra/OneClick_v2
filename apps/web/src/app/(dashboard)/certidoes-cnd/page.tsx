@@ -1066,37 +1066,37 @@ export default function CertidoesCndPage() {
       <div className="flex items-center gap-0 border-b">
         <button type="button" onClick={() => setAbaAtiva('federal')}
           className={cn('flex items-center gap-2 px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
-            abaAtiva === 'federal' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+            abaAtiva === 'federal' ? 'border-primary-on-surface text-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground')}>
           <Shield className="h-4 w-4" />Federais
         </button>
         <button type="button" onClick={() => setAbaAtiva('estadual')}
           className={cn('flex items-center gap-2 px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
-            abaAtiva === 'estadual' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+            abaAtiva === 'estadual' ? 'border-primary-on-surface text-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground')}>
           <MapPin className="h-4 w-4" />Estaduais
         </button>
         <button type="button" onClick={() => setAbaAtiva('municipal')}
           className={cn('flex items-center gap-2 px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
-            abaAtiva === 'municipal' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+            abaAtiva === 'municipal' ? 'border-primary-on-surface text-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground')}>
           <Landmark className="h-4 w-4" />Municipais
         </button>
         <button type="button" onClick={() => setAbaAtiva('trabalhista')}
           className={cn('flex items-center gap-2 px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
-            abaAtiva === 'trabalhista' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+            abaAtiva === 'trabalhista' ? 'border-primary-on-surface text-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground')}>
           <FileText className="h-4 w-4" />Trabalhista
         </button>
         <button type="button" onClick={() => setAbaAtiva('fgts')}
           className={cn('flex items-center gap-2 px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
-            abaAtiva === 'fgts' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+            abaAtiva === 'fgts' ? 'border-primary-on-surface text-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground')}>
           <DollarSign className="h-4 w-4" />FGTS
         </button>
         <button type="button" onClick={() => setAbaAtiva('cgu')}
           className={cn('flex items-center gap-2 px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
-            abaAtiva === 'cgu' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+            abaAtiva === 'cgu' ? 'border-primary-on-surface text-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground')}>
           <Shield className="h-4 w-4" />CGU
         </button>
         <button type="button" onClick={() => setAbaAtiva('alvara')}
           className={cn('flex items-center gap-2 px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
-            abaAtiva === 'alvara' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+            abaAtiva === 'alvara' ? 'border-primary-on-surface text-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground')}>
           <Flame className="h-4 w-4" />Alvarás
         </button>
       </div>
@@ -1118,12 +1118,12 @@ export default function CertidoesCndPage() {
           return (
             <button key={f.key} type="button" onClick={() => { setFiltroTipo(f.key); setLixeira(false); setPage(1) }}
               className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all',
-                isActive ? cn('bg-primary/10 text-primary', 'shadow-sm')
+                isActive ? cn('bg-primary/10 text-primary-on-surface', 'shadow-sm')
                   : 'border-border/40 text-muted-foreground hover:border-primary/30 hover:text-foreground bg-card',
               )}>
               <Icon className="h-3.5 w-3.5" />{f.label}
               <span className={cn('text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none',
-                isActive ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground',
+                isActive ? 'bg-primary/20 text-primary-on-surface' : 'bg-muted text-muted-foreground',
               )}>{f.count}</span>
             </button>
           )
@@ -1528,7 +1528,7 @@ export default function CertidoesCndPage() {
             <div className="flex items-center border-b px-4 shrink-0">
               <button type="button" onClick={() => setPdfTab('cnd')}
                 className={cn('flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors',
-                  pdfTab === 'cnd' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+                  pdfTab === 'cnd' ? 'border-primary-on-surface text-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground')}>
                 <FileOutput className="h-3.5 w-3.5" />CND Federal
               </button>
               <button type="button" onClick={() => {
@@ -1536,14 +1536,14 @@ export default function CertidoesCndPage() {
                 if (!sitfisUrl && !sitfisLoading && !sitfisErro) handleCarregarSitfis()
               }}
                 className={cn('flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors',
-                  pdfTab === 'sitfis' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+                  pdfTab === 'sitfis' ? 'border-primary-on-surface text-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground')}>
                 <Shield className="h-3.5 w-3.5" />Situação Fiscal
                 {sitfisLoading && <Loader2 className="h-3 w-3 animate-spin" />}
               </button>
               {pdfRecord?.tipoCertidao && pdfRecord.tipoCertidao !== 'Negativa' && (
                 <button type="button" onClick={() => setPdfTab('darf')}
                   className={cn('flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors',
-                    pdfTab === 'darf' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+                    pdfTab === 'darf' ? 'border-primary-on-surface text-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground')}>
                   <DollarSign className="h-3.5 w-3.5" />Emitir DARF
                   {darfLoading && <Loader2 className="h-3 w-3 animate-spin" />}
                 </button>
