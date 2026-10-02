@@ -326,8 +326,7 @@ export default function RelatoriosFeriasPage() {
               type="button"
               onClick={() => setAba(a.id)}
               className={cn('-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors',
-                ativa ? 'border-current' : 'border-transparent text-muted-foreground hover:text-foreground')}
-              style={ativa ? { color: PRIMARY, borderColor: PRIMARY } : undefined}
+                ativa ? 'border-primary-on-surface text-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground')}
             >
               <Icone className="h-4 w-4" />{a.label}
             </button>
