@@ -20,7 +20,7 @@ import {
   RichContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { BADGE, TEXT } from '@/lib/color-styles'
+import { BADGE, FILL, TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { BackButton } from '@/components/ui/back-button'
@@ -873,11 +873,11 @@ export default function CaixaPostalPage() {
             <div className="flex border-b mb-4">
               <button type="button" onClick={() => setScheduleTab('config')}
                 className={cn('px-4 py-2 text-xs font-medium border-b-2 -mb-px transition-colors',
-                  scheduleTab === 'config' ? cn('border-sky-500', TEXT.sky) : 'border-transparent text-muted-foreground hover:text-foreground',
+                  scheduleTab === 'config' ? 'border-primary-on-surface text-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground',
                 )}>Configuração</button>
               <button type="button" onClick={() => { setScheduleTab('historico'); loadExecLogs(0) }}
                 className={cn('px-4 py-2 text-xs font-medium border-b-2 -mb-px transition-colors',
-                  scheduleTab === 'historico' ? cn('border-sky-500', TEXT.sky) : 'border-transparent text-muted-foreground hover:text-foreground',
+                  scheduleTab === 'historico' ? 'border-primary-on-surface text-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground',
                 )}>Histórico de Execuções</button>
             </div>
 
@@ -888,7 +888,7 @@ export default function CaixaPostalPage() {
                   /* Detalhe de uma execução */
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <button type="button" onClick={() => setExecLogDetalhe(null)} className={cn('flex items-center gap-1.5 text-xs hover:underline', TEXT.sky)}>
+                      <button type="button" onClick={() => setExecLogDetalhe(null)} className="flex items-center gap-1.5 text-xs hover:underline text-primary-on-surface">
                         <ArrowLeft className="h-3 w-3" />Voltar
                       </button>
                       <Badge variant="outline" className={cn('text-[10px]',
@@ -1050,7 +1050,6 @@ export default function CaixaPostalPage() {
                     <Switch
                       checked={scheduleData.config.enabled}
                       onCheckedChange={(v) => setScheduleData(prev => prev ? { ...prev, config: { ...prev.config, enabled: v } } : prev)}
-                      className={cn(scheduleData.config.enabled && 'bg-sky-500')}
                     />
                     Agendamento {scheduleData.config.enabled ? 'ativado' : 'desativado'}
                   </label>
@@ -1078,7 +1077,7 @@ export default function CaixaPostalPage() {
                                 setScheduleData(prev => prev ? { ...prev, config: { ...prev.config, cron: buildCron(newDias, parsed.horas) } } : prev)
                               }}
                                 className={cn('rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-all border',
-                                  active ? 'bg-sky-500 text-white border-sky-500 shadow-sm' : 'text-muted-foreground border-border/60 bg-background hover:border-sky-400 hover:text-sky-600',
+                                  active ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'text-muted-foreground border-border/60 bg-background hover:border-primary/60 hover:text-primary-on-surface',
                                 )}>
                                 {d.label}
                               </button>
@@ -1086,10 +1085,10 @@ export default function CaixaPostalPage() {
                           })}
                         </div>
                         <div className="flex gap-2 mt-1">
-                          <button type="button" className={cn('text-[10px] hover:underline', TEXT.sky)} onClick={() => {
+                          <button type="button" className="text-[10px] hover:underline text-primary-on-surface" onClick={() => {
                             setScheduleData(prev => prev ? { ...prev, config: { ...prev.config, cron: buildCron(['1','2','3','4','5','6','0'], parsed.horas) } } : prev)
                           }}>Todos</button>
-                          <button type="button" className={cn('text-[10px] hover:underline', TEXT.sky)} onClick={() => {
+                          <button type="button" className="text-[10px] hover:underline text-primary-on-surface" onClick={() => {
                             setScheduleData(prev => prev ? { ...prev, config: { ...prev.config, cron: buildCron(['1','2','3','4','5'], parsed.horas) } } : prev)
                           }}>Dias úteis</button>
                         </div>
@@ -1108,7 +1107,7 @@ export default function CaixaPostalPage() {
                                 setScheduleData(prev => prev ? { ...prev, config: { ...prev.config, cron: buildCron(parsed.dias, newHoras) } } : prev)
                               }}
                                 className={cn('rounded px-2 py-1 text-[11px] font-mono font-medium transition-all border min-w-[36px]',
-                                  active ? 'bg-sky-500 text-white border-sky-500 shadow-sm' : 'text-muted-foreground border-border/60 bg-background hover:border-sky-400 hover:text-sky-600',
+                                  active ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'text-muted-foreground border-border/60 bg-background hover:border-primary/60 hover:text-primary-on-surface',
                                 )}>
                                 {String(h).padStart(2, '0')}h
                               </button>
@@ -1145,11 +1144,11 @@ export default function CaixaPostalPage() {
                         {scheduleData.config.clienteIds.length === 0 ? `Todos (${scheduleClientes.length})` : scheduleData.config.clienteIds[0] === '__none__' ? 'Nenhum' : `${scheduleData.config.clienteIds.length} selecionado(s)`}
                       </Badge>
                       {scheduleData.config.clienteIds.length > 0 ? (
-                        <button className={cn('text-[10px] hover:underline', TEXT.sky)} onClick={() => setScheduleData(prev => prev ? { ...prev, config: { ...prev.config, clienteIds: [] } } : prev)}>
+                        <button className="text-[10px] hover:underline text-primary-on-surface" onClick={() => setScheduleData(prev => prev ? { ...prev, config: { ...prev.config, clienteIds: [] } } : prev)}>
                           Selecionar todos
                         </button>
                       ) : (
-                        <button className={cn('text-[10px] hover:underline', TEXT.sky)} onClick={() => setScheduleData(prev => prev ? { ...prev, config: { ...prev.config, clienteIds: ['__none__'] } } : prev)}>
+                        <button className="text-[10px] hover:underline text-primary-on-surface" onClick={() => setScheduleData(prev => prev ? { ...prev, config: { ...prev.config, clienteIds: ['__none__'] } } : prev)}>
                           Desmarcar todos
                         </button>
                       )}
@@ -1167,7 +1166,7 @@ export default function CaixaPostalPage() {
                         const isNone = scheduleData.config.clienteIds[0] === '__none__'
                         const checked = !isNone && (scheduleData.config.clienteIds.length === 0 || scheduleData.config.clienteIds.includes(c.id))
                         return (
-                          <label key={c.id} className={cn('flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/30 cursor-pointer border-b last:border-b-0', checked && scheduleData.config.clienteIds.length > 0 && 'bg-sky-50/40')}>
+                          <label key={c.id} className={cn('flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/30 cursor-pointer border-b last:border-b-0', checked && scheduleData.config.clienteIds.length > 0 && 'bg-primary/5')}>
                             <Checkbox checked={checked} onCheckedChange={() => {
                               setScheduleData(prev => {
                                 if (!prev) return prev
@@ -1228,24 +1227,24 @@ export default function CaixaPostalPage() {
                 {scheduleProgress && scheduleProgress.status === 'running' && (
                   <div className="rounded-lg border overflow-hidden">
                     {/* Header do progresso */}
-                    <div className="flex items-center justify-between px-3 py-2 bg-sky-50 dark:bg-sky-950/20 border-b">
+                    <div className="flex items-center justify-between px-3 py-2 bg-primary/5 border-b">
                       <div className="flex items-center gap-2 text-xs">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-500" />
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary-on-surface" />
                         <span className="font-medium">Processando {scheduleProgress.current}/{scheduleProgress.total}</span>
                       </div>
                       <span className="text-[10px] text-muted-foreground">{scheduleProgress.currentCliente}</span>
                     </div>
                     {/* Barra de progresso */}
                     <div className="h-1.5 bg-muted">
-                      <div className="h-full bg-sky-500 transition-all duration-500" style={{ width: `${scheduleProgress.total > 0 ? (scheduleProgress.current / scheduleProgress.total) * 100 : 0}%` }} />
+                      <div className={cn('h-full transition-all duration-500', FILL.emerald)} style={{ width: `${scheduleProgress.total > 0 ? (scheduleProgress.current / scheduleProgress.total) * 100 : 0}%` }} />
                     </div>
                     {/* Lista de itens */}
                     <div className="max-h-[200px] overflow-y-auto divide-y nice-scrollbar">
                       {scheduleProgress.items.map((item, idx) => (
-                        <div key={idx} className={cn('flex items-center gap-2 px-3 py-1.5 text-[11px]', item.status === 'processando' && 'bg-sky-50/50 dark:bg-sky-900/10')}>
+                        <div key={idx} className={cn('flex items-center gap-2 px-3 py-1.5 text-[11px]', item.status === 'processando' && 'bg-primary/5')}>
                           <div className="w-4 shrink-0 text-center">
                             {item.status === 'pendente' && <Clock className="h-3 w-3 text-muted-foreground/40" />}
-                            {item.status === 'processando' && <Loader2 className="h-3 w-3 text-sky-500 animate-spin" />}
+                            {item.status === 'processando' && <Loader2 className="h-3 w-3 text-primary-on-surface animate-spin" />}
                             {item.status === 'ok' && <CheckCircle2 className="h-3 w-3 text-emerald-500" />}
                             {item.status === 'erro' && <AlertTriangle className="h-3 w-3 text-red-500" />}
                           </div>
@@ -1356,7 +1355,7 @@ export default function CaixaPostalPage() {
                 return (
                   <button key={tab.key} onClick={() => setDetalheTab(tab.key)}
                     className={cn('flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 transition-colors',
-                      detalheTab === tab.key ? cn('border-sky-500', TEXT.sky) : 'border-transparent text-muted-foreground hover:text-foreground'
+                      detalheTab === tab.key ? 'border-primary-on-surface text-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground'
                     )}>
                     <TabIcon className="h-3.5 w-3.5" />{tab.label}
                     {tab.key === 'historico' && itemDetalhes && Array.isArray((itemDetalhes as Record<string, unknown>).eventos) && (
@@ -1397,7 +1396,7 @@ export default function CaixaPostalPage() {
                           href="https://cav.receita.fazenda.gov.br/autenticacao/login"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className={cn('inline-flex items-center gap-1.5 text-[11px] font-medium hover:text-sky-700 hover:underline mt-1', TEXT.sky)}
+                          className="inline-flex items-center gap-1.5 text-[11px] font-medium hover:underline mt-1 text-primary-on-surface"
                         >
                           <ExternalLink className="h-3 w-3" />
                           Acessar mensagem original no e-CAC
@@ -1865,11 +1864,11 @@ export default function CaixaPostalPage() {
               ) : (
                 <div className="divide-y">
                   {loteItems.map((item, idx) => (
-                    <div key={item.id} className={cn('flex items-center gap-3 px-5 py-2.5 text-xs', item.status === 'consultando' && 'bg-sky-50/50 dark:bg-sky-900/10')}>
+                    <div key={item.id} className={cn('flex items-center gap-3 px-5 py-2.5 text-xs', item.status === 'consultando' && 'bg-primary/5')}>
                       <div className="w-5 shrink-0 text-center font-mono text-muted-foreground">{idx + 1}</div>
                       <div className="w-5 shrink-0">
                         {item.status === 'pendente' && <Clock className="h-3.5 w-3.5 text-muted-foreground/50" />}
-                        {item.status === 'consultando' && <Loader2 className="h-3.5 w-3.5 text-sky-500 animate-spin" />}
+                        {item.status === 'consultando' && <Loader2 className="h-3.5 w-3.5 text-primary-on-surface animate-spin" />}
                         {item.status === 'sucesso' && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}
                         {item.status === 'erro' && <AlertTriangle className="h-3.5 w-3.5 text-red-500" />}
                         {item.status === 'pulado' && <X className="h-3.5 w-3.5 text-muted-foreground/50" />}
@@ -1879,7 +1878,7 @@ export default function CaixaPostalPage() {
                         <p className="font-mono text-muted-foreground text-[10px]">{formatDoc(item.documento)}</p>
                       </div>
                       <div className="shrink-0 text-right min-w-[120px]">
-                        {item.status === 'consultando' && <span className={cn('font-medium', TEXT.sky)}>Consultando...</span>}
+                        {item.status === 'consultando' && <span className="font-medium text-primary-on-surface">Consultando...</span>}
                         {item.status === 'sucesso' && (
                           <span className={TEXT.emerald}>{item.total !== undefined ? `${item.total} msg` : 'OK'}</span>
                         )}
@@ -1910,7 +1909,7 @@ export default function CaixaPostalPage() {
               ) : loteStatus === 'running' ? (
                 <>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-500" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-primary-on-surface" />
                     Processando {loteItems.filter(i => i.status !== 'pendente' && i.status !== 'pulado').length} de {loteItems.length}...
                   </div>
                   <Button variant="destructive" size="sm" onClick={handlePararLote} className="gap-1.5">
@@ -2302,11 +2301,11 @@ export default function CaixaPostalPage() {
               </div>
               <div className="hidden md:flex items-center border-l pl-2 ml-1 gap-0.5">
                 <button type="button" title="Abrir em modal" onClick={() => { setViewMode('modal'); localStorage.setItem('caixapostal-view-mode', 'modal'); setDetalheMsg(null) }}
-                  className={cn('rounded p-1.5 transition-colors', viewMode === 'modal' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400' : 'text-muted-foreground hover:bg-muted/50')}>
+                  className={cn('rounded p-1.5 transition-colors', viewMode === 'modal' ? 'bg-primary/10 text-primary-on-surface' : 'text-muted-foreground hover:bg-muted/50')}>
                   <Maximize2 className="h-3.5 w-3.5" />
                 </button>
                 <button type="button" title="Painel de leitura" onClick={() => { setViewMode('painel'); localStorage.setItem('caixapostal-view-mode', 'painel'); setDetalheOpen(false) }}
-                  className={cn('rounded p-1.5 transition-colors', viewMode === 'painel' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400' : 'text-muted-foreground hover:bg-muted/50')}>
+                  className={cn('rounded p-1.5 transition-colors', viewMode === 'painel' ? 'bg-primary/10 text-primary-on-surface' : 'text-muted-foreground hover:bg-muted/50')}>
                   <PanelRightOpen className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -2356,7 +2355,7 @@ export default function CaixaPostalPage() {
                   <TableRow key={`${mId || isn}-${idx}`} className={cn(
                     'cursor-pointer transition-colors',
                     isImportante && 'border-l-2 border-l-amber-400',
-                    mId && msgSelecionadas.has(mId) && 'bg-sky-100/60 dark:bg-sky-900/20',
+                    mId && msgSelecionadas.has(mId) && 'bg-primary/10',
                     !msgSelecionadas.has(mId || '') && !m.lida && 'bg-white dark:bg-card font-medium hover:bg-gray-50 dark:hover:bg-muted/40',
                     !msgSelecionadas.has(mId || '') && m.lida && 'bg-transparent hover:bg-muted/30',
                   )}>
@@ -2518,7 +2517,7 @@ export default function CaixaPostalPage() {
                       return (
                         <button key={tab.key} onClick={() => setDetalheTab(tab.key)}
                           className={cn('flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 -mb-px transition-colors',
-                            detalheTab === tab.key ? cn('border-sky-500', TEXT.sky) : 'border-transparent text-muted-foreground hover:text-foreground'
+                            detalheTab === tab.key ? 'border-primary-on-surface text-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground'
                           )}>
                           <TabIcon className="h-3 w-3" />{tab.label}
                         </button>
@@ -2543,7 +2542,7 @@ export default function CaixaPostalPage() {
                             </div>
                           )}
                           <a href="https://cav.receita.fazenda.gov.br/autenticacao/login" target="_blank" rel="noopener noreferrer"
-                            className={cn('inline-flex items-center gap-1.5 text-[11px] font-medium hover:underline', TEXT.sky)}>
+                            className="inline-flex items-center gap-1.5 text-[11px] font-medium hover:underline text-primary-on-surface">
                             <ExternalLink className="h-3 w-3" />Acessar no e-CAC
                           </a>
                         </div>
@@ -2687,7 +2686,7 @@ export default function CaixaPostalPage() {
                           <div className="space-y-2">
                             {((itemDetalhes as Record<string, unknown>).eventos as Array<{ tipo: string; descricao: string; createdAt: string; userName?: string }>).map((ev, idx) => (
                               <div key={idx} className="flex gap-2 text-[11px] border-b pb-2 last:border-b-0">
-                                <div className="w-2 h-2 rounded-full bg-sky-400 mt-1.5 shrink-0" />
+                                <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium">{ev.descricao}</p>
                                   <p className="text-[10px] text-muted-foreground">{new Date(ev.createdAt).toLocaleString('pt-BR')} {ev.userName ? `· ${ev.userName}` : ''}</p>

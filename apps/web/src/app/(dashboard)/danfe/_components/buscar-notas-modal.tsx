@@ -9,7 +9,7 @@ import {
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { TEXT } from '@/lib/color-styles'
+import { FILL, TEXT } from '@/lib/color-styles'
 
 type Fonte = 'nfe' | 'nfse'
 const FONTES: { k: Fonte; label: string; icon: typeof Landmark; requestedField: string; statusField: string }[] = [
@@ -145,7 +145,7 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o && fase === 'processando') return; onOpenChange(o) }}>
       <DialogContent className="sm:max-w-[540px]">
-        <DialogHeaderIcon icon={Download}>
+        <DialogHeaderIcon icon={Download} color="emerald">
           <DialogTitle>Buscar notas sob demanda</DialogTitle>
           <DialogDescription>Consulta {fonte === 'nfe' ? 'a SEFAZ (NFe Distribuição)' : 'o Portal Nacional (NFS-e)'} de um cliente.</DialogDescription>
         </DialogHeaderIcon>
@@ -162,7 +162,7 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
                   disabled={fase === 'processando'}
                   onClick={() => setFonte(f.k)}
                   className={cn('inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors disabled:opacity-50',
-                    active ? cn('border-sky-500', TEXT.sky) : 'border-transparent text-muted-foreground hover:text-foreground')}
+                    active ? 'border-primary-on-surface text-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground')}
                 >
                   <f.icon className="h-3.5 w-3.5" /> {f.label}
                 </button>
@@ -189,14 +189,14 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
                     type="button"
                     onClick={() => setSel(c)}
                     className={cn('w-full text-left px-3 py-2.5 flex items-center gap-3 transition-colors hover:bg-muted/50',
-                      sel?.id === c.id && 'bg-sky-50 dark:bg-sky-950/30')}
+                      sel?.id === c.id && 'bg-primary/10')}
                   >
                     <span className="h-8 w-8 rounded-md bg-muted flex items-center justify-center shrink-0"><Building2 className="h-4 w-4 text-muted-foreground" /></span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-medium truncate">{c.razaoSocial}</span>
                       <span className="block text-[11px] text-muted-foreground font-mono">{fmtCnpj(c.documento)} · último NSU {c.ultimoNsu ?? '0'}</span>
                     </span>
-                    {sel?.id === c.id && <CheckCircle2 className="h-4 w-4 text-sky-500 shrink-0" />}
+                    {sel?.id === c.id && <CheckCircle2 className="h-4 w-4 text-primary-on-surface shrink-0" />}
                   </button>
                 ))}
               </div>
@@ -205,7 +205,7 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
 
           {fase === 'processando' && (
             <div className="flex flex-col items-center justify-center py-8 gap-4">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <Loader2 className="h-8 w-8 animate-spin text-primary-on-surface" />
               <div className="text-center">
                 <p className="text-sm font-medium">{sel?.razaoSocial}</p>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -217,7 +217,7 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
               {progresso && progresso.pct > 0 && (
                 <div className="w-full max-w-[360px]">
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full rounded-full transition-all bg-primary" style={{ width: `${Math.min(100, progresso.pct)}%` }} />
+                    <div className={cn('h-full rounded-full transition-all', FILL.emerald)} style={{ width: `${Math.min(100, progresso.pct)}%` }} />
                   </div>
                   <p className="text-[11px] text-muted-foreground text-center mt-1.5 tabular-nums">{progresso.pct}%{progresso.total > 0 ? ` · ${progresso.atual}/${progresso.total}` : ''}</p>
                 </div>
@@ -230,7 +230,7 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
               {resultado.ok ? <CheckCircle2 className="h-10 w-10 text-emerald-500" /> : <XCircle className="h-10 w-10 text-rose-500" />}
               {resultado.ok && resultado.novas != null && (
                 <div className="flex flex-col items-center">
-                  <span className="text-4xl font-bold tabular-nums text-primary">{resultado.novas}</span>
+                  <span className="text-4xl font-bold tabular-nums text-primary-on-surface">{resultado.novas}</span>
                   <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">nota{resultado.novas === 1 ? '' : 's'} obtida{resultado.novas === 1 ? '' : 's'}</span>
                 </div>
               )}
@@ -239,7 +239,7 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
                 <p className={cn('text-sm mt-1', resultado.ok ? 'text-muted-foreground' : TEXT.rose)}>{resultado.mensagem}</p>
               </div>
               {resultado.ok && sel && (
-                <Link href={`/danfe/galeria?cliente=${sel.id}`} className={cn('inline-flex items-center gap-1.5 text-sm font-semibold hover:underline', TEXT.sky)}>
+                <Link href={`/danfe/galeria?cliente=${sel.id}`} className="inline-flex items-center gap-1.5 text-sm font-semibold hover:underline text-primary-on-surface">
                   Ver notas na galeria <ExternalLink className="h-3.5 w-3.5" />
                 </Link>
               )}
@@ -251,7 +251,7 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
           {fase === 'select' && (
             <>
               <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-              <Button onClick={buscar} disabled={!sel}>
+              <Button variant="success" onClick={buscar} disabled={!sel}>
                 <Download className="h-4 w-4 mr-1.5" /> Buscar notas
               </Button>
             </>

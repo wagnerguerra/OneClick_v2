@@ -29,7 +29,7 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
-import { FILL, TEXT } from '@/lib/color-styles'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { useTabLabel } from '@/hooks/use-tab-label'
 import { SeletorCliente, type ClienteSimulador } from './_components/seletor-cliente'
@@ -376,10 +376,9 @@ export default function ReformaTributariaPage() {
                           className={cn(
                             'flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors',
                             ativa
-                              ? 'shadow-sm'
+                              ? 'bg-primary text-primary-foreground shadow-sm'
                               : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                           )}
-                          style={ativa ? { background: '#22d3ee', color: '#0f172a' } : undefined}
                         >
                           <Icone className="h-4 w-4 shrink-0" />
                           {item.label}
@@ -439,7 +438,7 @@ export default function ReformaTributariaPage() {
           precisa poder abrir os dois. */}
       <Dialog open={verSerie} onOpenChange={setVerSerie}>
         <DialogContent className="max-w-lg">
-          <DialogHeaderIcon icon={ListTree} color="sky">
+          <DialogHeaderIcon icon={ListTree}>
             <DialogTitle>Faturamento mês a mês</DialogTitle>
             <DialogDescription>
               Contas de receita do balancete importado, por período. A média destes meses é o valor usado nas simulações.
@@ -477,7 +476,7 @@ export default function ReformaTributariaPage() {
                           <td className="py-2 pr-3">
                             <span className="block h-1.5 w-full overflow-hidden rounded-full bg-muted">
                               <span
-                                className={cn('block h-full rounded-full', FILL.sky)}
+                                className="block h-full rounded-full bg-primary"
                                 style={{ width: `${Math.max(0, (m.receita / maior) * 100)}%` }}
                               />
                             </span>
@@ -518,7 +517,7 @@ export default function ReformaTributariaPage() {
 
       <Dialog open={verComposicao} onOpenChange={setVerComposicao}>
         <DialogContent className="max-w-2xl">
-          <DialogHeaderIcon icon={ListTree} color="sky">
+          <DialogHeaderIcon icon={ListTree}>
             <DialogTitle>Despesas mensais creditáveis</DialogTitle>
             <DialogDescription>
               Contas do balancete classificadas como creditáveis. O total é a média mensal dos últimos 12 meses.

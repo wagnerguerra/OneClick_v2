@@ -16,7 +16,7 @@ import {
   Button, Dialog, DialogContent, DialogTitle, DialogDescription, Badge, cn,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { BADGE, TEXT } from '@/lib/color-styles'
+import { BADGE, FILL, TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -183,7 +183,7 @@ export function BalanceteModal({ clienteId, clienteNome, aberto, onFechar, onAtu
   return (
     <Dialog open={aberto} onOpenChange={(o) => { if (!o) { pararPolling(); onFechar() } }}>
       <DialogContent className="max-w-lg">
-        <DialogHeaderIcon icon={Database} color="sky">
+        <DialogHeaderIcon icon={Database} color="emerald">
           <DialogTitle>Balancete do cliente</DialogTitle>
           <DialogDescription>{clienteNome}</DialogDescription>
         </DialogHeaderIcon>
@@ -258,7 +258,7 @@ export function BalanceteModal({ clienteId, clienteNome, aberto, onFechar, onAtu
           {importando && (
             <div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                <div className="h-full rounded-full transition-all" style={{ width: `${progresso}%`, background: '#22d3ee' }} />
+                <div className={cn('h-full rounded-full transition-all', FILL.emerald)} style={{ width: `${progresso}%` }} />
               </div>
               <p className="mt-1.5 text-[11px] text-muted-foreground">{mensagem}</p>
             </div>
@@ -294,7 +294,7 @@ export function BalanceteModal({ clienteId, clienteNome, aberto, onFechar, onAtu
               Busca os últimos 12 meses fechados no SCI.
               {smConectado === true && <span className={cn('ml-1', TEXT.emerald)}>Service Manager conectado.</span>}
             </p>
-            <Button type="button" onClick={importar} className="gap-2" disabled={importando || !clienteId}>
+            <Button type="button" variant="success" onClick={importar} className="gap-2" disabled={importando || !clienteId}>
               {importando ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               Atualizar do SCI
             </Button>
