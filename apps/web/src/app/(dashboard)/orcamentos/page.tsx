@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, createContext, useContext, type ReactNode } from 'react'
 import { ClienteIdentificacao, type ClienteDoc } from '@/components/cliente-identificacao'
+import { SeloExCliente, ehExCliente } from '@/components/selo-ex-cliente'
 import { mensagemErro } from '@/lib/errors'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { ROTEIRO_SOLICITACAO_ORCAMENTO, detalhamentoPreenchido } from '@/components/orcamento/roteiro-solicitacao'
@@ -688,7 +689,7 @@ export default function OrcamentosPage() {
           // própria baixa da empresa, p.ex. #4783) aparecia como "Sem cliente".
           const cls = await (trpc.cliente as any).listForSelect.query({ incluirInativos: true })
           const map = new Map<string, ClienteDoc>()
-          for (const c of cls) map.set(c.id, { razaoSocial: c.razaoSocial, documento: c.documento, tipoDocumento: c.tipoDocumento, ehMatriz: c.ehMatriz, nomeFantasia: c.nomeFantasia, logoUrl: c.logoUrl })
+          for (const c of cls) map.set(c.id, { razaoSocial: c.razaoSocial, documento: c.documento, tipoDocumento: c.tipoDocumento, ehMatriz: c.ehMatriz, nomeFantasia: c.nomeFantasia, logoUrl: c.logoUrl, status: c.status })
           setClientesMap(map)
         } catch { /* */ }
       }
@@ -1830,6 +1831,7 @@ function KanbanCardContent({ orc, cliente, onDuplicar, onArquivar, onCancelar, o
         <DadosClienteTooltip numero={orc.numero} cliente={cliente}>
           <span className="min-w-0 flex-1 cursor-help truncate text-[13px] font-semibold">{nomeCurto}</span>
         </DadosClienteTooltip>
+        {ehExCliente(cliente) && <SeloExCliente />}
         <div className="flex shrink-0 items-center gap-1">
           <span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-foreground/80">#{orc.numero}</span>
           {aviso && (

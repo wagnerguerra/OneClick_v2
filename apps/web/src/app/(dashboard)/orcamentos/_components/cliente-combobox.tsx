@@ -5,6 +5,7 @@ import { ChevronDown, Plus, Loader2 } from 'lucide-react'
 import { Input, cn } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
 import { useAnchoredDropdown } from '@/components/ui/use-anchored-dropdown'
+import { SeloExCliente } from '@/components/selo-ex-cliente'
 
 /**
  * Formata documento (CPF 11 dígitos / CNPJ 14 dígitos) com máscara padrão.
@@ -23,19 +24,6 @@ function formatDocumento(doc: string | null | undefined): string {
  * ou documento (CNPJ/CPF). Usado no modal de criacao e no detalhe do
  * orcamento.
  */
-/**
- * Marca de ex-cliente (status INATIVO) — mesmo selo da busca do botão "+".
- * Ex-cliente entra na lista porque é assim que ele volta, mas IDENTIFICADO:
- * escolher sem saber levaria a orçar para uma conta encerrada sem perceber.
- */
-function SeloExCliente() {
-  return (
-    <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-px text-[10px] font-semibold text-amber-600 dark:text-amber-400">
-      Ex-cliente
-    </span>
-  )
-}
-
 export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabled, onCreate, marcarExClientes }: {
   clientes: Array<{ id: string; razaoSocial: string; documento?: string | null; status?: string | null }>
   /** A lista inclui ex-clientes (status INATIVO): mostra o selo neles. */

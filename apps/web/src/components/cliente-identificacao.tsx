@@ -2,6 +2,7 @@
 
 import { ehMatrizCnpj, finalCnpj } from '@saas/types'
 import { cn } from '@saas/ui'
+import { SeloExCliente, ehExCliente } from './selo-ex-cliente'
 
 /**
  * Razão social + final do CNPJ + selo Matriz/Filial, para listas onde matriz e
@@ -16,6 +17,8 @@ export interface ClienteDoc {
   /** Opcionais — usados pelo card do quadro de orçamentos (logo + nome curto). */
   nomeFantasia?: string | null
   logoUrl?: string | null
+  /** 'INATIVO' = ex-cliente: ganha o selo. Ausente = não marca nada. */
+  status?: string | null
 }
 
 /**
@@ -40,13 +43,15 @@ export function ClienteIdentificacao({ cliente, variante = 'linha', className }:
       {final} · {matriz ? 'Matriz' : 'Filial'}
     </span>
   ) : null
+  const ex = ehExCliente(cliente)
   if (variante === 'bloco') {
-    return <span className={className}>{cliente.razaoSocial}{selo}</span>
+    return <span className={className}>{cliente.razaoSocial}{selo}{ex && <SeloExCliente className="ml-1 inline-block align-middle" />}</span>
   }
   return (
     <span className={cn('inline-flex max-w-full min-w-0 items-center gap-1.5', className)}>
       <span className="truncate">{cliente.razaoSocial}</span>
       {selo}
+      {ex && <SeloExCliente />}
     </span>
   )
 }

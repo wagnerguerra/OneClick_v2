@@ -30,6 +30,7 @@ import { mensagemErro } from '@/lib/errors'
 import { UserMultiPicker } from '@/components/user-multi-picker'
 import { classificarArquivo, formatarTamanho } from '@/lib/arquivo-tipo'
 import type { ClienteDoc } from '@/components/cliente-identificacao'
+import { SeloExCliente, ehExCliente } from '@/components/selo-ex-cliente'
 import { calcularCompletude, NIVEL_COMPLETUDE_LABEL, type Completude, type NivelCompletude } from './completude-orcamento'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
@@ -244,6 +245,7 @@ export function PreviewOrcamento({
             </h2>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
               <span className="text-muted-foreground">#{o.numero}</span>
+              {ehExCliente(cliente) && <SeloExCliente />}
               <span className="h-3 w-px bg-border" />
               <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold" style={{ backgroundColor: `${statusCor}1A`, color: statusCor }}>
                 {statusLabel}
