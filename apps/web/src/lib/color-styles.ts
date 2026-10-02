@@ -139,7 +139,7 @@ export const TEXT: Record<ColorName, string> = {
   pink: 'text-pink-600 dark:text-pink-400',
   orange: 'text-orange-600 dark:text-orange-400',
   blue: 'text-blue-600 dark:text-blue-400',
-  red: 'text-red-600 dark:text-red-400',
+  red: 'text-red-600 dark:text-red-500',
   purple: 'text-purple-600 dark:text-purple-400',
   slate: 'text-slate-500 dark:text-slate-300',
 }
