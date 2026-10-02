@@ -2957,6 +2957,13 @@ model CompraAvaliacaoResposta {
 // acoplar aos models Empresa/User/Cliente.
 // ============================================================
 
+/// Que tipo de arquivo o Modelo trata: extrato do banco (o dinheiro passou na
+/// conta) ou planilha do cliente (o que ele declarou: contas a pagar/receber).
+enum TipoArquivoModelo {
+  EXTRATO_BANCARIO
+  PLANILHA_CLIENTE
+}
+
 model TreatmentModel {
   id   String @id @default(cuid())
   code Int    @default(autoincrement())
@@ -2964,6 +2971,9 @@ model TreatmentModel {
   nome          String
   contaCorrente String? @map("conta_corrente")
   clienteId     String? @map("cliente_id")
+  /// Atributo do Modelo, fora da definição (mudar não gera versão). Opcional:
+  /// modelos anteriores ao campo ficam sem valor até alguém editar.
+  tipoArquivo   TipoArquivoModelo? @map("tipo_arquivo")
 
   // Ponteiro p/ a versão atual (snapshot). Sem FK formal p/ evitar ciclo.
   currentVersionId String? @map("current_version_id")

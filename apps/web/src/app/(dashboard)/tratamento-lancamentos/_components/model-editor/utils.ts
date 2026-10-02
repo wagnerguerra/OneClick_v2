@@ -1,4 +1,4 @@
-import { stableStringify, type TreatmentDefinition } from '@saas/types'
+import { stableStringify, type TreatmentDefinition, type TipoArquivoModelo } from '@saas/types'
 import { alerts } from '@/lib/alerts'
 
 /**
@@ -53,6 +53,6 @@ export function invalidCls(revisar?: boolean): string {
 }
 
 /** Snapshot serializado do formulário para detectar alterações não salvas. */
-export function serializeForm(nome: string, isActive: boolean, def: TreatmentDefinition): string {
-  return stableStringify({ nome: nome.trim(), isActive, def })
+export function serializeForm(nome: string, tipoArquivo: TipoArquivoModelo | null, isActive: boolean, def: TreatmentDefinition): string {
+  return stableStringify({ nome: nome.trim(), tipoArquivo, isActive, def })
 }
