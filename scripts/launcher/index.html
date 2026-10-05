@@ -5849,16 +5849,10 @@
             btn.style.cssText = 'margin-left:10px;padding:4px 10px;border-radius:6px;border:1px solid #f59e0b;background:rgba(245,158,11,0.12);color:#f59e0b;font-weight:600;cursor:pointer;'
             btn.addEventListener('click', async () => {
               const ok = window.confirm(
-                'Plano B: as imagens da API e do Web serão geradas NESTA máquina e enviadas ao ghcr; o resto do deploy segue igual.
-
-'
-                + '• O gate do GitHub (tipos, testes e prose) NÃO roda neste modo.
-'
-                + '• Usa o código exato do commit publicado, não os arquivos modificados da pasta.
-'
-                + '• Leva alguns minutos e precisa do Docker Desktop aberto e com login no ghcr.
-
-Continuar?'
+                'Plano B: as imagens da API e do Web serão geradas NESTA máquina e enviadas ao ghcr; o resto do deploy segue igual.\n\n'
+                + '• O gate do GitHub (tipos, testes e prose) NÃO roda neste modo.\n'
+                + '• Usa o código exato do commit publicado, não os arquivos modificados da pasta.\n'
+                + '• Leva alguns minutos e precisa do Docker Desktop aberto e com login no ghcr.\n\nContinuar?'
               )
               if (!ok) return
               btn.remove()
