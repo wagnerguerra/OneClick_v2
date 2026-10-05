@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Plus, Loader2, Search, Copy, Check, EyeOff, MessageSquare, Paperclip,
-  Building2, User as UserIcon, MoreVertical, Eye, Inbox,
+  Building2, User as UserIcon, MoreVertical, Eye, Inbox, Settings,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUp, ArrowDown, ArrowUpDown,
 } from 'lucide-react'
 import {
@@ -46,10 +46,11 @@ export const STATUS_LABEL: Record<string, { texto: string; classe: string }> = {
  * correção feita em uma delas.
  */
 export function ManifestacaoPage({ config }: { config: Config }) {
-  const { isMaster, permissions } = useUserPermissions()
+  const { isMaster, isEmpresaMaster, permissions } = useUserPermissions()
   const subs = (permissions.find(p => p.moduleSlug === config.slug)?.subPermissions ?? {}) as Record<string, boolean>
   const podeTratar = isMaster || subs.tratar === true
   const podeRegistrar = isMaster || subs.registrar === true || subs.tratar === true
+  const podeConfigurar = isMaster || isEmpresaMaster || subs.configurar === true
 
   const [linhas, setLinhas] = useState<Linha[]>([])
   const [total, setTotal] = useState(0)
@@ -65,6 +66,11 @@ export function ManifestacaoPage({ config }: { config: Config }) {
 
   const [novoOpen, setNovoOpen] = useState(false)
   const [abertoId, setAbertoId] = useState<string | null>(null)
+  // Link das notificações: /reclamacoes?abrir=<id> já abre o registro.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('abrir')
+    if (id) setAbertoId(id)
+  }, [])
   const [protocoloNovo, setProtocoloNovo] = useState<string | null>(null)
 
   // Busca com respiro: uma consulta por tecla digitada castigaria o servidor
@@ -135,6 +141,11 @@ export function ManifestacaoPage({ config }: { config: Config }) {
           {podeRegistrar && (
             <Button size="sm" className="gap-1.5" onClick={() => setNovoOpen(true)}>
               <Plus className="h-4 w-4" /> {config.rotuloNovo}
+            </Button>
+          )}
+          {podeConfigurar && (
+            <Button variant="outline" size="icon-sm" asChild title="Configurações (quem recebe as notificações)">
+              <Link href={`/${config.slug}/configuracoes`}><Settings className="h-4 w-4" /></Link>
             </Button>
           )}
       </>}>

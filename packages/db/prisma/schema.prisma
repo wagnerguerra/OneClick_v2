@@ -9010,6 +9010,27 @@ model ManifestacaoLog {
   @@map("manifestacao_logs")
 }
 
+/// Quem é avisado de cada evento de uma manifestação (05/10/2026). Uma linha
+/// por empresa × tipo × evento, mantida na tela de configurações do módulo
+/// (sub-permissão `configurar`). Sem linha = ninguém é avisado daquele evento.
+model ManifestacaoNotificacaoConfig {
+  id          String   @id @default(cuid())
+  empresaId   String   @map("empresa_id")
+  /// ELOGIO | RECLAMACAO | SUGESTAO (texto, como `Manifestacao.tipo` no banco).
+  tipo        String
+  /// REGISTRADA | EDITADA | RETORNO | ANALISADA | FINALIZADA | MENSAGEM
+  evento      String
+  userIds     String[] @map("user_ids")
+  /// Avisa também quem registrou (nunca numa anônima: não há autor guardado).
+  avisarAutor Boolean  @default(false) @map("avisar_autor")
+  sino        Boolean  @default(true)
+  email       Boolean  @default(false)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([empresaId, tipo, evento])
+  @@map("manifestacao_notificacao_config")
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // REUNIÕES — port do módulo `sgq_reunioes` do OneClick v1 (tabelas sgq_reu*).
 // Ver docs/migracao-reunioes-v1.md para o levantamento do legado.

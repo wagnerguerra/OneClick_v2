@@ -543,6 +543,12 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'tratar', label: 'Dar retorno, analisar procedência e encerrar', group: 'Qualidade' },
     { key: 'indicadores', label: 'Acessar os indicadores', group: 'Qualidade' },
     { key: 'excluir', label: 'Excluir reclamações', group: 'Qualidade', observacao: 'No sistema antigo, exclusivo do nível de administração.' },
+    {
+      key: 'configurar',
+      label: 'Acessar as configurações (quem recebe as notificações)',
+      group: 'Configurações',
+      observacao: 'Escolhe quem é avisado — no sino e/ou por e-mail — de cada evento: registro, edição, retorno, análise, finalização e mensagens.',
+    },
   ],
   sugestoes: [
     { key: 'registrar', label: 'Registrar sugestões', group: 'Rotina' },

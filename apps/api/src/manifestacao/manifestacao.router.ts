@@ -9,6 +9,8 @@ import {
   type ManifestacaoTipo,
 } from '@saas/types'
 import { ManifestacaoService } from './manifestacao.service'
+import { ManifestacaoNotificacaoService, EVENTOS_MANIFESTACAO } from './manifestacao-notificacao.service'
+import { TRPCError } from '@trpc/server'
 
 /**
  * Um router por módulo, sobre a mesma engrenagem.
@@ -21,7 +23,13 @@ export function createManifestacaoRouter(
   service: ManifestacaoService,
   tipo: ManifestacaoTipo,
   MODULE: string,
+  avisos?: ManifestacaoNotificacaoService,
 ) {
+  const empresaDe = (empresaId?: string | null) => {
+    if (!empresaId) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Selecione a empresa antes de configurar.' })
+    if (!avisos) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+    return { empresaId, avisos }
+  }
   /**
    * Escopo de leitura do usuário atual. Espelha o roteamento do legado, onde o
    * nível 1 caía em `usu/` (só as suas) e o 3 em `adm/` (todas).
@@ -90,6 +98,27 @@ export function createManifestacaoRouter(
           }),
         })
         return service.atualizar({ ...input, tipo }, tipo, ctx.empresaId, ctx.userId)
+      }),
+
+    // ── Configurações: quem recebe os avisos de cada evento ──
+    // Sub-permissão própria (`configurar`): decidir quem é avisado de uma
+    // reclamação é decisão de gestão, não de quem registra ou trata.
+    notificacoesConfig: readSubProcedure(MODULE, 'configurar', 'Acessar as configuracoes')
+      .query(({ ctx }) => {
+        const { empresaId, avisos: a } = empresaDe(ctx.empresaId)
+        return a.listar(empresaId, tipo)
+      }),
+    salvarNotificacoesConfig: writeSubProcedure(MODULE, 'configurar', 'Acessar as configuracoes')
+      .input(z.array(z.object({
+        evento: z.enum(EVENTOS_MANIFESTACAO),
+        userIds: z.array(z.string()).max(200),
+        avisarAutor: z.boolean(),
+        sino: z.boolean(),
+        email: z.boolean(),
+      })).max(EVENTOS_MANIFESTACAO.length))
+      .mutation(({ input, ctx }) => {
+        const { empresaId, avisos: a } = empresaDe(ctx.empresaId)
+        return a.salvar(empresaId, tipo, input)
       }),
 
     responder: writeSubProcedure(MODULE, 'tratar', 'Responder e encerrar')

@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Optional } from '@nestjs/common'
+import { ManifestacaoNotificacaoService, type EventoManifestacao } from './manifestacao-notificacao.service'
 import { prisma, getPrismaSkipTake, buildPaginatedResponse } from '@saas/db'
 import { randomBytes } from 'crypto'
 import type {
@@ -37,6 +38,14 @@ const STATUS_INICIAL: Record<ManifestacaoTipo, string> = {
 
 @Injectable()
 export class ManifestacaoService {
+  /** Avisos dos eventos (opcional: os testes instanciam o service sem Nest). */
+  constructor(@Optional() private readonly avisos?: ManifestacaoNotificacaoService) {}
+
+  /** Dispara o aviso sem segurar a resposta — e sem deixar falha derrubar a ação. */
+  private avisar(id: string, evento: EventoManifestacao, quem?: string | null, detalhe?: string) {
+    void this.avisos?.notificar(id, evento, quem, detalhe)
+  }
+
   /**
    * Gera o código que a pessoa leva embora: ELO-7K3M-92QF.
    *
@@ -270,6 +279,7 @@ export class ManifestacaoService {
     })
 
     await this.registrarLog(criado.id, input.anonima ? null : autorId, 'Registro criado')
+    this.avisar(criado.id, 'REGISTRADA', input.anonima ? null : autorId)
     return criado
   }
 
@@ -313,6 +323,7 @@ export class ManifestacaoService {
     // Na linha do tempo, como os demais passos — numa auditoria, a pergunta
     // "o relato foi alterado depois?" precisa de resposta.
     await this.registrarLog(atual.id, atual.anonima ? null : (usuarioId ?? null), 'Registro editado')
+    this.avisar(atual.id, 'EDITADA', usuarioId)
     return salvo
   }
 
@@ -337,6 +348,7 @@ export class ManifestacaoService {
     })
 
     await this.registrarLog(atual.id, userId, input.encerrar ? 'Respondida e encerrada' : 'Respondida')
+    this.avisar(atual.id, input.encerrar ? 'FINALIZADA' : 'RETORNO', userId)
     return { ok: true }
   }
 
@@ -392,6 +404,7 @@ export class ManifestacaoService {
       },
     })
     await this.registrarLog(atual.id, userId, 'Retorno dado ao cliente')
+    this.avisar(atual.id, 'RETORNO', userId)
     return { ok: true }
   }
 
@@ -436,6 +449,7 @@ export class ManifestacaoService {
         },
       })
       await this.registrarLog(atual.id, userId, 'Julgada não procedente')
+      this.avisar(atual.id, 'ANALISADA', userId, 'Não procedente')
       return { ok: true, abriuNaoConformidade: false }
     }
 
@@ -455,6 +469,7 @@ export class ManifestacaoService {
       atual.id, userId, 'Julgada procedente',
       'Cabe abertura de Não Conformidade — o módulo ainda não existe no sistema.',
     )
+    this.avisar(atual.id, 'ANALISADA', userId, 'Procedente')
     return { ok: true, abriuNaoConformidade: false }
   }
 
@@ -478,6 +493,7 @@ export class ManifestacaoService {
       },
     })
     await this.registrarLog(atual.id, userId, 'Reclamação finalizada')
+    this.avisar(atual.id, 'FINALIZADA', userId)
     return { ok: true }
   }
 
@@ -533,6 +549,7 @@ export class ManifestacaoService {
       data: { manifestacaoId: atual.id, autorId: userId, texto: input.texto, interna: input.interna },
     })
     await this.registrarLog(atual.id, userId, input.interna ? 'Nota interna' : 'Mensagem ao interessado')
+    this.avisar(atual.id, 'MENSAGEM', userId, input.interna ? 'Nota interna' : 'Mensagem ao interessado')
     return msg
   }
 
