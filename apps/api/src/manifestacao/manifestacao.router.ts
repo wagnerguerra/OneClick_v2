@@ -58,7 +58,14 @@ export function createManifestacaoRouter(
       .input(z.object({ id: z.string() }))
       .query(async ({ input, ctx }) => {
         await service.assertPodeVer(input.id, tipo, await escopoDeLeitura(ctx))
-        return service.getById(tipo, input.id, ctx.empresaId)
+        const m = await service.getById(tipo, input.id, ctx.empresaId)
+        // Editar = quem registrou ou quem trata (a mesma regra do `atualizar`).
+        // Vai como flag: a tela não reimplementa a regra.
+        const trata = await hasSubPermission(ctx.userId, MODULE, 'tratar', {
+          isMaster: ctx.isMaster, isEmpresaMaster: ctx.isEmpresaMaster,
+        })
+        const podeEditar = trata || (!!m && !m.anonima && m.autor?.id === ctx.userId)
+        return m ? { ...m, podeEditar } : m
       }),
 
     // `registrar` já estava no catálogo de permissões, mas o criar exigia só a
@@ -82,7 +89,7 @@ export function createManifestacaoRouter(
             isMaster: ctx.isMaster, isEmpresaMaster: ctx.isEmpresaMaster,
           }),
         })
-        return service.atualizar({ ...input, tipo }, tipo, ctx.empresaId)
+        return service.atualizar({ ...input, tipo }, tipo, ctx.empresaId, ctx.userId)
       }),
 
     responder: writeSubProcedure(MODULE, 'tratar', 'Responder e encerrar')

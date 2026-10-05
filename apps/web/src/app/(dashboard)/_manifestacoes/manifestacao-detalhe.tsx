@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Loader2, EyeOff, Send, MessageSquare, Lock, Globe, Building2, User as UserIcon, X,
+  Loader2, EyeOff, Send, MessageSquare, Lock, Globe, Building2, User as UserIcon, X, Pencil,
 } from 'lucide-react'
 import {
   Button, Badge, Checkbox, cn,
@@ -14,6 +14,7 @@ import { alerts } from '@/lib/alerts'
 import { SURFACE, TEXT } from '@/lib/color-styles'
 import { STATUS_LABEL } from './manifestacao-page'
 import type { Config } from './tipos'
+import { NovaManifestacaoModal } from './nova-manifestacao'
 
 const MODULE_COLOR = 'var(--mod-qualidade, #f59e0b)'
 
@@ -38,6 +39,7 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
   const [salvando, setSalvando] = useState(false)
   const [novaMsg, setNovaMsg] = useState('')
   const [msgInterna, setMsgInterna] = useState(true)
+  const [editando, setEditando] = useState(false)
 
   // Campos do fluxo da reclamação — um por passo.
   const [textoFluxo, setTextoFluxo] = useState('')
@@ -101,7 +103,16 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
   const st = m ? (STATUS_LABEL[m.status] ?? { texto: m.status, classe: 'bg-muted' }) : null
 
   return (
-    <Sheet open onOpenChange={o => { if (!o) onClose() }}>
+    <>
+    {editando && m && (
+      <NovaManifestacaoModal
+        config={config}
+        editar={m}
+        onClose={() => setEditando(false)}
+        onSalvo={() => { setEditando(false); void carregar(); onMudou(); alerts.toast('Registro atualizado') }}
+      />
+    )}
+    <Sheet open onOpenChange={o => { if (!o && !editando) onClose() }}>
       <SheetContent side="right" size="xl" hideClose
         className="flex w-[72vw] max-w-[1040px] flex-col overflow-hidden p-0">
         <SheetTitle className="sr-only">{config.titulo}</SheetTitle>
@@ -141,6 +152,12 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
                 </p>
               )}
             </div>
+            {/* Editar: quem registrou ou quem trata — flag do servidor (podeEditar). */}
+            {m?.podeEditar && (
+              <Button variant="outline" size="sm" className="gap-1.5 bg-card/70" onClick={() => setEditando(true)}>
+                <Pencil className="h-3.5 w-3.5" /> Editar
+              </Button>
+            )}
             <button type="button" onClick={onClose} aria-label="Fechar"
               className="rounded-md p-1.5 text-foreground/80 transition-colors hover:bg-foreground/10 hover:text-foreground">
               <X className="h-4 w-4" />
@@ -407,5 +424,6 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
         )}
       </SheetContent>
     </Sheet>
+    </>
   )
 }

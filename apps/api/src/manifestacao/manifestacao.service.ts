@@ -273,23 +273,47 @@ export class ManifestacaoService {
     return criado
   }
 
-  async atualizar(input: AtualizarManifestacaoInput, tipo: ManifestacaoTipo, empresaId?: string | null) {
+  async atualizar(input: AtualizarManifestacaoInput, tipo: ManifestacaoTipo, empresaId?: string | null, usuarioId?: string | null) {
     const atual = await this.exigir(input.id, tipo, empresaId)
 
     // Anonimato não se desfaz por edição: prometido uma vez, vale para sempre.
     // Deixar reverter permitiria descobrir o autor de um registro que nasceu
-    // sem dono — e ele não existe para ser recuperado.
+    // sem dono — e ele não existe para ser recuperado. Status e prazo também
+    // não passam por aqui: andam pelo fluxo (darRetorno, analisar, finalizar).
     const { id, tipo: _t, anonima: _a, ...resto } = input
 
-    return prisma.manifestacao.update({
-      where: { id: atual.id },
-      data: {
-        ...resto,
-        ...(resto.dataOcorrido !== undefined
-          ? { dataOcorrido: resto.dataOcorrido ? new Date(`${resto.dataOcorrido}T00:00:00.000Z`) : null }
-          : {}),
-      } as never,
-    })
+    // Cliente de outra empresa não entra (mesma trava do criar).
+    if (resto.clienteId && empresaId) {
+      const ok = await prisma.cliente.count({ where: { id: resto.clienteId, empresaId } })
+      if (!ok) throw new Error('Cliente não encontrado nesta empresa.')
+    }
+    const vazio = (v: string | null | undefined) => (v === undefined ? undefined : (v?.trim() || null))
+    const origem = resto.origem
+    const data = {
+      ...(origem !== undefined ? { origem } : {}),
+      // Registro que deixou de ser "de cliente" perde o cliente.
+      ...(resto.clienteId !== undefined || origem === 'INTERNA'
+        ? { clienteId: origem === 'INTERNA' ? null : (resto.clienteId || null) }
+        : {}),
+      ...(resto.informanteNome !== undefined ? { informanteNome: vazio(resto.informanteNome) } : {}),
+      ...(resto.informanteEmail !== undefined ? { informanteEmail: vazio(resto.informanteEmail) } : {}),
+      ...(resto.informanteTelefone !== undefined ? { informanteTelefone: vazio(resto.informanteTelefone) } : {}),
+      ...(resto.canal !== undefined ? { canal: resto.canal || null } : {}),
+      ...(resto.areaId !== undefined ? { areaId: resto.areaId || null } : {}),
+      ...(resto.elogiadosIds !== undefined ? { elogiadosIds: resto.elogiadosIds } : {}),
+      ...(resto.titulo !== undefined ? { titulo: vazio(resto.titulo) } : {}),
+      ...(resto.descricao !== undefined ? { descricao: resto.descricao } : {}),
+      ...(resto.dataOcorrido !== undefined
+        ? { dataOcorrido: resto.dataOcorrido ? new Date(`${resto.dataOcorrido}T00:00:00.000Z`) : null }
+        : {}),
+      ...(resto.publica !== undefined && tipo === 'SUGESTAO' ? { publica: resto.publica } : {}),
+    }
+
+    const salvo = await prisma.manifestacao.update({ where: { id: atual.id }, data: data as never })
+    // Na linha do tempo, como os demais passos — numa auditoria, a pergunta
+    // "o relato foi alterado depois?" precisa de resposta.
+    await this.registrarLog(atual.id, atual.anonima ? null : (usuarioId ?? null), 'Registro editado')
+    return salvo
   }
 
   /** Resposta da Qualidade — o caminho de elogio e sugestão. */

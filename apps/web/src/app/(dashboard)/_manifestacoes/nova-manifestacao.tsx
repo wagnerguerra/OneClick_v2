@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Loader2, EyeOff, Building2, User as UserIcon, X } from 'lucide-react'
+import { Plus, Loader2, EyeOff, Building2, User as UserIcon, X, Pencil, Check } from 'lucide-react'
 import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
 import {
   Button, Input, Label, Checkbox, cn,
@@ -37,26 +37,51 @@ function hoje(): string {
  * No v1, reclamação era sempre de cliente e elogio/sugestão sempre internos —
  * cada tipo tinha um lado só, e não havia como registrar o contrário.
  */
-export function NovaManifestacaoModal({ config, onClose, onCriado }: {
+/** Registro já existente, para o formulário abrir em modo edição. */
+export interface ManifestacaoEditavel {
+  id: string
+  protocolo: string
+  origem: 'INTERNA' | 'CLIENTE'
+  anonima: boolean
+  titulo: string | null
+  descricao: string
+  dataOcorrido: string | null
+  areaId?: string | null
+  area?: { id: string } | null
+  clienteId?: string | null
+  cliente?: { id: string; razaoSocial: string; documento?: string | null } | null
+  informanteNome: string | null
+  informanteEmail: string | null
+  informanteTelefone: string | null
+  canal: string | null
+  elogiadosIds?: string[]
+  publica: boolean
+}
+
+export function NovaManifestacaoModal({ config, onClose, onCriado, editar, onSalvo }: {
   config: Config
   onClose: () => void
-  onCriado: (protocolo: string) => void
+  onCriado?: (protocolo: string) => void
+  /** Presente = editar este registro (quem registrou ou quem trata — o servidor confere). */
+  editar?: ManifestacaoEditavel
+  onSalvo?: () => void
 }) {
   const api = (trpc as never as Record<string, any>)[config.router]
+  const e = editar
 
-  const [origem, setOrigem] = useState<'INTERNA' | 'CLIENTE'>(config.origemPadrao)
-  const [anonima, setAnonima] = useState(false)
-  const [titulo, setTitulo] = useState('')
-  const [descricao, setDescricao] = useState('')
-  const [dataOcorrido, setDataOcorrido] = useState(hoje())
-  const [areaId, setAreaId] = useState('')
-  const [clienteId, setClienteId] = useState('')
-  const [informanteNome, setInformanteNome] = useState('')
-  const [informanteEmail, setInformanteEmail] = useState('')
-  const [informanteTelefone, setInformanteTelefone] = useState('')
-  const [canal, setCanal] = useState('')
-  const [elogiadosIds, setElogiadosIds] = useState<string[]>([])
-  const [publica, setPublica] = useState(false)
+  const [origem, setOrigem] = useState<'INTERNA' | 'CLIENTE'>(e?.origem ?? config.origemPadrao)
+  const [anonima, setAnonima] = useState(e?.anonima ?? false)
+  const [titulo, setTitulo] = useState(e?.titulo ?? '')
+  const [descricao, setDescricao] = useState(e?.descricao ?? '')
+  const [dataOcorrido, setDataOcorrido] = useState(e ? (e.dataOcorrido ? e.dataOcorrido.slice(0, 10) : '') : hoje())
+  const [areaId, setAreaId] = useState(e?.areaId ?? e?.area?.id ?? '')
+  const [clienteId, setClienteId] = useState(e?.clienteId ?? e?.cliente?.id ?? '')
+  const [informanteNome, setInformanteNome] = useState(e?.informanteNome ?? '')
+  const [informanteEmail, setInformanteEmail] = useState(e?.informanteEmail ?? '')
+  const [informanteTelefone, setInformanteTelefone] = useState(e?.informanteTelefone ?? '')
+  const [canal, setCanal] = useState(e?.canal ?? '')
+  const [elogiadosIds, setElogiadosIds] = useState<string[]>(e?.elogiadosIds ?? [])
+  const [publica, setPublica] = useState(e?.publica ?? false)
   const [salvando, setSalvando] = useState(false)
 
   const [areas, setAreas] = useState<Array<{ id: string; name: string }>>([])
@@ -77,7 +102,13 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
     // orçamento (usada antes) cortava em 60 por ordem alfabética: a lista parava
     // no "AC RAUP".
     ;(trpc.cliente as any).listForSelect.query({ somenteMensais: true })
-      .then((r: never[]) => setClientes(r ?? []))
+      .then((r: Array<{ id: string; razaoSocial: string; documento?: string | null }>) => {
+        const lista = r ?? []
+        // Editando: o cliente gravado aparece mesmo que tenha deixado de ser
+        // mensal ativo — senão o campo abriria vazio e a edição o apagaria.
+        const atual = e?.cliente
+        setClientes(atual && !lista.some(c => c.id === atual.id) ? [atual, ...lista] : lista)
+      })
       .catch(() => setClientes([]))
   }, [origem, clientes.length])
 
@@ -90,6 +121,26 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
 
     setSalvando(true)
     try {
+      if (e) {
+        // Anonimato não muda na edição (o servidor também ignora).
+        await api.atualizar.mutate({
+          id: e.id,
+          origem,
+          titulo: titulo.trim() || null,
+          descricao,
+          dataOcorrido: dataOcorrido || null,
+          areaId: areaId || null,
+          clienteId: origem === 'CLIENTE' ? (clienteId || null) : null,
+          informanteNome: informanteNome.trim() || null,
+          informanteEmail: informanteEmail.trim() || null,
+          informanteTelefone: informanteTelefone.trim() || null,
+          canal: canal || null,
+          elogiadosIds,
+          publica,
+        })
+        onSalvo?.()
+        return
+      }
       const r = await api.criar.mutate({
         origem,
         anonima,
@@ -105,9 +156,9 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
         elogiadosIds,
         publica,
       })
-      onCriado(r.protocolo)
-    } catch (e) {
-      await alerts.error('Não foi possível registrar', (e as Error).message)
+      onCriado?.(r.protocolo)
+    } catch (err) {
+      await alerts.error(e ? 'Não foi possível salvar' : 'Não foi possível registrar', (err as Error).message)
     } finally {
       setSalvando(false)
     }
@@ -120,9 +171,9 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
   return (
     <Dialog open onOpenChange={o => { if (!o && !salvando) onClose() }}>
       <DialogContent className="max-w-3xl">
-        <DialogHeaderIcon icon={config.icone} color="amber">
-          <DialogTitle>{config.rotuloNovo}</DialogTitle>
-          <DialogDescription>{config.subtitulo}</DialogDescription>
+        <DialogHeaderIcon icon={e ? Pencil : config.icone} color={e ? 'sky' : 'amber'}>
+          <DialogTitle>{e ? `Editar — ${e.protocolo}` : config.rotuloNovo}</DialogTitle>
+          <DialogDescription>{e ? 'Corrija o registro. Situação e prazo seguem o fluxo de tratativa.' : config.subtitulo}</DialogDescription>
         </DialogHeaderIcon>
 
         <DialogBody className="space-y-4">
@@ -265,6 +316,8 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
             </label>
           )}
 
+          {/* Anonimato não se desfaz nem se cria na edição. */}
+          {!e && (<>
           {/* Anonimato — a decisão mais séria do formulário, e por isso a mais
               explicada. Sem autor guardado não há como avisar ninguém depois. */}
           <div className={cn('rounded-lg border p-3 transition-colors',
@@ -284,13 +337,14 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
               </span>
             </label>
           </div>
+          </>)}
         </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose} disabled={salvando}>Cancelar</Button>
           <Button variant="success" size="sm" className="gap-1.5" onClick={salvar} disabled={salvando}>
-            {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Registrar
+            {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : e ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            {e ? 'Salvar' : 'Registrar'}
           </Button>
         </DialogFooter>
       </DialogContent>
