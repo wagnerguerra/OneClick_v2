@@ -9,7 +9,7 @@ import {
   AlertCircle, Printer,
 } from 'lucide-react'
 import {
-  Button, buttonVariants, Input, Card, cn, Label, Badge,
+  Button, buttonVariants, Input, Card, cn, Label,
   Tabs, TabsContent, SlidingTabsList, TabsTrigger,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
@@ -306,13 +306,11 @@ export default function AtivoDetalhePage() {
             <TabsTrigger value="atribuicao" variant="sliding">
               <Shield className="h-3.5 w-3.5" /> Atribuição
             </TabsTrigger>
-            <TabsTrigger value="manutencoes" variant="sliding">
+            <TabsTrigger value="manutencoes" variant="sliding" count={ativo.manutencoes?.length}>
               <Wrench className="h-3.5 w-3.5" /> Manutenções
-              {(ativo.manutencoes?.length ?? 0) > 0 && <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{ativo.manutencoes.length}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="anexos" variant="sliding">
+            <TabsTrigger value="anexos" variant="sliding" count={ativo.anexos?.length}>
               <Paperclip className="h-3.5 w-3.5" /> Anexos
-              {(ativo.anexos?.length ?? 0) > 0 && <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{ativo.anexos.length}</Badge>}
             </TabsTrigger>
             <TabsTrigger value="tickets" variant="sliding">
               <AlertCircle className="h-3.5 w-3.5" /> Tickets

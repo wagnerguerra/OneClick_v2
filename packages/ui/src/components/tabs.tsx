@@ -3,6 +3,7 @@
 import * as React from 'react'
 import * as TabsPrimitive from '@radix-ui/react-tabs'
 import { cn } from '../lib/utils'
+import { Badge } from './badge'
 
 const Tabs = TabsPrimitive.Root
 
@@ -48,8 +49,14 @@ const TabsTrigger = React.forwardRef<
      * (`text-primary-on-surface`). Os `!` vencem a regra global de abas.
      */
     variant?: 'default' | 'pills' | 'sliding'
+    /**
+     * Contador ao lado do rótulo (ex.: nº de anexos). Só aparece quando > 0.
+     * Badge secundário neutro — destaca sem usar a cor do tema (que já marca a
+     * aba ativa). Não vale para `pills`.
+     */
+    count?: number
   }
->(({ className, icon, children, variant = 'default', ...props }, ref) => (
+>(({ className, icon, children, variant = 'default', count, ...props }, ref) => (
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
@@ -91,6 +98,9 @@ const TabsTrigger = React.forwardRef<
       <>
         {icon && <span className="shrink-0">{icon}</span>}
         {children}
+        {count != null && count > 0 && (
+          <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[10px] tabular-nums">{count}</Badge>
+        )}
       </>
     )}
   </TabsPrimitive.Trigger>

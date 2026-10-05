@@ -729,11 +729,16 @@ export default function MeuPerfilPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-0">
       {/* Banner de fundo + Avatar/Nome + Tabs — wrapper unico (mesmo padrao /orcamentos/[id]) */}
       <div
-        className="-mx-4 sm:-mx-6 relative overflow-hidden group/cover"
+        // Intensidade do degradê por tema (vars trocadas pelo `dark:`): no light a
+        // primária pesa bem menos — um banner deste tamanho gritava.
+        className="-mx-4 sm:-mx-6 relative overflow-hidden group/cover [--banner-a:18%] [--banner-b:12%] [--banner-c:24%] dark:[--banner-a:38%] dark:[--banner-b:30%] dark:[--banner-c:44%]"
+        // Degradê do banner padrão — adaptação do original (azul claro → azul mais
+        // escuro, 135°) para a primária: começa na primária e termina num tom mais
+        // escuro dela, misturado com o fundo do tema; o texto usa tokens e lê nos dois temas.
         style={{
           background: profile.coverImage
             ? undefined
-            : `linear-gradient(135deg, ${PRIMARY} 0%, color-mix(in srgb, ${PRIMARY} 87%, transparent) 60%, ${PRIMARY} 100%)`,
+            : `linear-gradient(135deg, color-mix(in srgb, ${PRIMARY} var(--banner-a), var(--color-background)) 0%, color-mix(in srgb, ${PRIMARY} var(--banner-b), var(--color-background)) 60%, color-mix(in srgb, color-mix(in srgb, ${PRIMARY} 80%, black) var(--banner-c), var(--color-background)) 100%)`,
         }}
       >
         {/* Imagem de fundo personalizada — em tamanho natural; tile (repeat) quando menor que o wrapper */}
@@ -754,13 +759,14 @@ export default function MeuPerfilPage() {
         {profile.coverImage && (
           <div
             className="absolute inset-0"
-            style={{ backgroundImage: `linear-gradient(to right, transparent 0%, color-mix(in srgb, ${PRIMARY} 80%, transparent) 100%)` }}
+            style={{ backgroundImage: `linear-gradient(to right, transparent 0%, color-mix(in srgb, ${PRIMARY} 55%, transparent) 100%)` }}
           />
         )}
-        {/* Decoração: blobs sutis (apenas no modo gradiente padrao) */}
+        {/* Decoração: bolinhas sutis (apenas no modo gradiente padrão) — na cor do
+            texto do tema: escuras no light, claras no dark (branco fixo sumia no light) */}
         {!profile.coverImage && (
           <div className="absolute inset-0 opacity-10" style={{
-            backgroundImage: 'radial-gradient(circle at 20% 30%, white 1px, transparent 1px), radial-gradient(circle at 80% 70%, white 1px, transparent 1px)',
+            backgroundImage: 'radial-gradient(circle at 20% 30%, var(--color-foreground) 1px, transparent 1px), radial-gradient(circle at 80% 70%, var(--color-foreground) 1px, transparent 1px)',
             backgroundSize: '40px 40px, 60px 60px',
           }} />
         )}
@@ -881,13 +887,8 @@ export default function MeuPerfilPage() {
             <TabsTrigger value="dados" variant="sliding">
               <Pencil className="h-3.5 w-3.5" /> Meus Dados
             </TabsTrigger>
-            <TabsTrigger value="carteira" variant="sliding">
+            <TabsTrigger value="carteira" variant="sliding" count={carteiraLoading ? undefined : carteira.length}>
               <Users className="h-3.5 w-3.5" /> Carteira
-              {!carteiraLoading && carteira.length > 0 && (
-                <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary/15 text-primary text-[10px] font-bold tabular-nums">
-                  {carteira.length}
-                </span>
-              )}
             </TabsTrigger>
             <TabsTrigger value="assinatura" variant="sliding">
               <Mail className="h-3.5 w-3.5" /> Assinatura
@@ -1169,6 +1170,7 @@ export default function MeuPerfilPage() {
             <div className="lg:col-span-2 flex justify-end sticky bottom-4 z-10">
               <Button
                 size="sm"
+                variant="success"
                 className="gap-1.5 shadow-lg"
                 onClick={handleSaveProfile}
                 disabled={savingProfile}
@@ -1588,7 +1590,7 @@ export default function MeuPerfilPage() {
             <Button variant="outline" size="sm" onClick={() => setPwdModal(false)} disabled={savingPwd}>Cancelar</Button>
             <Button
               size="sm"
-              variant="info"
+              variant="success"
               className="gap-1.5"
               onClick={handleChangePassword}
               disabled={savingPwd || !pwdCurrent || !pwdNew || pwdNew !== pwdConfirm}
@@ -1679,6 +1681,7 @@ export default function MeuPerfilPage() {
                   <Button variant="outline" size="sm" onClick={() => setMfaStep('qr')}>← Voltar</Button>
                   <Button
                     size="sm"
+                    variant="success"
                     className="gap-1.5"
                     onClick={handleVerifyMFASetup}
                     disabled={mfaLoading || mfaTotpCode.length !== 6}
