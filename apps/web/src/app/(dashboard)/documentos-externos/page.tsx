@@ -120,6 +120,10 @@ export default function DocumentosExternosPage() {
       <Card>
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
+            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
+            </Select>
             <Select value={processoId || '__all__'} onValueChange={(v) => { setProcessoId(v === '__all__' ? '' : v); setPage(1) }}>
               <SelectTrigger className="h-8 w-[190px] text-xs"><SelectValue placeholder="Processo" /></SelectTrigger>
               <SelectContent>
@@ -132,12 +136,8 @@ export default function DocumentosExternosPage() {
                 Limpar (1)
               </Button>
             )}
-            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
-            </Select>
           </div>
-          <div className="max-w-xs w-full sm:w-auto">
+          <div className="w-full sm:w-[272px]">
             <Input placeholder="Buscar por nome ou emissor..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
@@ -151,7 +151,7 @@ export default function DocumentosExternosPage() {
               <TableHead className="hidden lg:table-cell w-[190px]">Processo</TableHead>
               <TableHead className="w-[70px] text-center">Rev.</TableHead>
               <TableHead className="hidden sm:table-cell w-[105px]">Data</TableHead>
-              <TableHead className="w-[110px] text-right">Ações</TableHead>
+              <TableHead className="w-[140px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

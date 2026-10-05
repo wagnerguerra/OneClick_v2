@@ -112,6 +112,10 @@ export default function AquisicoesPage() {
       <Card>
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
+            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
+            </Select>
             <Select value={status || '__all__'} onValueChange={(v) => { setStatus(v === '__all__' ? '' : v); setPage(1) }}>
               <SelectTrigger className="h-8 w-[190px] text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
               <SelectContent>
@@ -119,12 +123,8 @@ export default function AquisicoesPage() {
                 {STATUS_OPCOES.map((s) => <SelectItem key={s} value={s}>{STATUS_COMPRA_LABELS[s]}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
-            </Select>
           </div>
-          <div className="max-w-xs w-full sm:w-auto">
+          <div className="w-full sm:w-[272px]">
             <Input placeholder="Buscar por nº ou fornecedor..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
@@ -138,7 +138,7 @@ export default function AquisicoesPage() {
               <TableHead className="hidden md:table-cell w-[80px] text-center">Itens</TableHead>
               <TableHead className="hidden sm:table-cell w-[140px] text-right">Total</TableHead>
               <TableHead className="hidden lg:table-cell w-[110px]">Data</TableHead>
-              <TableHead className="w-[90px] text-right">Ações</TableHead>
+              <TableHead className="w-[140px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

@@ -113,7 +113,7 @@ export function AnexosCard({ compraId }: { compraId: string }) {
                     </div>
                   ) : (<>
                     <div className="flex items-center gap-1.5">
-                      <a href={resolveAssetUrl(a.fileUrl)} target="_blank" rel="noopener noreferrer" className="truncate font-medium hover:text-primary" title={a.fileName}>
+                      <a href={resolveAssetUrl(a.fileUrl)} target="_blank" rel="noopener noreferrer" className="truncate font-medium hover:text-primary-on-surface" title={a.fileName}>
                         {a.descricao || a.fileName}
                       </a>
                       <Badge variant="outline" className="h-4 px-1 text-[9px] shrink-0">{tipo.label}</Badge>

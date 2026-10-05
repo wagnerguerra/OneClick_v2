@@ -171,7 +171,7 @@ export default function NovoPedidoPage() {
               <div className="flex justify-end gap-6 mt-4 pt-3 border-t border-border text-sm">
                 <span className="text-muted-foreground">Itens: <strong className="tabular-nums text-foreground">{brl(totalItens)}</strong></span>
                 <span className="text-muted-foreground">Frete: <strong className="tabular-nums text-foreground">{brl(freteNum)}</strong></span>
-                <span className="text-muted-foreground">Total: <strong className="tabular-nums" style={{ color: PRIMARY }}>{brl(total)}</strong></span>
+                <span className="text-muted-foreground">Total: <strong className="tabular-nums text-primary-on-surface">{brl(total)}</strong></span>
               </div>
             </>)}
 

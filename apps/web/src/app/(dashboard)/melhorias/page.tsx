@@ -168,7 +168,7 @@ export default function MelhoriasPage() {
               <TableHead className="hidden md:table-cell w-[180px]">Área de aplicação</TableHead>
               <TableHead className="hidden sm:table-cell w-[120px]">Prevista para</TableHead>
               <TableHead className="w-[140px]">Situação</TableHead>
-              <TableHead className="w-[130px] text-right">Ações</TableHead>
+              <TableHead className="w-[140px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -190,7 +190,7 @@ export default function MelhoriasPage() {
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                     {podeEscrever && m.status === 'REGISTRADA' && (
-                      <Button variant="success" size="xs" title="Marcar como implementada" onClick={() => mudarStatus(m, 'IMPLEMENTADA')}>
+                      <Button variant="soft-success" size="icon-sm" title="Marcar como implementada" onClick={() => mudarStatus(m, 'IMPLEMENTADA')}>
                         <Check className="h-3.5 w-3.5" />
                       </Button>
                     )}
@@ -229,7 +229,7 @@ export default function MelhoriasPage() {
                 <TableHead>Fornecedor / observação</TableHead>
                 <TableHead className="hidden md:table-cell w-[150px]">Setor</TableHead>
                 <TableHead className="hidden sm:table-cell w-[110px]">Data</TableHead>
-                <TableHead className="w-[60px] text-right"></TableHead>
+                <TableHead className="w-[64px] text-right"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

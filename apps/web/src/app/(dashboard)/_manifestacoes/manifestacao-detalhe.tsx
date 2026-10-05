@@ -102,27 +102,28 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
 
   return (
     <Sheet open onOpenChange={o => { if (!o) onClose() }}>
+      {/* border-l-0: a borda de 1px do Sheet fica fora da área recortada e a faixa
+          não a cobre — sobrava um fio à esquerda do cabeçalho. A sombra separa. */}
       <SheetContent side="right" size="xl" hideClose
-        className="flex w-[72vw] max-w-[1040px] flex-col overflow-hidden p-0">
+        className="flex w-[72vw] max-w-[1040px] flex-col overflow-hidden border-l-0 p-0">
         <SheetTitle className="sr-only">{config.titulo}</SheetTitle>
         <SheetDescription className="sr-only">Detalhe e tratativa do registro.</SheetDescription>
 
-        <div className="relative overflow-hidden"
-          style={{ backgroundColor: `color-mix(in srgb, ${PRIMARY} 12%, transparent)` }}>
-          <div
-            className="absolute inset-0"
-            style={{ backgroundImage: `linear-gradient(to right, color-mix(in srgb, ${PRIMARY} 0%, transparent) 0%, color-mix(in srgb, ${PRIMARY} 22%, transparent) 100%)` }}
-          />
-          <div className="relative z-10 flex items-start gap-3 px-6 py-4">
+        {/* Faixa em gradiente da primária com texto branco — o mesmo cabeçalho do
+            detalhe do dia em /relatorios-ti. */}
+        <div className="text-white"
+          style={{ background: `linear-gradient(120deg, ${PRIMARY}, color-mix(in srgb, ${PRIMARY} 55%, #6366f1))` }}>
+          <div className="flex items-start gap-3 px-6 py-4">
             <div className="min-w-0 flex-1">
-              <p className="font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
+              <p className="font-mono text-[11px] uppercase tracking-[.14em] opacity-80">
                 {m?.protocolo ?? '—'}
               </p>
-              <h2 className="truncate text-xl font-bold text-foreground">
+              {/* text-white explícito: o global pinta h1/h2/h3 com o texto do tema. */}
+              <h2 className="truncate text-xl font-bold text-white">
                 {m?.titulo || config.titulo}
               </h2>
               {m && (
-                <p className="flex flex-wrap items-center gap-2 text-[12.5px] text-muted-foreground">
+                <p className="flex flex-wrap items-center gap-2 text-[12.5px] opacity-90">
                   {m.anonima ? (
                     <span className="inline-flex items-center gap-1"><EyeOff className="h-3.5 w-3.5" /> Anônima</span>
                   ) : m.origem === 'CLIENTE' ? (
@@ -142,7 +143,7 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
               )}
             </div>
             <button type="button" onClick={onClose} aria-label="Fechar"
-              className="rounded-md p-1.5 text-foreground/80 transition-colors hover:bg-foreground/10 hover:text-foreground">
+              className="rounded-md p-1.5 text-white/90 transition-colors hover:bg-white/20">
               <X className="h-4 w-4" />
             </button>
           </div>

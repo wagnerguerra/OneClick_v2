@@ -156,7 +156,7 @@ export default function ReunioesPage() {
               </Button>
             )}
           </div>
-          <div className="max-w-xs w-full sm:w-auto">
+          <div className="w-full sm:w-[272px]">
             <Input placeholder="Buscar por título, local, cliente..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
@@ -170,7 +170,7 @@ export default function ReunioesPage() {
               <TableHead className="hidden sm:table-cell w-[110px]">Data</TableHead>
               <TableHead className="hidden md:table-cell w-[80px] text-center">Partic.</TableHead>
               <TableHead className="w-[160px]">Ações da reunião</TableHead>
-              <TableHead className="w-[90px] text-right">Ações</TableHead>
+              <TableHead className="w-[104px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

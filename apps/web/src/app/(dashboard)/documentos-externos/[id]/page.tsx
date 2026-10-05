@@ -184,7 +184,7 @@ export default function DocumentoExternoDetalhePage() {
                     )}
                     {ehUrl(v.link) && (
                       <a href={v.link!.trim()} target="_blank" rel="noopener noreferrer"
-                        className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium hover:underline" style={{ color: PRIMARY }}>
+                        className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium hover:underline text-primary-on-surface">
                         <ExternalLink className="h-3 w-3" />Abrir no emissor
                       </a>
                     )}

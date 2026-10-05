@@ -175,6 +175,11 @@ export default function AnaliseContextoPage() {
       <Card>
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
+            {/* Itens por página — primeiro da barra, à esquerda dos filtros */}
+            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
+            </Select>
             <Select value={fAnalise || '__all__'} onValueChange={(v) => { setFAnalise(v === '__all__' ? '' : v); setFTipo(''); setPage(1) }}>
               <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Análise" /></SelectTrigger>
               <SelectContent>
@@ -205,12 +210,8 @@ export default function AnaliseContextoPage() {
                 Limpar ({filtrosAtivos})
               </Button>
             )}
-            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
-            </Select>
           </div>
-          <div className="max-w-xs w-full sm:w-auto">
+          <div className="w-full sm:w-[272px]">
             <Input placeholder="Buscar por identificação ou processo..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
@@ -226,7 +227,7 @@ export default function AnaliseContextoPage() {
               <TableHead className="hidden lg:table-cell w-[160px]">Responsável</TableHead>
               <TableHead className="hidden sm:table-cell w-[100px]">Prazo</TableHead>
               <TableHead className="w-[110px] text-center">Ações do plano</TableHead>
-              <TableHead className="w-[90px] text-right">Ações</TableHead>
+              <TableHead className="w-[104px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

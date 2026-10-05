@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import {
-  Plus, Loader2, Check, X, ClipboardList, Info, RotateCcw, Trash2,
+  Plus, Loader2, Check, X, ClipboardList, Info, RotateCcw, Trash2, Pencil,
   ThumbsUp, ThumbsDown, CalendarClock,
 } from 'lucide-react'
 import {
@@ -312,7 +312,7 @@ export default function AnaliseContextoDetalhePage() {
                         <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                           {!a.concluida && (
                             <Button variant="soft-info" size="icon-sm" onClick={() => abrirEditarAcao(a)} title="Editar">
-                              <ClipboardList className="h-3.5 w-3.5" />
+                              <Pencil className="h-3.5 w-3.5" />
                             </Button>
                           )}
                           {a.concluida && (
