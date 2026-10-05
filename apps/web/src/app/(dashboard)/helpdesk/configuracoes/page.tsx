@@ -183,7 +183,7 @@ export default function HelpdeskConfiguracoesPage() {
                 <Label className="text-[13px] font-semibold flex items-center gap-1.5">
                   <Users className="h-3.5 w-3.5" /> Notificar todos os agentes
                 </Label>
-                <Switch checked={notificarTodos} onCheckedChange={alternarNotificarTodos} disabled={!canWrite} />
+                <Switch checked={notificarTodos} onCheckedChange={alternarNotificarTodos} disabled={!canWrite} variant="success" />
               </div>
               <p className="text-[11px] text-muted-foreground">
                 {notificarTodos
