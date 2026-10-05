@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Loader2, EyeOff, Send, MessageSquare, Lock, Globe, Building2, User as UserIcon, X, Pencil,
+  FileText, Paperclip, Download, Trash2, Upload,
 } from 'lucide-react'
 import {
   Button, Badge, Checkbox, cn,
@@ -15,6 +16,75 @@ import { SURFACE, TEXT } from '@/lib/color-styles'
 import { STATUS_LABEL } from './manifestacao-page'
 import type { Config } from './tipos'
 import { NovaManifestacaoModal } from './nova-manifestacao'
+import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
+
+/**
+ * Texto do fluxo: o que veio do v1 está em HTML (`<p>…</p>`) e aparecia cru;
+ * o digitado aqui é texto puro. Cada um no seu formato.
+ */
+function TextoOuHtml({ texto }: { texto: string }) {
+  return /<[a-z][\s\S]*>/i.test(texto)
+    ? <div className="text-[13px]"><RichContent html={texto} /></div>
+    : <p className="whitespace-pre-wrap text-[13px]">{texto}</p>
+}
+
+interface Anexo { id: string; nome: string; arquivoPath: string; mime: string | null; bytes: number | null; criadoEm: string }
+
+function ArquivosDaManifestacao({ arquivos, podeAnexar, onEnviar, onRemover, enviando }: {
+  arquivos: Anexo[]
+  podeAnexar: boolean
+  onEnviar: (files: File[]) => void
+  onRemover: (a: Anexo) => void
+  enviando: boolean
+}) {
+  const [arrastando, setArrastando] = useState(false)
+  const tam = (b: number | null) => (b == null ? '' : b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`)
+  return (
+    <div className="space-y-3">
+      {podeAnexar && (
+        <label
+          onDragOver={e => { e.preventDefault(); setArrastando(true) }}
+          onDragLeave={() => setArrastando(false)}
+          onDrop={e => { e.preventDefault(); setArrastando(false); onEnviar(Array.from(e.dataTransfer.files)) }}
+          className={cn('flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-dashed px-4 py-5 text-center text-[12.5px] text-muted-foreground transition-colors',
+            arrastando ? 'border-foreground/40 bg-muted/40' : 'border-border hover:bg-muted/30')}>
+          {enviando ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
+          {enviando ? 'Enviando…' : 'Arraste arquivos aqui ou clique para escolher'}
+          <input type="file" multiple className="hidden" disabled={enviando}
+            onChange={e => { onEnviar(Array.from(e.target.files ?? [])); e.target.value = '' }} />
+        </label>
+      )}
+      {arquivos.length === 0 ? (
+        <p className="py-6 text-center text-[12px] italic text-muted-foreground">Nenhum arquivo anexado.</p>
+      ) : (
+        <ul className="divide-y divide-border/60 rounded-lg border border-border">
+          {arquivos.map(a => (
+            <li key={a.id} className="flex items-center gap-3 px-3 py-2">
+              <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                <a href={resolveAssetUrl(a.arquivoPath)} target="_blank" rel="noopener noreferrer"
+                  className="block truncate text-[13px] font-medium hover:underline" title={a.nome}>{a.nome}</a>
+                <p className="text-[11px] text-muted-foreground">
+                  {new Date(a.criadoEm).toLocaleString('pt-BR')}{a.bytes != null ? ` · ${tam(a.bytes)}` : ''}
+                </p>
+              </div>
+              <a href={resolveAssetUrl(a.arquivoPath)} download={a.nome} title="Baixar"
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
+                <Download className="h-4 w-4" />
+              </a>
+              {podeAnexar && (
+                <button type="button" onClick={() => onRemover(a)} title="Remover"
+                  className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
 
 const MODULE_COLOR = 'var(--mod-qualidade, #f59e0b)'
 
@@ -40,6 +110,38 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
   const [novaMsg, setNovaMsg] = useState('')
   const [msgInterna, setMsgInterna] = useState(true)
   const [editando, setEditando] = useState(false)
+  const [aba, setAba] = useState<'detalhes' | 'conversa' | 'arquivos'>('detalhes')
+  const [enviandoArq, setEnviandoArq] = useState(false)
+
+  async function enviarArquivo(files: File[]) {
+    if (!files.length) return
+    setEnviandoArq(true)
+    try {
+      for (const file of files) {
+        const fd = new FormData(); fd.append('file', file, file.name)
+        const res = await fetch(`${getApiUrl()}/api/upload`, { method: 'POST', credentials: 'include', body: fd })
+        if (!res.ok) throw new Error(`${file.name}: envio falhou (HTTP ${res.status})`)
+        const up = await res.json() as { url: string }
+        await api.adicionarArquivo.mutate({ id, nome: file.name, url: up.url, mime: file.type || null, bytes: file.size })
+      }
+      await carregar(); onMudou()
+    } catch (e) {
+      await alerts.error('Não foi possível anexar', (e as Error).message)
+    } finally {
+      setEnviandoArq(false)
+    }
+  }
+
+  async function removerArquivo(arq: { id: string; nome: string }) {
+    const ok = await alerts.confirm({ title: 'Remover o arquivo?', text: arq.nome, icon: 'warning', confirmText: 'Remover' })
+    if (!ok) return
+    try {
+      await api.removerArquivo.mutate({ arquivoId: arq.id })
+      await carregar(); onMudou()
+    } catch (e) {
+      await alerts.error('Não foi possível remover', (e as Error).message)
+    }
+  }
 
   // Campos do fluxo da reclamação — um por passo.
   const [textoFluxo, setTextoFluxo] = useState('')
@@ -172,7 +274,72 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="nice-scrollbar flex-1 space-y-4 overflow-y-auto px-6 py-4">
+          <>
+          {/* Abas: o detalhe e o fluxo, a conversa e os arquivos — cada um no
+              seu lugar, em vez de uma rolagem única que escondia o fluxo. */}
+          <div className="flex shrink-0 gap-1 border-b border-border px-6 pt-2">
+            {([
+              { v: 'detalhes' as const, t: 'Detalhes', Icone: FileText, n: null as number | null },
+              { v: 'conversa' as const, t: 'Conversa', Icone: MessageSquare, n: m.mensagens?.length ?? 0 },
+              { v: 'arquivos' as const, t: 'Arquivos', Icone: Paperclip, n: m.arquivos?.length ?? 0 },
+            ]).map(a => (
+              <button key={a.v} type="button" onClick={() => setAba(a.v)}
+                className={cn('-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-[13px] font-medium transition-colors',
+                  aba === a.v ? 'text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground')}
+                style={aba === a.v ? { borderColor: MODULE_COLOR } : undefined}>
+                <a.Icone className="h-3.5 w-3.5" /> {a.t}
+                {a.n ? <span className="rounded-full bg-muted px-1.5 text-[10.5px] tabular-nums">{a.n}</span> : null}
+              </button>
+            ))}
+          </div>
+          <div key={aba} className="nice-scrollbar flex-1 space-y-4 overflow-y-auto px-6 py-4" style={{ animation: 'fadeSlideIn 0.2s ease-out' }}>
+            {aba === 'conversa' && (<>
+            {/* Conversa. A nota interna não aparece na consulta por protocolo —
+                é o que permite discutir o caso sem expor a discussão. */}
+            <div className="space-y-2">
+              {m.mensagens?.length > 0 ? m.mensagens.map((msg: any) => (
+                <div key={msg.id} className={cn('rounded-lg border px-3 py-2',
+                  msg.interna ? 'border-dashed border-border bg-muted/30' : 'border-border')}>
+                  <p className="mb-0.5 text-[11px] text-muted-foreground">
+                    {msg.interna ? 'Nota interna' : 'Visível a quem registrou'}
+                    {' · '}{new Date(msg.criadoEm).toLocaleString('pt-BR')}
+                  </p>
+                  <TextoOuHtml texto={msg.texto} />
+                </div>
+              )) : (
+                <p className="text-[12px] italic text-muted-foreground">Nada registrado ainda.</p>
+              )}
+
+              <div className="space-y-1.5 rounded-lg border border-border p-2.5">
+                <textarea value={novaMsg} onChange={e => setNovaMsg(e.target.value)} rows={2}
+                  placeholder="Escrever..."
+                  className="nice-scrollbar w-full rounded-md px-2.5 py-1.5 text-sm" />
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="flex cursor-pointer items-center gap-1.5 text-[12px]">
+                    <Checkbox checked={msgInterna} onCheckedChange={v => setMsgInterna(v === true)} />
+                    Nota interna
+                  </label>
+                  <Button size="sm" variant="outline" className="ml-auto gap-1.5"
+                    onClick={enviarMensagem} disabled={!novaMsg.trim()}>
+                    <Send className="h-3.5 w-3.5" /> Enviar
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            </>)}
+
+            {aba === 'arquivos' && (
+              <ArquivosDaManifestacao
+                arquivos={m.arquivos ?? []}
+                podeAnexar={!m.excluidaEm}
+                onEnviar={enviarArquivo}
+                onRemover={removerArquivo}
+                enviando={enviandoArq}
+              />
+            )}
+
+            {aba === 'detalhes' && (<>
             {m.excluidaEm && (
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12.5px] text-amber-700 dark:text-amber-400">
                 <b>Registro inativo</b> — excluído em {new Date(m.excluidaEm).toLocaleString('pt-BR')}
@@ -221,42 +388,6 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
               </div>
             )}
 
-            {/* Conversa. A nota interna não aparece na consulta por protocolo —
-                é o que permite discutir o caso sem expor a discussão. */}
-            <div className="space-y-2">
-              <p className="flex items-center gap-1.5 text-[13px] font-semibold">
-                <MessageSquare className="h-3.5 w-3.5" /> Conversa
-              </p>
-              {m.mensagens?.length > 0 ? m.mensagens.map((msg: any) => (
-                <div key={msg.id} className={cn('rounded-lg border px-3 py-2',
-                  msg.interna ? 'border-dashed border-border bg-muted/30' : 'border-border')}>
-                  <p className="mb-0.5 text-[11px] text-muted-foreground">
-                    {msg.interna ? 'Nota interna' : 'Visível a quem registrou'}
-                    {' · '}{new Date(msg.criadoEm).toLocaleString('pt-BR')}
-                  </p>
-                  <p className="whitespace-pre-wrap text-[13px]">{msg.texto}</p>
-                </div>
-              )) : (
-                <p className="text-[12px] italic text-muted-foreground">Nada registrado ainda.</p>
-              )}
-
-              <div className="space-y-1.5 rounded-lg border border-border p-2.5">
-                <textarea value={novaMsg} onChange={e => setNovaMsg(e.target.value)} rows={2}
-                  placeholder="Escrever..."
-                  className="nice-scrollbar w-full rounded-md px-2.5 py-1.5 text-sm" />
-                <div className="flex flex-wrap items-center gap-3">
-                  <label className="flex cursor-pointer items-center gap-1.5 text-[12px]">
-                    <Checkbox checked={msgInterna} onCheckedChange={v => setMsgInterna(v === true)} />
-                    Nota interna
-                  </label>
-                  <Button size="sm" variant="outline" className="ml-auto gap-1.5"
-                    onClick={enviarMensagem} disabled={!novaMsg.trim()}>
-                    <Send className="h-3.5 w-3.5" /> Enviar
-                  </Button>
-                </div>
-              </div>
-            </div>
-
             {/* ── Fluxo da reclamação ──
                 Um passo por vez, e só o passo da vez: mostrar os três juntos
                 convidaria a pular a apuração e ir direto ao encerramento. */}
@@ -301,11 +432,20 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
                     { v: true, t: 'Procede', d: 'Segue para a avaliação de eficácia.' },
                     { v: false, t: 'Não procede', d: 'Encerra, com justificativa e retorno final.' },
                   ]).map(o => (
+                    // Fundo próprio (bg-card): herdando o azul do quadro, os dois
+                    // ficavam apagados e a escolha não se distinguia.
                     <button key={String(o.v)} type="button" onClick={() => setProcede(o.v)}
-                      className={cn('rounded-lg border px-3 py-2 text-left transition-colors',
-                        procede === o.v ? 'border-sky-500 bg-background' : 'border-border hover:bg-background/60')}>
-                      <span className="block text-[13px] font-semibold">{o.t}</span>
-                      <span className="block text-[11px] text-muted-foreground">{o.d}</span>
+                      aria-pressed={procede === o.v}
+                      className={cn('flex items-start gap-2.5 rounded-lg border bg-card px-3 py-2.5 text-left shadow-sm transition-all',
+                        procede === o.v ? 'border-sky-500 ring-2 ring-sky-500/30' : 'border-border hover:border-foreground/30')}>
+                      <span className={cn('mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2',
+                        procede === o.v ? 'border-sky-500' : 'border-muted-foreground/40')}>
+                        {procede === o.v && <span className="h-2 w-2 rounded-full bg-sky-500" />}
+                      </span>
+                      <span>
+                        <span className="block text-[13px] font-semibold text-foreground">{o.t}</span>
+                        <span className="block text-[11.5px] text-muted-foreground">{o.d}</span>
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -393,19 +533,19 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
                 {m.retornoCliente && (
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Retorno imediato</p>
-                    <p className="whitespace-pre-wrap text-[13px]">{m.retornoCliente}</p>
+                    <TextoOuHtml texto={m.retornoCliente} />
                   </div>
                 )}
                 {m.justificativa && (
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Justificativa</p>
-                    <p className="whitespace-pre-wrap text-[13px]">{m.justificativa}</p>
+                    <TextoOuHtml texto={m.justificativa} />
                   </div>
                 )}
                 {m.retornoFinal && (
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Retorno final</p>
-                    <p className="whitespace-pre-wrap text-[13px]">{m.retornoFinal}</p>
+                    <TextoOuHtml texto={m.retornoFinal} />
                   </div>
                 )}
               </div>
@@ -428,7 +568,9 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
                 </div>
               </div>
             )}
+            </>)}
           </div>
+          </>
         )}
       </SheetContent>
     </Sheet>

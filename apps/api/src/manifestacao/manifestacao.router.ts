@@ -164,6 +164,23 @@ export function createManifestacaoRouter(
         return service.adicionarMensagem(input, tipo, ctx.userId, ctx.empresaId)
       }),
 
+    // ── Arquivos: quem enxerga o registro anexa; remove quem anexou ou trata ──
+    adicionarArquivo: writeProcedure(MODULE)
+      .input(z.object({
+        id: z.string().min(1), nome: z.string().min(1).max(255), url: z.string().min(1),
+        mime: z.string().max(120).optional().nullable(), bytes: z.number().int().nonnegative().optional().nullable(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        await service.assertPodeVer(input.id, tipo, await escopoDeLeitura(ctx))
+        return service.adicionarArquivo(input, tipo, ctx.userId, ctx.empresaId)
+      }),
+    removerArquivo: writeProcedure(MODULE)
+      .input(z.object({ arquivoId: z.string().min(1) }))
+      .mutation(async ({ input, ctx }) => service.removerArquivo(input.arquivoId, tipo, {
+        userId: ctx.userId, empresaId: ctx.empresaId,
+        trata: await hasSubPermission(ctx.userId, MODULE, 'tratar', { isMaster: ctx.isMaster, isEmpresaMaster: ctx.isEmpresaMaster }),
+      })),
+
     // No legado o botão de excluir só aparecia no nível de administração
     // (`If SGQ_ELO = "3"` em central/modules/sgq_elogios/details.asp). Aqui
     // vira sub-permissão própria, em vez de bastar o delete do módulo.

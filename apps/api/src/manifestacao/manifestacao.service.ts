@@ -406,6 +406,37 @@ export class ManifestacaoService {
     return { ok: true }
   }
 
+  /** Anexa um arquivo já enviado pelo upload genérico (aba Arquivos). */
+  async adicionarArquivo(
+    input: { id: string; nome: string; url: string; mime?: string | null; bytes?: number | null },
+    tipo: ManifestacaoTipo, userId: string, empresaId?: string | null,
+  ) {
+    const atual = await this.exigir(input.id, tipo, empresaId)
+    // Só arquivo do nosso upload — nada de URL externa gravada como anexo.
+    if (!input.url.startsWith('/api/upload/')) throw new Error('Arquivo inválido.')
+    const arq = await prisma.manifestacaoArquivo.create({
+      data: {
+        manifestacaoId: atual.id, autorId: userId, nome: input.nome.slice(0, 255),
+        arquivoPath: input.url, mime: input.mime ?? null, bytes: input.bytes ?? null,
+      },
+    })
+    await this.registrarLog(atual.id, userId, 'Arquivo anexado', arq.nome)
+    return arq
+  }
+
+  /** Remove um anexo: quem anexou, ou quem trata o módulo. */
+  async removerArquivo(arquivoId: string, tipo: ManifestacaoTipo, ctx: { userId: string; empresaId?: string | null; trata: boolean }) {
+    const arq = await prisma.manifestacaoArquivo.findFirst({
+      where: { id: arquivoId, manifestacao: { tipo, empresaId: ctx.empresaId ?? null, excluidaEm: null } },
+      select: { id: true, nome: true, autorId: true, manifestacaoId: true },
+    })
+    if (!arq) throw new Error('Arquivo não encontrado.')
+    if (!ctx.trata && arq.autorId !== ctx.userId) throw new Error('Só quem anexou (ou quem trata) remove o arquivo.')
+    await prisma.manifestacaoArquivo.delete({ where: { id: arq.id } })
+    await this.registrarLog(arq.manifestacaoId, ctx.userId, 'Arquivo removido', arq.nome)
+    return { ok: true }
+  }
+
   /**
    * "Excluir" envia para os inativos (05/10/2026). Antes apagava de vez — e um
    * registro de reclamação apagado é justamente o que uma auditoria procura.
