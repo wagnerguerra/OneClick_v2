@@ -31,6 +31,8 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
 })
 
 const MODULE_COLOR = 'var(--color-primary)'
+/** Primária como TEXTO sobre superfície (badges, abas) — legível no dark. */
+const ON_SURFACE = 'var(--color-primary-on-surface)'
 const tint = (pct: number) => `color-mix(in srgb, ${MODULE_COLOR} ${pct}%, transparent)`
 
 type RunResult =
@@ -178,7 +180,7 @@ export default function SqlConsolePage() {
           <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border" style={{ background: tint(10) }}>
             <TableProperties className="h-4 w-4 shrink-0" style={{ color: MODULE_COLOR }} />
             <span className="text-[13px] font-semibold">Tabelas</span>
-            <span className="ml-auto text-[11px] font-medium tabular-nums px-1.5 py-0.5 rounded-full" style={{ background: tint(18), color: MODULE_COLOR }}>{schema.length}</span>
+            <span className="ml-auto text-[11px] font-medium tabular-nums px-1.5 py-0.5 rounded-full" style={{ background: tint(18), color: ON_SURFACE }}>{schema.length}</span>
             <button onClick={carregarSchema} title="Recarregar" className="text-muted-foreground hover:text-foreground transition-colors">
               <RefreshCw className={`h-3.5 w-3.5 ${schemaLoading ? 'animate-spin' : ''}`} />
             </button>
@@ -208,7 +210,7 @@ export default function SqlConsolePage() {
                         {aberta.has(t.table) ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                       </button>
                       <Table2 className="h-4 w-4 shrink-0" style={{ color: MODULE_COLOR }} />
-                      <button onClick={() => abrirDados(t.table)} title="Ver dados" className="flex-1 text-left text-[13px] font-medium truncate" style={ativa ? { color: MODULE_COLOR } : undefined}>
+                      <button onClick={() => abrirDados(t.table)} title="Ver dados" className="flex-1 text-left text-[13px] font-medium truncate" style={ativa ? { color: ON_SURFACE } : undefined}>
                         {t.table}
                       </button>
                       <span className="text-[10px] text-muted-foreground tabular-nums opacity-100 sm:opacity-0 sm:group-hover:opacity-100 shrink-0 pr-1">{t.columns.length}</span>
@@ -249,9 +251,9 @@ export default function SqlConsolePage() {
                 className="ml-auto mr-2 mb-1.5 inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11px] hover:brightness-95 transition"
                 style={{ background: tint(8) }}
               >
-                <Database className="h-3 w-3" style={{ color: MODULE_COLOR }} />
+                <Database className="h-3 w-3" style={{ color: ON_SURFACE }} />
                 <span className="text-muted-foreground">banco:</span>
-                <span className="font-mono font-semibold" style={{ color: MODULE_COLOR }}>{dbInfo.database}</span>
+                <span className="font-mono font-semibold" style={{ color: ON_SURFACE }}>{dbInfo.database}</span>
               </button>
             )}
           </div>
@@ -346,7 +348,7 @@ function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick:
   return (
     <button onClick={onClick}
       className={`flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium rounded-t-lg border-b-2 -mb-px transition-colors ${active ? 'bg-card' : 'text-muted-foreground hover:text-foreground border-transparent'}`}
-      style={active ? { color: MODULE_COLOR, borderColor: MODULE_COLOR } : undefined}>
+      style={active ? { color: ON_SURFACE, borderColor: ON_SURFACE } : undefined}>
       {icon}{children}
     </button>
   )
@@ -396,7 +398,7 @@ function ResultGrid({ res, loading, empty }: { res: RunResult | null; loading?: 
               style={{ background: tint(sortCol === c ? 22 : 12), borderColor: tint(35) }}>
               <span className="inline-flex items-center gap-1">
                 {c}
-                {sortCol === c && (sortDir === 'asc' ? <ArrowUp className="h-3 w-3" style={{ color: MODULE_COLOR }} /> : <ArrowDown className="h-3 w-3" style={{ color: MODULE_COLOR }} />)}
+                {sortCol === c && (sortDir === 'asc' ? <ArrowUp className="h-3 w-3" style={{ color: ON_SURFACE }} /> : <ArrowDown className="h-3 w-3" style={{ color: ON_SURFACE }} />)}
               </span>
             </th>
           ))}</tr>
@@ -428,7 +430,7 @@ function DbRow({ label, value, mono, strong }: { label: string; value: string; m
   return (
     <div className="flex items-start gap-3 px-3 py-2 odd:bg-muted/20">
       <span className="text-muted-foreground shrink-0 w-40">{label}</span>
-      <span className={`flex-1 min-w-0 break-words ${mono ? 'font-mono' : ''} ${strong ? 'font-semibold' : ''}`} style={strong ? { color: MODULE_COLOR } : undefined}>{value}</span>
+      <span className={`flex-1 min-w-0 break-words ${mono ? 'font-mono' : ''} ${strong ? 'font-semibold' : ''}`} style={strong ? { color: ON_SURFACE } : undefined}>{value}</span>
     </div>
   )
 }

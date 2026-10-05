@@ -29,9 +29,11 @@ export function ArticleShell({ modulo, moduloColor, icon: Icon, titulo, descrica
   return (
     // Altura fixa = viewport - Header (64px). Sangra até as bordas
     // do <main> (-mx/-mt/-mb). Header + índice ficam fixos; rola só o miolo.
+    // `--faq-artigo-cor` expõe a cor do artigo aos blocos de dentro (ex.: ícone
+    // dos títulos de <Section>), sem precisar passá-la por prop em cada artigo.
     <div
       className="flex flex-col overflow-hidden -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 -mb-4 sm:-mb-6"
-      style={{ height: 'calc(100dvh - var(--app-header-offset))' }}
+      style={{ height: 'calc(100dvh - var(--app-header-offset))', ['--faq-artigo-cor' as string]: moduloColor }}
     >
       {/* Header padrão do sistema (PageHeader) — sem bleed (o container já sangra) */}
       <div className="shrink-0">

@@ -112,8 +112,8 @@ export default function SobrePage() {
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           <Badge
             variant="outline"
-            className="border-border font-mono text-xs"
-            style={{ color: ACCENT, borderColor: ACCENT }}
+            className="border-border font-mono text-xs text-primary-on-surface"
+            style={{ borderColor: ACCENT }}
           >
             v{VERSAO_WEB}
           </Badge>

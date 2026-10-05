@@ -22,7 +22,7 @@ import {
   Database, Plus, Search, Eye, Edit, Trash2,
   MoreVertical, Calculator, FileText, MessageSquare,
   Settings, X, Save, ListChecks, ShoppingCart, RotateCcw,
-  ArrowLeft, Smartphone, Calendar, ChevronRight, ArrowUp, ArrowDown,
+  Smartphone, Calendar, ChevronRight, ArrowUp, ArrowDown,
 } from 'lucide-react'
 import { useModuleColors, useRefreshModuleColors, useSetLocalModuleColor, DEFAULT_MODULE_COLORS } from '@/components/theme/module-colors'
 import { alerts } from '@/lib/alerts'
@@ -47,16 +47,15 @@ async function trpcMutateDirect<T = unknown>(route: string, input: Record<string
   return payload?.result?.data as T
 }
 import {
-  Card, CardHeader, CardContent, Button, Badge, Input, Label, cn,
+  Card, CardHeader, CardContent, Button, Badge, Input, Label, Switch, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Dialog, DialogTrigger, DialogContent, DialogHeader, DialogBody,
   DialogFooter, DialogTitle, DialogDescription,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { BADGE, BORDER, SURFACE, TEXT } from '@/lib/color-styles'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
-import { PageHeaderIcon, type ModuleSlug } from '@/components/ui/page-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { FAQ_COLOR } from '@/app/(dashboard)/faq/_components/article-shell'
 import {
@@ -204,9 +203,8 @@ function PillGroup({ label, tabs, activeTab, onSelect, className }: {
               onClick={() => onSelect(t.key)}
               className={cn(
                 'w-full flex items-center gap-2 px-3 py-2 rounded-md text-[12px] font-medium text-left transition-colors',
-                !active && 'text-foreground/70 hover:bg-muted/60 hover:text-foreground',
+                active ? 'bg-primary text-primary-foreground shadow-sm' : 'text-foreground/70 hover:bg-muted/60 hover:text-foreground',
               )}
-              style={active ? { backgroundColor: MODULE_COLOR, color: 'white' } : undefined}
             >
               <Icon className="h-3.5 w-3.5" />
               {t.label}
@@ -313,7 +311,38 @@ function TokensSection() {
         <TokenSwatch name="border-border/60"     desc="Divisor sutil" />
         <TokenSwatch name="text-foreground"      desc="Texto principal" />
         <TokenSwatch name="text-muted-foreground" desc="Texto secundário" />
+        <TokenSwatch name="bg-primary"           desc="Primária sólida (texto: text-primary-foreground)" />
+        <TokenSwatch name="bg-primary/10"        desc="Tint da primária (seleção, destaque leve)" />
       </div>
+
+      <SubTitle>Primária sobre superfície — text-primary-on-surface</SubTitle>
+      <Note>
+        A primária pura (<code className="text-[11px]">text-primary</code>) é escura demais como TEXTO sobre fundo escuro.
+        O token <code className="text-[11px]">--color-primary-on-surface</code> é a primária legível sobre a superfície:
+        igual à primária no claro, tom claro dela no escuro (por skin). Toda cor primária usada como texto, ícone,
+        link ou borda de destaque sobre card/página usa ele.
+      </Note>
+      <div className="rounded-md border border-border bg-card p-4 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
+        <span className="font-semibold text-primary-on-surface">Total: R$ 1.250,00</span>
+        <a href="#" onClick={e => e.preventDefault()} className="text-primary-on-surface hover:underline">Abrir em nova aba</a>
+        <span className="inline-flex items-center gap-1.5 text-primary-on-surface"><Info className="h-4 w-4" /> Ícone de seção</span>
+        <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary-on-surface">Pill selecionado</span>
+        <span className="rounded-md bg-primary px-2.5 py-1 text-[12px] font-medium text-primary-foreground">Sólido</span>
+      </div>
+      <Card className="p-4 space-y-2">
+        <h4 className="text-[12px] font-bold">Regras</h4>
+        <Rule><strong>Texto/ícone/link/aba ativa/valor em destaque</strong> na primária → <code className="text-[11px]">text-primary-on-surface</code> (também <code className="text-[11px]">border-primary-on-surface</code> no sublinhado de aba)</Rule>
+        <Rule><strong>Fundo sólido</strong> na primária → <code className="text-[11px]">bg-primary</code> + <code className="text-[11px]">text-primary-foreground</code></Rule>
+        <Rule><strong>Tint/seleção</strong> → <code className="text-[11px]">bg-primary/10</code> (borda <code className="text-[11px]">border-primary/20…/50</code>) com texto <code className="text-[11px]">text-primary-on-surface</code></Rule>
+        <Rule><strong>Inline/SVG</strong> (gráfico, color-mix) → <code className="text-[11px]">var(--color-primary)</code> em preenchimento; <code className="text-[11px]">var(--color-primary-on-surface)</code> em texto</Rule>
+        <AntiRule>NÃO usar <code className="text-[11px]">text-primary</code> nem <code className="text-[11px]">{`style={{ color: 'var(--color-primary)' }}`}</code> para texto sobre superfície — some no dark</AntiRule>
+      </Card>
+
+      <SubTitle>Exceções de tema</SubTitle>
+      <Card className="p-4 space-y-2">
+        <Rule><strong>Documento/papel</strong> (etiqueta, termo, prévia de impressão): cores claras FIXAS nos dois temas — <code className="text-[11px]">bg-white text-slate-900</code> na folha, e títulos com <code className="text-[11px]">color: inherit</code>. É papel, não tela.</Rule>
+        <Rule><strong>Título sobre fundo colorido</strong>: o CSS global pinta <code className="text-[11px]">h1/h2/h3</code> com <code className="text-[11px]">--color-foreground</code>, o que vence a herança. Sobre faixa colorida, ponha <code className="text-[11px]">text-white</code> (ou a cor certa) <strong>no próprio título</strong>.</Rule>
+      </Card>
 
       <SubTitle>Tipografia</SubTitle>
       <div className="rounded-md border border-border p-4 space-y-2 bg-card">
@@ -453,11 +482,32 @@ function ModuleColorsEditor() {
         enquanto você arrasta. Estado por card e log lateral mostram tudo em tempo real.
       </Note>
 
-      <Callout tipo="info">
-        Use em código novo:
-        <code className="text-[11px] block mt-1">{`style={{ background: 'var(--mod-cadastros)' }}`}</code>
-        ou via hook: <code className="text-[11px]">{`const cor = useModuleColor('cadastros')`}</code>
-      </Callout>
+      {/* Aviso + regras num bloco só: a faixa âmbar é o cabeçalho, as regras ficam
+          anexadas embaixo, dentro da mesma borda. */}
+      <div className={cn('mt-2 overflow-hidden rounded-md border', BORDER.amber)}>
+        <div className={cn('flex items-start gap-2 px-3 py-2.5 text-[12px]', SURFACE.amber, TEXT.amber)}>
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          <p><strong className="font-semibold">A cor do módulo não é cor de conteúdo.</strong> Ela só identifica o módulo, numa lista fechada de lugares.</p>
+        </div>
+        <div className={cn('space-y-3 border-t bg-card px-4 py-3', BORDER.amber)}>
+        <div className="space-y-1.5">
+          <h4 className="text-[12px] font-bold">Onde ela aparece — lista fechada</h4>
+          <div className="flex flex-wrap gap-1.5">
+            {['Sidebar', 'Widgets do dashboard', 'FAQ', 'Grupos de permissão em /usuarios', 'Nós do editor de fluxo (por área)'].map(l => (
+              <span key={l} className="rounded-full border border-border bg-muted/40 px-2.5 py-0.5 text-[11px] text-foreground/80">{l}</span>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <AntiRule><strong>NÃO</strong> usar em botões, abas, links, KPIs, badges, barras, capas, ícones de tela — aí é a <strong>primária</strong> (ver <em>Primária sobre superfície</em>)</AntiRule>
+          <AntiRule><strong>NÃO</strong> acrescentar lugares à lista nem derivar outros usos dela sem aprovação explícita</AntiRule>
+          <Rule>
+            Pode <strong>sugerir</strong>: algo novo ou já agrupado/listado por módulo e colorido por isso <em>poderia</em> derivar de
+            <code className="text-[11px]"> --mod-&lt;slug&gt;</code> / <code className="text-[11px]">useModuleColor</code> — só aplicar com <strong>permissão explícita</strong>
+          </Rule>
+        </div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr,280px] gap-4">
         {/* Coluna 1: cards de cor */}
@@ -574,121 +624,56 @@ function TokenSwatch({ name, desc }: { name: string; desc: string }) {
 // SISTEMA — Header de página
 // ═══════════════════════════════════════════════════════════════
 function PageHeaderSection() {
-  const MODULES: Array<{ slug: ModuleSlug; label: string; icon: typeof Database }> = [
-    { slug: 'cadastros',      label: 'Cadastros',      icon: Database },
-    { slug: 'comercial',      label: 'Comercial',      icon: Database },
-    { slug: 'administrativo', label: 'Administrativo', icon: Database },
-    { slug: 'legalizacao',    label: 'Legalização',    icon: Database },
-    { slug: 'trabalhista',    label: 'Trabalhista',    icon: Database },
-    { slug: 'fiscal',         label: 'Fiscal',         icon: Database },
-    { slug: 'contabil',       label: 'Contábil',       icon: Database },
-    { slug: 'ti',             label: 'TI',             icon: Database },
-    { slug: 'qualidade',      label: 'Qualidade',      icon: Database },
-    { slug: 'configuracoes',  label: 'Configurações',  icon: Database },
-  ]
-
   return (
     <div className="space-y-6">
-      <SubTitle>Header de página — ícone padronizado</SubTitle>
+      <SubTitle>Barra da página — PageHeaderBar</SubTitle>
       <Note>
-        Todo header de página de listagem usa <code className="text-[11px]">{`<PageHeaderIcon module="..." icon={...} />`}</code> à esquerda do título.
-        O fundo do ícone é resolvido por <code className="text-[11px]">var(--mod-&lt;slug&gt;)</code> — editar cor do bloco no tab <strong>Tokens & cores</strong> reflete em todos os headers automaticamente.
+        Toda listagem e todo detalhe começam com <code className="text-[11px]">{`<PageHeaderBar>`}</code> (referência completa:
+        <code className="text-[11px]"> docs/PADRAO_PAGINAS.md §1.1</code>). <code className="text-[11px]">h1</code> puro — o estilo vem do global —,
+        trilha <em>Página inicial › Bloco › Módulo</em> e ações à direita.
       </Note>
 
-      <Demo
-        code={`import { PageHeaderIcon } from '@/components/ui/page-header-icon'
-import { Database } from 'lucide-react'
+      <CodeSnippet
+        label="Listagem"
+        code={`<PageHeaderBar actions={<>
+  {/* 1º "+ Novo…" (botão padrão = primária), depois secundárias, ⋮ por último */}
+  <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
+    <Plus className="h-4 w-4" /> Novo ativo
+  </Button>
+</>}>
+  <h1 className="truncate">Gestão de Ativos</h1>
+  <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+    <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+    <span className="text-muted-foreground/50">›</span>
+    <span>TI</span>
+    <span className="text-muted-foreground/50">›</span>
+    <span>Gestão de Ativos</span>
+  </p>
+</PageHeaderBar>`}
+      />
 
-<div className="flex items-center justify-between gap-4">
-  <div className="flex items-center gap-3">
-    <PageHeaderIcon module="ti" icon={Database} />
-    <div>
-      <h1>Gestão de Ativos</h1>
-      <p className="text-sm text-muted-foreground">Patrimônio de TI, mobiliário e equipamentos</p>
-    </div>
-  </div>
-  <Button className="gap-1.5"><Plus className="h-4 w-4" /> Novo ativo</Button>
-</div>`}
-      >
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <PageHeaderIcon module="ti" icon={Database} />
-            <div>
-              <h1 className="text-foreground">Gestão de Ativos</h1>
-              <p className="text-sm text-muted-foreground">Patrimônio de TI, mobiliário e equipamentos</p>
-            </div>
-          </div>
-          <Button className="gap-1.5">
-            <Plus className="h-4 w-4" /> Novo ativo
-          </Button>
-        </div>
-      </Demo>
-
-      <SubTitle>Botão Voltar — sempre à direita, só ícone</SubTitle>
-      <Note>
-        Em páginas de sub-nível (ex: <code className="text-[11px]">/agenda/tarefas</code>, <code className="text-[11px]">/configuracoes/agendamentos</code>), o botão de voltar pra página-pai fica <strong>à direita do header</strong>, depois dos botões de ação primários, usando <code className="text-[11px]">{`<Button variant="outline" size="icon" className="h-9 w-9">`}</code> com <strong>apenas o ícone</strong> <code className="text-[11px]">{`<ArrowLeft />`}</code>. Sem texto. Usar <code className="text-[11px]">title=&quot;Voltar pra ...&quot;</code> pra tooltip.
-        Nunca colocar o voltar acima do header (linha separada) ou com texto "Voltar pra ..." inline.
-      </Note>
-
-      <Demo
-        code={`<div className="flex items-center justify-between gap-4">
-  <div className="flex items-center gap-3">
-    <PageHeaderIcon module="administrativo" icon={ListTodo} />
-    <div>
-      <h1>Tarefas</h1>
-      <p className="text-sm text-muted-foreground">Lembretes pessoais com prazo</p>
-    </div>
-  </div>
-  <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-    <Button className="gap-1.5"><Plus className="h-4 w-4" /> Nova tarefa</Button>
-    <Button variant="outline" size="icon" asChild className="h-9 w-9" title="Voltar pra Agenda">
-      <Link href="/agenda"><ArrowLeft className="h-4 w-4" /></Link>
-    </Button>
-  </div>
-</div>`}
-      >
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <PageHeaderIcon module="administrativo" icon={ListChecks} />
-            <div>
-              <h1 className="text-foreground">Tarefas</h1>
-              <p className="text-sm text-muted-foreground">Lembretes pessoais com prazo</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-            <Button className="gap-1.5"><Plus className="h-4 w-4" /> Nova tarefa</Button>
-            <Button variant="outline" size="icon" className="h-9 w-9" title="Voltar pra Agenda">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </Demo>
-
-      <SubTitle>Galeria — todas as cores de bloco</SubTitle>
-      <Note>
-        Cada slug usa <code className="text-[11px]">var(--mod-&lt;slug&gt;, &lt;fallback&gt;)</code> com fallback hex hardcoded em <code className="text-[11px]">PageHeaderIcon.FALLBACK_HEX</code>. As cores efetivas são editáveis em <strong>Tokens & cores</strong>.
-      </Note>
-      <Card className="p-4">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          {MODULES.map(m => (
-            <div key={m.slug} className="flex items-center gap-2 rounded-md border border-border p-2.5">
-              <PageHeaderIcon module={m.slug} icon={m.icon} size="sm" />
-              <div className="min-w-0">
-                <p className="text-[12px] font-medium leading-tight">{m.label}</p>
-                <code className="text-[10px] text-muted-foreground">{m.slug}</code>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
+      <CodeSnippet
+        label="Subpágina — BackButton por último"
+        code={`<PageHeaderBar actions={<>
+  <span className="text-xs text-muted-foreground tabular-nums">{n} execuções</span>
+  <BackButton href="/processos" label="Voltar" />
+</>}>
+  <h1 className="truncate">Painel Operacional</h1>
+  <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+    … › <span>Processos</span> › <span>Painel Operacional</span>
+  </p>
+</PageHeaderBar>`}
+      />
 
       <Card className="p-4 space-y-2">
         <h4 className="text-[12px] font-bold">Regras</h4>
-        <Rule>Sempre <code className="text-[11px]">{`<PageHeaderIcon module="..." icon={...} />`}</code> — nunca <code className="text-[11px]">{`<div className="bg-gradient-to-br from-X-500 ...">`}</code></Rule>
-        <Rule>O <code className="text-[11px]">module</code> deve bater com o slug do bloco da sidebar (cadastros, comercial, fiscal, ti, ...)</Rule>
-        <Rule>Tamanho padrão = <code className="text-[11px]">h-12 w-12</code>. Use <code className="text-[11px]">size="sm"</code> (<code className="text-[11px]">h-10 w-10</code>) em headers compactos.</Rule>
-        <Rule>O fundo é cor sólida (não gradiente) — a cor do bloco é dinâmica via CSS var.</Rule>
-        <AntiRule>NUNCA hardcodar <code className="text-[11px]">from-emerald-500 to-emerald-600</code> ou similares.</AntiRule>
+        <Rule><strong>Ordem das ações:</strong> &quot;+ Novo…&quot; primeiro, depois as secundárias, o menu ⋮ por último</Rule>
+        <Rule><strong>&quot;+ Novo…&quot;</strong> usa o <code className="text-[11px]">Button</code> padrão (primária) — ele só ABRE o formulário; verde é de quem conclui (ver <em>Botões</em>)</Rule>
+        <Rule><strong>Subpágina:</strong> a trilha acrescenta o próprio nome e <code className="text-[11px]">{`<BackButton href="…" />`}</code> é a ÚLTIMA ação — com <code className="text-[11px]">label=&quot;Voltar&quot;</code> se estiver sozinho, só ícone se houver outros botões (ver <em>Pág. de detalhe → BackButton</em>)</Rule>
+        <Rule><strong>Espaçamento:</strong> wrapper <code className="text-[11px]">flex flex-col gap-*</code> → <code className="text-[11px]">className=&quot;mb-0 sm:mb-0&quot;</code>; wrapper <code className="text-[11px]">space-y-*</code> → margem padrão</Rule>
+        <Rule>A barra é o <strong>primeiro</strong> elemento da página — ela sangra até o topo com margem negativa e cobriria o que estiver acima</Rule>
+        <AntiRule>NÃO pôr ícone colorido do módulo ao lado do título (<code className="text-[11px]">PageHeaderIcon</code> é legado — não usar em tela nova)</AntiRule>
+        <AntiRule>NÃO montar botão de voltar à mão nem uma linha de breadcrumb acima da barra</AntiRule>
       </Card>
     </div>
   )
@@ -706,25 +691,25 @@ function KpisSection() {
       </Note>
 
       <Demo
-        code={`<Card className="p-3">
+        code={`import { BADGE, type ColorName } from '@/lib/color-styles'
+
+<Card className="p-3">
   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-    <KpiCard icon={Database}      label="Total"             value="252"    color="sky" />
+    <KpiCard icon={Database}      label="Total"             value="252"    color="primary" />
     <KpiCard icon={Coins}         label="Valor patrimonial" value="R$ 1.2M" color="emerald" />
     <KpiCard icon={AlertTriangle} label="Garantia ≤ 30d"    value="3"      color="amber" />
   </div>
 </Card>
 
-function KpiCard({ icon: Icon, label, value, color }: {...}) {
-  const map = {
-    rose:    'text-rose-700 bg-rose-50 dark:bg-rose-950/30 dark:text-rose-300',
-    amber:   'text-amber-700 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-300',
-    emerald: 'text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-300',
-    sky:     'text-sky-700 bg-sky-50 dark:bg-sky-950/30 dark:text-sky-300',
-    // ...
-  }
+function KpiCard({ icon: Icon, label, value, color }: {
+  icon: typeof Database; label: string; value: string
+  /** primary = identidade (o total); o resto é semântico, do helper */
+  color: 'primary' | ColorName
+}) {
   return (
     <div className="flex items-center gap-2 rounded-md border bg-card p-2.5">
-      <div className={cn('h-9 w-9 rounded-md flex items-center justify-center', map[color])}>
+      <div className={cn('h-9 w-9 rounded-md flex items-center justify-center',
+        color === 'primary' ? 'bg-primary/10 text-primary-on-surface' : BADGE[color])}>
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
@@ -737,7 +722,7 @@ function KpiCard({ icon: Icon, label, value, color }: {...}) {
       >
         <Card className="p-3">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <KpiCardDemo icon={Database}      label="Total"      value="252"    color="sky" />
+            <KpiCardDemo icon={Database}      label="Total"      value="252"    color="primary" />
             <KpiCardDemo icon={Calculator}    label="Patrimônio" value="R$ 1.2M" color="emerald" />
             <KpiCardDemo icon={AlertTriangle} label="Alertas"    value="3"      color="amber" />
           </div>
@@ -748,25 +733,22 @@ function KpiCard({ icon: Icon, label, value, color }: {...}) {
         <h4 className="text-[12px] font-bold">Regras</h4>
         <Rule>Card wrapper com padding pequeno (<code className="text-[11px]">p-3</code>)</Rule>
         <Rule>Grid responsivo: <code className="text-[11px]">grid-cols-2 md:grid-cols-4 lg:grid-cols-7</code></Rule>
-        <Rule>Ícone <code className="text-[11px]">h-9 w-9 rounded-md</code> com cor de tinta (bg + text)</Rule>
+        <Rule>Ícone <code className="text-[11px]">h-9 w-9 rounded-md</code> com cor de tinta (bg + text) — do helper <code className="text-[11px]">BADGE</code>, nunca mapa literal próprio</Rule>
         <Rule>Label <code className="text-[11px]">text-[10px] uppercase tracking-wider</code></Rule>
         <Rule>Valor <code className="text-[11px]">text-lg font-bold tabular-nums</code></Rule>
-        <Rule>Cores: rose (problema), amber (atenção), emerald (positivo), sky (info), slate (neutro), violet (especial)</Rule>
+        <Rule>KPI de <strong>identidade</strong> (o total, o principal da tela): <code className="text-[11px]">bg-primary/10 text-primary-on-surface</code></Rule>
+        <Rule>KPIs <strong>semânticos</strong>: rose/red (problema), amber (atenção), emerald (positivo), slate (neutro) — e, para status, a cor vem da fonte única de status do módulo (ex.: <code className="text-[11px]">processos/_lib/status-cores</code>)</Rule>
+        <AntiRule>NÃO usar a cor do módulo (ex.: sky) como cor do KPI de identidade</AntiRule>
       </Card>
     </div>
   )
 }
 
-function KpiCardDemo({ icon: Icon, label, value, color }: { icon: typeof Database; label: string; value: string; color: string }) {
-  const map: Record<string, string> = {
-    rose:    'text-rose-700 bg-rose-50 dark:bg-rose-950/30 dark:text-rose-300',
-    amber:   'text-amber-700 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-300',
-    emerald: 'text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-300',
-    sky:     'text-sky-700 bg-sky-50 dark:bg-sky-950/30 dark:text-sky-300',
-  }
+function KpiCardDemo({ icon: Icon, label, value, color }: { icon: typeof Database; label: string; value: string; color: 'primary' | 'emerald' | 'amber' | 'rose' }) {
   return (
     <div className="flex items-center gap-2 rounded-md border bg-card p-2.5">
-      <div className={cn('h-9 w-9 rounded-md flex items-center justify-center', map[color])}>
+      <div className={cn('h-9 w-9 rounded-md flex items-center justify-center',
+        color === 'primary' ? 'bg-primary/10 text-primary-on-surface' : BADGE[color])}>
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
@@ -783,9 +765,10 @@ function KpiCardDemo({ icon: Icon, label, value, color }: { icon: typeof Databas
 function TablesSection() {
   return (
     <div className="space-y-6">
-      <SubTitle>Tabela com filtros + ações dropdown</SubTitle>
+      <SubTitle>Tabela com filtros + ações</SubTitle>
       <Note>
-        Padrão: Card → toolbar de filtros (bg-muted/20) → tabela → paginação. Coluna de ações usa dropdown ⋮.
+        Padrão: Card → toolbar de filtros (bg-muted/20) → tabela → paginação. A coluna de ações tem DUAS variações
+        aceitas — dropdown ⋮ (abaixo) ou botões de ícone na linha (mais abaixo). Escolha uma por tela; não misture.
       </Note>
 
       <Demo
@@ -833,7 +816,7 @@ function TablesSection() {
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem className="text-xs gap-2"><Eye className="h-3.5 w-3.5" /> Visualizar</DropdownMenuItem>
                 <DropdownMenuItem className="text-xs gap-2"><Edit className="h-3.5 w-3.5" /> Editar</DropdownMenuItem>
-                <DropdownMenuItem className="text-xs gap-2 text-red-500 focus:text-red-500">
+                <DropdownMenuItem className="text-xs gap-2 text-destructive focus:text-destructive">
                   <Trash2 className="h-3.5 w-3.5" /> Excluir
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -894,7 +877,7 @@ function TablesSection() {
                     <DropdownMenuContent align="end" className="w-48">
                       <DropdownMenuItem className="text-xs gap-2"><Eye className="h-3.5 w-3.5" /> Visualizar</DropdownMenuItem>
                       <DropdownMenuItem className="text-xs gap-2"><Edit className="h-3.5 w-3.5" /> Editar</DropdownMenuItem>
-                      <DropdownMenuItem className="text-xs gap-2 text-red-500 focus:text-red-500">
+                      <DropdownMenuItem className="text-xs gap-2 text-destructive focus:text-destructive">
                         <Trash2 className="h-3.5 w-3.5" /> Excluir
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -914,9 +897,41 @@ function TablesSection() {
         <Rule>Dropdown: <code className="text-[11px]">{`<Button variant="ghost" size="icon-sm" className="h-7 w-7">`}</code> com <code className="text-[11px]">{`<MoreVertical className="h-4 w-4" />`}</code></Rule>
         <Rule>DropdownMenuContent: <code className="text-[11px]">align=&quot;end&quot; className=&quot;w-48&quot;</code></Rule>
         <Rule>Items: <code className="text-[11px]">text-xs gap-2</code> com ícone <code className="text-[11px]">h-3.5 w-3.5</code></Rule>
-        <Rule>Items destrutivos: <code className="text-[11px]">text-red-500 focus:text-red-500</code></Rule>
+        <Rule>Items destrutivos: <code className="text-[11px]">text-destructive focus:text-destructive</code> (o token, igual nos dois temas)</Rule>
         <Rule>Click na TableCell de ações: <code className="text-[11px]">{`onClick={e => e.stopPropagation()}`}</code> pra não disparar o click da row</Rule>
-        <AntiRule>NUNCA usar botões soltos (Eye, Edit, Trash separados) — sempre dropdown ⋮</AntiRule>
+        <Rule>Toolbar: o seletor de itens por página é o <strong>primeiro</strong> da barra, à esquerda dos filtros</Rule>
+        <AntiRule>NÃO usar <code className="text-[11px]">TEXT.red</code> nem <code className="text-[11px]">hover:!text-white</code> em item destrutivo — o foco do item é fundo claro e o texto sumiria</AntiRule>
+      </Card>
+
+      <SubTitle>Variação — botões de ação na linha</SubTitle>
+      <Note>
+        Quando a linha tem poucas ações frequentes (abrir, excluir, concluir), elas podem ficar visíveis como botões de
+        ícone, em vez do ⋮. Cada botão usa a variante <code className="text-[11px]">soft-*</code> da intenção da ação.
+      </Note>
+      <Demo
+        code={`<TableHead className="w-[140px] text-right">Ações</TableHead>
+…
+<TableCell className="text-right">
+  <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
+    <Button variant="soft-success" size="icon-sm" title="Concluir"><Check className="h-3.5 w-3.5" /></Button>
+    <Button variant="soft-info" size="icon-sm" title="Abrir"><Edit className="h-3.5 w-3.5" /></Button>
+    <Button variant="soft-destructive" size="icon-sm" title="Excluir"><Trash2 className="h-3.5 w-3.5" /></Button>
+  </div>
+</TableCell>`}
+      >
+        <div className="flex justify-end gap-1">
+          <Button variant="soft-success" size="icon-sm" title="Concluir"><Check className="h-3.5 w-3.5" /></Button>
+          <Button variant="soft-info" size="icon-sm" title="Abrir"><Edit className="h-3.5 w-3.5" /></Button>
+          <Button variant="soft-destructive" size="icon-sm" title="Excluir"><Trash2 className="h-3.5 w-3.5" /></Button>
+        </div>
+      </Demo>
+      <Card className="p-4 space-y-2">
+        <h4 className="text-[12px] font-bold">Regras</h4>
+        <Rule>Todos no MESMO tamanho: <code className="text-[11px]">size=&quot;icon-sm&quot;</code> (32×32), ícone <code className="text-[11px]">h-3.5 w-3.5</code>, <code className="text-[11px]">gap-1</code>, <code className="text-[11px]">title</code> obrigatório</Rule>
+        <Rule>Intenção: <code className="text-[11px]">soft-info</code> abrir/editar · <code className="text-[11px]">soft-destructive</code> excluir · <code className="text-[11px]">soft-success</code> concluir · <code className="text-[11px]">soft</code> neutro (baixar, link externo)</Rule>
+        <Rule><strong>Largura da coluna</strong> (tabela <code className="text-[11px]">table-fixed</code>): 32px por botão + 4px entre eles + 32px de padding da célula — 1 botão = 64px, 2 = 104px, 3 = 140px. Menos que isso e o flex espreme os botões (ficam &quot;afinados&quot;)</Rule>
+        <Rule>Use o dropdown ⋮ quando houver muitas ações ou ações raras (importar, varrer, configurar)</Rule>
+        <AntiRule>NÃO usar botão sólido (<code className="text-[11px]">variant=&quot;success&quot;</code>, <code className="text-[11px]">bg-*</code>) nem outro tamanho (<code className="text-[11px]">xs</code>) no meio dos <code className="text-[11px]">soft-*</code></AntiRule>
       </Card>
     </div>
   )
@@ -1012,14 +1027,14 @@ function FormsSection() {
       <Demo
         code={`<div className="flex items-center justify-end gap-2 pt-4 border-t border-border">
   <Button variant="outline">Cancelar</Button>
-  <Button className="gap-1.5">
+  <Button variant="success" className="gap-1.5">
     <Save className="h-4 w-4" /> Salvar
   </Button>
 </div>`}
       >
         <div className="flex items-center justify-end gap-2 pt-4 border-t border-border">
           <Button variant="outline">Cancelar</Button>
-          <Button className="gap-1.5">
+          <Button variant="success" className="gap-1.5">
             <Save className="h-4 w-4" /> Salvar
           </Button>
         </div>
@@ -1051,6 +1066,9 @@ function ButtonsSection() {
         <ButtonShowcase label="outline-destructive" code='variant="outline-destructive"'><Button variant="outline-destructive">Remover</Button></ButtonShowcase>
         <ButtonShowcase label="soft" code='variant="soft"'><Button variant="soft">Filtrar</Button></ButtonShowcase>
         <ButtonShowcase label="soft-destructive" code='variant="soft-destructive"'><Button variant="soft-destructive">Bloquear</Button></ButtonShowcase>
+        <ButtonShowcase label="soft-success" code='variant="soft-success"'><Button variant="soft-success">Concluir</Button></ButtonShowcase>
+        <ButtonShowcase label="soft-info" code='variant="soft-info"'><Button variant="soft-info">Editar</Button></ButtonShowcase>
+        <ButtonShowcase label="soft-warning" code='variant="soft-warning"'><Button variant="soft-warning">Revisar</Button></ButtonShowcase>
         <ButtonShowcase label="ghost" code='variant="ghost"'><Button variant="ghost">Sutil</Button></ButtonShowcase>
         <ButtonShowcase label="ghost-destructive" code='variant="ghost-destructive"'><Button variant="ghost-destructive">Remover</Button></ButtonShowcase>
         <ButtonShowcase label="link" code='variant="link"'><Button variant="link">Ver mais</Button></ButtonShowcase>
@@ -1070,13 +1088,37 @@ function ButtonsSection() {
       <SubTitle>Hierarquia & posicionamento</SubTitle>
       <Card className="p-4 space-y-2">
         <h4 className="text-[12px] font-bold">Regras</h4>
-        <Rule><strong>Header de página:</strong> ação primária à direita (gap-1.5 + ícone h-4 w-4) — usa cor sólida do módulo (ex: bg-sky-600)</Rule>
-        <Rule><strong>Form footer:</strong> Cancelar à esquerda (variant=&quot;outline&quot;), Salvar à direita (default) — <code className="text-[11px]">justify-end gap-2</code></Rule>
-        <Rule><strong>Modal footer:</strong> Cancelar (outline), depois Salvar/Confirmar — <code className="text-[11px]">justify-end gap-2</code></Rule>
-        <Rule><strong>Linha de tabela:</strong> só dropdown ⋮ — NUNCA botões soltos</Rule>
+        <Rule><strong>Header de página:</strong> ação primária à direita (gap-1.5 + ícone h-4 w-4) — <code className="text-[11px]">Button</code> padrão (a primária do tema)</Rule>
+        <Rule><strong>Form footer:</strong> Cancelar à esquerda (variant=&quot;outline&quot;), Salvar à direita (<code className="text-[11px]">variant=&quot;success&quot;</code>) — <code className="text-[11px]">justify-end gap-2</code></Rule>
+        <Rule><strong>Modal footer:</strong> Cancelar (outline), depois a confirmação na cor do guideline de modais (ver <em>Modais</em>) — <code className="text-[11px]">justify-end gap-2</code></Rule>
+        <Rule><strong>Linha de tabela:</strong> dropdown ⋮ ou botões <code className="text-[11px]">soft-*</code> de ícone (ver <em>Tabelas</em>)</Rule>
         <Rule><strong>Filtros toolbar:</strong> botões soft ou ghost com <code className="text-[11px]">size=&quot;sm&quot;</code> ou <code className="text-[11px]">h-8 text-xs</code></Rule>
         <Rule><strong>Ação destrutiva:</strong> sempre confirma via Dialog ou SweetAlert antes — nunca executa direto</Rule>
         <AntiRule>NÃO usar 2+ botões primários (default) no mesmo bloco — só 1 ação é primária</AntiRule>
+        <AntiRule>NÃO pintar botão com a cor do módulo (<code className="text-[11px]">bg-sky-600</code> etc.)</AntiRule>
+      </Card>
+
+      <SubTitle>Verde semântico — quando usar</SubTitle>
+      <Note>
+        Verde significa <strong>concluído / positivo</strong>. Ele não é decoração nem cor de módulo.
+      </Note>
+      <div className="rounded-md border border-border bg-card p-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+        <div className="w-40 space-y-1">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Progresso</p>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-muted"><div className="h-full w-2/3 rounded-full bg-emerald-500" /></div>
+        </div>
+        <span className="inline-flex items-center gap-2 text-[12px] text-muted-foreground"><Switch checked onCheckedChange={() => {}} /> padrão</span>
+        <span className="inline-flex items-center gap-2 text-[12px] text-muted-foreground"><Switch checked variant="success" onCheckedChange={() => {}} /> variant=&quot;success&quot;</span>
+        <Button variant="success" size="sm" className="gap-1.5"><Save className="h-3.5 w-3.5" /> Salvar</Button>
+        <Button size="sm" className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Novo</Button>
+      </div>
+      <Card className="p-4 space-y-2">
+        <Rule><strong>Barra de progresso</strong> (e o % dela): sempre verde — <code className="text-[11px]">FILL.emerald</code> / <code className="text-[11px]">TEXT.emerald</code>. O % só vira verde se antes estava na primária; se era neutro, fica neutro</Rule>
+        <Rule><strong>Botão que CONCLUI</strong> a ação (Salvar, Criar no rodapé, Confirmar, Importar, Concluir): <code className="text-[11px]">variant=&quot;success&quot;</code> (sólido) ou <code className="text-[11px]">soft-success</code> (na linha de tabela)</Rule>
+        <Rule><strong>Botão que só ABRE</strong> algo (&quot;+ Novo…&quot; que abre modal, &quot;Nova manutenção&quot; que abre form, &quot;Enviar arquivo&quot; que abre o seletor): botão padrão — primária</Rule>
+        <Rule><strong>Toggle ligado</strong> com sentido positivo: <code className="text-[11px]">{`<Switch variant="success" />`}</code> — nada de <code className="text-[11px]">accentColor</code> com hex</Rule>
+        <AntiRule>Gráfico de barras horizontal (ranking, distribuição) NÃO é barra de progresso — fica na primária</AntiRule>
+        <AntiRule>&quot;Enviar&quot; (mensagem, e-mail) e botões que filtram/navegam NÃO são verdes</AntiRule>
       </Card>
     </div>
   )
@@ -1366,13 +1408,13 @@ function DetailPageSection() {
       <SubTitle>Header de página de detalhe</SubTitle>
       <Note>
         Páginas de detalhe (<code className="text-[11px]">/clientes/[id]</code>, <code className="text-[11px]">/orcamentos/[id]</code>, <code className="text-[11px]">/perfil</code>)
-        usam um wrapper bleed-edge com capa opcional + overlay gradiente da cor do módulo + TabsList em pills centralizadas.
+        usam um wrapper bleed-edge com capa opcional + tint/overlay da <strong>primária</strong> + TabsList em pills centralizadas.
       </Note>
 
       <Card className="p-0 overflow-hidden">
-        <div className="relative -m-0 overflow-hidden h-[120px]" style={{ backgroundColor: 'rgba(94, 163, 203, .18)' }}>
+        <div className="relative -m-0 overflow-hidden h-[120px]" style={{ backgroundColor: 'color-mix(in srgb, var(--color-primary) 18%, transparent)' }}>
           <div className="relative z-10 px-6 py-5 flex items-center gap-4">
-            <div className="h-16 w-16 rounded-full bg-sky-200 dark:bg-sky-900 flex items-center justify-center text-sky-700 dark:text-sky-300 font-bold text-lg">JD</div>
+            <div className="h-16 w-16 rounded-full bg-primary/20 flex items-center justify-center text-primary-on-surface font-bold text-lg">JD</div>
             <div>
               <h2 className="text-lg font-bold text-foreground">João da Silva</h2>
               <p className="text-[12px] text-muted-foreground">joao@example.com · OWNER</p>
@@ -1385,7 +1427,7 @@ function DetailPageSection() {
         label="Estrutura JSX (bleed-edge header)"
         code={`<div
   className="relative -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 overflow-hidden group/cover"
-  style={!cover ? { backgroundColor: 'rgba(R, G, B, .18)' } : undefined}
+  style={!cover ? { backgroundColor: 'color-mix(in srgb, var(--color-primary) 18%, transparent)' } : undefined}
 >
   {/* Capa em tile (NUNCA <img object-cover> que estica) */}
   {cover && (
@@ -1400,11 +1442,11 @@ function DetailPageSection() {
     />
   )}
 
-  {/* Overlay gradiente: 0% à esquerda → 80% à direita (cor do módulo) */}
+  {/* Overlay gradiente: 0% à esquerda → 80% à direita (primária) */}
   {cover && (
     <div
       className="absolute inset-0"
-      style={{ backgroundImage: 'linear-gradient(to right, rgba(R, G, B, 0) 0%, rgba(R, G, B, 0.8) 100%)' }}
+      style={{ backgroundImage: 'linear-gradient(to right, color-mix(in srgb, var(--color-primary) 0%, transparent) 0%, color-mix(in srgb, var(--color-primary) 80%, transparent) 100%)' }}
     />
   )}
 
@@ -1437,13 +1479,8 @@ function DetailPageSection() {
       className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25
                  gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit"
     >
-      <TabsTrigger
-        value="detalhes"
-        className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold
-                   !text-foreground/70 hover:!text-foreground transition-colors
-                   data-[state=active]:!bg-transparent data-[state=active]:!shadow-none
-                   data-[state=active]:!text-sky-600 dark:data-[state=active]:!text-sky-400 gap-1.5"
-      >
+      {/* variant="sliding": texto acima do pill, ativa em primary-on-surface — sem classes à mão */}
+      <TabsTrigger value="detalhes" variant="sliding">
         <FileText className="h-3.5 w-3.5" /> Detalhes
       </TabsTrigger>
       {/* …demais tabs */}
@@ -1455,11 +1492,12 @@ function DetailPageSection() {
       <Card className="p-4 space-y-2">
         <h4 className="text-[12px] font-bold">Regras</h4>
         <Rule>Wrapper bleed-edge: <code className="text-[11px]">-mx-4 sm:-mx-6 -mt-4 sm:-mt-6</code> + <code className="text-[11px]">overflow-hidden</code> + <code className="text-[11px]">group/cover</code></Rule>
-        <Rule>Cor do módulo com alpha <code className="text-[11px]">.18</code>: fundo padrão (sem capa) e overlay (sobre capa)</Rule>
+        <Rule>Primária com alpha <code className="text-[11px]">18%</code> (<code className="text-[11px]">color-mix</code>): fundo padrão (sem capa) e overlay (sobre capa)</Rule>
         <Rule>Imagem: <code className="text-[11px]">{`<div>`}</code> com <code className="text-[11px]">background-image</code> + <code className="text-[11px]">repeat</code> + <code className="text-[11px]">opacity: 0.2</code></Rule>
         <Rule>Controles de edição: só <code className="text-[11px]">isMaster</code>, posição <code className="text-[11px]">bottom-3 right-3 z-20</code>, hover-reveal</Rule>
         <Rule>SlidingTabsList controlado: <code className="text-[11px]">value</code>/<code className="text-[11px]">onValueChange</code> obrigatórios (defaultValue NÃO funciona)</Rule>
-        <Rule>TabsTrigger ativo: SÓ muda cor do texto (<code className="text-[11px]">!text-MODULO-600</code>) — NÃO usa <code className="text-[11px]">!bg-white</code></Rule>
+        <Rule>TabsTrigger: <code className="text-[11px]">variant=&quot;sliding&quot;</code> — a ativa SÓ muda a cor do texto (<code className="text-[11px]">primary-on-surface</code>); o pill que desliza é a indicação</Rule>
+        <AntiRule>NÃO pintar a aba ativa com a cor do módulo nem repetir as classes <code className="text-[11px]">!text-*</code> à mão</AntiRule>
         <Rule>Cada tab tem ícone temático <code className="text-[11px]">h-3.5 w-3.5</code></Rule>
         <AntiRule>NÃO usar <code className="text-[11px]">{`<img object-cover>`}</code> (estica imagem) — sempre <code className="text-[11px]">{`<div>`}</code> com background</AntiRule>
         <AntiRule>NÃO posicionar controles em <code className="text-[11px]">top-3</code> (colide com botões do header)</AntiRule>
@@ -1472,21 +1510,30 @@ function DetailPageSection() {
         aberta direto via link (sem histórico).
       </Note>
 
-      <Card className="p-6 flex items-center gap-4 bg-gradient-to-r from-sky-100 to-cyan-200 dark:from-sky-900/40 dark:to-cyan-900/40">
-        <span className="text-[11px] text-foreground/70">Preview sobre header colorido:</span>
-        <BackButton href="#" />
-        <BackButton href="#" label="Voltar" />
+      <Card className="p-6 flex flex-wrap items-center gap-6" style={{ background: 'color-mix(in srgb, var(--color-primary) 14%, var(--color-card))' }}>
+        <span className="flex items-center gap-2">
+          <span className="text-[11px] text-foreground/70">Sozinho — com label:</span>
+          <BackButton href="#" label="Voltar" />
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="text-[11px] text-foreground/70">Junto de outros botões — só ícone:</span>
+          <Button size="sm" variant="outline" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> Termo</Button>
+          <Button size="sm" variant="success" className="gap-1.5"><Save className="h-3.5 w-3.5" /> Salvar</Button>
+          <BackButton href="#" />
+        </span>
       </Card>
 
       <CodeSnippet
         label="Uso"
         code={`import { BackButton } from '@/components/ui/back-button'
 
-// 1) Só ícone (padrão em pág. de detalhe — canto superior direito)
-<BackButton href="/helpdesk" />
+// 1) Com label — quando o voltar fica SOZINHO (ou só com texto/contador ao lado):
+//    o texto preenche e deixa o botão óbvio
+<BackButton href="/processos" label="Voltar" />
 
-// 2) Com texto (footers de formulário)
-<BackButton href="/clientes" label="Voltar" />
+// 2) Só ícone — quando divide o espaço com OUTROS BOTÕES: economiza
+//    espaço e fica mais limpo (vem por último, depois das ações)
+<BackButton href="/ativos" />
 
 // 3) Sem href → router.back() com fallback pra "/" se não houver histórico
 <BackButton />
@@ -1496,10 +1543,54 @@ function DetailPageSection() {
       <Card className="p-4 space-y-2">
         <h4 className="text-[12px] font-bold">Regras</h4>
         <Rule>SEMPRE usar <code className="text-[11px]">{`<BackButton href="..."/>`}</code> — destino determinístico bate <code className="text-[11px]">router.back()</code> cego</Rule>
+        <Rule><strong>Com ou sem label:</strong> sozinho → <code className="text-[11px]">label=&quot;Voltar&quot;</code> (preenche melhor); junto de outros botões → só ícone (economiza espaço, fica mais limpo)</Rule>
+        <Rule>Na barra da página ele é sempre a <strong>última</strong> ação</Rule>
         <Rule>Hover preserva o ícone (não vira branco-sobre-branco no light)</Rule>
         <Rule>Dark mode: <code className="text-[11px]">bg-card</code> + <code className="text-[11px]">border-white/15</code> — não cria clarão sobre o gradiente</Rule>
         <AntiRule>NÃO copiar o JSX antigo <code className="text-[11px]">{`<Button variant="outline" size="icon" ...>`}</code> com classes manuais</AntiRule>
         <AntiRule>NÃO usar <code className="text-[11px]">router.back()</code> direto — quebra em link copiado/nova aba</AntiRule>
+      </Card>
+
+      <SubTitle>Cabeçalho de painel lateral (Sheet de detalhe)</SubTitle>
+      <Note>
+        Detalhe aberto num <code className="text-[11px]">Sheet</code> (ex.: dia em <code className="text-[11px]">/relatorios-ti</code>,
+        Reclamações/Elogios/Sugestões) abre com uma faixa em gradiente da primária e texto branco.
+      </Note>
+      <div className="overflow-hidden rounded-md border border-border">
+        <div className="flex items-start gap-3 px-6 py-4 text-white"
+          style={{ background: 'linear-gradient(120deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 55%, #6366f1))' }}>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] uppercase tracking-[.14em] opacity-80">Relatórios da TI</p>
+            <h3 className="truncate text-xl font-bold text-white">segunda-feira, 5 de outubro de 2026</h3>
+            <p className="text-[12.5px] opacity-90">3 relatórios</p>
+          </div>
+          <Button variant="secondary" size="sm" className="gap-1.5"><FileText className="h-4 w-4" /> Gerar PDF</Button>
+          <button type="button" className="rounded-md p-1.5 text-white/90 hover:bg-white/20"><X className="h-4 w-4" /></button>
+        </div>
+      </div>
+      <CodeSnippet
+        label="Estrutura"
+        code={`<SheetContent side="right" size="xl" hideClose
+  className="flex flex-col overflow-hidden border-l-0 p-0">
+  <div className="flex items-start gap-3 px-6 py-4 text-white"
+    style={{ background: \`linear-gradient(120deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 55%, #6366f1))\` }}>
+    <div className="min-w-0 flex-1">
+      <p className="text-[11px] uppercase tracking-[.14em] opacity-80">Contexto</p>
+      <h2 className="truncate text-xl font-bold text-white">Título</h2>
+      <p className="text-[12.5px] opacity-90">Linha de apoio</p>
+    </div>
+    <Button variant="secondary" size="sm">Ação</Button>
+    <button onClick={onClose} className="rounded-md p-1.5 text-white/90 hover:bg-white/20"><X className="h-4 w-4" /></button>
+  </div>
+  …
+</SheetContent>`}
+      />
+      <Card className="p-4 space-y-2">
+        <h4 className="text-[12px] font-bold">Regras</h4>
+        <Rule><code className="text-[11px]">text-white</code> explícito no <strong>título</strong> — o global de h1/h2/h3 vence a herança e o escureceria no claro</Rule>
+        <Rule>Botões sobre a faixa: <code className="text-[11px]">variant=&quot;secondary&quot;</code> (o <code className="text-[11px]">outline</code> tem fundo claro e herdaria o texto branco)</Rule>
+        <Rule><code className="text-[11px]">border-l-0</code> no <code className="text-[11px]">SheetContent</code> — a borda de 1px fica fora da área recortada e sobraria um fio à esquerda da faixa</Rule>
+        <AntiRule>NÃO usar a cor do módulo na faixa — é sempre a primária</AntiRule>
       </Card>
     </div>
   )
@@ -1532,9 +1623,8 @@ function SubTabsSection() {
                     onClick={() => setActiveSubTab(k)}
                     className={cn(
                       'w-full px-3 py-2 rounded-md text-[12px] font-medium text-left transition-colors',
-                      !active && 'text-foreground/70 hover:bg-muted/60 hover:text-foreground',
+                      active ? 'bg-primary text-primary-foreground shadow-sm' : 'text-foreground/70 hover:bg-muted/60 hover:text-foreground',
                     )}
-                    style={active ? { backgroundColor: '#0ea5e9', color: 'white' } : undefined}
                   >
                     {k}
                   </button>
@@ -1565,8 +1655,7 @@ function SubTabsSection() {
       <button
         onClick={() => setActiveTab(key)}
         className={cn('w-full px-3 py-2 rounded-md text-[12px] font-medium text-left',
-          !active && 'text-foreground/70 hover:bg-muted/60 hover:text-foreground')}
-        style={active ? { backgroundColor: COR_DO_MODULO, color: 'white' } : undefined}
+          active ? 'bg-primary text-primary-foreground shadow-sm' : 'text-foreground/70 hover:bg-muted/60 hover:text-foreground')}
       >
         <Icon className="h-3.5 w-3.5" /> Label
       </button>
@@ -1598,7 +1687,7 @@ function SubTabsSection() {
       <Card className="p-4 space-y-2">
         <h4 className="text-[12px] font-bold">Regras</h4>
         <Rule>Coluna de pills: <code className="text-[11px]">w-[170px] shrink-0 border-r border-border bg-muted/40 p-3</code></Rule>
-        <Rule>Pill ativa: <code className="text-[11px]">style={`{{ backgroundColor: COR_DO_MODULO, color: 'white' }}`}</code></Rule>
+        <Rule>Pill ativa: <code className="text-[11px]">bg-primary text-primary-foreground shadow-sm</code></Rule>
         <Rule>Pill inativa: <code className="text-[11px]">text-foreground/70 hover:bg-muted/60 hover:text-foreground</code></Rule>
         <Rule>Conteúdo: <code className="text-[11px]">key={`{activeTab}`}</code> + animação <code className="text-[11px]">fadeSlideIn 0.25s</code></Rule>
         <Rule>Título interno full-width: wrapper <code className="text-[11px]">-m-5</code> com <code className="text-[11px]">{`<div className="px-5 py-3 border-b border-border">`}</code></Rule>
@@ -1618,7 +1707,8 @@ function FaqShellsSection() {
       <SubTitle>ArticleShell</SubTitle>
       <Note>
         Casca padrão de todo artigo do FAQ. Renderiza breadcrumb (← FAQ&apos;s / módulo),
-        header com ícone+gradient na cor do módulo e título/descrição.
+        header com ícone+gradient na <strong>cor do artigo</strong> (<code className="text-[11px]">moduloColor</code>) e título/descrição.
+        A cor do artigo é exposta aos blocos internos como <code className="text-[11px]">--faq-artigo-cor</code>.
       </Note>
 
       <CodeSnippet
@@ -1694,7 +1784,11 @@ function FaqBlocksSection() {
   return (
     <div className="space-y-6">
       <SubTitle>Section</SubTitle>
-      <Note>Card com título colorido — agrupador de conteúdo.</Note>
+      <Note>
+        Card agrupador de conteúdo. O ícone fica numa caixinha tingida na <strong>cor do artigo</strong> (vem do
+        <code className="text-[11px]"> ArticleShell</code> pela var <code className="text-[11px]">--faq-artigo-cor</code>; <code className="text-[11px]">cor</code> só vale fora de um shell)
+        e o título é texto padrão em negrito, um pouco maior que os blocos internos — é o que separa o nível de seção.
+      </Note>
       <Demo
         code={`<Section icon={Info} titulo="Conceitos importantes" cor={FAQ_COLOR}>
   <div className="space-y-2 text-sm">
