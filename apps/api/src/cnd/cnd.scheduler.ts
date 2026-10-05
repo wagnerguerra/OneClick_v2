@@ -1,8 +1,12 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Inject } from '@nestjs/common'
 import { schedulersAtivos } from '../common/scheduler-guard'
 import { CronJob } from 'cron'
-import { prisma } from '@saas/db'
+import { prisma, type Prisma } from '@saas/db'
 import { CndService } from './cnd.service'
+import { cndLogger, exigirEmpresa, limparDoc } from './cnd-comum'
+import { idsDeEmpresasInativas, semEmpresaInativa } from '../common/empresa-inativa'
+
+const logger = cndLogger('Scheduler')
 
 export interface CndScheduleConfig {
   enabled: boolean
@@ -42,7 +46,8 @@ const CONFIG_KEYS = {
 @Injectable()
 export class CndSchedulerService implements OnModuleInit, OnModuleDestroy {
   private cronJob: CronJob | null = null
-  private isRunning = false
+  /** Empresas com execução em andamento. Era um `isRunning` global: a execução de uma empresa bloqueava todas. */
+  private readonly emExecucao = new Set<string>()
   // Empresa "home" (a mais antiga) — alvo do cron automático no servidor.
   private homeEmpresaId = ''
 
@@ -54,16 +59,16 @@ export class CndSchedulerService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit() {
-    if (!schedulersAtivos()) { console.log('[Scheduler] desativado fora de produção (apenas a VPS executa)'); return }
+    if (!schedulersAtivos()) { logger.log('desativado fora de produção (apenas a VPS executa)'); return }
     try {
       this.homeEmpresaId = await this.cndService.resolverEmpresaId()
       const config = await this.getConfig(this.homeEmpresaId)
       if (config.enabled) {
         this.startCron(config.cron)
-        console.log(`[CND Scheduler] Iniciado: ${config.cron}`)
+        logger.log(`Iniciado: ${config.cron}`)
       }
     } catch (e) {
-      console.error('[CND Scheduler] Erro ao iniciar:', (e as Error).message)
+      logger.error(`Erro ao iniciar: ${(e as Error).message}`)
     }
   }
 
@@ -148,7 +153,7 @@ export class CndSchedulerService implements OnModuleInit, OnModuleDestroy {
       lastRun: map[this.sk(CONFIG_KEYS.lastRun, empresaId)] || null,
       lastResult,
       nextRun,
-      isRunning: this.isRunning && empresaId === this.homeEmpresaId,
+      isRunning: this.emExecucao.has(empresaId),
     }
   }
 
@@ -163,7 +168,7 @@ export class CndSchedulerService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getProgress(empresaId: string): Promise<CndScheduleProgress> {
-    if (!this.isRunning) return { current: 0, total: 0, currentCliente: '', status: 'idle', items: [] }
+    if (!this.emExecucao.has(empresaId)) return { current: 0, total: 0, currentCliente: '', status: 'idle', items: [] }
     const rows = await prisma.$queryRawUnsafe<Array<{ value: string }>>(
       `SELECT value FROM system_config WHERE key = $1`, this.sk(CONFIG_KEYS.progress, empresaId),
     )
@@ -174,100 +179,123 @@ export class CndSchedulerService implements OnModuleInit, OnModuleDestroy {
   // ── Execucao ──────────────────────────────────────────
 
   async runNow(userId: string | undefined, empresaId: string): Promise<{ message: string }> {
-    if (this.isRunning) return { message: 'Uma execucao ja esta em andamento.' }
-    this.executeFetch('manual', userId, empresaId).catch(e => console.error('[CND Scheduler] Erro:', e.message))
+    const empId = exigirEmpresa(empresaId)
+    if (this.emExecucao.has(empId)) return { message: 'Uma execucao ja esta em andamento.' }
+    if ((await idsDeEmpresasInativas()).includes(empId)) return { message: 'Empresa inativa — execucao nao iniciada.' }
+    this.executeFetch('manual', userId, empId).catch(e => logger.error(`Erro na execucao (empresa ${empId}): ${(e as Error).message}`))
     return { message: 'Execucao iniciada em background.' }
   }
 
+  /**
+   * Corpo inteiro dentro de try/finally: antes, as primeiras queries (lastRun,
+   * nome do usuário, config) ficavam fora do try — uma falha nelas deixava
+   * `isRunning` preso em true e o agendador travado até reiniciar a API.
+   */
   private async executeFetch(tipo: 'manual' | 'automatico' = 'automatico', userId?: string, empresaId?: string) {
-    if (this.isRunning) return
     // Escopo de empresa OBRIGATÓRIO — sem ele a execução leria clientes de todos
     // os tenants e gravaria resultado global (ISO-003). Default-deny.
     const empId = empresaId || this.homeEmpresaId
-    if (!empId) { console.error('[CND Scheduler] Sem empresaId — execução abortada'); return }
-    this.isRunning = true
+    if (!empId) { logger.error('Sem empresaId — execução abortada'); return }
+    if (this.emExecucao.has(empId)) return
+    this.emExecucao.add(empId)
+
     const startedAt = new Date().toISOString()
-
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO system_config (id, key, value, updated_at) VALUES ($1, $1, $2, NOW())
-       ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()`,
-      this.sk(CONFIG_KEYS.lastRun, empId), startedAt,
-    )
-
-    let nomeUsuario: string | null = null
-    if (userId) {
-      const userRows = await prisma.$queryRawUnsafe<Array<{ name: string }>>(
-        `SELECT name FROM users WHERE id = $1 LIMIT 1`, userId,
-      )
-      nomeUsuario = userRows[0]?.name || null
-    }
-
-    console.log(`[CND Scheduler] Iniciando: ${startedAt} (tipo: ${tipo}, usuario: ${nomeUsuario || 'sistema'}, empresa: ${empId})`)
-
-    const config = await this.getConfig(empId)
-    let total = 0, success = 0, failed = 0
+    let total = 0, success = 0, failed = 0, skipped = 0
     const errors: string[] = []
 
     try {
-      const realIds = config.clienteIds.filter(id => id !== '__none__')
-      if (config.clienteIds.includes('__none__') && realIds.length === 0) {
-        this.isRunning = false; return
+      // Empresa inativa não recebe rotina automática (nem manual disparada por
+      // sessão antiga). Vale mesmo com o cron desligado.
+      const inativas = await idsDeEmpresasInativas()
+      if (inativas.includes(empId)) { logger.warn(`Empresa ${empId} inativa — execução ignorada`); return }
+
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO system_config (id, key, value, updated_at) VALUES ($1, $1, $2, NOW())
+         ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()`,
+        this.sk(CONFIG_KEYS.lastRun, empId), startedAt,
+      )
+
+      let nomeUsuario: string | null = null
+      if (userId) {
+        const userRows = await prisma.$queryRawUnsafe<Array<{ name: string }>>(
+          `SELECT name FROM users WHERE id = $1 LIMIT 1`, userId,
+        )
+        nomeUsuario = userRows[0]?.name || null
       }
 
-      const where: Record<string, unknown> = { status: 'ATIVO', situacao: 'MENSAL', empresaId: empId }
-      if (realIds.length > 0) where.id = { in: realIds }
+      logger.log(`Iniciando: ${startedAt} (tipo: ${tipo}, usuario: ${nomeUsuario || 'sistema'}, empresa: ${empId})`)
 
-      const clientes = await prisma.cliente.findMany({
-        where,
-        select: { id: true, documento: true, razaoSocial: true, tipoDocumento: true },
-        orderBy: { razaoSocial: 'asc' },
-      })
+      const config = await this.getConfig(empId)
 
-      total = clientes.length
+      try {
+        const realIds = config.clienteIds.filter(id => id !== '__none__')
+        if (config.clienteIds.includes('__none__') && realIds.length === 0) return
 
-      const progressItems: CndScheduleProgress['items'] = clientes.map(c => ({ razaoSocial: c.razaoSocial, status: 'pendente' as const }))
-      await this.saveProgress(empId, { current: 0, total, currentCliente: '', status: 'running', items: progressItems })
+        const where: Prisma.ClienteWhereInput = { status: 'ATIVO', situacao: 'MENSAL', empresaId: empId }
+        if (realIds.length > 0) where.id = { in: realIds }
 
-      for (let i = 0; i < clientes.length; i++) {
-        const c = clientes[i]!
-        const docLimpo = c.documento.replace(/\D/g, '')
-        const tipDoc = c.tipoDocumento === 'CPF' ? 2 : 1
+        const clientes = await prisma.cliente.findMany({
+          where: semEmpresaInativa<Prisma.ClienteWhereInput>(where, inativas),
+          select: { id: true, documento: true, razaoSocial: true, tipoDocumento: true },
+          orderBy: { razaoSocial: 'asc' },
+        })
 
-        progressItems[i] = { ...progressItems[i]!, status: 'processando' }
-        await this.saveProgress(empId, { current: i, total, currentCliente: c.razaoSocial, status: 'running', items: progressItems })
+        total = clientes.length
 
-        try {
-          await this.cndService.consultar(docLimpo, tipDoc, { clienteId: c.id, empresaId: empId, userId: userId || undefined })
-          success++
-          progressItems[i] = { ...progressItems[i]!, status: 'ok' }
-        } catch (e) {
-          failed++
-          const msg = (e as Error).message
-          errors.push(`${c.razaoSocial}: ${msg}`)
-          progressItems[i] = { ...progressItems[i]!, status: 'erro', erro: msg }
+        const progressItems: CndScheduleProgress['items'] = clientes.map(c => ({ razaoSocial: c.razaoSocial, status: 'pendente' as const }))
+        await this.saveProgress(empId, { current: 0, total, currentCliente: '', status: 'running', items: progressItems })
+
+        let consultouAlgum = false
+        for (let i = 0; i < clientes.length; i++) {
+          const c = clientes[i]!
+          const docLimpo = limparDoc(c.documento)
+          const tipDoc = c.tipoDocumento === 'CPF' ? 2 : 1 // SERPRO: 1 = CNPJ, 2 = CPF
+
+          progressItems[i] = { ...progressItems[i]!, status: 'processando' }
+          await this.saveProgress(empId, { current: i, total, currentCliente: c.razaoSocial, status: 'running', items: progressItems })
+
+          try {
+            // Certidão ainda válida por mais de 15 dias não é reemitida —
+            // cada consulta ao SERPRO é paga. Conta como ok (a certidão existe).
+            if (!(await this.cndService.precisaConsultar(empId, docLimpo))) {
+              skipped++
+              progressItems[i] = { ...progressItems[i]!, status: 'ok' }
+            } else {
+              if (consultouAlgum) await new Promise(r => setTimeout(r, config.delayMs))
+              consultouAlgum = true
+              const r = await this.cndService.consultar(empId, docLimpo, tipDoc, { clienteId: c.id, userId: userId || undefined })
+              if (r.consultaFalhou) throw new Error(r.mensagemFalha || 'Consulta falhou (certidão anterior mantida)')
+              success++
+              progressItems[i] = { ...progressItems[i]!, status: 'ok' }
+            }
+          } catch (e) {
+            failed++
+            const msg = (e as Error).message
+            errors.push(`${c.razaoSocial}: ${msg}`)
+            progressItems[i] = { ...progressItems[i]!, status: 'erro', erro: msg }
+          }
+
+          await this.saveProgress(empId, { current: i + 1, total, currentCliente: c.razaoSocial, status: 'running', items: progressItems })
         }
 
-        await this.saveProgress(empId, { current: i + 1, total, currentCliente: c.razaoSocial, status: 'running', items: progressItems })
-
-        if (i < clientes.length - 1) await new Promise(r => setTimeout(r, config.delayMs))
+        await this.saveProgress(empId, { current: total, total, currentCliente: '', status: 'idle', items: progressItems })
+      } catch (e) {
+        errors.push(`Erro geral: ${(e as Error).message}`)
       }
 
-      await this.saveProgress(empId, { current: total, total, currentCliente: '', status: 'idle', items: progressItems })
-    } catch (e) {
-      errors.push(`Erro geral: ${(e as Error).message}`)
+      const finishedAt = new Date().toISOString()
+      const result = { total, success, failed, skipped, errors: errors.slice(0, 50), startedAt, finishedAt }
+
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO system_config (id, key, value, updated_at) VALUES ($1, $1, $2, NOW())
+         ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()`,
+        this.sk(CONFIG_KEYS.lastResult, empId), JSON.stringify(result),
+      )
+
+      logger.log(`Concluido (empresa ${empId}): ${success}/${total} sucesso, ${skipped} pulados, ${failed} falhas`)
+    } finally {
+      this.emExecucao.delete(empId)
     }
-
-    const finishedAt = new Date().toISOString()
-    const result = { total, success, failed, errors: errors.slice(0, 50), startedAt, finishedAt }
-
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO system_config (id, key, value, updated_at) VALUES ($1, $1, $2, NOW())
-       ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()`,
-      this.sk(CONFIG_KEYS.lastResult, empId), JSON.stringify(result),
-    )
-
-    this.isRunning = false
-    console.log(`[CND Scheduler] Concluido: ${success}/${total} sucesso, ${failed} falhas`)
   }
 
   // ── Clientes disponiveis ──────────────────────────────
@@ -288,7 +316,7 @@ export class CndSchedulerService implements OnModuleInit, OnModuleDestroy {
   // onModuleInit nem o updateConfig iniciam mais o agendamento automático.
   // Para reativar no futuro, restaure a criação do CronJob (histórico no git).
   private startCron(cronExpression: string) {
-    console.log(`[CND Scheduler] Cron desativado permanentemente (era '${cronExpression}') — consultas apenas manuais.`)
+    logger.log(`Cron desativado permanentemente (era '${cronExpression}') — consultas apenas manuais.`)
   }
 
   private stopCron() {

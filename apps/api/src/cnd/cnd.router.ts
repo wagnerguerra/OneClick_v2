@@ -13,8 +13,12 @@ import { AlvaraFuncionamentoService } from './alvara-funcionamento.service'
 import { CompilarCertidoesService } from './compilar-certidoes.service'
 import { TRPCError } from '@trpc/server'
 import { paginationSchema } from '@saas/types'
+import { exigirEmpresa, limparDoc } from './cnd-comum'
 
 const MODULE = 'certidoes-cnd'
+
+/** Toda rota trabalha para a empresa carregada (tenant) — sem ela, recusa. */
+const emp = (ctx: { empresaId?: string | null }) => exigirEmpresa(ctx.empresaId)
 
 export function createCndRouter(service: CndService, scheduler: CndSchedulerService, estadualService?: CndEstadualService, alvaraService?: AlvaraBombeirosService, municipalService?: CndMunicipalService, trabalhistaService?: CndtTrabalhistaService, fgtsService?: CrfFgtsService, cguService?: CguCertidaoService, alvaraFuncService?: AlvaraFuncionamentoService, compilarService?: CompilarCertidoesService) {
   return router({
@@ -31,14 +35,15 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
       }))
       .mutation(async ({ input, ctx }) => {
         if (!compilarService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço não disponível' })
-        compilarService.compilar(input.documento, input.tipos, input.forcarNova, ctx.userId)
+        // `compilar` nunca rejeita (try/catch no corpo inteiro): pode rodar solto.
+        void compilarService.compilar(emp(ctx), ctx.userId, input.documento, input.tipos, input.forcarNova)
         return { message: 'Processamento iniciado' }
       }),
 
     compilarProgress: readProcedure(MODULE)
-      .query(() => {
+      .query(({ ctx }) => {
         if (!compilarService) return { status: 'idle', items: [], current: 0, total: 0 }
-        return compilarService.getProgress()
+        return compilarService.getProgress(emp(ctx), ctx.userId)
       }),
 
     compilarRetry: writeProcedure(MODULE)
@@ -49,14 +54,14 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
       }))
       .mutation(async ({ input, ctx }) => {
         if (!compilarService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço não disponível' })
-        compilarService.reprocessarItem(input.documento, input.tipo, input.itemIndex, ctx.userId)
+        void compilarService.reprocessarItem(emp(ctx), ctx.userId, input.documento, input.tipo, input.itemIndex)
         return { message: 'Reprocessamento iniciado' }
       }),
 
     clienteContatos: readProcedure(MODULE)
       .input(z.object({ documento: z.string() }))
       .query(async ({ input, ctx }) => {
-        const doc = input.documento.replace(/\D/g, '')
+        const doc = limparDoc(input.documento)
         // Isolamento multi-tenant: só contatos de clientes da empresa do tenant
         // (evita vazar contatos de um cliente homônimo/CNPJ igual de outro tenant).
         const rows = await prisma.$queryRawUnsafe<Array<{ email: string; nome: string | null }>>(
@@ -64,18 +69,20 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
            JOIN clientes c ON c.id = cc.cliente_id
            WHERE c.status = 'ATIVO' AND cc.email IS NOT NULL AND cc.email != ''
            AND c.empresa_id = $2
-           AND REPLACE(REPLACE(REPLACE(c.documento, '.', ''), '/', ''), '-', '') = $1
-           ORDER BY cc.principal DESC, cc.nome ASC`, doc, ctx.empresaId ?? null,
+           AND UPPER(REGEXP_REPLACE(c.documento, '[^0-9A-Za-z]', '', 'g')) = $1
+           ORDER BY cc.principal DESC, cc.nome ASC`, doc, emp(ctx),
         )
         return rows
       }),
 
     salvarContato: writeProcedure(MODULE)
       .input(z.object({ documento: z.string(), email: z.string().email(), nome: z.string().optional() }))
-      .mutation(async ({ input }) => {
-        const doc = input.documento.replace(/\D/g, '')
+      .mutation(async ({ input, ctx }) => {
+        const doc = limparDoc(input.documento)
+        // Só cliente da empresa carregada — antes gravava contato em cliente de outro tenant.
         const cli = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
-          `SELECT id FROM clientes WHERE status = 'ATIVO' AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`, doc,
+          `SELECT id FROM clientes WHERE status = 'ATIVO' AND empresa_id = $2
+             AND UPPER(REGEXP_REPLACE(documento, '[^0-9A-Za-z]', '', 'g')) = $1 LIMIT 1`, doc, emp(ctx),
         )
         if (!cli[0]) throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente não encontrado' })
         // Verificar se já existe
@@ -93,9 +100,9 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
 
     compilarEnviar: writeProcedure(MODULE)
       .input(z.object({ email: z.string().email(), documento: z.string(), razaoSocial: z.string() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         if (!compilarService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço não disponível' })
-        const ok = await compilarService.enviarEmail(input.email, input.documento, input.razaoSocial)
+        const ok = await compilarService.enviarEmail(emp(ctx), ctx.userId, input.email, input.documento, input.razaoSocial)
         if (!ok) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Falha ao enviar e-mail. Verifique as configurações SMTP.' })
         return { message: `E-mail enviado para ${input.email}` }
       }),
@@ -103,54 +110,55 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
     // ── Certidões consolidadas por cliente ─────────────────
     certidoesCliente: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
+        const empresaId = emp(ctx)
         const rows: Array<{ id: string; tipo: string; label: string; situacao: string | null; dataValidade: string | null; dataConsulta: string | null; sucesso: boolean; temPdf: boolean }> = []
 
         // Federal
         const fed = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-          `SELECT id, tipo_certidao, data_validade, created_at, sucesso, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM certidoes_cnd WHERE cliente_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1`, input.clienteId,
+          `SELECT id, tipo_certidao, data_validade, created_at, sucesso, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM certidoes_cnd WHERE cliente_id = $1 AND empresa_id = $2 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1`, input.clienteId, empresaId,
         ).catch(() => [])
         if (fed[0]) rows.push({ id: fed[0].id as string, tipo: 'federal', label: 'CND Federal (PGFN/RFB)', situacao: fed[0].tipo_certidao as string | null, dataValidade: fed[0].data_validade ? (fed[0].data_validade as Date).toISOString().split('T')[0] ?? null : null, dataConsulta: fed[0].created_at ? (fed[0].created_at as Date).toISOString() : null, sucesso: fed[0].sucesso as boolean, temPdf: !!fed[0].tem_pdf })
 
         // Estadual
         const est = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-          `SELECT id, sucesso, mensagem, created_at, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM certidoes_cnd_estadual WHERE cliente_id = $1 ORDER BY created_at DESC LIMIT 1`, input.clienteId,
+          `SELECT id, sucesso, mensagem, created_at, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM certidoes_cnd_estadual WHERE cliente_id = $1 AND empresa_id = $2 ORDER BY created_at DESC LIMIT 1`, input.clienteId, empresaId,
         ).catch(() => [])
         if (est[0]) rows.push({ id: est[0].id as string, tipo: 'estadual', label: 'CND Estadual (SEFAZ ES)', situacao: est[0].sucesso ? 'Negativa' : (est[0].mensagem as string || 'Não emitida'), dataValidade: null, dataConsulta: est[0].created_at ? (est[0].created_at as Date).toISOString() : null, sucesso: est[0].sucesso as boolean, temPdf: !!est[0].tem_pdf })
 
         // Municipal
         const mun = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-          `SELECT id, tipo_certidao, municipio, data_validade, created_at, sucesso, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM certidoes_cnd_municipal WHERE cliente_id = $1 ORDER BY created_at DESC LIMIT 1`, input.clienteId,
+          `SELECT id, tipo_certidao, municipio, data_validade, created_at, sucesso, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM certidoes_cnd_municipal WHERE cliente_id = $1 AND empresa_id = $2 ORDER BY created_at DESC LIMIT 1`, input.clienteId, empresaId,
         ).catch(() => [])
         if (mun[0]) rows.push({ id: mun[0].id as string, tipo: 'municipal', label: `CND Municipal (${mun[0].municipio || ''})`, situacao: mun[0].tipo_certidao as string | null, dataValidade: mun[0].data_validade ? (mun[0].data_validade as Date).toISOString().split('T')[0] ?? null : null, dataConsulta: mun[0].created_at ? (mun[0].created_at as Date).toISOString() : null, sucesso: mun[0].sucesso as boolean, temPdf: !!mun[0].tem_pdf })
 
         // Trabalhista
         const trb = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-          `SELECT id, tipo_certidao, data_validade, created_at, sucesso, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM certidoes_cndt WHERE cliente_id = $1 ORDER BY created_at DESC LIMIT 1`, input.clienteId,
+          `SELECT id, tipo_certidao, data_validade, created_at, sucesso, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM certidoes_cndt WHERE cliente_id = $1 AND empresa_id = $2 ORDER BY created_at DESC LIMIT 1`, input.clienteId, empresaId,
         ).catch(() => [])
         if (trb[0]) rows.push({ id: trb[0].id as string, tipo: 'trabalhista', label: 'CNDT Trabalhista (TST)', situacao: trb[0].tipo_certidao as string | null, dataValidade: trb[0].data_validade ? (trb[0].data_validade as Date).toISOString().split('T')[0] ?? null : null, dataConsulta: trb[0].created_at ? (trb[0].created_at as Date).toISOString() : null, sucesso: trb[0].sucesso as boolean, temPdf: !!trb[0].tem_pdf })
 
         // FGTS
         const fgts = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-          `SELECT id, tipo_certidao, data_validade, created_at, sucesso, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM certidoes_crf_fgts WHERE cliente_id = $1 ORDER BY created_at DESC LIMIT 1`, input.clienteId,
+          `SELECT id, tipo_certidao, data_validade, created_at, sucesso, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM certidoes_crf_fgts WHERE cliente_id = $1 AND empresa_id = $2 ORDER BY created_at DESC LIMIT 1`, input.clienteId, empresaId,
         ).catch(() => [])
         if (fgts[0]) rows.push({ id: fgts[0].id as string, tipo: 'fgts', label: 'CRF/FGTS (Caixa)', situacao: fgts[0].tipo_certidao as string | null, dataValidade: fgts[0].data_validade ? (fgts[0].data_validade as Date).toISOString().split('T')[0] ?? null : null, dataConsulta: fgts[0].created_at ? (fgts[0].created_at as Date).toISOString() : null, sucesso: fgts[0].sucesso as boolean, temPdf: !!fgts[0].tem_pdf })
 
         // CGU
         const cgu = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-          `SELECT id, tipo_certidao, created_at, sucesso, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM certidoes_cgu WHERE cliente_id = $1 ORDER BY created_at DESC LIMIT 1`, input.clienteId,
+          `SELECT id, tipo_certidao, created_at, sucesso, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM certidoes_cgu WHERE cliente_id = $1 AND empresa_id = $2 ORDER BY created_at DESC LIMIT 1`, input.clienteId, empresaId,
         ).catch(() => [])
         if (cgu[0]) rows.push({ id: cgu[0].id as string, tipo: 'cgu', label: 'CGU (Certidão Correcional)', situacao: cgu[0].tipo_certidao as string | null, dataValidade: null, dataConsulta: cgu[0].created_at ? (cgu[0].created_at as Date).toISOString() : null, sucesso: cgu[0].sucesso as boolean, temPdf: !!cgu[0].tem_pdf })
 
         // Alvará Bombeiros
         const alv = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-          `SELECT id, alvara_id, status, data_fim_validade, created_at, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM alvaras_bombeiros WHERE cliente_id = $1 ORDER BY created_at DESC LIMIT 1`, input.clienteId,
+          `SELECT id, alvara_id, status, data_fim_validade, created_at, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM alvaras_bombeiros WHERE cliente_id = $1 AND empresa_id = $2 ORDER BY created_at DESC LIMIT 1`, input.clienteId, empresaId,
         ).catch(() => [])
         if (alv[0]) rows.push({ id: alv[0].id as string, tipo: 'alvara_bombeiros', label: 'Alvará Bombeiros (CBMES)', situacao: alv[0].status as string | null, dataValidade: alv[0].data_fim_validade ? String(alv[0].data_fim_validade).slice(0, 10) : null, dataConsulta: alv[0].created_at ? (alv[0].created_at as Date).toISOString() : null, sucesso: (alv[0].status as string) === 'Regular', temPdf: !!alv[0].tem_pdf })
 
         // Alvará Funcionamento
         const alvFunc = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-          `SELECT id, sucesso, municipio, mensagem, created_at, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM alvaras_funcionamento WHERE cliente_id = $1 ORDER BY created_at DESC LIMIT 1`, input.clienteId,
+          `SELECT id, sucesso, municipio, mensagem, created_at, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM alvaras_funcionamento WHERE cliente_id = $1 AND empresa_id = $2 ORDER BY created_at DESC LIMIT 1`, input.clienteId, empresaId,
         ).catch(() => [])
         if (alvFunc[0]) rows.push({ id: alvFunc[0].id as string, tipo: 'alvara_func', label: `Alvará Funcionamento (${alvFunc[0].municipio || ''})`, situacao: alvFunc[0].sucesso ? 'Emitido' : (alvFunc[0].mensagem as string || 'Não emitido'), dataValidade: null, dataConsulta: alvFunc[0].created_at ? (alvFunc[0].created_at as Date).toISOString() : null, sucesso: alvFunc[0].sucesso as boolean, temPdf: !!alvFunc[0].tem_pdf })
 
@@ -159,7 +167,7 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
 
     certidaoPdf: readProcedure(MODULE)
       .input(z.object({ tipo: z.string(), id: z.string() }))
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
         const tableMap: Record<string, string> = {
           federal: 'certidoes_cnd', estadual: 'certidoes_cnd_estadual', municipal: 'certidoes_cnd_municipal',
           trabalhista: 'certidoes_cndt', fgts: 'certidoes_crf_fgts', cgu: 'certidoes_cgu',
@@ -168,7 +176,8 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
         const table = tableMap[input.tipo]
         if (!table) return { pdfBase64: null }
         const rows = await prisma.$queryRawUnsafe<Array<{ pdf_base64: string | null }>>(
-          `SELECT pdf_base64 FROM ${table} WHERE id = $1`, input.id,
+          // `table` vem do mapa fixo acima (nunca do usuário); id e empresa por parâmetro.
+          `SELECT pdf_base64 FROM ${table} WHERE id = $1 AND empresa_id = $2`, input.id, emp(ctx),
         ).catch(() => [])
         return { pdfBase64: rows[0]?.pdf_base64 || null }
       }),
@@ -182,23 +191,26 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
         clienteId: z.string().optional(),
         forcarNova: z.boolean().optional(),
       }))
-      .mutation(({ input, ctx }) => service.consultar(input.documento, input.tipoDocumento, {
+      .mutation(({ input, ctx }) => service.consultar(emp(ctx), input.documento, input.tipoDocumento, {
         clienteId: input.clienteId,
-        empresaId: ctx.empresaId ?? undefined,
         userId: ctx.userId,
         forcarNova: input.forcarNova,
       })),
 
     consultarLote: writeProcedure(MODULE)
-      .input(z.object({ documentos: z.array(z.string()).min(1).max(500) }))
-      .mutation(({ input, ctx }) => service.consultarLote(input.documentos, ctx.empresaId ?? null, ctx.userId)),
+      .input(z.object({ documentos: z.array(z.string()).min(1).max(500), forcarNova: z.boolean().optional() }))
+      // Roda em segundo plano (antes prendia a requisição por horas); progresso em `progressoLote`.
+      .mutation(({ input, ctx }) => service.consultarLote(emp(ctx), input.documentos, ctx.userId, input.forcarNova ?? false)),
+
+    progressoLote: readProcedure(MODULE)
+      .query(({ ctx }) => service.progressoLote(emp(ctx))),
 
     verificarCache: readProcedure(MODULE)
       .input(z.object({ documento: z.string().min(11) }))
-      .query(({ input }) => service.verificarCache(input.documento)),
+      .query(({ input, ctx }) => service.verificarCache(emp(ctx), input.documento)),
 
     totalizadores: readProcedure(MODULE)
-      .query(({ ctx }) => service.totalizadores(ctx.empresaId ?? null)),
+      .query(({ ctx }) => service.totalizadores(emp(ctx))),
 
     // ── Listagem ─────────────────────────────────────────
 
@@ -208,40 +220,40 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
         tipoCertidao: z.string().optional(),
         lixeira: z.boolean().optional(),
       }))
-      .query(({ input }) => service.list(input)),
+      .query(({ input, ctx }) => service.list(emp(ctx), input)),
 
     getById: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .query(({ input }) => service.getById(input.id)),
+      .query(({ input, ctx }) => service.getById(emp(ctx), input.id)),
 
     getPdf: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .query(({ input }) => service.getPdf(input.id)),
+      .query(({ input, ctx }) => service.getPdf(emp(ctx), input.id)),
 
     // ── Exclusao ─────────────────────────────────────────
 
     delete: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => service.softDelete(input.id)),
+      .mutation(({ input, ctx }) => service.softDelete(emp(ctx), input.id)),
 
     restore: writeProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => service.restore(input.id)),
+      .mutation(({ input, ctx }) => service.restore(emp(ctx), input.id)),
 
     hardDelete: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => service.hardDelete(input.id)),
+      .mutation(({ input, ctx }) => service.hardDelete(emp(ctx), input.id)),
 
     // ── Logs de execucao ──────────────────────────────────
 
     execLogs: readProcedure(MODULE)
       .input(z.object({ limit: z.number().min(1).max(100).default(20), offset: z.number().min(0).default(0) }).optional())
-      .query(({ input }) => service.listarExecLogs(input?.limit ?? 20, input?.offset ?? 0)),
+      .query(({ input, ctx }) => service.listarExecLogs(emp(ctx), input?.limit ?? 20, input?.offset ?? 0)),
 
     // ── Clientes mensais ─────────────────────────────────
 
     clientesMensais: readProcedure(MODULE)
-      .query(() => service.listarClientesMensais()),
+      .query(({ ctx }) => service.listarClientesMensais(emp(ctx))),
 
     // ── Agendamento ──────────────────────────────────────
 
@@ -283,56 +295,57 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
         .input(z.object({ documento: z.string().min(11), clienteId: z.string().optional() }))
         .mutation(({ input, ctx }) => {
           if (!estadualService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço de CND Estadual não disponível' })
-          return estadualService.consultar(input.documento, input.clienteId, ctx.userId)
+          return estadualService.consultar(emp(ctx), input.documento, input.clienteId, ctx.userId)
         }),
 
       consultarLote: writeProcedure(MODULE)
         .input(z.object({
           documentos: z.array(z.object({ documento: z.string(), clienteId: z.string().optional(), razaoSocial: z.string().optional() })),
+          forcarNova: z.boolean().optional(),
         }))
         .mutation(({ input, ctx }) => {
           if (!estadualService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço de CND Estadual não disponível' })
-          return estadualService.consultarLote(input.documentos, ctx.userId)
+          return estadualService.consultarLote(emp(ctx), input.documentos, ctx.userId, input.forcarNova ?? false)
         }),
 
       list: readProcedure(MODULE)
         .input(z.object({ page: z.number().default(1), limit: z.number().default(20), search: z.string().optional() }))
-        .query(({ input }) => {
+        .query(({ input, ctx }) => {
           if (!estadualService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço de CND Estadual não disponível' })
-          return estadualService.list(input)
+          return estadualService.list(emp(ctx), input)
         }),
 
       getPdf: readProcedure(MODULE)
         .input(z.object({ id: z.string() }))
-        .query(({ input }) => {
+        .query(({ input, ctx }) => {
           if (!estadualService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço de CND Estadual não disponível' })
-          return estadualService.getPdf(input.id)
+          return estadualService.getPdf(emp(ctx), input.id)
         }),
 
       totalizadores: readProcedure(MODULE)
-        .query(() => {
+        .query(({ ctx }) => {
           if (!estadualService) return { total: 0, emitidas: 0, naoEmitidas: 0 }
-          return estadualService.totalizadores()
+          return estadualService.totalizadores(emp(ctx))
         }),
 
       loteProgress: readProcedure(MODULE)
-        .query(() => {
+        .query(({ ctx }) => {
           if (!estadualService) return { status: 'idle', total: 0, current: 0, emitidas: 0, naoEmitidas: 0, erros: 0, currentCliente: '', items: [] }
-          return estadualService.getLoteProgress()
+          return estadualService.getLoteProgress(emp(ctx))
         }),
 
       delete: deleteProcedure(MODULE)
         .input(z.object({ id: z.string() }))
-        .mutation(({ input }) => {
+        .mutation(({ input, ctx }) => {
           if (!estadualService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço Estadual não disponível' })
-          return estadualService.deleteEstadual(input.id)
+          return estadualService.deleteEstadual(emp(ctx), input.id)
         }),
 
       deleteLote: deleteProcedure(MODULE)
         .input(z.object({ ids: z.array(z.string()).min(1).max(500) }))
-        .mutation(({ input }) => {
+        .mutation(({ input, ctx }) => {
           if (!estadualService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço Estadual não disponível' })
-          return estadualService.deleteLote(input.ids)
+          return estadualService.deleteLote(emp(ctx), input.ids)
         }),
     }),
 
@@ -342,20 +355,20 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
         .input(z.object({ razaoSocial: z.string().min(3), clienteId: z.string().optional() }))
         .mutation(({ input, ctx }) => {
           if (!alvaraService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço de Alvará não disponível' })
-          return alvaraService.consultar(input.razaoSocial, input.clienteId, ctx.userId)
+          return alvaraService.consultar(emp(ctx), input.razaoSocial, input.clienteId, ctx.userId)
         }),
 
       list: readProcedure(MODULE)
         .input(z.object({ page: z.number().default(1), limit: z.number().default(20), search: z.string().optional() }))
-        .query(({ input }) => {
+        .query(({ input, ctx }) => {
           if (!alvaraService) return { data: [], total: 0, page: 1, limit: 20, totalPages: 0 }
-          return alvaraService.list(input)
+          return alvaraService.list(emp(ctx), input)
         }),
 
       totalizadores: readProcedure(MODULE)
-        .query(() => {
+        .query(({ ctx }) => {
           if (!alvaraService) return { total: 0, regulares: 0, irregulares: 0 }
-          return alvaraService.totalizadores()
+          return alvaraService.totalizadores(emp(ctx))
         }),
 
       consultarLote: writeProcedure(MODULE)
@@ -364,34 +377,34 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
         }))
         .mutation(({ input, ctx }) => {
           if (!alvaraService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço não disponível' })
-          return alvaraService.consultarLote(input.clientes, ctx.userId)
+          return alvaraService.consultarLote(emp(ctx), input.clientes, ctx.userId)
         }),
 
       loteProgress: readProcedure(MODULE)
-        .query(() => {
+        .query(({ ctx }) => {
           if (!alvaraService) return { status: 'idle', total: 0, current: 0, encontrados: 0, naoEncontrados: 0, erros: 0, currentCliente: '', items: [] }
-          return alvaraService.getLoteProgress()
+          return alvaraService.getLoteProgress(emp(ctx))
         }),
 
       getPdf: readProcedure(MODULE)
         .input(z.object({ alvaraId: z.number() }))
-        .query(({ input }) => {
+        .query(({ input, ctx }) => {
           if (!alvaraService) return { pdfBase64: null }
-          return alvaraService.getPdf(input.alvaraId)
+          return alvaraService.getPdf(emp(ctx), input.alvaraId)
         }),
 
       delete: deleteProcedure(MODULE)
         .input(z.object({ id: z.string() }))
-        .mutation(({ input }) => {
+        .mutation(({ input, ctx }) => {
           if (!alvaraService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço Alvará não disponível' })
-          return alvaraService.deleteAlvara(input.id)
+          return alvaraService.deleteAlvara(emp(ctx), input.id)
         }),
 
       deleteLote: deleteProcedure(MODULE)
         .input(z.object({ ids: z.array(z.string()).min(1).max(500) }))
-        .mutation(({ input }) => {
+        .mutation(({ input, ctx }) => {
           if (!alvaraService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço Alvará não disponível' })
-          return alvaraService.deleteLote(input.ids)
+          return alvaraService.deleteLote(emp(ctx), input.ids)
         }),
     }),
 
@@ -402,10 +415,10 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
         .mutation(({ input, ctx }) => {
           if (!municipalService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço Municipal não disponível' })
           const mun = input.municipio.toUpperCase()
-          if (mun === 'VITÓRIA' || mun === 'VITORIA') return municipalService.consultarVitoria(input.documento, input.clienteId, ctx.userId)
-          if (mun === 'VILA VELHA') return municipalService.consultarVilaVelha(input.documento, input.clienteId, ctx.userId)
-          if (mun === 'SERRA') return municipalService.consultarSerra(input.documento, input.clienteId, ctx.userId)
-          if (mun === 'CARIACICA') return municipalService.consultarCariacica(input.documento, input.clienteId, ctx.userId)
+          if (mun === 'VITÓRIA' || mun === 'VITORIA') return municipalService.consultarVitoria(emp(ctx), input.documento, input.clienteId, ctx.userId)
+          if (mun === 'VILA VELHA') return municipalService.consultarVilaVelha(emp(ctx), input.documento, input.clienteId, ctx.userId)
+          if (mun === 'SERRA') return municipalService.consultarSerra(emp(ctx), input.documento, input.clienteId, ctx.userId)
+          if (mun === 'CARIACICA') return municipalService.consultarCariacica(emp(ctx), input.documento, input.clienteId, ctx.userId)
           throw new TRPCError({ code: 'BAD_REQUEST', message: `Município "${input.municipio}" ainda não suportado` })
         }),
 
@@ -413,9 +426,9 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
         .input(z.object({ municipio: z.string().default('Vitória') }))
         .mutation(async ({ input, ctx }) => {
           if (!municipalService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço Municipal não disponível' })
-          const clientes = await municipalService.listarClientesMunicipio(input.municipio)
+          const clientes = await municipalService.listarClientesMunicipio(emp(ctx), input.municipio)
           if (clientes.length === 0) throw new TRPCError({ code: 'NOT_FOUND', message: `Nenhum cliente mensal encontrado no município de ${input.municipio}` })
-          return municipalService.consultarLoteMunicipio(
+          return municipalService.consultarLoteMunicipio(emp(ctx), 
             input.municipio,
             clientes.map(c => ({ documento: c.documento, clienteId: c.id, razaoSocial: c.razaoSocial })),
             ctx.userId,
@@ -424,62 +437,62 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
 
       list: readProcedure(MODULE)
         .input(z.object({ page: z.number().default(1), limit: z.number().default(20), search: z.string().optional(), municipio: z.string().optional(), filtroStatus: z.string().optional() }))
-        .query(({ input }) => {
+        .query(({ input, ctx }) => {
           if (!municipalService) return { data: [], total: 0, page: 1, limit: 20, totalPages: 0 }
-          return municipalService.list(input)
+          return municipalService.list(emp(ctx), input)
         }),
 
       totalizadores: readProcedure(MODULE)
         .input(z.object({ municipio: z.string().optional() }).optional())
-        .query(({ input }) => {
+        .query(({ input, ctx }) => {
           if (!municipalService) return { total: 0, negativas: 0, positivas: 0, naoEmitidas: 0, vencidas: 0, vencendo: 0, vigentes: 0 }
-          return municipalService.totalizadores(input?.municipio)
+          return municipalService.totalizadores(emp(ctx), input?.municipio)
         }),
 
       loteProgress: readProcedure(MODULE)
-        .query(() => {
+        .query(({ ctx }) => {
           if (!municipalService) return { status: 'idle', total: 0, current: 0, emitidas: 0, naoEmitidas: 0, erros: 0, currentCliente: '', items: [] }
-          return municipalService.getLoteProgress()
+          return municipalService.getLoteProgress(emp(ctx))
         }),
 
       consultaEtapa: readProcedure(MODULE)
-        .query(() => {
+        .query(({ ctx }) => {
           if (!municipalService) return { etapa: '' }
-          return { etapa: municipalService.getConsultaEtapa() }
+          return { etapa: municipalService.getConsultaEtapa(emp(ctx)) }
         }),
 
       validadeDashboard: readProcedure(MODULE)
-        .query(() => {
+        .query(({ ctx }) => {
           if (!municipalService) return []
-          return municipalService.listarValidadeDashboard()
+          return municipalService.listarValidadeDashboard(emp(ctx))
         }),
 
       delete: deleteProcedure(MODULE)
         .input(z.object({ id: z.string() }))
-        .mutation(({ input }) => {
+        .mutation(({ input, ctx }) => {
           if (!municipalService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço Municipal não disponível' })
-          return municipalService.deleteMunicipal(input.id)
+          return municipalService.deleteMunicipal(emp(ctx), input.id)
         }),
 
       deleteLote: deleteProcedure(MODULE)
         .input(z.object({ ids: z.array(z.string()).min(1).max(500) }))
-        .mutation(({ input }) => {
+        .mutation(({ input, ctx }) => {
           if (!municipalService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço Municipal não disponível' })
-          return municipalService.deleteMunicipalLote(input.ids)
+          return municipalService.deleteMunicipalLote(emp(ctx), input.ids)
         }),
 
       clientesMunicipio: readProcedure(MODULE)
         .input(z.object({ municipio: z.string() }))
-        .query(({ input }) => {
+        .query(({ input, ctx }) => {
           if (!municipalService) return []
-          return municipalService.listarClientesMunicipio(input.municipio)
+          return municipalService.listarClientesMunicipio(emp(ctx), input.municipio)
         }),
 
       getDetalhes: readProcedure(MODULE)
         .input(z.object({ id: z.string() }))
-        .query(async ({ input }) => {
+        .query(async ({ input, ctx }) => {
           const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-            `SELECT debitos, pdf_base64 FROM certidoes_cnd_municipal WHERE id = $1`, input.id,
+            `SELECT debitos, pdf_base64 FROM certidoes_cnd_municipal WHERE id = $1 AND empresa_id = $2`, input.id, emp(ctx),
           )
           if (!rows.length) return { debitos: [], pdfBase64: null }
           return {
@@ -495,62 +508,63 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
         .input(z.object({ documento: z.string().min(11), clienteId: z.string().optional() }))
         .mutation(({ input, ctx }) => {
           if (!trabalhistaService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço CNDT não disponível' })
-          return trabalhistaService.consultar(input.documento, input.clienteId, ctx.userId)
+          return trabalhistaService.consultar(emp(ctx), input.documento, input.clienteId, ctx.userId)
         }),
 
       consultarLote: writeProcedure(MODULE)
         .input(z.object({
           documentos: z.array(z.object({ documento: z.string(), clienteId: z.string().optional(), razaoSocial: z.string().optional() })),
+          forcarNova: z.boolean().optional(),
         }))
         .mutation(({ input, ctx }) => {
           if (!trabalhistaService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço CNDT não disponível' })
-          return trabalhistaService.consultarLote(input.documentos, ctx.userId)
+          return trabalhistaService.consultarLote(emp(ctx), input.documentos, ctx.userId, input.forcarNova ?? false)
         }),
 
       list: readProcedure(MODULE)
         .input(z.object({ page: z.number().default(1), limit: z.number().default(10), search: z.string().optional(), filtroStatus: z.string().optional() }))
-        .query(({ input }) => {
+        .query(({ input, ctx }) => {
           if (!trabalhistaService) return { data: [], total: 0, page: 1, limit: 10, totalPages: 0 }
-          return trabalhistaService.list(input)
+          return trabalhistaService.list(emp(ctx), input)
         }),
 
       totalizadores: readProcedure(MODULE)
-        .query(() => {
+        .query(({ ctx }) => {
           if (!trabalhistaService) return { total: 0, negativas: 0, positivas: 0, naoEmitidas: 0, vencidas: 0, vencendo: 0, vigentes: 0 }
-          return trabalhistaService.totalizadores()
+          return trabalhistaService.totalizadores(emp(ctx))
         }),
 
       getPdf: readProcedure(MODULE)
         .input(z.object({ id: z.string() }))
-        .query(({ input }) => {
+        .query(({ input, ctx }) => {
           if (!trabalhistaService) return { pdfBase64: null }
-          return trabalhistaService.getPdf(input.id)
+          return trabalhistaService.getPdf(emp(ctx), input.id)
         }),
 
       loteProgress: readProcedure(MODULE)
-        .query(() => {
+        .query(({ ctx }) => {
           if (!trabalhistaService) return { status: 'idle', total: 0, current: 0, emitidas: 0, naoEmitidas: 0, erros: 0, currentCliente: '', items: [] }
-          return trabalhistaService.getLoteProgress()
+          return trabalhistaService.getLoteProgress(emp(ctx))
         }),
 
       consultaEtapa: readProcedure(MODULE)
-        .query(() => {
+        .query(({ ctx }) => {
           if (!trabalhistaService) return { etapa: '' }
-          return { etapa: trabalhistaService.getConsultaEtapa() }
+          return { etapa: trabalhistaService.getConsultaEtapa(emp(ctx)) }
         }),
 
       delete: deleteProcedure(MODULE)
         .input(z.object({ id: z.string() }))
-        .mutation(({ input }) => {
+        .mutation(({ input, ctx }) => {
           if (!trabalhistaService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço CNDT não disponível' })
-          return trabalhistaService.deleteCndt(input.id)
+          return trabalhistaService.deleteCndt(emp(ctx), input.id)
         }),
 
       deleteLote: deleteProcedure(MODULE)
         .input(z.object({ ids: z.array(z.string()).min(1).max(500) }))
-        .mutation(({ input }) => {
+        .mutation(({ input, ctx }) => {
           if (!trabalhistaService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço CNDT não disponível' })
-          return trabalhistaService.deleteLote(input.ids)
+          return trabalhistaService.deleteLote(emp(ctx), input.ids)
         }),
     }),
 
@@ -560,62 +574,63 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
         .input(z.object({ documento: z.string().min(11), clienteId: z.string().optional() }))
         .mutation(({ input, ctx }) => {
           if (!fgtsService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço CRF/FGTS não disponível' })
-          return fgtsService.consultar(input.documento, input.clienteId, ctx.userId)
+          return fgtsService.consultar(emp(ctx), input.documento, input.clienteId, ctx.userId)
         }),
 
       consultarLote: writeProcedure(MODULE)
         .input(z.object({
           documentos: z.array(z.object({ documento: z.string(), clienteId: z.string().optional(), razaoSocial: z.string().optional() })),
+          forcarNova: z.boolean().optional(),
         }))
         .mutation(({ input, ctx }) => {
           if (!fgtsService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço CRF/FGTS não disponível' })
-          return fgtsService.consultarLote(input.documentos, ctx.userId)
+          return fgtsService.consultarLote(emp(ctx), input.documentos, ctx.userId, input.forcarNova ?? false)
         }),
 
       list: readProcedure(MODULE)
         .input(z.object({ page: z.number().default(1), limit: z.number().default(10), search: z.string().optional(), filtroStatus: z.string().optional() }))
-        .query(({ input }) => {
+        .query(({ input, ctx }) => {
           if (!fgtsService) return { data: [], total: 0, page: 1, limit: 10, totalPages: 0 }
-          return fgtsService.list(input)
+          return fgtsService.list(emp(ctx), input)
         }),
 
       totalizadores: readProcedure(MODULE)
-        .query(() => {
+        .query(({ ctx }) => {
           if (!fgtsService) return { total: 0, regulares: 0, irregulares: 0, naoEmitidas: 0, vencidas: 0, vencendo: 0, vigentes: 0 }
-          return fgtsService.totalizadores()
+          return fgtsService.totalizadores(emp(ctx))
         }),
 
       getPdf: readProcedure(MODULE)
         .input(z.object({ id: z.string() }))
-        .query(({ input }) => {
+        .query(({ input, ctx }) => {
           if (!fgtsService) return { pdfBase64: null }
-          return fgtsService.getPdf(input.id)
+          return fgtsService.getPdf(emp(ctx), input.id)
         }),
 
       loteProgress: readProcedure(MODULE)
-        .query(() => {
+        .query(({ ctx }) => {
           if (!fgtsService) return { status: 'idle', total: 0, current: 0, emitidas: 0, naoEmitidas: 0, erros: 0, currentCliente: '', items: [] }
-          return fgtsService.getLoteProgress()
+          return fgtsService.getLoteProgress(emp(ctx))
         }),
 
       consultaEtapa: readProcedure(MODULE)
-        .query(() => {
+        .query(({ ctx }) => {
           if (!fgtsService) return { etapa: '' }
-          return { etapa: fgtsService.getConsultaEtapa() }
+          return { etapa: fgtsService.getConsultaEtapa(emp(ctx)) }
         }),
 
       delete: deleteProcedure(MODULE)
         .input(z.object({ id: z.string() }))
-        .mutation(({ input }) => {
+        .mutation(({ input, ctx }) => {
           if (!fgtsService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço CRF/FGTS não disponível' })
-          return fgtsService.deleteCrf(input.id)
+          return fgtsService.deleteCrf(emp(ctx), input.id)
         }),
 
       deleteLote: deleteProcedure(MODULE)
         .input(z.object({ ids: z.array(z.string()).min(1).max(500) }))
-        .mutation(({ input }) => {
+        .mutation(({ input, ctx }) => {
           if (!fgtsService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço CRF/FGTS não disponível' })
-          return fgtsService.deleteLote(input.ids)
+          return fgtsService.deleteLote(emp(ctx), input.ids)
         }),
     }),
 
@@ -625,62 +640,63 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
         .input(z.object({ documento: z.string().min(11), clienteId: z.string().optional() }))
         .mutation(({ input, ctx }) => {
           if (!cguService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço CGU não disponível' })
-          return cguService.consultar(input.documento, input.clienteId, ctx.userId)
+          return cguService.consultar(emp(ctx), input.documento, input.clienteId, ctx.userId)
         }),
 
       consultarLote: writeProcedure(MODULE)
         .input(z.object({
           documentos: z.array(z.object({ documento: z.string(), clienteId: z.string().optional(), razaoSocial: z.string().optional() })),
+          forcarNova: z.boolean().optional(),
         }))
         .mutation(({ input, ctx }) => {
           if (!cguService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço CGU não disponível' })
-          return cguService.consultarLote(input.documentos, ctx.userId)
+          return cguService.consultarLote(emp(ctx), input.documentos, ctx.userId, input.forcarNova ?? false)
         }),
 
       list: readProcedure(MODULE)
         .input(z.object({ page: z.number().default(1), limit: z.number().default(10), search: z.string().optional(), filtroStatus: z.string().optional() }))
-        .query(({ input }) => {
+        .query(({ input, ctx }) => {
           if (!cguService) return { data: [], total: 0, page: 1, limit: 10, totalPages: 0 }
-          return cguService.list(input)
+          return cguService.list(emp(ctx), input)
         }),
 
       totalizadores: readProcedure(MODULE)
-        .query(() => {
+        .query(({ ctx }) => {
           if (!cguService) return { total: 0, nadaConsta: 0, consta: 0, naoEmitidas: 0 }
-          return cguService.totalizadores()
+          return cguService.totalizadores(emp(ctx))
         }),
 
       getPdf: readProcedure(MODULE)
         .input(z.object({ id: z.string() }))
-        .query(({ input }) => {
+        .query(({ input, ctx }) => {
           if (!cguService) return { pdfBase64: null }
-          return cguService.getPdf(input.id)
+          return cguService.getPdf(emp(ctx), input.id)
         }),
 
       loteProgress: readProcedure(MODULE)
-        .query(() => {
+        .query(({ ctx }) => {
           if (!cguService) return { status: 'idle', total: 0, current: 0, emitidas: 0, naoEmitidas: 0, erros: 0, currentCliente: '', items: [] }
-          return cguService.getLoteProgress()
+          return cguService.getLoteProgress(emp(ctx))
         }),
 
       consultaEtapa: readProcedure(MODULE)
-        .query(() => {
+        .query(({ ctx }) => {
           if (!cguService) return { etapa: '' }
-          return { etapa: cguService.getConsultaEtapa() }
+          return { etapa: cguService.getConsultaEtapa(emp(ctx)) }
         }),
 
       delete: deleteProcedure(MODULE)
         .input(z.object({ id: z.string() }))
-        .mutation(({ input }) => {
+        .mutation(({ input, ctx }) => {
           if (!cguService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço CGU não disponível' })
-          return cguService.deleteCgu(input.id)
+          return cguService.deleteCgu(emp(ctx), input.id)
         }),
 
       deleteLote: deleteProcedure(MODULE)
         .input(z.object({ ids: z.array(z.string()).min(1).max(500) }))
-        .mutation(({ input }) => {
+        .mutation(({ input, ctx }) => {
           if (!cguService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço CGU não disponível' })
-          return cguService.deleteLote(input.ids)
+          return cguService.deleteLote(emp(ctx), input.ids)
         }),
     }),
 
@@ -690,63 +706,63 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
         .input(z.object({ documento: z.string().min(11), municipio: z.string(), clienteId: z.string().optional() }))
         .mutation(({ input, ctx }) => {
           if (!alvaraFuncService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço não disponível' })
-          return alvaraFuncService.consultar(input.documento, input.municipio, input.clienteId, ctx.userId)
+          return alvaraFuncService.consultar(emp(ctx), input.documento, input.municipio, input.clienteId, ctx.userId)
         }),
 
       consultarLote: writeProcedure(MODULE)
         .input(z.object({ municipio: z.string() }))
         .mutation(async ({ input, ctx }) => {
           if (!alvaraFuncService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço não disponível' })
-          const clientes = await alvaraFuncService.listarClientesMunicipio(input.municipio)
+          const clientes = await alvaraFuncService.listarClientesMunicipio(emp(ctx), input.municipio)
           if (clientes.length === 0) throw new TRPCError({ code: 'NOT_FOUND', message: `Nenhum cliente mensal em ${input.municipio}` })
-          return alvaraFuncService.consultarLote(input.municipio, clientes.map(c => ({ documento: c.documento, clienteId: c.id, razaoSocial: c.razaoSocial })), ctx.userId)
+          return alvaraFuncService.consultarLote(emp(ctx), input.municipio, clientes.map(c => ({ documento: c.documento, clienteId: c.id, razaoSocial: c.razaoSocial })), ctx.userId)
         }),
 
       list: readProcedure(MODULE)
         .input(z.object({ page: z.number().default(1), limit: z.number().default(10), search: z.string().optional(), municipio: z.string().optional() }))
-        .query(({ input }) => {
+        .query(({ input, ctx }) => {
           if (!alvaraFuncService) return { data: [], total: 0, page: 1, limit: 10, totalPages: 0 }
-          return alvaraFuncService.list(input)
+          return alvaraFuncService.list(emp(ctx), input)
         }),
 
       totalizadores: readProcedure(MODULE)
         .input(z.object({ municipio: z.string().optional() }).optional())
-        .query(({ input }) => {
+        .query(({ input, ctx }) => {
           if (!alvaraFuncService) return { total: 0, emitidos: 0, naoEmitidos: 0 }
-          return alvaraFuncService.totalizadores(input?.municipio)
+          return alvaraFuncService.totalizadores(emp(ctx), input?.municipio)
         }),
 
       getPdf: readProcedure(MODULE)
         .input(z.object({ id: z.string() }))
-        .query(({ input }) => {
+        .query(({ input, ctx }) => {
           if (!alvaraFuncService) return { pdfBase64: null }
-          return alvaraFuncService.getPdf(input.id)
+          return alvaraFuncService.getPdf(emp(ctx), input.id)
         }),
 
       loteProgress: readProcedure(MODULE)
-        .query(() => {
+        .query(({ ctx }) => {
           if (!alvaraFuncService) return { status: 'idle', total: 0, current: 0, emitidas: 0, naoEmitidas: 0, erros: 0, currentCliente: '', items: [] }
-          return alvaraFuncService.getLoteProgress()
+          return alvaraFuncService.getLoteProgress(emp(ctx))
         }),
 
       consultaEtapa: readProcedure(MODULE)
-        .query(() => {
+        .query(({ ctx }) => {
           if (!alvaraFuncService) return { etapa: '' }
-          return { etapa: alvaraFuncService.getConsultaEtapa() }
+          return { etapa: alvaraFuncService.getConsultaEtapa(emp(ctx)) }
         }),
 
       delete: deleteProcedure(MODULE)
         .input(z.object({ id: z.string() }))
-        .mutation(({ input }) => {
+        .mutation(({ input, ctx }) => {
           if (!alvaraFuncService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço não disponível' })
-          return alvaraFuncService.deleteAlvara(input.id)
+          return alvaraFuncService.deleteAlvara(emp(ctx), input.id)
         }),
 
       deleteLote: deleteProcedure(MODULE)
         .input(z.object({ ids: z.array(z.string()).min(1).max(500) }))
-        .mutation(({ input }) => {
+        .mutation(({ input, ctx }) => {
           if (!alvaraFuncService) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço não disponível' })
-          return alvaraFuncService.deleteLote(input.ids)
+          return alvaraFuncService.deleteLote(emp(ctx), input.ids)
         }),
     }),
   })

@@ -1,9 +1,14 @@
 import { Injectable } from '@nestjs/common'
+import { TRPCError } from '@trpc/server'
 import { prisma, buildPaginatedResponse, getPrismaSkipTake } from '@saas/db'
 import * as https from 'https'
 import * as fs from 'fs'
 import * as path from 'path'
 import { semSegredos } from '../common/segredos'
+import {
+  cndLogger, exigirEmpresa, limparDoc, PorEmpresa, progressoVazio, precisaReconsultar, dataIso,
+  type ProgressoLote,
+} from './cnd-comum'
 
 // ============================================================
 // Configuracao
@@ -14,6 +19,10 @@ const CND_PATH = '/consulta-cnd/v1/certidao'
 const TOKEN_PATH = '/token'
 const REQUEST_TIMEOUT = 60000
 const CACHE_HOURS = 24
+/** Folga do lote: a CND federal vale 180 dias; só reemite quando faltam 15 ou menos. */
+const FOLGA_LOTE_DIAS = 15
+
+const logger = cndLogger('Federal')
 
 // ============================================================
 // Tipos
@@ -28,7 +37,7 @@ interface CndApiResponse {
   Certidao?: {
     TipoContribuinte: number
     ContribuinteCertidao: string
-    TipoCertidao: number // 1=Negativa, 2=Positiva com efeitos de Negativa
+    TipoCertidao: number // 1=Negativa, 2=Positiva com efeitos de Negativa, 3=Positiva
     CodigoControle: string
     DataEmissao: string
     DataValidade: string
@@ -64,9 +73,78 @@ function httpsRequest(options: https.RequestOptions, postData?: string): Promise
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
 
+/**
+ * Rótulos do TipoCertidao do SERPRO. Os textos de 1 e 2 são os que já estão
+ * gravados e filtrados pela tela/totalizadores — não mudar a grafia.
+ * O 3 (Positiva) antes caía em "Tipo 3": é certidão emitida, mas com débito.
+ */
 const TIPO_CERTIDAO_LABELS: Record<number, string> = {
   1: 'Negativa',
   2: 'Positiva com Efeitos de Negativa',
+  3: 'Positiva',
+}
+
+/** Só os 4 últimos caracteres do documento vão ao log (LGPD). */
+const fimDoc = (doc: string) => `…${doc.slice(-4)}`
+
+/**
+ * `data_validade` é TIMESTAMPTZ nesta tabela. A data pura "YYYY-MM-DD" vira
+ * meio-dia de Brasília: assim `::date` dá o mesmo dia em qualquer fuso de
+ * sessão (UTC ou -03), e a certidão não "vence um dia antes" por causa da
+ * meia-noite UTC.
+ */
+function meioDiaBrasilia(raw: string | null | undefined): string | null {
+  const d = dataIso(raw)
+  return d ? `${d}T12:00:00-03:00` : null
+}
+
+/** Emissão: se vier com hora, mantém o instante; se vier só a data, meio-dia de Brasília. */
+function instanteEmissao(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  if (/\d{1,2}:\d{2}/.test(raw)) {
+    const t = new Date(raw)
+    if (!Number.isNaN(t.getTime())) return t.toISOString()
+  }
+  return meioDiaBrasilia(raw)
+}
+
+/**
+ * Normalização do documento do cadastro de clientes no SQL — mesma regra do
+ * `limparDoc` (mantém letras: CNPJ alfanumérico). O antigo REPLACE de '.', '/'
+ * e '-' deixava passar espaço e não casava caixa.
+ */
+const SQL_DOC_CLIENTE = `UPPER(REGEXP_REPLACE(documento, '[^0-9A-Za-z]', '', 'g'))`
+
+const novoId = () => `cnd_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+
+export interface RegistroCnd {
+  id: string
+  documento: string
+  tipoDocumento: number
+  razaoSocial: string | null
+  etapa: string
+  tipoCertidao: string | null
+  codigoControle: string | null
+  dataEmissao: string | null
+  dataValidade: string | null
+  temPdf: boolean
+  statusApi: number | null
+  mensagemApi: string | null
+  sucesso: boolean
+  erro: string | null
+  clienteId: string | null
+  empresaId: string | null
+  userId: string | null
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+}
+export type ResultadoConsultaCnd = RegistroCnd & {
+  fromCache: boolean
+  /** true quando a nova consulta falhou e a certidão válida anterior foi mantida. */
+  consultaFalhou?: boolean
+  /** Motivo da falha da nova consulta (só com `consultaFalhou`). */
+  mensagemFalha?: string
 }
 
 // ============================================================
@@ -76,6 +154,13 @@ const TIPO_CERTIDAO_LABELS: Record<number, string> = {
 @Injectable()
 export class CndService {
   private tokenCache: { accessToken: string; expiresAt: number } | null = null
+
+  /**
+   * Progresso do lote em segundo plano, por empresa. Antes o lote rodava até
+   * 500 documentos DENTRO da mutation (requisição presa por horas, sem
+   * progresso); agora a mutation só dispara e a tela acompanha por aqui.
+   */
+  private readonly loteProgress = new PorEmpresa<ProgressoLote>(progressoVazio)
 
   // ── Configuracao ──────────────────────────────────────
 
@@ -140,25 +225,26 @@ export class CndService {
 
   // ── Consulta CND API ─────────────────────────────────
 
+  /** Convenção do SERPRO: TipoContribuinte 1 = CNPJ, 2 = CPF, 3 = NIRF/CIB. */
   private async consultarApi(documento: string, tipoContribuinte: number, gerarPdf = true, chave?: string): Promise<CndApiResponse> {
     const token = await this.obterToken()
     const codId = tipoContribuinte === 1 ? '9001' : tipoContribuinte === 2 ? '9002' : '9003'
 
     const body = JSON.stringify({
       TipoContribuinte: tipoContribuinte,
-      ContribuinteConsulta: documento.replace(/\D/g, ''),
+      ContribuinteConsulta: limparDoc(documento),
       CodigoIdentificacao: codId,
       GerarCertidaoPdf: gerarPdf,
       ...(chave ? { Chave: chave } : {}),
     })
 
-    const res = await httpsRequest({
+    const enviar = (bearer: string) => httpsRequest({
       hostname: SERPRO_GATEWAY,
       port: 443,
       path: CND_PATH,
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${bearer}`,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         'Content-Length': String(Buffer.byteLength(body)),
@@ -166,26 +252,15 @@ export class CndService {
       rejectUnauthorized: true,
     }, body)
 
+    let res = await enviar(token)
     // Token expirado — renovar e tentar novamente
-    if (res.status === 401) {
-      const newToken = await this.obterToken(true)
-      const res2 = await httpsRequest({
-        hostname: SERPRO_GATEWAY,
-        port: 443,
-        path: CND_PATH,
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${newToken}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Content-Length': String(Buffer.byteLength(body)),
-        },
-        rejectUnauthorized: true,
-      }, body)
-      return JSON.parse(res2.data) as CndApiResponse
-    }
+    if (res.status === 401) res = await enviar(await this.obterToken(true))
 
-    return JSON.parse(res.data) as CndApiResponse
+    try {
+      return JSON.parse(res.data) as CndApiResponse
+    } catch {
+      throw new Error(`Resposta inválida do SERPRO (HTTP ${res.status}): ${semSegredos(res.data.slice(0, 200))}`)
+    }
   }
 
   // ── Consultar com retry (Status 7 = processando) ─────
@@ -204,162 +279,181 @@ export class CndService {
     return result
   }
 
-  // ── Tabela (criacao automatica) ───────────────────────
-
-  private tableChecked = false
-  async ensureTable() {
-    // Schema garantido por migração manual_2026_06_26_cnd_dte_tables.sql (R2-002).
-    // Sem DDL no caminho de request — os métodos apenas LEEM.
-    if (this.tableChecked) return
-    this.tableChecked = true
-  }
-
   // ── Verificar cache ──────────────────────────────────
 
-  async verificarCache(documento: string): Promise<{ temCache: boolean; registro?: Record<string, unknown> }> {
-    await this.ensureTable()
-    const doc = documento.replace(/\D/g, '')
+  async verificarCache(empresaId: string, documento: string): Promise<{ temCache: boolean; registro?: Record<string, unknown> }> {
+    exigirEmpresa(empresaId)
+    const doc = limparDoc(documento)
     const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
       `SELECT * FROM certidoes_cnd
-       WHERE documento = $1 AND deleted_at IS NULL AND sucesso = true
+       WHERE empresa_id = $1 AND documento = $2 AND deleted_at IS NULL AND sucesso = true
        AND created_at > NOW() - INTERVAL '${CACHE_HOURS} hours'
        ORDER BY created_at DESC LIMIT 1`,
-      doc,
+      empresaId, doc,
     )
     if (rows.length > 0) return { temCache: true, registro: rows[0] }
     return { temCache: false }
   }
 
+  /** Última certidão bem-sucedida (não excluída) do documento nesta empresa. */
+  private async ultimaValida(empresaId: string, doc: string): Promise<Record<string, unknown> | null> {
+    const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
+      `SELECT * FROM certidoes_cnd
+       WHERE empresa_id = $1 AND documento = $2 AND sucesso = true AND deleted_at IS NULL
+       ORDER BY created_at DESC LIMIT 1`,
+      empresaId, doc,
+    )
+    return rows[0] ?? null
+  }
+
+  /**
+   * O lote deve consultar este documento? Não, se a última certidão
+   * bem-sucedida ainda vale por mais de 15 dias — cada reemissão é uma
+   * consulta paga ao SERPRO. Usado pelo lote e pelo agendador.
+   */
+  async precisaConsultar(empresaId: string, documento: string): Promise<boolean> {
+    const ultima = await this.ultimaValida(exigirEmpresa(empresaId), limparDoc(documento))
+    if (!ultima) return true
+    return precisaReconsultar(
+      { sucesso: true, dataValidade: ultima.data_validade as Date | null, criadoEm: ultima.created_at as Date | null },
+      { folgaDias: FOLGA_LOTE_DIAS, semValidadeDias: FOLGA_LOTE_DIAS },
+    )
+  }
+
   // ── Consultar (principal) ────────────────────────────
 
+  /**
+   * Consulta individual. Consulta quando pedido (o cache de 24h só evita o
+   * clique duplo; `forcarNova` passa por cima dele).
+   *
+   * Falha não apaga certidão válida: se a nova consulta falhar e já houver uma
+   * bem-sucedida deste documento na empresa, ela é mantida e devolvida com
+   * `consultaFalhou: true` + `mensagemFalha`. Sem anterior válida, a falha é
+   * gravada (substituindo falhas antigas) para aparecer na tela; "não emitida"
+   * (Status 3/4) devolve o registro, demais erros lançam — como antes.
+   */
   async consultar(
+    empresaId: string,
     documento: string,
     tipoDocumento: number,
-    opts?: { clienteId?: string; empresaId?: string; userId?: string; forcarNova?: boolean },
-  ) {
-    await this.ensureTable()
-    const doc = documento.replace(/\D/g, '')
+    opts?: { clienteId?: string; userId?: string; forcarNova?: boolean },
+  ): Promise<ResultadoConsultaCnd> {
+    exigirEmpresa(empresaId)
+    const doc = limparDoc(documento)
+    if (!doc) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Documento inválido.' })
 
     // Verificar cache (24h) se nao forcar nova
     if (!opts?.forcarNova) {
-      const cache = await this.verificarCache(doc)
+      const cache = await this.verificarCache(empresaId, doc)
       if (cache.temCache && cache.registro) {
         return { fromCache: true, ...this.formatarRegistro(cache.registro) }
       }
     }
 
-    // Buscar razao social do cliente
+    // Razão social: só de cliente DESTA empresa (o mesmo CNPJ pode existir em outro tenant)
     let razaoSocial: string | null = null
+    let clienteId: string | null = null
     if (opts?.clienteId) {
-      const cli = await prisma.cliente.findUnique({ where: { id: opts.clienteId }, select: { razaoSocial: true } })
+      const cli = await prisma.cliente.findFirst({ where: { id: opts.clienteId, empresaId }, select: { id: true, razaoSocial: true } })
       razaoSocial = cli?.razaoSocial || null
+      clienteId = cli?.id || null
     } else {
-      const cli = await prisma.$queryRawUnsafe<Array<{ razao_social: string }>>(
-        `SELECT razao_social FROM clientes WHERE status = 'ATIVO'
-         AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`, doc,
+      const cli = await prisma.$queryRawUnsafe<Array<{ id: string; razao_social: string }>>(
+        `SELECT id, razao_social FROM clientes WHERE status = 'ATIVO' AND empresa_id = $1
+         AND ${SQL_DOC_CLIENTE} = $2 LIMIT 1`, empresaId, doc,
       )
       razaoSocial = cli[0]?.razao_social || null
+      clienteId = cli[0]?.id || null
     }
 
-    // Remover registros anteriores do mesmo documento (manter apenas a consulta mais recente)
-    await prisma.$executeRawUnsafe(
-      `DELETE FROM certidoes_cnd WHERE documento = $1 AND deleted_at IS NULL`,
-      doc,
-    )
-
-    // Criar registro pendente
-    const id = `cnd_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO certidoes_cnd (id, documento, tipo_documento, razao_social, etapa, cliente_id, empresa_id, user_id)
-       VALUES ($1, $2, $3, $4, 'autenticando', $5, $6, $7)`,
-      id, doc, tipoDocumento, razaoSocial,
-      opts?.clienteId || null, opts?.empresaId || null, opts?.userId || null,
-    )
-
+    let result: CndApiResponse | null = null
+    let erroChamada: string | null = null
     try {
-      // Atualizar etapa
-      await prisma.$executeRawUnsafe(`UPDATE certidoes_cnd SET etapa = 'consultando', updated_at = NOW() WHERE id = $1`, id)
-
-      const result = await this.consultarComRetry(doc, tipoDocumento)
-
-      // Status 1 ou 2 = sucesso (certidao encontrada/emitida)
-      if ((result.Status === 1 || result.Status === 2) && result.Certidao) {
-        const cert = result.Certidao
-        const tipoCertidao = TIPO_CERTIDAO_LABELS[cert.TipoCertidao] || `Tipo ${cert.TipoCertidao}`
-        const dataEmissao = cert.DataEmissao ? new Date(cert.DataEmissao) : null
-        const dataValidade = cert.DataValidade ? new Date(cert.DataValidade) : null
-
-        await prisma.$executeRawUnsafe(
-          `UPDATE certidoes_cnd SET
-            etapa = 'concluido', sucesso = true,
-            tipo_certidao = $2, codigo_controle = $3,
-            data_emissao = $4, data_validade = $5,
-            pdf_base64 = $6, status_api = $7, mensagem_api = $8,
-            resposta_completa = $9::jsonb, updated_at = NOW()
-           WHERE id = $1`,
-          id, tipoCertidao, cert.CodigoControle,
-          dataEmissao, dataValidade,
-          cert.DocumentoPdf || null, result.Status, result.Mensagem,
-          JSON.stringify(result),
-        )
-
-        return { fromCache: false, ...this.formatarRegistro(await this.getRegistroById(id)) }
-      }
-
-      // Status 3 ou 4 = certidao nao emitida
-      if (result.Status === 3 || result.Status === 4) {
-        await prisma.$executeRawUnsafe(
-          `UPDATE certidoes_cnd SET etapa = 'concluido', sucesso = false,
-            status_api = $2, mensagem_api = $3, erro = $3,
-            resposta_completa = $4::jsonb, updated_at = NOW()
-           WHERE id = $1`,
-          id, result.Status, result.Mensagem, JSON.stringify(result),
-        )
-        return { fromCache: false, ...this.formatarRegistro(await this.getRegistroById(id)) }
-      }
-
-      // Outros status = erro
-      const erroMsg = result.Mensagem || `Status ${result.Status}`
-      await prisma.$executeRawUnsafe(
-        `UPDATE certidoes_cnd SET etapa = 'erro', sucesso = false,
-          status_api = $2, mensagem_api = $3, erro = $3,
-          resposta_completa = $4::jsonb, updated_at = NOW()
-         WHERE id = $1`,
-        id, result.Status, erroMsg, JSON.stringify(result),
-      )
-      throw new Error(erroMsg)
-
+      result = await this.consultarComRetry(doc, tipoDocumento)
     } catch (e) {
-      // Atualizar registro com erro se ainda nao foi atualizado
-      await prisma.$executeRawUnsafe(
-        `UPDATE certidoes_cnd SET etapa = 'erro', sucesso = false, erro = $2, updated_at = NOW()
-         WHERE id = $1 AND etapa NOT IN ('concluido', 'erro')`,
-        id, (e as Error).message,
-      )
-      throw e
+      erroChamada = semSegredos((e as Error).message)
     }
+
+    const id = novoId()
+    const userId = opts?.userId || null
+
+    // ── Sucesso: grava a nova e só ENTÃO apaga as anteriores (mesma empresa), em transação
+    if (result && (result.Status === 1 || result.Status === 2) && result.Certidao) {
+      const cert = result.Certidao
+      const tipoCertidao = TIPO_CERTIDAO_LABELS[cert.TipoCertidao] ?? null
+      // Tipo desconhecido: não inventa classificação — a certidão foi emitida
+      // (tem PDF e código), mas a tela precisa saber que não deu para classificar.
+      const mensagem = tipoCertidao
+        ? result.Mensagem
+        : `${result.Mensagem || 'Certidão emitida'} — não foi possível classificar o tipo da certidão (TipoCertidao ${cert.TipoCertidao}); confira o PDF.`
+
+      await prisma.$transaction([
+        prisma.$executeRawUnsafe(
+          `INSERT INTO certidoes_cnd (id, documento, tipo_documento, razao_social, etapa, sucesso,
+             tipo_certidao, codigo_controle, data_emissao, data_validade, pdf_base64,
+             status_api, mensagem_api, resposta_completa, cliente_id, empresa_id, user_id)
+           VALUES ($1, $2, $3, $4, 'concluido', true,
+             $5, $6, $7::timestamptz, $8::timestamptz, $9,
+             $10, $11, $12::jsonb, $13, $14, $15)`,
+          id, doc, tipoDocumento, razaoSocial,
+          tipoCertidao, cert.CodigoControle || null,
+          instanteEmissao(cert.DataEmissao), meioDiaBrasilia(cert.DataValidade), cert.DocumentoPdf || null,
+          result.Status, mensagem, JSON.stringify(result), clienteId, empresaId, userId,
+        ),
+        prisma.$executeRawUnsafe(
+          `DELETE FROM certidoes_cnd WHERE empresa_id = $1 AND documento = $2 AND id <> $3 AND deleted_at IS NULL`,
+          empresaId, doc, id,
+        ),
+      ])
+
+      return { fromCache: false, ...this.formatarRegistro(await this.getRegistroById(empresaId, id)) }
+    }
+
+    // ── Falha (não emitida, erro do SERPRO ou falha de rede)
+    const naoEmitida = !!result && (result.Status === 3 || result.Status === 4)
+    const erroMsg = erroChamada ?? (result?.Mensagem || `Status ${result?.Status ?? '?'}`)
+
+    const anterior = await this.ultimaValida(empresaId, doc)
+    if (anterior) {
+      logger.warn(`Consulta de ${fimDoc(doc)} falhou (${erroMsg}); certidão válida anterior mantida.`)
+      return { fromCache: false, ...this.formatarRegistro(anterior), consultaFalhou: true, mensagemFalha: erroMsg }
+    }
+
+    await prisma.$transaction([
+      prisma.$executeRawUnsafe(
+        `INSERT INTO certidoes_cnd (id, documento, tipo_documento, razao_social, etapa, sucesso,
+           status_api, mensagem_api, erro, resposta_completa, cliente_id, empresa_id, user_id)
+         VALUES ($1, $2, $3, $4, $5, false, $6, $7, $7, $8::jsonb, $9, $10, $11)`,
+        id, doc, tipoDocumento, razaoSocial, naoEmitida ? 'concluido' : 'erro',
+        result?.Status ?? null, erroMsg, result ? JSON.stringify(result) : null,
+        clienteId, empresaId, userId,
+      ),
+      // Sem certidão válida para proteger: a falha substitui as falhas antigas.
+      prisma.$executeRawUnsafe(
+        `DELETE FROM certidoes_cnd WHERE empresa_id = $1 AND documento = $2 AND id <> $3 AND deleted_at IS NULL AND sucesso = false`,
+        empresaId, doc, id,
+      ),
+    ])
+
+    if (!naoEmitida) {
+      logger.warn(`Consulta de ${fimDoc(doc)} falhou: ${erroMsg}`)
+      throw new Error(erroMsg)
+    }
+    return { fromCache: false, ...this.formatarRegistro(await this.getRegistroById(empresaId, id)) }
   }
 
   // ── Log de execucao ───────────────────────────────────
 
-  private execLogTableChecked = false
-  private async ensureExecLogTable() {
-    // Schema (cnd_exec_log) garantido por migração manual_2026_06_26_cnd_dte_tables.sql
-    // (R2-002). Sem DDL no caminho de request.
-    if (this.execLogTableChecked) return
-    this.execLogTableChecked = true
-  }
-
-  async listarExecLogs(limit = 20, offset = 0) {
-    await this.ensureExecLogTable()
+  async listarExecLogs(empresaId: string, limit = 20, offset = 0) {
+    exigirEmpresa(empresaId)
     const countRows = await prisma.$queryRawUnsafe<Array<{ total: number }>>(
-      `SELECT COUNT(*)::int as total FROM cnd_exec_log`,
+      `SELECT COUNT(*)::int as total FROM cnd_exec_log WHERE empresa_id = $1`, empresaId,
     )
     const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
       `SELECT id, tipo, iniciado_por, nome_usuario, iniciado_em, finalizado_em,
               total, sucesso, falhas, status, itens::text
-       FROM cnd_exec_log ORDER BY iniciado_em DESC LIMIT $1 OFFSET $2`,
-      limit, offset,
+       FROM cnd_exec_log WHERE empresa_id = $1 ORDER BY iniciado_em DESC LIMIT $2 OFFSET $3`,
+      empresaId, limit, offset,
     )
     return {
       logs: rows.map(r => ({
@@ -379,103 +473,147 @@ export class CndService {
     }
   }
 
-  // ── Consulta em lote ─────────────────────────────────
+  // ── Consulta em lote (segundo plano) ─────────────────
 
-  async consultarLote(documentos: string[], empresaId: string | null, userId: string) {
-    await this.ensureExecLogTable()
+  /** Progresso do lote desta empresa (cópia — a tela não mexe no estado). */
+  progressoLote(empresaId: string): ProgressoLote {
+    const p = this.loteProgress.get(exigirEmpresa(empresaId))
+    return { ...p, erros: [...p.erros] }
+  }
 
+  /**
+   * Dispara o lote em segundo plano e devolve na hora. Um lote por empresa.
+   * Documento com certidão ainda válida (mais de 15 dias) é pulado, salvo
+   * `forcarNova`. Erro de um documento não derruba o lote.
+   */
+  async consultarLote(empresaId: string, documentos: string[], userId?: string, forcarNova = false): Promise<{ message: string; total: number }> {
+    exigirEmpresa(empresaId)
+    const atual = this.loteProgress.get(empresaId)
+    if (atual.running) throw new TRPCError({ code: 'CONFLICT', message: 'Já existe uma consulta em lote em andamento para esta empresa.' })
+
+    const docs = [...new Set(documentos.map(limparDoc).filter(Boolean))]
+    // Marca como rodando ANTES de qualquer await: dois cliques não abrem dois lotes.
+    const progresso: ProgressoLote = { ...progressoVazio(), running: true, total: docs.length }
+    this.loteProgress.set(empresaId, progresso)
+
+    this.executarLote(empresaId, docs, userId, forcarNova, progresso)
+      .catch(e => {
+        logger.error(`Lote da empresa ${empresaId} interrompido: ${(e as Error).message}`)
+        progresso.erros.push(`Erro geral: ${(e as Error).message}`)
+      })
+      .finally(() => { progresso.running = false; progresso.item = '' })
+
+    return { message: 'Consulta em lote iniciada em segundo plano.', total: docs.length }
+  }
+
+  private async executarLote(empresaId: string, docs: string[], userId: string | undefined, forcarNova: boolean, progresso: ProgressoLote) {
     const logId = `cndlog_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-    const startedAt = new Date().toISOString()
-
-    // Buscar nome do usuario
-    let nomeUsuario: string | null = null
-    if (userId) {
-      const userRows = await prisma.$queryRawUnsafe<Array<{ name: string }>>(
-        `SELECT name FROM users WHERE id = $1 LIMIT 1`, userId,
-      )
-      nomeUsuario = userRows[0]?.name || null
-    }
-
-    // Buscar razao social dos documentos para o log
-    const docsLimpos = documentos.map(d => d.replace(/\D/g, ''))
-    const clientesInfo = await prisma.$queryRawUnsafe<Array<{ documento: string; razao_social: string }>>(
-      `SELECT REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') as documento, razao_social
-       FROM clientes WHERE status = 'ATIVO'
-       AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = ANY($1::text[])`,
-      docsLimpos,
-    )
-    const nomeMap: Record<string, string> = {}
-    for (const c of clientesInfo) nomeMap[c.documento] = c.razao_social
-
-    // Criar log
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO cnd_exec_log (id, tipo, iniciado_por, nome_usuario, iniciado_em, total, status)
-       VALUES ($1, 'manual', $2, $3, $4::timestamptz, $5, 'running')`,
-      logId, userId, nomeUsuario, startedAt, documentos.length,
-    )
-
-    const resultados: Array<{ documento: string; sucesso: boolean; erro?: string }> = []
     const logItens: Array<{ razaoSocial: string; documento: string; status: string; erro?: string; duracaoMs?: number }> = []
-    let successCount = 0
-    let failCount = 0
+    let logCriado = false
 
-    for (let i = 0; i < documentos.length; i++) {
-      const doc = documentos[i]!
-      const docLimpo = doc.replace(/\D/g, '')
-      const tipo = docLimpo.length === 11 ? 2 : 1
-      const razaoSocial = nomeMap[docLimpo] || docLimpo
-      const itemStart = Date.now()
-
-      try {
-        await this.consultar(docLimpo, tipo, { empresaId: empresaId || undefined, userId })
-        resultados.push({ documento: docLimpo, sucesso: true })
-        logItens.push({ razaoSocial, documento: docLimpo, status: 'ok', duracaoMs: Date.now() - itemStart })
-        successCount++
-      } catch (e) {
-        const erro = (e as Error).message
-        resultados.push({ documento: docLimpo, sucesso: false, erro })
-        logItens.push({ razaoSocial, documento: docLimpo, status: 'erro', erro, duracaoMs: Date.now() - itemStart })
-        failCount++
+    try {
+      // Buscar nome do usuario
+      let nomeUsuario: string | null = null
+      if (userId) {
+        const userRows = await prisma.$queryRawUnsafe<Array<{ name: string }>>(
+          `SELECT name FROM users WHERE id = $1 LIMIT 1`, userId,
+        )
+        nomeUsuario = userRows[0]?.name || null
       }
 
-      // Delay entre consultas
-      if (i < documentos.length - 1) await sleep(3000)
+      // Razão social dos documentos — só clientes desta empresa
+      const clientesInfo = await prisma.$queryRawUnsafe<Array<{ documento: string; razao_social: string }>>(
+        `SELECT ${SQL_DOC_CLIENTE} as documento, razao_social
+         FROM clientes WHERE status = 'ATIVO' AND empresa_id = $1
+         AND ${SQL_DOC_CLIENTE} = ANY($2::text[])`,
+        empresaId, docs,
+      )
+      const nomeMap: Record<string, string> = {}
+      for (const c of clientesInfo) nomeMap[c.documento] = c.razao_social
+
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO cnd_exec_log (id, empresa_id, tipo, iniciado_por, nome_usuario, iniciado_em, total, status)
+         VALUES ($1, $2, 'manual', $3, $4, NOW(), $5, 'running')`,
+        logId, empresaId, userId || null, nomeUsuario, docs.length,
+      )
+      logCriado = true
+
+      let consultouAlgum = false
+      for (let i = 0; i < docs.length; i++) {
+        const doc = docs[i]!
+        const tipo = doc.length === 11 ? 2 : 1 // SERPRO: 1 = CNPJ, 2 = CPF
+        const razaoSocial = nomeMap[doc] || doc
+        const itemStart = Date.now()
+        progresso.atual = i + 1
+        progresso.item = razaoSocial
+
+        try {
+          if (!forcarNova && !(await this.precisaConsultar(empresaId, doc))) {
+            progresso.pulados++
+            logItens.push({ razaoSocial, documento: doc, status: 'pulado', duracaoMs: Date.now() - itemStart })
+            continue
+          }
+
+          // Pausa entre consultas reais ao SERPRO (as puladas não esperam).
+          if (consultouAlgum) await sleep(3000)
+          consultouAlgum = true
+
+          const r = await this.consultar(empresaId, doc, tipo, { userId, forcarNova })
+          if (r.consultaFalhou) throw new Error(r.mensagemFalha || 'Consulta falhou (certidão anterior mantida)')
+          if (!r.sucesso) throw new Error(r.erro || r.mensagemApi || 'Certidão não emitida')
+          progresso.sucesso++
+          logItens.push({ razaoSocial, documento: doc, status: 'ok', duracaoMs: Date.now() - itemStart })
+        } catch (e) {
+          const erro = (e as Error).message
+          progresso.falhas++
+          if (progresso.erros.length < 100) progresso.erros.push(`${razaoSocial}: ${erro}`)
+          logItens.push({ razaoSocial, documento: doc, status: 'erro', erro, duracaoMs: Date.now() - itemStart })
+        }
+      }
+
+      await prisma.$executeRawUnsafe(
+        `UPDATE cnd_exec_log SET finalizado_em = NOW(), sucesso = $3, falhas = $4, status = 'completed', itens = $5::jsonb
+         WHERE id = $1 AND empresa_id = $2`,
+        logId, empresaId, progresso.sucesso, progresso.falhas, JSON.stringify(logItens),
+      )
+      logger.log(`Lote concluído (empresa ${empresaId}): ${progresso.sucesso} ok, ${progresso.falhas} falhas, ${progresso.pulados} pulados de ${docs.length}`)
+    } catch (e) {
+      if (logCriado) {
+        await prisma.$executeRawUnsafe(
+          `UPDATE cnd_exec_log SET finalizado_em = NOW(), sucesso = $3, falhas = $4, status = 'error', itens = $5::jsonb
+           WHERE id = $1 AND empresa_id = $2`,
+          logId, empresaId, progresso.sucesso, progresso.falhas, JSON.stringify(logItens),
+        ).catch(() => undefined)
+      }
+      throw e
     }
-
-    // Finalizar log
-    await prisma.$executeRawUnsafe(
-      `UPDATE cnd_exec_log SET finalizado_em = NOW(), sucesso = $2, falhas = $3, status = 'completed', itens = $4::jsonb
-       WHERE id = $1`,
-      logId, successCount, failCount, JSON.stringify(logItens),
-    )
-
-    return resultados
   }
 
   // ── Listagem paginada ────────────────────────────────
 
-  async totalizadores(empresaId: string | null = null) {
-    await this.ensureTable()
-    // Isolamento multi-tenant: conta apenas certidões da empresa do tenant.
-    // Sem empresa no contexto → default-deny (empresa_id IS NULL).
-    const empFilter = empresaId ? 'AND empresa_id = $1' : 'AND empresa_id IS NULL'
-    const params = empresaId ? [empresaId] : []
+  async totalizadores(empresaId: string) {
+    exigirEmpresa(empresaId)
+    // `deleted_at` fica em cada FILTER (e não no WHERE) para a contagem da
+    // lixeira enxergar as excluídas — antes ela saía sempre 0.
+    // Vencida/vencendo comparam DATA com DATA (`::date`), sem fuso.
     const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
       SELECT
-        COUNT(*)::int as total,
-        COUNT(*) FILTER (WHERE sucesso = true AND tipo_certidao = 'Negativa')::int as negativas,
-        COUNT(*) FILTER (WHERE sucesso = true AND tipo_certidao = 'Positiva com Efeitos de Negativa')::int as positivas_efeitos,
-        COUNT(*) FILTER (WHERE sucesso = false AND etapa = 'concluido')::int as nao_emitidas,
-        COUNT(*) FILTER (WHERE sucesso = true AND data_validade IS NOT NULL AND data_validade < NOW())::int as vencidas,
-        COUNT(*) FILTER (WHERE sucesso = true AND data_validade IS NOT NULL AND data_validade >= NOW() AND data_validade <= NOW() + INTERVAL '15 days')::int as vencendo,
+        COUNT(*) FILTER (WHERE deleted_at IS NULL)::int as total,
+        COUNT(*) FILTER (WHERE deleted_at IS NULL AND sucesso = true AND tipo_certidao = 'Negativa')::int as negativas,
+        COUNT(*) FILTER (WHERE deleted_at IS NULL AND sucesso = true AND tipo_certidao = 'Positiva com Efeitos de Negativa')::int as positivas_efeitos,
+        COUNT(*) FILTER (WHERE deleted_at IS NULL AND sucesso = true AND tipo_certidao = 'Positiva')::int as positivas,
+        COUNT(*) FILTER (WHERE deleted_at IS NULL AND sucesso = false AND etapa = 'concluido')::int as nao_emitidas,
+        COUNT(*) FILTER (WHERE deleted_at IS NULL AND sucesso = true AND data_validade IS NOT NULL AND data_validade::date < CURRENT_DATE)::int as vencidas,
+        COUNT(*) FILTER (WHERE deleted_at IS NULL AND sucesso = true AND data_validade IS NOT NULL AND data_validade::date >= CURRENT_DATE AND data_validade::date <= CURRENT_DATE + 15)::int as vencendo,
         COUNT(*) FILTER (WHERE deleted_at IS NOT NULL)::int as lixeira
-      FROM certidoes_cnd WHERE deleted_at IS NULL ${empFilter}
-    `, ...params)
+      FROM certidoes_cnd WHERE empresa_id = $1
+    `, empresaId)
     const r = rows[0]!
     return {
       total: Number(r.total ?? 0),
       negativas: Number(r.negativas ?? 0),
       positivasEfeitos: Number(r.positivas_efeitos ?? 0),
+      positivas: Number(r.positivas ?? 0),
       naoEmitidas: Number(r.nao_emitidas ?? 0),
       vencidas: Number(r.vencidas ?? 0),
       vencendo: Number(r.vencendo ?? 0),
@@ -483,14 +621,14 @@ export class CndService {
     }
   }
 
-  async list(input: { page: number; limit: number; search?: string; sortBy?: string; sortDir?: string; clienteId?: string; tipoCertidao?: string; lixeira?: boolean }) {
-    await this.ensureTable()
+  async list(empresaId: string, input: { page: number; limit: number; search?: string; sortBy?: string; sortDir?: string; clienteId?: string; tipoCertidao?: string; lixeira?: boolean }) {
+    exigirEmpresa(empresaId)
     const { page, limit, search, sortBy, sortDir, clienteId, tipoCertidao, lixeira } = input
     const { skip, take } = getPrismaSkipTake(page, limit)
 
-    const conditions: string[] = []
-    const params: unknown[] = []
-    let paramIdx = 1
+    const conditions: string[] = ['c.empresa_id = $1']
+    const params: unknown[] = [empresaId]
+    let paramIdx = 2
 
     if (lixeira) {
       conditions.push('c.deleted_at IS NOT NULL')
@@ -502,9 +640,9 @@ export class CndService {
     if (tipoCertidao === '__nao_emitida__') {
       conditions.push(`c.sucesso = false AND c.etapa = 'concluido'`)
     } else if (tipoCertidao === '__vencidas__') {
-      conditions.push(`c.sucesso = true AND c.data_validade IS NOT NULL AND c.data_validade < NOW()`)
+      conditions.push(`c.sucesso = true AND c.data_validade IS NOT NULL AND c.data_validade::date < CURRENT_DATE`)
     } else if (tipoCertidao === '__vencendo__') {
-      conditions.push(`c.sucesso = true AND c.data_validade IS NOT NULL AND c.data_validade >= NOW() AND c.data_validade <= NOW() + INTERVAL '15 days'`)
+      conditions.push(`c.sucesso = true AND c.data_validade IS NOT NULL AND c.data_validade::date >= CURRENT_DATE AND c.data_validade::date <= CURRENT_DATE + 15`)
     } else if (tipoCertidao) {
       conditions.push(`c.tipo_certidao = $${paramIdx}`); params.push(tipoCertidao); paramIdx++
     }
@@ -513,7 +651,7 @@ export class CndService {
       params.push(`%${search}%`); paramIdx++
     }
 
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+    const where = `WHERE ${conditions.join(' AND ')}`
     const orderCol = sortBy === 'razaoSocial' ? 'c.razao_social' : sortBy === 'documento' ? 'c.documento' : sortBy === 'tipoCertidao' ? 'c.tipo_certidao' : sortBy === 'dataValidade' ? 'c.data_validade' : 'c.created_at'
     const orderDir = sortDir === 'asc' ? 'ASC' : 'DESC'
 
@@ -539,53 +677,54 @@ export class CndService {
 
   // ── CRUD ─────────────────────────────────────────────
 
-  async getById(id: string) {
-    await this.ensureTable()
-    const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-      `SELECT * FROM certidoes_cnd WHERE id = $1`, id,
-    )
-    if (!rows.length) throw new Error('Registro nao encontrado')
-    return this.formatarRegistro(rows[0]!)
+  async getById(empresaId: string, id: string) {
+    return this.formatarRegistro(await this.getRegistroById(exigirEmpresa(empresaId), id))
   }
 
-  async getPdf(id: string): Promise<string | null> {
-    await this.ensureTable()
+  async getPdf(empresaId: string, id: string): Promise<string | null> {
+    exigirEmpresa(empresaId)
     const rows = await prisma.$queryRawUnsafe<Array<{ pdf_base64: string | null }>>(
-      `SELECT pdf_base64 FROM certidoes_cnd WHERE id = $1`, id,
+      `SELECT pdf_base64 FROM certidoes_cnd WHERE id = $1 AND empresa_id = $2`, id, empresaId,
     )
     return rows[0]?.pdf_base64 || null
   }
 
-  async softDelete(id: string) {
-    await prisma.$executeRawUnsafe(
-      `UPDATE certidoes_cnd SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1`, id,
+  async softDelete(empresaId: string, id: string) {
+    exigirEmpresa(empresaId)
+    const n = await prisma.$executeRawUnsafe(
+      `UPDATE certidoes_cnd SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND empresa_id = $2`, id, empresaId,
     )
+    if (!n) throw new Error('Registro nao encontrado')
     return { success: true }
   }
 
-  async restore(id: string) {
-    await prisma.$executeRawUnsafe(
-      `UPDATE certidoes_cnd SET deleted_at = NULL, updated_at = NOW() WHERE id = $1`, id,
+  async restore(empresaId: string, id: string) {
+    exigirEmpresa(empresaId)
+    const n = await prisma.$executeRawUnsafe(
+      `UPDATE certidoes_cnd SET deleted_at = NULL, updated_at = NOW() WHERE id = $1 AND empresa_id = $2`, id, empresaId,
     )
+    if (!n) throw new Error('Registro nao encontrado')
     return { success: true }
   }
 
-  async hardDelete(id: string) {
-    await prisma.$executeRawUnsafe(`DELETE FROM certidoes_cnd WHERE id = $1`, id)
+  async hardDelete(empresaId: string, id: string) {
+    exigirEmpresa(empresaId)
+    const n = await prisma.$executeRawUnsafe(`DELETE FROM certidoes_cnd WHERE id = $1 AND empresa_id = $2`, id, empresaId)
+    if (!n) throw new Error('Registro nao encontrado')
     return { success: true }
   }
 
   // ── Helpers internos ─────────────────────────────────
 
-  private async getRegistroById(id: string): Promise<Record<string, unknown>> {
+  private async getRegistroById(empresaId: string, id: string): Promise<Record<string, unknown>> {
     const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-      `SELECT * FROM certidoes_cnd WHERE id = $1`, id,
+      `SELECT * FROM certidoes_cnd WHERE id = $1 AND empresa_id = $2`, id, empresaId,
     )
     if (!rows.length) throw new Error('Registro nao encontrado')
     return rows[0]!
   }
 
-  private formatarRegistro(row: Record<string, unknown>) {
+  private formatarRegistro(row: Record<string, unknown>): RegistroCnd {
     return {
       id: row.id as string,
       documento: row.documento as string,
@@ -612,9 +751,9 @@ export class CndService {
 
   // ── Clientes mensais (para scheduler) ────────────────
 
-  async listarClientesMensais() {
+  async listarClientesMensais(empresaId: string) {
     return prisma.cliente.findMany({
-      where: { status: 'ATIVO', situacao: 'MENSAL' },
+      where: { status: 'ATIVO', situacao: 'MENSAL', empresaId: exigirEmpresa(empresaId) },
       select: { id: true, razaoSocial: true, documento: true, tipoDocumento: true },
       orderBy: { razaoSocial: 'asc' },
     })

@@ -1291,9 +1291,12 @@ export function createClienteRouter(
     // ── Resumo Legalização (para impressão) ─────────────
     resumoLegalizacao: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))
-      .query(async ({ input }) => {
-        const cli = await prisma.cliente.findUnique({
-          where: { id: input.clienteId },
+      .query(async ({ input, ctx }) => {
+        // Só cliente da empresa carregada: o resumo traz sócios, acessos e
+        // certidões — antes bastava saber o id de um cliente de outro tenant.
+        if (!ctx.empresaId) return null
+        const cli = await prisma.cliente.findFirst({
+          where: { id: input.clienteId, empresaId: ctx.empresaId },
           select: {
             razaoSocial: true, nomeFantasia: true, documento: true,
             inscricaoEstadual: true, inscricaoMunicipal: true,

@@ -1,7 +1,13 @@
 import { Injectable } from '@nestjs/common'
+import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
+import type { Page, Target } from 'puppeteer'
+import {
+  PorEmpresa, cndLogger, comNavegador, dataIso, exigirEmpresa, limparDoc, naFilaDoNavegador, precisaReconsultar,
+} from './cnd-comum'
 
 const SIAT_GRID_URL = 'https://siat.cb.es.gov.br/siat/soa/service/grid.alvarapublico'
+const log = cndLogger('AlvaraBombeiros')
 
 export interface AlvaraLoteProgress {
   status: 'idle' | 'running' | 'done'
@@ -10,9 +16,15 @@ export interface AlvaraLoteProgress {
   encontrados: number
   naoEncontrados: number
   erros: number
+  /** Pulados por já terem alvará com validade folgada. */
+  pulados: number
   currentCliente: string
-  items: Array<{ razaoSocial: string; status: 'encontrado' | 'nao_encontrado' | 'erro' | 'pendente' | 'processando'; erro?: string }>
+  items: Array<{ razaoSocial: string; status: 'encontrado' | 'nao_encontrado' | 'erro' | 'pendente' | 'processando' | 'pulado'; erro?: string }>
 }
+
+const loteVazio = (): AlvaraLoteProgress => ({
+  status: 'idle', total: 0, current: 0, encontrados: 0, naoEncontrados: 0, erros: 0, pulados: 0, currentCliente: '', items: [],
+})
 
 export interface AlvaraResult {
   id: number
@@ -35,183 +47,243 @@ export interface AlvaraConsultaResult {
   mensagem: string
 }
 
+type Linha = Record<string, unknown>
+const texto = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : typeof v === 'number' ? String(v) : null)
+
+/**
+ * CPF/CNPJ do estabelecimento, se o grid do SIAT devolver. O nome do campo não
+ * é documentado — tenta os usuais na linha e no `estabelecimento`.
+ */
+function documentoDaLinha(r: Linha): string | null {
+  const est = (r.estabelecimento || {}) as Linha
+  for (const fonte of [r, est]) {
+    for (const k of ['cnpj', 'cpfCnpj', 'cnpjCpf', 'documento', 'cpf', 'numeroDocumento']) {
+      const d = limparDoc(texto(fonte[k]))
+      if (d.length === 14 || d.length === 11) return d
+    }
+  }
+  return null
+}
+
+/** Escapa curingas do ILIKE: a razão social é texto livre. */
+const escaparLike = (s: string) => s.replace(/[\\%_]/g, m => `\\${m}`)
+
 @Injectable()
 export class AlvaraBombeirosService {
-  private tableChecked = false
+  /** Lote POR EMPRESA — o de um escritório não bloqueia nem aparece no outro. */
+  private readonly loteProgress = new PorEmpresa<AlvaraLoteProgress>(loteVazio)
 
-  private loteProgress: AlvaraLoteProgress = {
-    status: 'idle', total: 0, current: 0, encontrados: 0, naoEncontrados: 0, erros: 0,
-    currentCliente: '', items: [],
+  getLoteProgress(empresaId: string): AlvaraLoteProgress {
+    const p = this.loteProgress.get(exigirEmpresa(empresaId))
+    return { ...p, items: p.items.map(i => ({ ...i })) }
   }
 
-  getLoteProgress(): AlvaraLoteProgress {
-    return { ...this.loteProgress }
-  }
+  async consultarLote(
+    empresaId: string,
+    clientes: Array<{ razaoSocial: string; clienteId?: string }>,
+    userId?: string,
+    forcarNova = false,
+  ): Promise<{ message: string }> {
+    exigirEmpresa(empresaId)
+    if (this.loteProgress.get(empresaId).status === 'running') throw new Error('Consulta em lote já em andamento.')
 
-  async consultarLote(clientes: Array<{ razaoSocial: string; clienteId?: string }>, userId?: string): Promise<{ message: string }> {
-    if (this.loteProgress.status === 'running') throw new Error('Consulta em lote já em andamento.')
-
-    this.loteProgress = {
-      status: 'running', total: clientes.length, current: 0, encontrados: 0, naoEncontrados: 0, erros: 0,
-      currentCliente: 'Iniciando...', items: clientes.map(c => ({ razaoSocial: c.razaoSocial, status: 'pendente' as const })),
+    const prog: AlvaraLoteProgress = {
+      ...loteVazio(), status: 'running', total: clientes.length, currentCliente: 'Iniciando...',
+      items: clientes.map(c => ({ razaoSocial: c.razaoSocial, status: 'pendente' as const })),
     }
+    this.loteProgress.set(empresaId, prog)
 
-    this.runLote(clientes, userId).catch(e => {
-      console.error('[Alvará Lote] Erro:', (e as Error).message)
-      this.loteProgress.status = 'done'
-      this.loteProgress.currentCliente = `Erro: ${(e as Error).message}`
-    })
+    this.runLote(empresaId, prog, clientes, userId, forcarNova)
+      .catch(e => log.error(`Lote interrompido: ${(e as Error).message}`))
+      .finally(() => { prog.status = 'done'; prog.currentCliente = 'Concluído' })
 
     return { message: 'Consulta em lote iniciada' }
   }
 
-  private async runLote(clientes: Array<{ razaoSocial: string; clienteId?: string }>, userId?: string) {
+  private async runLote(
+    empresaId: string, prog: AlvaraLoteProgress,
+    clientes: Array<{ razaoSocial: string; clienteId?: string }>,
+    userId: string | undefined, forcarNova: boolean,
+  ) {
     for (let i = 0; i < clientes.length; i++) {
       const c = clientes[i]!
-      this.loteProgress.current = i + 1
-      this.loteProgress.currentCliente = c.razaoSocial
-      this.loteProgress.items[i] = { razaoSocial: c.razaoSocial, status: 'processando' }
+      prog.current = i + 1
+      prog.currentCliente = c.razaoSocial
+      prog.items[i] = { razaoSocial: c.razaoSocial, status: 'processando' }
 
       try {
-        const result = await this.consultar(c.razaoSocial, c.clienteId, userId)
+        if (!forcarNova && !(await this.precisaConsultar(empresaId, c))) {
+          prog.pulados++
+          prog.items[i] = { razaoSocial: c.razaoSocial, status: 'pulado', erro: 'Alvará ainda válido' }
+          continue
+        }
+        const result = await this.consultar(empresaId, c.razaoSocial, c.clienteId, userId)
         if (result.sucesso) {
-          this.loteProgress.encontrados++
-          this.loteProgress.items[i] = { razaoSocial: c.razaoSocial, status: 'encontrado' }
+          prog.encontrados++
+          prog.items[i] = { razaoSocial: c.razaoSocial, status: 'encontrado' }
         } else {
-          this.loteProgress.naoEncontrados++
-          this.loteProgress.items[i] = { razaoSocial: c.razaoSocial, status: 'nao_encontrado' }
+          prog.naoEncontrados++
+          prog.items[i] = { razaoSocial: c.razaoSocial, status: 'nao_encontrado' }
         }
       } catch (e) {
-        this.loteProgress.erros++
-        this.loteProgress.items[i] = { razaoSocial: c.razaoSocial, status: 'erro', erro: (e as Error).message }
+        prog.erros++
+        prog.items[i] = { razaoSocial: c.razaoSocial, status: 'erro', erro: (e as Error).message }
+        log.error(`Lote, item ${i + 1}/${clientes.length}: ${(e as Error).message}`)
       }
 
       if (i < clientes.length - 1) await new Promise(r => setTimeout(r, 1000))
     }
-
-    this.loteProgress.status = 'done'
-    this.loteProgress.currentCliente = 'Concluído'
   }
 
-  private async ensureTable() {
-    // Schema garantido por migração manual_2026_06_26_cnd_dte_tables.sql (R2-002).
-    // Sem DDL no caminho de request — os métodos apenas LEEM.
-    if (this.tableChecked) return
-    this.tableChecked = true
+  /** Último alvará salvo (por cliente ou, sem cliente, pela razão social) ainda folgado? */
+  private async precisaConsultar(empresaId: string, c: { razaoSocial: string; clienteId?: string }): Promise<boolean> {
+    const rows = await prisma.$queryRawUnsafe<Array<{ status: string | null; data_fim_validade: string | null; created_at: Date | null }>>(
+      c.clienteId
+        ? `SELECT status, data_fim_validade, created_at FROM alvaras_bombeiros WHERE empresa_id = $1 AND cliente_id = $2 ORDER BY created_at DESC LIMIT 1`
+        : `SELECT status, data_fim_validade, created_at FROM alvaras_bombeiros WHERE empresa_id = $1 AND razao_social = $2 ORDER BY created_at DESC LIMIT 1`,
+      empresaId, c.clienteId ?? c.razaoSocial,
+    )
+    const u = rows[0]
+    if (!u) return true
+    // Só 'Regular' conta como alvará em dia (mesma regra dos totalizadores).
+    return precisaReconsultar({ sucesso: u.status === 'Regular', dataValidade: dataIso(u.data_fim_validade), criadoEm: u.created_at })
   }
 
-  async consultar(razaoSocial: string, clienteId?: string, userId?: string): Promise<AlvaraConsultaResult> {
-    await this.ensureTable()
-
-    console.log(`[Alvará CBMES] Consultando: ${razaoSocial}`)
+  async consultar(empresaId: string, razaoSocial: string, clienteId?: string, userId?: string): Promise<AlvaraConsultaResult> {
+    exigirEmpresa(empresaId)
+    log.log(`Consultando: ${razaoSocial}`)
 
     const url = `${SIAT_GRID_URL}?razaoSocial=${encodeURIComponent(razaoSocial)}`
-    const res = await fetch(url, {
-      headers: { 'Accept': 'application/json' },
-    })
-
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(30_000) })
     if (!res.ok) throw new Error(`SIAT retornou HTTP ${res.status}`)
 
-    const data = await res.json() as {
-      records: string
-      rows: Array<Record<string, unknown>>
-    }
+    const data = await res.json() as { records: string; rows: Linha[] }
 
     const total = Number(data.records || 0)
-    const alvaras: AlvaraResult[] = (data.rows || []).map(r => {
-      const est = (r.estabelecimento || {}) as Record<string, unknown>
-      const mun = (r.municipio || {}) as Record<string, unknown>
-      const bairro = (r.bairro || {}) as Record<string, unknown>
-      const razao = (r.razaoSocial as string) || (r.lookup as string) || ''
-      return {
+    const linhas = (data.rows || []).map(r => {
+      const est = (r.estabelecimento || {}) as Linha
+      const mun = (r.municipio || {}) as Linha
+      const bairro = (r.bairro || {}) as Linha
+      const alvara: AlvaraResult = {
         id: Number(r.id),
-        razaoSocial: razao,
-        nomeFantasia: (est.nomeFantasia as string) || (r.nomeFantasia as string) || null,
-        endereco: (r.endereco as string) || null,
-        municipio: (mun.nome as string) || null,
-        bairro: (bairro.nome as string) || null,
-        status: (r.alvaraStr as string) || 'Desconhecido',
-        codigoValidacao: (r.codigoValidacao as string) || null,
-        dataInicioValidade: (r.dataIniValidade as string) || null,
-        dataFimValidade: (r.dataFimValidade as string) || (r.dataFimValidadeAux as string) || null,
-        ocupacao: (r.ocupacao as string) || null,
+        razaoSocial: texto(r.razaoSocial) || texto(r.lookup) || '',
+        nomeFantasia: texto(est.nomeFantasia) || texto(r.nomeFantasia),
+        endereco: texto(r.endereco),
+        municipio: texto(mun.nome),
+        bairro: texto(bairro.nome),
+        status: texto(r.alvaraStr) || 'Desconhecido',
+        codigoValidacao: texto(r.codigoValidacao),
+        dataInicioValidade: texto(r.dataIniValidade),
+        dataFimValidade: texto(r.dataFimValidade) || texto(r.dataFimValidadeAux),
+        ocupacao: texto(r.ocupacao),
       }
+      return { alvara, documento: documentoDaLinha(r) }
     })
 
-    console.log(`[Alvará CBMES] ${total} resultado(s) para "${razaoSocial}"`)
+    log.log(`${total} resultado(s) para "${razaoSocial}"`)
 
-    // Selecionar apenas o mais recente (por dataFimValidade mais recente)
-    let maisRecente: AlvaraResult | null = null
-    if (alvaras.length > 0) {
-      maisRecente = alvaras.reduce((best, curr) => {
-        const bestDate = best.dataFimValidade || '0'
-        const currDate = curr.dataFimValidade || '0'
-        return currDate > bestDate ? curr : best
-      })
+    // O mais recente pela validade em ISO. Antes comparava a string crua: com
+    // "DD/MM/YYYY", "31/01/2020" vencia "01/06/2026".
+    let maisRecente: { alvara: AlvaraResult; documento: string | null } | null = null
+    for (const l of linhas) {
+      if (!maisRecente) { maisRecente = l; continue }
+      const atual = dataIso(l.alvara.dataFimValidade) ?? ''
+      const melhor = dataIso(maisRecente.alvara.dataFimValidade) ?? ''
+      if (atual > melhor) maisRecente = l
     }
 
-    // Buscar documento e razão social do cliente
-    let documento: string | null = null
+    // Vínculo ao cliente, sempre dentro da empresa.
+    let documento: string | null = maisRecente?.documento ?? null
+    let clienteVinculado: string | null = null
     if (clienteId) {
-      const cli = await prisma.cliente.findUnique({ where: { id: clienteId }, select: { documento: true } })
-      documento = cli?.documento?.replace(/\D/g, '') ?? null
-    } else {
-      // Tentar encontrar cliente pela razão social (sem acentos para match mais robusto)
-      const searchTerms = razaoSocial.split('/')[0]!.trim().split(' ').slice(0, 3).join(' ')
-      const cli = await prisma.$queryRawUnsafe<Array<{ id: string; documento: string }>>(
-        `SELECT id, documento FROM clientes WHERE status = 'ATIVO' AND razao_social ILIKE $1 LIMIT 1`,
-        `%${searchTerms.normalize('NFD').replace(/[\u0300-\u036f]/g, '')}%`,
-      ).then(rows => rows[0] || null)
-      if (cli) {
-        clienteId = cli.id
-        documento = cli.documento?.replace(/\D/g, '') ?? null
+      const cli = await prisma.cliente.findFirst({ where: { id: clienteId, empresaId }, select: { documento: true } })
+      if (!cli) throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente não encontrado nesta empresa.' })
+      clienteVinculado = clienteId
+      documento = documento ?? (limparDoc(cli.documento) || null)
+    } else if (maisRecente) {
+      clienteVinculado = await this.vincularCliente(empresaId, razaoSocial, maisRecente.documento)
+      if (clienteVinculado && !documento) {
+        const cli = await prisma.cliente.findFirst({ where: { id: clienteVinculado, empresaId }, select: { documento: true } })
+        documento = limparDoc(cli?.documento) || null
       }
     }
 
-    // Salvar apenas o mais recente no banco
+    // "Não encontrado" não apaga nada: só grava quando há alvará.
     if (maisRecente) {
-      // Remover registros anteriores deste cliente/razão social
-      if (clienteId) {
-        await prisma.$executeRawUnsafe(`DELETE FROM alvaras_bombeiros WHERE cliente_id = $1`, clienteId)
-      } else {
-        await prisma.$executeRawUnsafe(`DELETE FROM alvaras_bombeiros WHERE alvara_id = $1`, maisRecente.id)
-      }
-
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO alvaras_bombeiros (alvara_id, documento, razao_social, nome_fantasia, endereco, municipio, bairro, status, codigo_validacao, data_inicio_validade, data_fim_validade, ocupacao, cliente_id, user_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-        maisRecente.id, documento, maisRecente.razaoSocial, maisRecente.nomeFantasia, maisRecente.endereco,
-        maisRecente.municipio, maisRecente.bairro, maisRecente.status, maisRecente.codigoValidacao,
-        maisRecente.dataInicioValidade, maisRecente.dataFimValidade, maisRecente.ocupacao,
-        clienteId || null, userId || null,
-      )
+      const a = maisRecente.alvara
+      await prisma.$transaction([
+        // Remove o registro anterior deste cliente (ou deste alvará) DESTA empresa.
+        clienteVinculado
+          ? prisma.$executeRawUnsafe(`DELETE FROM alvaras_bombeiros WHERE cliente_id = $1 AND empresa_id = $2`, clienteVinculado, empresaId)
+          : prisma.$executeRawUnsafe(`DELETE FROM alvaras_bombeiros WHERE alvara_id = $1 AND empresa_id = $2`, a.id, empresaId),
+        prisma.$executeRawUnsafe(
+          `INSERT INTO alvaras_bombeiros (alvara_id, documento, razao_social, nome_fantasia, endereco, municipio, bairro, status, codigo_validacao, data_inicio_validade, data_fim_validade, ocupacao, cliente_id, user_id, empresa_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+          a.id, documento, a.razaoSocial, a.nomeFantasia, a.endereco,
+          a.municipio, a.bairro, a.status, a.codigoValidacao,
+          a.dataInicioValidade, a.dataFimValidade, a.ocupacao,
+          clienteVinculado, userId || null, empresaId,
+        ),
+      ])
     }
 
     return {
       sucesso: total > 0,
       total,
-      alvaras: maisRecente ? [maisRecente] : [],
+      alvaras: maisRecente ? [maisRecente.alvara] : [],
       mensagem: total > 0
         ? `${total} alvará(s) encontrado(s)${total > 1 ? ' — salvo o mais recente' : ''}`
         : 'Nenhum alvará encontrado para esta razão social',
     }
   }
 
-  async list(input: { page: number; limit: number; search?: string }) {
-    await this.ensureTable()
+  /**
+   * Cliente do alvará: pelo CNPJ/CPF quando o SIAT devolve; senão pelo nome,
+   * mas só com UM candidato na empresa. Antes era ILIKE nas 3 primeiras
+   * palavras com LIMIT 1 em todos os tenants — "COMERCIO DE ALIMENTOS ..."
+   * vinculava o alvará ao primeiro cliente qualquer com esse começo.
+   */
+  private async vincularCliente(empresaId: string, razaoSocial: string, doc: string | null): Promise<string | null> {
+    if (doc) {
+      const porDoc = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+        `SELECT id FROM clientes
+          WHERE status = 'ATIVO' AND empresa_id = $2
+            AND UPPER(REGEXP_REPLACE(documento, '[^0-9A-Za-z]', '', 'g')) = $1
+          LIMIT 2`, doc, empresaId,
+      )
+      if (porDoc.length === 1) return porDoc[0]!.id
+      if (porDoc.length > 1) { log.warn(`Documento …${doc.slice(-4)} com mais de um cliente ativo — alvará sem vínculo`); return null }
+    }
+    const termo = razaoSocial.split('/')[0]!.trim().split(/\s+/).slice(0, 3).join(' ')
+    if (termo.length < 3) return null
+    const semAcento = termo.normalize('NFD').replace(/[̀-ͯ]/g, '')
+    const porNome = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+      `SELECT id FROM clientes
+        WHERE status = 'ATIVO' AND empresa_id = $1
+          AND (razao_social ILIKE $2 OR razao_social ILIKE $3)
+        LIMIT 2`,
+      empresaId, `%${escaparLike(termo)}%`, `%${escaparLike(semAcento)}%`,
+    )
+    if (porNome.length === 1) return porNome[0]!.id
+    if (porNome.length > 1) log.warn(`"${termo}" casa com mais de um cliente — alvará sem vínculo`)
+    return null
+  }
+
+  async list(empresaId: string, input: { page: number; limit: number; search?: string }) {
+    exigirEmpresa(empresaId)
     const { page, limit, search } = input
     const offset = (page - 1) * limit
 
-    const conditions: string[] = []
-    const params: unknown[] = []
-    let paramIdx = 1
+    const conditions: string[] = ['empresa_id = $1']
+    const params: unknown[] = [empresaId]
+    let paramIdx = 2
 
     if (search) {
       conditions.push(`(razao_social ILIKE $${paramIdx} OR documento ILIKE $${paramIdx} OR municipio ILIKE $${paramIdx})`)
       params.push(`%${search}%`); paramIdx++
     }
 
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+    const where = `WHERE ${conditions.join(' AND ')}`
 
     const countRows = await prisma.$queryRawUnsafe<Array<{ total: number }>>(
       `SELECT COUNT(*)::int as total FROM alvaras_bombeiros ${where}`, ...params,
@@ -245,105 +317,115 @@ export class AlvaraBombeirosService {
   }
 
   /** Baixa o PDF do alvará via SIAT autenticado */
-  async getPdf(alvaraId: number): Promise<{ pdfBase64: string | null }> {
-    // Verificar se já temos PDF salvo
-    const cached = await prisma.$queryRawUnsafe<Array<{ pdf_base64: string | null }>>(
-      `SELECT pdf_base64 FROM alvaras_bombeiros WHERE alvara_id = $1`, alvaraId,
+  async getPdf(empresaId: string, alvaraId: number): Promise<{ pdfBase64: string | null }> {
+    exigirEmpresa(empresaId)
+    // Cache e razão social: só de alvará desta empresa.
+    const row = await prisma.$queryRawUnsafe<Array<{ pdf_base64: string | null; razao_social: string | null }>>(
+      `SELECT pdf_base64, razao_social FROM alvaras_bombeiros WHERE alvara_id = $1 AND empresa_id = $2 LIMIT 1`, alvaraId, empresaId,
     )
-    if (cached[0]?.pdf_base64) return { pdfBase64: cached[0].pdf_base64 }
+    if (!row[0]) return { pdfBase64: null }
+    if (row[0].pdf_base64) return { pdfBase64: row[0].pdf_base64 }
+    const razao = row[0].razao_social
+    if (!razao) return { pdfBase64: null }
 
-    // Buscar via SIAT autenticado
-    const tag = '[Alvará PDF]'
-    console.log(`${tag} Buscando PDF do alvará ${alvaraId} via SIAT...`)
+    // Credencial do SIAT só pelo system_config — sem valor padrão no código.
+    const creds = await prisma.systemConfig.findMany({ where: { key: { in: ['SIAT_USER', 'SIAT_PASS'] } } })
+    const siatUser = creds.find(c => c.key === 'SIAT_USER')?.value?.trim()
+    const siatPass = creds.find(c => c.key === 'SIAT_PASS')?.value
+    if (!siatUser || !siatPass) {
+      throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Configure o usuário e a senha do SIAT em Configurações.' })
+    }
 
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const puppeteer = require('puppeteer')
-    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox', '--ignore-certificate-errors'] })
-
+    log.log(`Buscando PDF do alvará ${alvaraId} via SIAT...`)
     try {
-      const page = await browser.newPage()
-
-      // Login
-      await page.goto('https://siat.cb.es.gov.br/', { waitUntil: 'networkidle2', timeout: 30000 })
-
-      // Buscar credenciais do banco
-      const creds = await prisma.systemConfig.findMany({ where: { key: { in: ['SIAT_USER', 'SIAT_PASS'] } } })
-      const siatUser = creds.find((c: { key: string }) => c.key === 'SIAT_USER')?.value || '82078742791'
-      const siatPass = creds.find((c: { key: string }) => c.key === 'SIAT_PASS')?.value || '820787'
-
-      await page.type('#id_j_username', siatUser)
-      await page.type('input[name=j_password]', siatPass)
-      await page.evaluate('document.querySelector("form").submit()')
-      await new Promise((r: (v: unknown) => void) => setTimeout(r, 5000))
-
-      // Buscar razão social do alvará
-      const alvaraRow = await prisma.$queryRawUnsafe<Array<{ razao_social: string }>>(
-        `SELECT razao_social FROM alvaras_bombeiros WHERE alvara_id = $1`, alvaraId,
-      )
-      const razao = alvaraRow[0]?.razao_social
-      if (!razao) { await browser.close(); return { pdfBase64: null } }
-
-      // Navegar para Imprimir Alvará
-      await page.goto('https://siat.cb.es.gov.br/siat/f/n/alvarapublico', { waitUntil: 'networkidle2', timeout: 30000 })
-      await page.evaluate(`document.getElementById("corpo:formulario:razaoSocial").value = "${razao.split('/')[0]!.trim().slice(0, 40)}"`)
-      await page.evaluate('document.getElementById("corpo:formulario:botaoAcaoPesquisar").click()')
-      await new Promise((r: (v: unknown) => void) => setTimeout(r, 8000))
-
-      // Chamar chamarImprimirAlvara com o ID
-      console.log(`${tag} Gerando PDF para alvará ${alvaraId}...`)
-      const newPagePromise = new Promise<unknown>(resolve => browser.once('targetcreated', async (t: { page: () => Promise<unknown> }) => resolve(await t.page())))
-      await page.evaluate(`chamarImprimirAlvara('ALVARA_LICENCA',${alvaraId})`)
-
-      const pdfPage = await Promise.race([newPagePromise, new Promise((_, rej) => setTimeout(() => rej('timeout'), 15000))]) as { createCDPSession: () => Promise<{ send: (method: string, params?: Record<string, unknown>) => Promise<Record<string, unknown>>; on: (event: string, handler: (event: { requestId: string; responseHeaders?: Array<{ name: string; value: string }> }) => void) => void }>; reload: (opts: Record<string, unknown>) => Promise<void> }
-      await new Promise((r: (v: unknown) => void) => setTimeout(r, 3000))
-
-      // CDP Fetch + reload para capturar o PDF
-      const client = await pdfPage.createCDPSession()
-      await client.send('Fetch.enable', { patterns: [{ urlPattern: '*alvarapublico*', requestStage: 'Response' }] })
-
-      let pdfBase64: string | null = null
-      client.on('Fetch.requestPaused', async (event: { requestId: string; responseHeaders?: Array<{ name: string; value: string }> }) => {
-        const ct = (event.responseHeaders || []).find(h => h.name.toLowerCase() === 'content-type')
-        if (ct && ct.value.includes('pdf') && !pdfBase64) {
-          try {
-            const body = await client.send('Fetch.getResponseBody', { requestId: event.requestId }) as { body: string; base64Encoded: boolean }
-            const buf = Buffer.from(body.body, body.base64Encoded ? 'base64' : 'utf8')
-            if (buf.length > 100 && buf[0] === 0x25 && buf[1] === 0x50) {
-              pdfBase64 = buf.toString('base64')
-              console.log(`${tag} PDF capturado: ${buf.length} bytes`)
-            }
-          } catch { /* */ }
-        }
-        await client.send('Fetch.continueRequest', { requestId: event.requestId }).catch(() => {})
-      })
-
-      await pdfPage.reload({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {})
-      await new Promise((r: (v: unknown) => void) => setTimeout(r, 5000))
-
-      await browser.close()
-
-      // Salvar PDF no banco para cache (coluna garantida pela migração — sem DDL aqui)
+      const pdfBase64 = await naFilaDoNavegador(() => comNavegador(
+        browser => this.baixarPdf(browser, alvaraId, razao, siatUser, siatPass),
+        // O SIAT (siat.cb.es.gov.br) serve cadeia de certificado incompleta — a rotina já ignorava TLS.
+        { timeoutMs: 120_000, ignorarTls: true },
+      ))
       if (pdfBase64) {
-        await prisma.$executeRawUnsafe(`UPDATE alvaras_bombeiros SET pdf_base64 = $1 WHERE alvara_id = $2`, pdfBase64, alvaraId)
+        await prisma.$executeRawUnsafe(
+          `UPDATE alvaras_bombeiros SET pdf_base64 = $1 WHERE alvara_id = $2 AND empresa_id = $3`, pdfBase64, alvaraId, empresaId,
+        )
       }
-
       return { pdfBase64 }
     } catch (e) {
-      await browser.close()
-      console.error(`${tag} Erro:`, (e as Error).message)
+      log.error(`Erro ao baixar PDF do alvará ${alvaraId}: ${(e as Error).message}`)
       return { pdfBase64: null }
     }
   }
 
-  async totalizadores() {
-    await this.ensureTable()
+  private async baixarPdf(
+    browser: import('puppeteer').Browser, alvaraId: number, razao: string, siatUser: string, siatPass: string,
+  ): Promise<string | null> {
+    const espera = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
+    const page = await browser.newPage()
+
+    // Login
+    await page.goto('https://siat.cb.es.gov.br/', { waitUntil: 'networkidle2', timeout: 30000 })
+    await page.type('#id_j_username', siatUser)
+    await page.type('input[name=j_password]', siatPass)
+    await page.evaluate(() => { document.querySelector('form')?.submit() })
+    await espera(5000)
+
+    // Navegar para Imprimir Alvará — a razão social vai como ARGUMENTO do
+    // evaluate (antes era interpolada no código: uma aspa no nome quebrava).
+    await page.goto('https://siat.cb.es.gov.br/siat/f/n/alvarapublico', { waitUntil: 'networkidle2', timeout: 30000 })
+    const termo = razao.split('/')[0]!.trim().slice(0, 40)
+    await page.evaluate((v: string) => {
+      (document.getElementById('corpo:formulario:razaoSocial') as HTMLInputElement).value = v
+      ;(document.getElementById('corpo:formulario:botaoAcaoPesquisar') as HTMLElement).click()
+    }, termo)
+    await espera(8000)
+
+    log.log(`Gerando PDF para alvará ${alvaraId}...`)
+    const novaAba = new Promise<Page | null>(resolve => browser.once('targetcreated', (t: Target) => { t.page().then(resolve, () => resolve(null)) }))
+    await page.evaluate((id: number) => {
+      (window as unknown as { chamarImprimirAlvara: (tipo: string, id: number) => void }).chamarImprimirAlvara('ALVARA_LICENCA', id)
+    }, alvaraId)
+
+    const pdfPage = await Promise.race([
+      novaAba,
+      new Promise<never>((_, rej) => setTimeout(() => rej(new Error('A aba do PDF não abriu')), 15000)),
+    ])
+    if (!pdfPage) return null
+    await espera(3000)
+
+    // CDP Fetch + reload para capturar o PDF
+    const client = await pdfPage.createCDPSession()
+    await client.send('Fetch.enable', { patterns: [{ urlPattern: '*alvarapublico*', requestStage: 'Response' }] })
+
+    const captura: { pdf: string | null } = { pdf: null }
+    client.on('Fetch.requestPaused', async (event) => {
+      const ct = (event.responseHeaders || []).find(h => h.name.toLowerCase() === 'content-type')
+      if (ct && ct.value.includes('pdf') && !captura.pdf) {
+        try {
+          const body = await client.send('Fetch.getResponseBody', { requestId: event.requestId })
+          const buf = Buffer.from(body.body, body.base64Encoded ? 'base64' : 'utf8')
+          if (buf.length > 100 && buf[0] === 0x25 && buf[1] === 0x50) {
+            captura.pdf = buf.toString('base64')
+            log.log(`PDF capturado: ${buf.length} bytes`)
+          }
+        } catch { /* resposta sem corpo — segue */ }
+      }
+      await client.send('Fetch.continueRequest', { requestId: event.requestId }).catch(() => {})
+    })
+
+    await pdfPage.reload({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {})
+    await espera(5000)
+    return captura.pdf
+  }
+
+  async totalizadores(empresaId: string) {
+    exigirEmpresa(empresaId)
     const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
       SELECT
         COUNT(*)::int as total,
         COUNT(*) FILTER (WHERE status = 'Regular')::int as regulares,
         COUNT(*) FILTER (WHERE status != 'Regular')::int as irregulares
       FROM alvaras_bombeiros
-    `)
+      WHERE empresa_id = $1
+    `, empresaId)
     const r = rows[0]!
     return {
       total: Number(r.total ?? 0),
@@ -352,15 +434,19 @@ export class AlvaraBombeirosService {
     }
   }
 
-  async deleteAlvara(id: string) {
-    await prisma.$executeRawUnsafe(`DELETE FROM alvaras_bombeiros WHERE id = $1`, id)
+  async deleteAlvara(empresaId: string, id: string) {
+    exigirEmpresa(empresaId)
+    await prisma.$executeRawUnsafe(`DELETE FROM alvaras_bombeiros WHERE id = $1 AND empresa_id = $2`, id, empresaId)
     return { ok: true }
   }
 
-  async deleteLote(ids: string[]) {
+  async deleteLote(empresaId: string, ids: string[]) {
+    exigirEmpresa(empresaId)
     if (ids.length === 0) return { deleted: 0 }
-    const placeholders = ids.map((_, i) => `$${i + 1}`).join(', ')
-    await prisma.$executeRawUnsafe(`DELETE FROM alvaras_bombeiros WHERE id IN (${placeholders})`, ...ids)
-    return { deleted: ids.length }
+    const placeholders = ids.map((_, i) => `$${i + 2}`).join(', ')
+    const deleted = await prisma.$executeRawUnsafe(
+      `DELETE FROM alvaras_bombeiros WHERE empresa_id = $1 AND id IN (${placeholders})`, empresaId, ...ids,
+    )
+    return { deleted }
   }
 }

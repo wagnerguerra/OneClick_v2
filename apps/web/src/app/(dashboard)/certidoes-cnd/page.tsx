@@ -391,7 +391,9 @@ export default function CertidoesCndPage() {
   const [loteOpen, setLoteOpen] = useState(false)
   const [loteSelecionados, setLoteSelecionados] = useState<Set<string>>(new Set())
   const [loteSearch, setLoteSearch] = useState('')
-  const [loteProgresso, setLoteProgresso] = useState<Array<{ documento: string; sucesso: boolean; erro?: string }>>([])
+  // Lote federal em segundo plano (05/10/2026): o servidor devolve na hora e a
+  // tela acompanha o progresso — antes a requisição ficava presa até o fim.
+  const [loteProgresso, setLoteProgresso] = useState<{ running: boolean; total: number; atual: number; sucesso: number; falhas: number; pulados: number; item: string; erros: string[] } | null>(null)
   const [loteRunning, setLoteRunning] = useState(false)
 
   // PDF
@@ -510,7 +512,7 @@ export default function CertidoesCndPage() {
     setLoteOpen(true)
     setLoteSelecionados(new Set())
     setLoteSearch('')
-    setLoteProgresso([])
+    setLoteProgresso(null)
     setLoteRunning(false)
     try {
       const lista = await trpc.cnd.clientesMensais.query() as ClienteMensal[]
@@ -522,19 +524,25 @@ export default function CertidoesCndPage() {
   async function handleConsultarLote() {
     const docs = clientes
       .filter(c => loteSelecionados.has(c.id))
-      .map(c => c.documento.replace(/\D/g, ''))
+      .map(c => limparCnpj(c.documento))
 
     if (docs.length === 0) { alerts.error('Atenção', 'Selecione ao menos um cliente'); return }
 
     setLoteRunning(true)
-    setLoteProgresso([])
+    setLoteProgresso(null)
     try {
-      const result = await trpc.cnd.consultarLote.mutate({ documentos: docs }) as Array<{ documento: string; sucesso: boolean; erro?: string }>
-      setLoteProgresso(result)
-      const ok = result.filter(r => r.sucesso).length
-      const fail = result.filter(r => !r.sucesso).length
-      alerts.success('Consulta em lote concluída', `${ok} sucesso, ${fail} falha(s)`)
-      fetchData(); fetchTotais()
+      await trpc.cnd.consultarLote.mutate({ documentos: docs })
+      // Acompanha até terminar. Certidão ainda válida é pulada (sem custo SERPRO).
+      for (;;) {
+        await new Promise(r => setTimeout(r, 3000))
+        const p = await trpc.cnd.progressoLote.query()
+        setLoteProgresso(p)
+        if (!p.running) {
+          alerts.success('Consulta em lote concluída', `${p.sucesso} sucesso, ${p.falhas} falha(s), ${p.pulados} já válida(s)`)
+          fetchData(); fetchTotais()
+          break
+        }
+      }
     } catch (e) { alerts.error('Erro', (e as Error).message) }
     finally { setLoteRunning(false) }
   }
@@ -1369,20 +1377,23 @@ export default function CertidoesCndPage() {
                 </div>
               ))}
             </div>
-            {loteProgresso.length > 0 && (
+            {loteProgresso && (
               <div className="rounded-lg border overflow-hidden">
                 <div className="px-3 py-2 bg-muted/20 border-b text-[11px] font-medium">
-                  Resultado: {loteProgresso.filter(r => r.sucesso).length} sucesso, {loteProgresso.filter(r => !r.sucesso).length} falha(s)
+                  {loteProgresso.running ? `Consultando ${loteProgresso.atual} de ${loteProgresso.total}` : 'Concluído'}
+                  {' · '}{loteProgresso.sucesso} sucesso · {loteProgresso.falhas} falha(s) · {loteProgresso.pulados} já válida(s)
+                  {loteProgresso.running && loteProgresso.item && <span className="block truncate text-muted-foreground">{loteProgresso.item}</span>}
                 </div>
-                <div className="max-h-[150px] overflow-y-auto divide-y nice-scrollbar">
-                  {loteProgresso.filter(r => !r.sucesso).map((r, i) => (
-                    <div key={i} className="flex items-center gap-2 px-3 py-1.5 text-[11px]">
-                      <XCircle className="h-3 w-3 text-red-500 shrink-0" />
-                      <span className="font-mono">{formatDoc(r.documento)}</span>
-                      <span className="text-red-500 truncate">{r.erro}</span>
-                    </div>
-                  ))}
-                </div>
+                {loteProgresso.erros.length > 0 && (
+                  <div className="max-h-[150px] overflow-y-auto divide-y nice-scrollbar">
+                    {loteProgresso.erros.map((erro, i) => (
+                      <div key={i} className="flex items-center gap-2 px-3 py-1.5 text-[11px]">
+                        <XCircle className={cn('h-3 w-3 shrink-0', TEXT.rose)} />
+                        <span className={cn('truncate', TEXT.rose)}>{erro}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </DialogBody>
