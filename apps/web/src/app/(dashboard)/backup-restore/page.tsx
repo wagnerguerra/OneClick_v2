@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Download, Upload, Loader2, CheckCircle, FileArchive, AlertTriangle, X, Trash2 } from 'lucide-react'
 import { Button, Card, CardHeader, Checkbox, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, cn } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { FILL, TEXT } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -150,7 +150,7 @@ function BackupRestorePageInner() {
                 <span>Incluir arquivo .env <span className={cn('text-xs', TEXT.amber)}>(contém credenciais)</span></span>
               </label>
             </div>
-            <Button variant="success" className="w-full" onClick={handleGenerate} disabled={generating}>
+            <Button className="w-full" onClick={handleGenerate} disabled={generating}>
               {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
               {generating ? 'Gerando...' : 'Gerar Backup'}
             </Button>
@@ -247,8 +247,8 @@ function BackupRestorePageInner() {
               <div>
                 <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                   <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{ width: `${progress}%`, backgroundColor: progress === 100 ? '#10b981' : '#5ea3cb' }}
+                    className={cn('h-full rounded-full transition-all duration-500', progress === 100 ? FILL.emerald : 'bg-primary')}
+                    style={{ width: `${progress}%` }}
                   />
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">{progressText}</p>

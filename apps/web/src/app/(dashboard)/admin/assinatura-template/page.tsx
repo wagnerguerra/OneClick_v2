@@ -23,7 +23,6 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
-import { BackButton } from '@/components/ui/back-button'
 import {
   buildSignatureHtml,
   SIGNATURE_TEMPLATE_DEFAULTS,
@@ -266,7 +265,6 @@ export default function AssinaturaTemplatePage() {
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Salvar
           </Button>
-          <BackButton href="/admin" />
         </>}
       >
         <h1 className="truncate">Template de assinatura</h1>

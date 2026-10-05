@@ -3,13 +3,12 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
   Settings, Save, Eye, EyeOff, HelpCircle, X, Loader2,
-  Shield, Database, Server, Mail, CreditCard, HardDrive,
-  Landmark, Globe, MessageSquare, Bot, Brain, Calendar,
-  FileSearch,
-  Key, Clock, type LucideIcon, Zap, CheckCircle2, XCircle,
+  Database, Server, Mail, HardDrive,
+  Landmark, MessageSquare, Bot, Calendar,
+  Key, Clock, Zap, CheckCircle2, XCircle,
   Play, Terminal, Bookmark, FolderOpen, Trash2, ChevronDown, Search, Pencil, Check, Maximize2, Minimize2,
-  FileSignature, Bell, Lock, Unlock, Headphones, HardDriveDownload, ClipboardCheck,
-  ChevronRight, BadgeCheck,
+  Lock, Unlock, HardDriveDownload,
+  ChevronRight,
 } from 'lucide-react'
 import Link from 'next/link'
 import { Button, Input, Label, Card, CardHeader, cn, Switch } from '@saas/ui'
@@ -25,6 +24,7 @@ import { TicketsSection } from './_components/tickets-section'
 import { GoogleBackupSection } from './_components/google-backup-section'
 import { HelpdeskIaSection } from './_components/helpdesk-ia-section'
 import { CampoCron } from './_components/campo-cron'
+import { TituloGrupo, iconeDoGrupo } from './_components/titulo-grupo'
 
 interface ConfigField {
   key: string; label: string; group: string; type: string
@@ -32,38 +32,11 @@ interface ConfigField {
   subgroup?: string; colSpan?: number
 }
 
-const GROUP_ICONS: Record<string, LucideIcon> = {
-  'Armazenamento (S3)': HardDrive,
-  'Autenticação': Shield,
-  'Banco de Dados': Database,
-  'Carimbo de Tempo (TSA)': Clock,
-  'E-mail (SMTP)': Mail,
-  'Google': Calendar,
-  'Google Calendar': Calendar,
-  'gov.br Assinatura': FileSignature,
-  'SERPRO Neo iD': FileSignature,
-  'Omie ERP': Globe,
-  'OpenAI (ChatGPT)': Brain,
-  'Certificados': BadgeCheck,
-  'SERPRO': Key,
-  'Servidor': Server,
-  'Stripe': CreditCard,
-  'WhatsApp': MessageSquare,
-  'Captcha': Bot,
-  'Dossiê e Imagens': FileSearch,
-  'Abas': Bookmark,
-  'Notificações': Bell,
-  'Helpdesk': Headphones,
-  'Acessórias': Zap,
-  'Calendário': Calendar,
-  'Relatório de QA': ClipboardCheck,
-  'Relatório de Tickets': Headphones,
-}
-
 // Pill especial — não tem campos cadastrados via getCampos, é injetada
 // no fim da lista de groups e tratada com renderer próprio.
 const NOTIFICATIONS_GROUP = 'Notificações'
-const HELPDESK_GROUP = 'Helpdesk'
+// Pill só do front (não é o `group: 'Helpdesk'` das linhas de configuração da API).
+const HELPDESK_GROUP = 'HelpDesk'
 const CALENDARIO_GROUP = 'Calendário'
 const QA_GROUP = 'Relatório de QA'
 const RELATORIO_TICKETS_GROUP = 'Relatório de Tickets'
@@ -629,7 +602,7 @@ export default function ConfiguracoesPage() {
           <div className="w-[200px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
             <div className="space-y-1">
               {groups.map((group) => {
-                const Icon = GROUP_ICONS[group] || Settings
+                const Icon = iconeDoGrupo(group)
                 return (
                   <button
                     key={group}
@@ -663,7 +636,7 @@ export default function ConfiguracoesPage() {
               <div className="flex flex-col h-full">
                 {/* Header com título + salvar */}
                 <div className="flex items-center justify-between px-5 py-3 border-b border-hairline">
-                  <h4 className="text-[13px] font-semibold text-foreground">Banco de Dados</h4>
+                  <TituloGrupo grupo="Banco de Dados" />
                   <Button variant="success" size="sm" onClick={handleSave} disabled={saving}>
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     {saving ? 'Salvando...' : 'Salvar'}
@@ -683,7 +656,7 @@ export default function ConfiguracoesPage() {
                           className={cn(
                             'px-4 py-2.5 text-xs font-medium transition-all flex items-center gap-2 border-b-2 -mb-px',
                             dbSubtab === tab.key
-                              ? 'border-primary text-primary'
+                              ? 'border-primary-on-surface text-primary-on-surface'
                               : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                           )}
                         >
@@ -1024,9 +997,9 @@ export default function ConfiguracoesPage() {
                                       {templates.length > 0 && (
                                         <>
                                           <div className="px-3 py-1.5 bg-primary/10 border-b border-primary/20 flex items-center gap-1.5">
-                                            <Bookmark className="h-3 w-3 text-primary" />
-                                            <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">Templates</span>
-                                            <span className="text-[10px] text-primary/70">({templates.length})</span>
+                                            <Bookmark className="h-3 w-3 text-primary-on-surface" />
+                                            <span className="text-[10px] font-semibold text-primary-on-surface uppercase tracking-wider">Templates</span>
+                                            <span className="text-[10px] text-primary-on-surface/70">({templates.length})</span>
                                           </div>
                                           {templates.map(renderQueryItem)}
                                         </>
@@ -1146,7 +1119,7 @@ export default function ConfiguracoesPage() {
               /* ============================================================ */
               <div className="flex flex-col h-full">
                 <div className="flex items-center justify-between px-5 py-3 border-b border-hairline">
-                  <h4 className="text-[13px] font-semibold text-foreground">Google</h4>
+                  <TituloGrupo grupo="Google" />
                   <Button variant="success" size="sm" onClick={handleSave} disabled={saving}>
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     {saving ? 'Salvando...' : 'Salvar'}
@@ -1165,7 +1138,7 @@ export default function ConfiguracoesPage() {
                           className={cn(
                             'px-4 py-2.5 text-xs font-medium transition-all flex items-center gap-2 border-b-2 -mb-px',
                             googleSubtab === tab.key
-                              ? 'border-primary text-primary'
+                              ? 'border-primary-on-surface text-primary-on-surface'
                               : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                           )}
                         >
@@ -1209,10 +1182,7 @@ export default function ConfiguracoesPage() {
               /* ============================================================ */
               <div className="flex flex-col h-full">
                 <div className="flex items-center justify-between px-5 py-3 border-b border-hairline">
-                  <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
-                    <Bell className="h-4 w-4 text-primary" />
-                    Notificações — controle de remoção pelo usuário
-                  </h4>
+                  <TituloGrupo grupo={NOTIFICATIONS_GROUP}>Notificações — controle de remoção pelo usuário</TituloGrupo>
                   <Button
                     variant="success"
                     size="sm"
@@ -1225,7 +1195,7 @@ export default function ConfiguracoesPage() {
                 </div>
 
                 <div className="flex-1 p-5 space-y-4" style={{ animation: 'fadeSlideIn 0.2s ease-out' }}>
-                  <div className="rounded border border-primary/30 bg-primary/10 px-3 py-2.5 text-[11px] text-primary leading-relaxed">
+                  <div className="rounded border border-primary/30 bg-primary/10 px-3 py-2.5 text-[11px] text-primary-on-surface leading-relaxed">
                     Por origem, define se o usuário pode remover a notificação manualmente
                     do sino. Origens <strong>não removíveis</strong> ficam no painel até a
                     condição que as gerou ser resolvida pelo sistema (ex: o evento da agenda
@@ -1318,10 +1288,7 @@ export default function ConfiguracoesPage() {
               /* ============================================================ */
               <div className="flex flex-col h-full">
                 <div className="flex items-center justify-between px-5 py-3 border-b border-hairline">
-                  <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
-                    <Headphones className="h-4 w-4 text-cyan-500" />
-                    HelpDesk
-                  </h4>
+                  <TituloGrupo grupo={HELPDESK_GROUP} />
                   {hdSubtab === 'geral' && (
                     <Button variant="success" size="sm" onClick={handleSaveHd} disabled={hdSaving || !hdDirty || !hdCfg}>
                       {hdSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -1336,7 +1303,7 @@ export default function ConfiguracoesPage() {
                     onClick={() => setHdSubtab('geral')}
                     className={cn(
                       'px-3 py-1.5 text-[12px] font-semibold rounded-t-md transition-colors -mb-px border-b-2',
-                      hdSubtab === 'geral' ? 'text-cyan-600 border-cyan-500' : 'text-muted-foreground border-transparent hover:text-foreground',
+                      hdSubtab === 'geral' ? 'text-primary-on-surface border-primary-on-surface' : 'text-muted-foreground border-transparent hover:text-foreground',
                     )}
                   >
                     Geral
@@ -1346,7 +1313,7 @@ export default function ConfiguracoesPage() {
                     onClick={() => setHdSubtab('ia')}
                     className={cn(
                       'px-3 py-1.5 text-[12px] font-semibold rounded-t-md transition-colors -mb-px border-b-2 inline-flex items-center gap-1.5',
-                      hdSubtab === 'ia' ? 'text-cyan-600 border-cyan-500' : 'text-muted-foreground border-transparent hover:text-foreground',
+                      hdSubtab === 'ia' ? 'text-primary-on-surface border-primary-on-surface' : 'text-muted-foreground border-transparent hover:text-foreground',
                     )}
                   >
                     <Bot className="h-3.5 w-3.5" />
@@ -1421,7 +1388,7 @@ export default function ConfiguracoesPage() {
                         />
                       </section>
 
-                      <div className="rounded border border-cyan-200/70 bg-cyan-50/40 dark:bg-cyan-950/20 dark:border-cyan-900/40 px-3 py-2.5 text-[11px] text-cyan-900 dark:text-cyan-200 leading-relaxed">
+                      <div className={cn('rounded border px-3 py-2.5 text-[11px] leading-relaxed', BADGE.sky)}>
                         <strong>Próximos passos sugeridos:</strong> CRUD completo de categorias (com SLA por categoria
                         e cor customizável) chegará em uma evolução desta pill. Por enquanto, o catálogo TI inicial
                         é gerenciado via seed (<code className="text-[11px]">seed-helpdesk-ti.ts</code>).
@@ -1451,7 +1418,7 @@ export default function ConfiguracoesPage() {
               /* ============================================================ */
               <div className="p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-sm font-semibold">{activeGroup}</h4>
+                  <TituloGrupo grupo={activeGroup} />
                   <Button variant="success" size="sm" onClick={handleSave} disabled={saving}>
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     {saving ? 'Salvando...' : 'Salvar'}

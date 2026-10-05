@@ -17,6 +17,7 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { TituloGrupo } from './titulo-grupo'
 import { ClipboardCheck, Plus, Trash2, Loader2, FileCode2, StickyNote, ChevronDown, ChevronRight } from 'lucide-react'
 
 type QaItem = {
@@ -136,9 +137,7 @@ export function QaSection() {
       {/* Header interno */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-border">
         <div>
-          <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-1.5">
-            <ClipboardCheck className="h-4 w-4" /> Relatório de QA
-          </h4>
+          <TituloGrupo grupo="Relatório de QA" />
           <p className="text-[11px] text-muted-foreground mt-0.5">
             {contagem.abertos} aberto(s) · {contagem.altas} de severidade alta · {contagem.corrigidos} corrigido(s)
           </p>

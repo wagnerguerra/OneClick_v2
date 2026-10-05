@@ -49,7 +49,9 @@ const BLOCOS = navigation.map(g => ({
   cor: groupColorVar(g.label),
 }))
 const ORDEM_BLOCOS = BLOCOS.map(b => b.label)
-const COR_PADRAO = 'var(--muted-foreground, #94a3b8)'
+// Agendamento fora dos blocos da sidebar: cai na primária (o antigo
+// `var(--muted-foreground)` era nome shadcn que não existe — ia sempre pro hex fixo).
+const COR_PADRAO = 'var(--color-primary)'
 
 export default function CentroAgendamentosPage() {
   const [items, setItems] = useState<SchedulerItem[]>([])
