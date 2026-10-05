@@ -106,7 +106,8 @@ export class ManifestacaoService {
     // Sem `ver_todos`, a pessoa enxerga o que registrou — e, no caso das
     // sugestões, também o que foi publicado no mural. Anônima nunca aparece
     // aqui: sem autor gravado, ela não é "de ninguém".
-    const escopo = ctx.verTodos && !input.somenteMinhas
+    // A lista de inativas (só chega aqui para quem pode restaurar) mostra todas.
+    const escopo = (ctx.verTodos || input.inativas) && !input.somenteMinhas
       ? {}
       : {
         OR: [
@@ -121,6 +122,8 @@ export class ManifestacaoService {
     const where = {
       tipo,
       empresaId: ctx.empresaId ?? null,
+      // Inativas só sob pedido — e o router só pede para quem pode restaurar.
+      excluidaEm: input.inativas ? { not: null } : null,
       ...(input.status ? { status: input.status } : {}),
       ...(input.origem ? { origem: input.origem } : {}),
       ...(input.areaId ? { areaId: input.areaId } : {}),
@@ -177,13 +180,18 @@ export class ManifestacaoService {
   async assertPodeVer(
     id: string,
     tipo: ManifestacaoTipo,
-    ctx: { userId: string; empresaId?: string | null; verTodos: boolean; verPublicas?: boolean },
+    ctx: { userId: string; empresaId?: string | null; verTodos: boolean; verPublicas?: boolean; podeRestaurar?: boolean },
   ) {
     const m = await prisma.manifestacao.findFirst({
       where: { id, tipo, empresaId: ctx.empresaId ?? null },
-      select: { id: true, autorId: true, publica: true },
+      select: { id: true, autorId: true, publica: true, excluidaEm: true },
     })
     if (!m) throw new Error('Registro nao encontrado.')
+    // Inativa: só quem pode restaurar enxerga (as demais regras valem por cima).
+    if (m.excluidaEm) {
+      if (!ctx.podeRestaurar) throw new Error('Registro nao encontrado.')
+      return m // quem restaura vê qualquer inativa, de qualquer autor
+    }
     const proprio = m.autorId != null && m.autorId === ctx.userId
     const noMural = !!ctx.verPublicas && m.publica
     if (!ctx.verTodos && !proprio && !noMural) {
@@ -207,7 +215,7 @@ export class ManifestacaoService {
     ctx: { userId: string; empresaId?: string | null; trata: boolean },
   ) {
     const m = await prisma.manifestacao.findFirst({
-      where: { id, tipo, empresaId: ctx.empresaId ?? null },
+      where: { id, tipo, empresaId: ctx.empresaId ?? null, excluidaEm: null },
       select: { id: true, autorId: true },
     })
     if (!m) throw new Error('Registro nao encontrado.')
@@ -249,8 +257,9 @@ export class ManifestacaoService {
    * notas internas, sem log e sem quem tratou.
    */
   async porProtocolo(protocolo: string) {
-    const m = await prisma.manifestacao.findUnique({
-      where: { protocolo: protocolo.trim().toUpperCase() },
+    const m = await prisma.manifestacao.findFirst({
+      // Inativa não aparece na consulta pública.
+      where: { protocolo: protocolo.trim().toUpperCase(), excluidaEm: null },
       select: {
         protocolo: true, tipo: true, status: true, titulo: true, descricao: true,
         criadoEm: true, resposta: true, respondidoEm: true, retornoCliente: true,
@@ -397,9 +406,32 @@ export class ManifestacaoService {
     return { ok: true }
   }
 
-  async excluir(id: string, tipo: ManifestacaoTipo, empresaId?: string | null) {
+  /**
+   * "Excluir" envia para os inativos (05/10/2026). Antes apagava de vez — e um
+   * registro de reclamação apagado é justamente o que uma auditoria procura.
+   * Volta com `restaurar`, por quem tem a sub-permissão.
+   */
+  async excluir(id: string, tipo: ManifestacaoTipo, empresaId?: string | null, userId?: string | null, motivo?: string | null) {
     const atual = await this.exigir(id, tipo, empresaId)
-    await prisma.manifestacao.delete({ where: { id: atual.id } })
+    await prisma.manifestacao.update({
+      where: { id: atual.id },
+      data: { excluidaEm: new Date(), excluidaPorId: userId ?? null, motivoExclusao: motivo?.trim() || null },
+    })
+    await this.registrarLog(atual.id, userId ?? null, 'Enviada para os inativos', motivo?.trim() || undefined)
+    return { ok: true }
+  }
+
+  async restaurar(id: string, tipo: ManifestacaoTipo, empresaId?: string | null, userId?: string | null) {
+    const m = await prisma.manifestacao.findFirst({
+      where: { id, tipo, empresaId: empresaId ?? null, excluidaEm: { not: null } },
+      select: { id: true },
+    })
+    if (!m) throw new Error('Registro não encontrado nos inativos.')
+    await prisma.manifestacao.update({
+      where: { id: m.id },
+      data: { excluidaEm: null, excluidaPorId: null, motivoExclusao: null },
+    })
+    await this.registrarLog(m.id, userId ?? null, 'Restaurada dos inativos')
     return { ok: true }
   }
 
@@ -544,7 +576,7 @@ export class ManifestacaoService {
   async indicadores(ano: number, empresaId?: string | null) {
     const inicio = new Date(Date.UTC(ano, 0, 1))
     const fim = new Date(Date.UTC(ano + 1, 0, 1))
-    const base = { tipo: 'RECLAMACAO', empresaId: empresaId ?? null, criadoEm: { gte: inicio, lt: fim } }
+    const base = { tipo: 'RECLAMACAO', empresaId: empresaId ?? null, criadoEm: { gte: inicio, lt: fim }, excluidaEm: null }
 
     const [porStatus, porArea, porOrigem, porCanal, total, procedentes, improcedentes] = await Promise.all([
       prisma.manifestacao.groupBy({ by: ['status'], where: base, _count: true }),
@@ -605,10 +637,11 @@ export class ManifestacaoService {
 
   private async exigir(id: string, tipo: ManifestacaoTipo, empresaId?: string | null) {
     const m = await prisma.manifestacao.findFirst({
-      where: { id, tipo, empresaId: empresaId ?? null },
+      // Inativa não aceita andamento nem edição — restaure antes.
+      where: { id, tipo, empresaId: empresaId ?? null, excluidaEm: null },
       select: { id: true, status: true, anonima: true, autorId: true },
     })
-    if (!m) throw new Error('Registro não encontrado.')
+    if (!m) throw new Error('Registro não encontrado (ou está nos inativos).')
     return m
   }
 

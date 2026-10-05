@@ -41,14 +41,16 @@ export function createManifestacaoRouter(
     userId: string; empresaId?: string | null; isMaster?: boolean; isEmpresaMaster?: boolean
   }) {
     const opts = { isMaster: ctx.isMaster, isEmpresaMaster: ctx.isEmpresaMaster }
-    const [verTodos, trata] = await Promise.all([
+    const [verTodos, trata, podeRestaurar] = await Promise.all([
       hasSubPermission(ctx.userId, MODULE, 'ver_todos', opts),
       hasSubPermission(ctx.userId, MODULE, 'tratar', opts),
+      hasSubPermission(ctx.userId, MODULE, 'restaurar', opts),
     ])
     return {
       userId: ctx.userId,
       empresaId: ctx.empresaId,
       verTodos: verTodos || trata,
+      podeRestaurar,
       // No mural das sugestões, o que foi publicado é de todos.
       verPublicas: tipo === 'SUGESTAO',
     }
@@ -59,7 +61,12 @@ export function createManifestacaoRouter(
       .input(listarManifestacoesSchema)
       .query(async ({ input, ctx }) => {
         // `somenteMinhas` é aplicado no service, que já é o dono dessa regra.
-        return service.listar(tipo, input, await escopoDeLeitura(ctx))
+        const escopo = await escopoDeLeitura(ctx)
+        // A lista de inativas é só de quem pode restaurar.
+        if (input.inativas && !escopo.podeRestaurar) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Sem acesso aos inativos.' })
+        }
+        return service.listar(tipo, input, escopo)
       }),
 
     getById: readProcedure(MODULE)
@@ -72,7 +79,8 @@ export function createManifestacaoRouter(
         const trata = await hasSubPermission(ctx.userId, MODULE, 'tratar', {
           isMaster: ctx.isMaster, isEmpresaMaster: ctx.isEmpresaMaster,
         })
-        const podeEditar = trata || (!!m && !m.anonima && m.autor?.id === ctx.userId)
+        // Inativa não se edita (restaure antes).
+        const podeEditar = !!m && !m.excluidaEm && (trata || (!m.anonima && m.autor?.id === ctx.userId))
         return m ? { ...m, podeEditar } : m
       }),
 
@@ -159,9 +167,13 @@ export function createManifestacaoRouter(
     // No legado o botão de excluir só aparecia no nível de administração
     // (`If SGQ_ELO = "3"` em central/modules/sgq_elogios/details.asp). Aqui
     // vira sub-permissão própria, em vez de bastar o delete do módulo.
+    // Excluir = enviar para os inativos (não apaga mais).
     excluir: deleteSubProcedure(MODULE, 'excluir', 'Excluir manifestacoes')
+      .input(z.object({ id: z.string(), motivo: z.string().max(1000).optional().nullable() }))
+      .mutation(({ input, ctx }) => service.excluir(input.id, tipo, ctx.empresaId, ctx.userId, input.motivo)),
+    restaurar: writeSubProcedure(MODULE, 'restaurar', 'Restaurar manifestacoes')
       .input(z.object({ id: z.string() }))
-      .mutation(({ input, ctx }) => service.excluir(input.id, tipo, ctx.empresaId)),
+      .mutation(({ input, ctx }) => service.restaurar(input.id, tipo, ctx.empresaId, ctx.userId)),
 
     // ── Fluxo, só para Reclamações ──
     ...(tipo === 'RECLAMACAO'

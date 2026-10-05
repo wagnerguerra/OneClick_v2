@@ -93,6 +93,8 @@ export const listarManifestacoesSchema = paginationSchema.extend({
   clienteId: z.string().optional(),
   /** Só as minhas — o padrão de quem não tem permissão de ver todas. */
   somenteMinhas: z.coerce.boolean().optional(),
+  /** A lista de inativas ("excluídas") — só para quem pode restaurar. */
+  inativas: z.coerce.boolean().optional(),
 })
 
 /** Resposta da Qualidade (elogio e sugestão). */

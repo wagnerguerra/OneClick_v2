@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Plus, Loader2, Search, Copy, Check, EyeOff, MessageSquare, Paperclip,
-  Building2, User as UserIcon, MoreVertical, Eye, Inbox, Settings,
+  Building2, User as UserIcon, MoreVertical, Eye, Inbox, Settings, Trash2, ArchiveRestore,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUp, ArrowDown, ArrowUpDown,
 } from 'lucide-react'
 import {
@@ -51,6 +51,10 @@ export function ManifestacaoPage({ config }: { config: Config }) {
   const podeTratar = isMaster || subs.tratar === true
   const podeRegistrar = isMaster || subs.registrar === true || subs.tratar === true
   const podeConfigurar = isMaster || isEmpresaMaster || subs.configurar === true
+  const podeExcluir = isMaster || isEmpresaMaster || subs.excluir === true
+  const podeRestaurar = isMaster || isEmpresaMaster || subs.restaurar === true
+  // Lista de inativos ("excluídas") — só para quem pode restaurar.
+  const [inativas, setInativas] = useState(false)
 
   const [linhas, setLinhas] = useState<Linha[]>([])
   const [total, setTotal] = useState(0)
@@ -87,6 +91,7 @@ export function ManifestacaoPage({ config }: { config: Config }) {
     try {
       const r = await api.listar.query({
         page, limit, sortBy, sortDir,
+        ...(inativas ? { inativas: true } : {}),
         ...(buscaAtrasada ? { search: buscaAtrasada } : {}),
         ...(status ? { status } : {}),
         ...(origem ? { origem } : {}),
@@ -98,7 +103,7 @@ export function ManifestacaoPage({ config }: { config: Config }) {
     } finally {
       setCarregando(false)
     }
-  }, [api, page, limit, sortBy, sortDir, buscaAtrasada, status, origem])
+  }, [api, page, limit, sortBy, sortDir, buscaAtrasada, status, origem, inativas])
 
   // Paginação — PADRAO_PAGINAS §1.4
   const totalPages = Math.max(1, Math.ceil(total / limit))
@@ -115,6 +120,33 @@ export function ManifestacaoPage({ config }: { config: Config }) {
     else { setSortBy(campo); setSortDir(campo === 'criadoEm' ? 'desc' : 'asc') }
     setPage(1)
   }
+  async function excluir(l: Linha) {
+    const r = await alerts.input({
+      title: `Excluir ${l.protocolo}?`,
+      text: 'O registro vai para os inativos — sai das listas e dos indicadores, mas pode ser restaurado por quem tem permissão.',
+      inputPlaceholder: 'Motivo (opcional)',
+      inputType: 'textarea',
+      icon: 'warning',
+      confirmText: 'Excluir',
+    })
+    if (r === null) return
+    try {
+      await api.excluir.mutate({ id: l.id, motivo: r || null })
+      alerts.toast('Enviado para os inativos')
+      void carregar()
+    } catch (e) { alerts.error('Não foi possível excluir', (e as Error).message) }
+  }
+
+  async function restaurar(l: Linha) {
+    const ok = await alerts.confirm({ title: `Restaurar ${l.protocolo}?`, text: 'Ele volta para a lista, com a situação em que estava.', confirmText: 'Restaurar' })
+    if (!ok) return
+    try {
+      await api.restaurar.mutate({ id: l.id })
+      alerts.toast('Restaurado')
+      void carregar()
+    } catch (e) { alerts.error('Não foi possível restaurar', (e as Error).message) }
+  }
+
   const copiarProtocolo = async (protocolo: string) => {
     try { await navigator.clipboard.writeText(protocolo); alerts.toast('Protocolo copiado') } catch { /* sem área de transferência */ }
   }
@@ -185,12 +217,26 @@ export function ManifestacaoPage({ config }: { config: Config }) {
               </SelectContent>
             </Select>
           </div>
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+          {podeRestaurar && (
+            <Button variant={inativas ? 'soft' : 'outline'} size="sm" className="h-8 shrink-0 gap-1.5 text-xs"
+              onClick={() => { setInativas(v => !v); setPage(1) }}
+              title={inativas ? 'Voltar para a lista' : 'Ver os registros excluídos'}>
+              <ArchiveRestore className="h-3.5 w-3.5" /> Inativos
+            </Button>
+          )}
           <div className="relative w-full sm:w-[300px]">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input value={busca} onChange={e => setBusca(e.target.value)}
               placeholder="Buscar por texto, cliente ou protocolo..." className="h-8 pl-8 text-xs" />
           </div>
+          </div>
         </div>
+        {inativas && (
+          <div className="shrink-0 border-b border-border/60 bg-amber-500/10 px-4 py-1.5 text-[12px] text-amber-700 dark:text-amber-400">
+            Mostrando os <b>inativos</b> (excluídos). Use o menu ⋮ para restaurar.
+          </div>
+        )}
 
         <div className="nice-scrollbar min-h-0 flex-1 overflow-y-auto">
           <Table className="table-fixed">
@@ -269,6 +315,9 @@ export function ManifestacaoPage({ config }: { config: Config }) {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => setAbertoId(l.id)}><Eye className="h-4 w-4" />Abrir</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => copiarProtocolo(l.protocolo)}><Copy className="h-4 w-4" />Copiar protocolo</DropdownMenuItem>
+                          {inativas
+                            ? (podeRestaurar && <DropdownMenuItem onClick={() => restaurar(l)}><ArchiveRestore className="h-4 w-4" />Restaurar</DropdownMenuItem>)
+                            : (podeExcluir && <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => excluir(l)}><Trash2 className="h-4 w-4" />Excluir</DropdownMenuItem>)}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

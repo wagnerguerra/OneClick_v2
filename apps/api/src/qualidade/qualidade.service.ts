@@ -87,12 +87,12 @@ export class QualidadeService {
       // ── Manifestações ──
       prisma.manifestacao.groupBy({
         by: ['tipo', 'status'],
-        where: { empresaId: emp },
+        where: { empresaId: emp, excluidaEm: null },
         _count: true,
       }),
       prisma.manifestacao.count({
         where: {
-          empresaId: emp, tipo: 'RECLAMACAO',
+          empresaId: emp, tipo: 'RECLAMACAO', excluidaEm: null,
           status: { in: ['AGUARDANDO_RETORNO', 'AGUARDANDO_ANALISE', 'REGISTRAR_EFICACIA'] },
           prazoRetorno: { lt: hoje },
         },

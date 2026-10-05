@@ -535,14 +535,16 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'registrar', label: 'Registrar elogios', group: 'Rotina' },
     { key: 'ver_todos', label: 'Ver os elogios de todos', group: 'Rotina', observacao: 'Sem isto, vê apenas os que registrou.' },
     { key: 'tratar', label: 'Responder e encerrar', group: 'Qualidade' },
-    { key: 'excluir', label: 'Excluir elogios', group: 'Qualidade', observacao: 'No sistema antigo, exclusivo do nível de administração.' },
+    { key: 'excluir', label: 'Excluir elogios (enviar para os inativos)', group: 'Qualidade', observacao: 'Não apaga: o registro vai para os inativos e pode ser restaurado.' },
+    { key: 'restaurar', label: 'Ver os inativos e restaurar', group: 'Qualidade', observacao: 'Acesso à lista de elogios excluídas e ao botão de restaurar.' },
   ],
   reclamacoes: [
     { key: 'registrar', label: 'Registrar reclamações', group: 'Rotina' },
     { key: 'ver_todos', label: 'Ver as reclamações de todos', group: 'Rotina', observacao: 'Sem isto, vê apenas as que registrou.' },
     { key: 'tratar', label: 'Dar retorno, analisar procedência e encerrar', group: 'Qualidade' },
     { key: 'indicadores', label: 'Acessar os indicadores', group: 'Qualidade' },
-    { key: 'excluir', label: 'Excluir reclamações', group: 'Qualidade', observacao: 'No sistema antigo, exclusivo do nível de administração.' },
+    { key: 'excluir', label: 'Excluir reclamações (enviar para os inativos)', group: 'Qualidade', observacao: 'Não apaga: o registro vai para os inativos e pode ser restaurado.' },
+    { key: 'restaurar', label: 'Ver os inativos e restaurar', group: 'Qualidade', observacao: 'Acesso à lista de reclamações excluídas e ao botão de restaurar.' },
     {
       key: 'configurar',
       label: 'Acessar as configurações (quem recebe as notificações)',
@@ -555,7 +557,8 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'ver_todos', label: 'Ver as sugestões de todos', group: 'Rotina', observacao: 'Sem isto, vê as próprias e as publicadas no mural.' },
     { key: 'tratar', label: 'Responder e encerrar', group: 'Qualidade' },
     { key: 'publicar', label: 'Publicar no mural', group: 'Qualidade' },
-    { key: 'excluir', label: 'Excluir sugestões', group: 'Qualidade', observacao: 'No sistema antigo, exclusivo do nível de administração.' },
+    { key: 'excluir', label: 'Excluir sugestões (enviar para os inativos)', group: 'Qualidade', observacao: 'Não apaga: o registro vai para os inativos e pode ser restaurado.' },
+    { key: 'restaurar', label: 'Ver os inativos e restaurar', group: 'Qualidade', observacao: 'Acesso à lista de sugestões excluídas e ao botão de restaurar.' },
   ],
   // O v1 não tinha níveis aqui: quem abria o módulo fazia tudo. O corte que faz
   // sentido é entre quem REGISTRA a ata e quem só precisa acompanhar as ações

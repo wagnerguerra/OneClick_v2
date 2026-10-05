@@ -8945,6 +8945,12 @@ model Manifestacao {
   encerradoEm     DateTime? @map("encerrado_em")
   encerradoPorId  String?   @map("encerrado_por_id")
 
+  /// Inativa ("excluída"): some das listas, indicadores e consulta pública,
+  /// e não aceita andamento. Só quem tem a sub-permissão `restaurar` a vê e a
+  /// traz de volta (05/10/2026 — antes a exclusão apagava de vez).
+  excluidaEm    DateTime? @map("excluida_em")
+  excluidaPorId String?   @map("excluida_por_id")
+  motivoExclusao String?  @map("motivo_exclusao") @db.Text
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 

@@ -101,6 +101,8 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
   }
 
   const st = m ? (STATUS_LABEL[m.status] ?? { texto: m.status, classe: 'bg-muted' }) : null
+  // Inativa não recebe andamento (o servidor também recusa): restaure antes.
+  const tratavel = podeTratar && !m?.excluidaEm
 
   return (
     <>
@@ -171,6 +173,12 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
           </div>
         ) : (
           <div className="nice-scrollbar flex-1 space-y-4 overflow-y-auto px-6 py-4">
+            {m.excluidaEm && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12.5px] text-amber-700 dark:text-amber-400">
+                <b>Registro inativo</b> — excluído em {new Date(m.excluidaEm).toLocaleString('pt-BR')}
+                {m.motivoExclusao ? <> · motivo: {m.motivoExclusao}</> : null}. Restaure pela lista de inativos para voltar a tratá-lo.
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-2">
               {st && <Badge variant="outline" className={cn('text-[11px]', st.classe)}>{st.texto}</Badge>}
               {config.temMural && (
@@ -178,7 +186,7 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
                   {m.publica ? <><Globe className="mr-1 h-3 w-3" />No mural</> : <><Lock className="mr-1 h-3 w-3" />Privada</>}
                 </Badge>
               )}
-              {config.temMural && podeTratar && (
+              {config.temMural && tratavel && (
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={alternarMural}>
                   {m.publica ? 'Tirar do mural' : 'Publicar no mural'}
                 </Button>
@@ -252,7 +260,7 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
             {/* ── Fluxo da reclamação ──
                 Um passo por vez, e só o passo da vez: mostrar os três juntos
                 convidaria a pular a apuração e ir direto ao encerramento. */}
-            {config.temFluxo && podeTratar && m.status === 'AGUARDANDO_RETORNO' && (
+            {config.temFluxo && tratavel && m.status === 'AGUARDANDO_RETORNO' && (
               <div className={cn('space-y-2 rounded-lg border p-3', SURFACE.amber)}>
                 <p className={cn('text-[13px] font-semibold', TEXT.amber)}>
                   1. Retorno imediato ao cliente
@@ -283,7 +291,7 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
               </div>
             )}
 
-            {config.temFluxo && podeTratar && m.status === 'AGUARDANDO_ANALISE' && (
+            {config.temFluxo && tratavel && m.status === 'AGUARDANDO_ANALISE' && (
               <div className={cn('space-y-3 rounded-lg border p-3', SURFACE.sky)}>
                 <p className={cn('text-[13px] font-semibold', TEXT.sky)}>
                   2. A reclamação procede?
@@ -352,7 +360,7 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
               </div>
             )}
 
-            {config.temFluxo && podeTratar && m.status === 'REGISTRAR_EFICACIA' && (
+            {config.temFluxo && tratavel && m.status === 'REGISTRAR_EFICACIA' && (
               <div className={cn('space-y-2 rounded-lg border p-3', SURFACE.indigo)}>
                 <p className={cn('text-[13px] font-semibold', TEXT.indigo)}>
                   3. Encerrar
@@ -403,7 +411,7 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
               </div>
             )}
 
-            {!config.temFluxo && podeTratar && (
+            {!config.temFluxo && tratavel && (
               <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-3">
                 <p className="text-[13px] font-semibold">Responder</p>
                 <RichEditor value={resposta} onChange={setResposta}
