@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import { RegrasObrigacaoService } from './regras-obrigacao.service'
+import { CLIENTE_ATIVO_MENSAL, daCarteira, exigirEmpresa, foraDaCarteira } from './recorte-carteira'
+import { extrairVencimentoGuia, vencimentoMaisProximo, type VencimentoLido } from './vencimento-guia'
+
+/** Teto de PDFs de guia lidos por rodada de sincronização (ver lerVencimentoGuia). */
+const LEITURAS_GUIA_POR_RODADA = 600
 
 /**
  * Cliente HTTP do Acessórias (https://api.acessorias.com).
@@ -44,7 +49,6 @@ export interface AcessoriasResponse<T = unknown> {
  * prospect, potencial, avulso e paralisado — gasta requisição, infla o
  * histórico e enche a lista de pendências com quem não deveria estar lá.
  */
-const CLIENTE_ATIVO_MENSAL = { status: 'ATIVO', situacao: 'MENSAL' } as const
 
 /**
  * Silêncio a partir do qual uma sincronização "rodando" é dada como morta.
@@ -308,6 +312,7 @@ export class AcessoriasService {
    *   - Cliente não existe → ignora (apenas conta) — NÃO cria cliente novo
    *     automaticamente (decisão consciente: cliente vem da nossa origem). */
   async syncCompanies(opts: { triggeredBy?: string; empresaId?: string | null }) {
+    const empresaDaSync = exigirEmpresa(opts.empresaId)
     const log = await prisma.acessoriasSyncLog.create({
       data: {
         tipo: 'companies',
@@ -353,6 +358,8 @@ export class AcessoriasService {
           const cliente = await prisma.cliente.findFirst({
             where: {
               ...CLIENTE_ATIVO_MENSAL,
+              // Só clientes da empresa carregada — antes casava com o de qualquer empresa.
+              empresaId: empresaDaSync,
               OR: [
                 { idAcessorias: idAcess },
                 { documento: cnpjKey },
@@ -477,6 +484,7 @@ export class AcessoriasService {
     triggeredBy?: string
     empresaId?: string | null
   }) {
+    exigirEmpresa(opts.empresaId)
     const log = await prisma.acessoriasSyncLog.create({
       data: {
         tipo: 'deliveries',
@@ -545,9 +553,9 @@ export class AcessoriasService {
    * O que separa os dois é o sinal de vida: um laço vivo bate o ponto a cada
    * cliente. Silêncio prolongado significa que não há ninguém do outro lado.
    */
-  async cancelarSync(logId: string) {
-    const log = await prisma.acessoriasSyncLog.findUnique({
-      where: { id: logId },
+  async cancelarSync(logId: string, empresaId?: string | null) {
+    const log = await prisma.acessoriasSyncLog.findFirst({
+      where: { id: logId, empresaId: exigirEmpresa(empresaId) },
       select: { id: true, status: true, heartbeatEm: true, startedAt: true, progressoAtual: true, progressoTotal: true },
     })
     if (!log) throw new Error('Sincronização não encontrada.')
@@ -621,9 +629,17 @@ export class AcessoriasService {
       }
 
       // Resolve lista de clientes a sincronizar
+      // Quem saiu da carteira desde a última leitura (inativado, virou avulso…)
+      // deixa de ter entregas no espelho — senão elas se acumulavam (em 30/09/2026
+      // eram 2.914). As telas já filtram na leitura; isto mantém a tabela limpa.
+      await prisma.acessoriasEntrega.deleteMany({ where: foraDaCarteira(exigirEmpresa(opts.empresaId)) })
+        .catch(() => null)
+
       const clientes = await prisma.cliente.findMany({
         where: {
           ...CLIENTE_ATIVO_MENSAL,
+          // Só clientes da empresa carregada — antes sincronizava os de todas.
+          empresaId: exigirEmpresa(opts.empresaId),
           ...(opts.clienteId ? { id: opts.clienteId } : { idAcessorias: { not: null } }),
         },
         select: { id: true, documento: true, idAcessorias: true, cnpjAcessorias: true, empresaId: true, razaoSocial: true },
@@ -684,10 +700,10 @@ export class AcessoriasService {
           // resto do cliente em silêncio, deixando o espelho incompleto sem
           // nenhum sinal no histórico. Agora espera e tenta de novo; se ainda
           // assim falhar, a falha é CONTADA e aparece no log.
-          let res = await this.request<unknown>(`/deliveries/${cnpj}?${qs}&config`)
+          let res = await this.request<unknown>(`/deliveries/${cnpj}?${qs}&config&attachments=S&attachmentsId=S`)
           for (let tentativa = 1; tentativa <= 3 && res.status === 429; tentativa++) {
             await new Promise(r => setTimeout(r, 20_000))
-            res = await this.request<unknown>(`/deliveries/${cnpj}?${qs}&config`)
+            res = await this.request<unknown>(`/deliveries/${cnpj}?${qs}&config&attachments=S&attachmentsId=S`)
           }
           if (!res.ok) {
             falhas.push(`${cli.razaoSocial} p.${pagina}: HTTP ${res.status}`)
@@ -843,6 +859,85 @@ export class AcessoriasService {
   /** Zera o cache de colaboradores — chamar no início de cada sync. */
   private resetColaboradorCache() {
     this.colaboradorCache = null
+    this.regraMultaCache = null
+    this.leiturasGuiaRestantes = LEITURAS_GUIA_POR_RODADA
+  }
+
+  /**
+   * Quantos PDFs de guia ainda podem ser lidos nesta rodada. A primeira rodada
+   * depois do deploy encontra todas as guias recentes sem leitura; com o teto,
+   * ela não vira uma maratona de downloads — o resto fica para as próximas.
+   */
+  private leiturasGuiaRestantes = LEITURAS_GUIA_POR_RODADA
+
+  /**
+   * Lê o vencimento das guias anexadas (ver vencimento-guia.ts) e grava na
+   * entrega. Só roda quando os anexos mudaram desde a última leitura — guia
+   * reemitida traz anexo novo —, então no dia a dia quase nada é baixado.
+   *
+   * Download pelo link da API (getguiaapi.php): testado em 30/09/2026 numa guia
+   * já lida, não alterou EntGuiaLida nem EntLastDH no Acessórias.
+   */
+  private async lerVencimentoGuia(
+    entrega: { id: string; vencimentoGuiaAnexos: string | null; dtAtraso: Date | null; prazo: Date | null },
+    delivery: Record<string, unknown>,
+  ) {
+    const urls = Array.isArray(delivery.Anexos) ? (delivery.Anexos as unknown[]).map(String).filter(Boolean) : []
+    if (urls.length === 0) return
+    const ids = Array.isArray(delivery.AnexosIDs) ? (delivery.AnexosIDs as unknown[]).map(String) : []
+    const chave = (ids.length ? [...ids].sort() : urls.map((_, i) => `sem-id-${i}`)).join(',')
+    if (chave === entrega.vencimentoGuiaAnexos) return
+    // Só o que ainda importa: guia de três meses atrás não muda cobrança.
+    const limite = entrega.dtAtraso ?? entrega.prazo
+    if (limite && limite.getTime() < Date.now() - 90 * 86_400_000) return
+    if (this.leiturasGuiaRestantes <= 0) return
+    this.leiturasGuiaRestantes--
+
+    let status: 'lido' | 'nao_encontrado' | 'sem_pdf' | 'erro' = 'sem_pdf'
+    const lidos: Array<VencimentoLido | null> = []
+    for (const url of urls.slice(0, 3)) {
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(20_000) })
+        if (!res.ok) { status = status === 'sem_pdf' ? 'erro' : status; continue }
+        const buf = Buffer.from(await res.arrayBuffer())
+        if (buf.subarray(0, 4).toString() !== '%PDF') continue // planilha, imagem: não é guia legível
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const data = await require('pdf-parse/lib/pdf-parse.js')(buf)
+        lidos.push(extrairVencimentoGuia(String(data.text ?? '')))
+        status = 'nao_encontrado' // PDF legível; vira 'lido' abaixo se achou a data
+      } catch {
+        if (status === 'sem_pdf') status = 'erro'
+      }
+    }
+    const venc = vencimentoMaisProximo(lidos)
+    if (venc) status = 'lido'
+
+    await prisma.acessoriasEntrega.update({
+      where: { id: entrega.id },
+      data: {
+        vencimentoGuia: venc ? new Date(`${venc.data}T00:00:00`) : null,
+        vencimentoGuiaStatus: status,
+        vencimentoGuiaAnexos: chave,
+      },
+    })
+  }
+
+  /**
+   * Reclassificações de multa do escritório (`AcessoriasRegraMulta`), chave
+   * `clienteId|nome`. Lidas uma vez por rodada, como os colaboradores.
+   */
+  private regraMultaCache: Map<string, boolean> | null = null
+
+  private async multaReclassificada(clienteId: string, nome: string, empresaId: string | null): Promise<boolean | undefined> {
+    if (!this.regraMultaCache) {
+      const rows = await prisma.acessoriasRegraMulta.findMany({
+        where: empresaId ? { empresaId } : {},
+        select: { clienteId: true, nome: true, multa: true },
+      })
+      // clienteId null = regra geral, chave "*|nome".
+      this.regraMultaCache = new Map(rows.map(r => [`${r.clienteId ?? '*'}|${r.nome}`, r.multa]))
+    }
+    return this.regraMultaCache.get(`${clienteId}|${nome}`) ?? this.regraMultaCache.get(`*|${nome}`)
   }
 
   private async espelharEntrega(clienteId: string, delivery: Record<string, unknown>, empresaId: string | null) {
@@ -853,9 +948,11 @@ export class AcessoriasService {
     if (!entId) return
 
     const guiaLida = delivery.EntGuiaLida != null ? String(delivery.EntGuiaLida).trim() : null
+    const nome = String(delivery.Nome ?? '').trim()
+    const multaAcessorias = String(delivery.EntMulta ?? '').trim().toUpperCase() === 'S'
 
     const dados = {
-      nome: String(delivery.Nome ?? '').trim(),
+      nome,
       competencia: this.parseDate(String(delivery.EntCompetencia ?? '')),
       prazo: this.parseDate(String(delivery.EntDtPrazo ?? '')),
       dtAtraso: this.parseDate(String(delivery.EntDtAtraso ?? '')),
@@ -864,7 +961,10 @@ export class AcessoriasService {
       guiaLida: guiaLida || null,
       lida: this.interpretarGuiaLida(guiaLida),
       status: String(delivery.Status ?? '').trim() || null,
-      multa: String(delivery.EntMulta ?? '').trim().toUpperCase() === 'S',
+      // A reclassificação do escritório vence o EntMulta; o original fica
+      // guardado para a tela mostrar de onde veio e permitir voltar.
+      multa: (await this.multaReclassificada(clienteId, nome, empresaId)) ?? multaAcessorias,
+      multaAcessorias,
       respPrazo: config.RespPrazo ? String(config.RespPrazo).trim() || null : null,
       respEntrega: config.RespEntrega ? String(config.RespEntrega).trim() || null : null,
       dpto: config.DptoNome ? String(config.DptoNome).trim() || null : null,
@@ -879,11 +979,14 @@ export class AcessoriasService {
       empresaId,
     }
 
-    await prisma.acessoriasEntrega.upsert({
+    const gravada = await prisma.acessoriasEntrega.upsert({
       where: { clienteId_entId: { clienteId, entId } },
       create: { clienteId, entId, ...dados },
       update: dados,
+      select: { id: true, vencimentoGuiaAnexos: true, dtAtraso: true, prazo: true },
     })
+    // Falha na leitura da guia não pode derrubar o espelho da entrega.
+    await this.lerVencimentoGuia(gravada, delivery).catch(() => null)
   }
 
   private async upsertDelivery(
@@ -1089,13 +1192,17 @@ export class AcessoriasService {
   }
 
   /** Remove um vínculo específico (uma row). */
-  async removeObligationServico(mapId: string) {
-    return prisma.acessoriasObligationMap.delete({ where: { id: mapId } })
+  async removeObligationServico(mapId: string, empresaId?: string | null) {
+    const r = await prisma.acessoriasObligationMap.deleteMany({ where: { id: mapId, empresaId: exigirEmpresa(empresaId) } })
+    if (r.count === 0) throw new Error('Vínculo não encontrado.')
+    return { ok: true }
   }
 
   /** Toggle ativo de um vínculo específico. */
-  async setObligationServicoActive(mapId: string, ativo: boolean) {
-    return prisma.acessoriasObligationMap.update({ where: { id: mapId }, data: { ativo } })
+  async setObligationServicoActive(mapId: string, ativo: boolean, empresaId?: string | null) {
+    const r = await prisma.acessoriasObligationMap.updateMany({ where: { id: mapId, empresaId: exigirEmpresa(empresaId) }, data: { ativo } })
+    if (r.count === 0) throw new Error('Vínculo não encontrado.')
+    return prisma.acessoriasObligationMap.findUnique({ where: { id: mapId } })
   }
 
   /** Marca/desmarca obrigação como "explicitamente ignorada" (row com servicoId=null).
@@ -1228,9 +1335,9 @@ export class AcessoriasService {
    *  geral do escritório. Pra customizar quais obrigações estão ativas pra
    *  esse cliente específico, ainda é necessário entrar no portal do Acessórias.
    *  (A API não expõe endpoint pra (des)ativar obrigações por cliente.) */
-  async createCompanyInAcessorias(clienteId: string, opts?: { triggeredBy?: string }) {
-    const cliente = await prisma.cliente.findUnique({
-      where: { id: clienteId },
+  async createCompanyInAcessorias(clienteId: string, opts?: { triggeredBy?: string; empresaId?: string | null }) {
+    const cliente = await prisma.cliente.findFirst({
+      where: { id: clienteId, empresaId: exigirEmpresa(opts?.empresaId) },
       select: {
         id: true, razaoSocial: true, nomeFantasia: true, documento: true, tipoDocumento: true,
         tributacao: true, inscricaoEstadual: true, inscricaoMunicipal: true,
@@ -1325,8 +1432,10 @@ export class AcessoriasService {
     return { ok: true, idAcessorias: respId, mensagem: msg, atualizou: cliente.idAcessorias === respId }
   }
 
-  async listSyncLogs(limit = 50) {
+  async listSyncLogs(limit = 50, empresaId?: string | null) {
     return prisma.acessoriasSyncLog.findMany({
+      // Histórico da empresa carregada (antes listava o de todas).
+      ...(empresaId ? { where: { empresaId } } : {}),
       orderBy: { startedAt: 'desc' },
       take: Math.min(limit, 200),
     })
@@ -1557,9 +1666,144 @@ export class AcessoriasService {
    * "41 entrega(s)" que aparece no resumo da sincronização. Sai do espelho
    * local, não da API: instantâneo e sem gastar requisição.
    */
-  async entregasDoCliente(input: { clienteId: string; de?: string; ate?: string }) {
+  /**
+   * Contatos da empresa cadastrados no Acessórias (`/companies/{CNPJ}/?contacts`).
+   *
+   * É o mais perto que a API chega de "para quem a guia foi enviada": o log de
+   * envio por destinatário só existe na tela deles, e a configuração de quais
+   * departamentos cada contato recebe também não vem (conferido em 30/09/2026 —
+   * a Darwin tem 6 contatos e 5 receberam a guia de ISS). A tela apresenta como
+   * "quem pode ter recebido", nunca como confirmação de envio.
+   *
+   * Buscado na hora em que o painel abre, com cache curto: contato muda pouco,
+   * e o teto da API é 100 req/min.
+   */
+  private contatosCache = new Map<string, { em: number; contatos: Array<{ nome: string; email: string | null; celular: string | null }> }>()
+
+  async contatosDoCliente(clienteId: string, empresaId?: string | null) {
+    const empresa = exigirEmpresa(empresaId)
+    const cli = await prisma.cliente.findFirst({
+      where: { id: clienteId, empresaId: empresa },
+      select: { cnpjAcessorias: true, documento: true },
+    })
+    if (!cli) return { ok: false as const, erro: 'Cliente não encontrado nesta empresa.', contatos: [] }
+    const cache = this.contatosCache.get(clienteId)
+    if (cache && Date.now() - cache.em < 10 * 60_000) return { ok: true as const, contatos: cache.contatos }
+
+    const cnpj = this.normCnpj(cli.cnpjAcessorias ?? cli.documento)
+    const res = await this.request<unknown>(`/companies/${cnpj}/?contacts`)
+    if (!res.ok) return { ok: false as const, erro: `O Acessórias não respondeu (HTTP ${res.status}).`, contatos: [] }
+    const emp = ([] as unknown[]).concat(res.data ?? [])[0] as Record<string, unknown> | undefined
+    const lista = Array.isArray(emp?.ContatosNaEmpresa) ? (emp?.ContatosNaEmpresa as Array<Record<string, unknown>>) : []
+    const texto = (v: unknown) => (v == null ? null : String(v).trim() || null)
+    const contatos = lista
+      .map((c) => ({ nome: texto(c.Nome) ?? '(sem nome)', email: texto(c['E-mail']), celular: texto(c.Celular) }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+    this.contatosCache.set(clienteId, { em: Date.now(), contatos })
+    return { ok: true as const, contatos }
+  }
+
+  /**
+   * Links das guias anexadas a uma entrega, para abrir no painel de leitura.
+   *
+   * Os links do Acessórias (getguiaapi.php?AnxKey=…) valem 60 minutos, então
+   * são pedidos na hora do clique, nunca guardados. O nome do arquivo vem só no
+   * Content-Disposition do download — lido com Range de 1 byte, sem baixar a
+   * guia inteira. Baixar/abrir por esse link não conta como leitura do cliente
+   * (testado e conferido no histórico deles em 30/09/2026).
+   */
+  async guiasDaEntrega(entregaId: string, empresaId?: string | null) {
+    const achados = await this.anexosDaEntrega(entregaId, empresaId)
+    if (!achados.ok) return { ok: false as const, erro: achados.erro, guias: [] }
+    const { urls, ids } = achados
+
+    const guias = await Promise.all(urls.slice(0, 10).map(async (url, i) => {
+      let nome: string | null = null
+      try {
+        const r = await fetch(url, { headers: { Range: 'bytes=0-0' }, signal: AbortSignal.timeout(10_000) })
+        nome = this.nomeDoAnexo(r.headers.get('content-disposition'))
+        await r.body?.cancel().catch(() => null)
+      } catch { /* sem nome: a tela mostra "Guia N" */ }
+      return { id: ids[i] ?? String(i + 1), nome: nome ?? `Guia ${i + 1}`, url }
+    }))
+    return { ok: true as const, guias }
+  }
+
+  /**
+   * O PDF da guia, para exibir DENTRO do painel de leitura. O link do
+   * Acessórias responde `Content-Disposition: attachment` e
+   * `application/octet-stream` — num iframe o navegador baixaria em vez de
+   * mostrar. Então o servidor busca o arquivo e devolve os bytes, e a tela
+   * monta um blob `application/pdf`, que o visualizador do navegador exibe.
+   */
+  async guiaPdf(entregaId: string, anexoId: string, empresaId?: string | null) {
+    const achados = await this.anexosDaEntrega(entregaId, empresaId)
+    if (!achados.ok) return { ok: false as const, erro: achados.erro }
+    const i = achados.ids.indexOf(anexoId)
+    const url = achados.urls[i >= 0 ? i : Number(anexoId) - 1]
+    if (!url) return { ok: false as const, erro: 'Anexo não encontrado — a guia pode ter sido substituída no Acessórias.' }
+
+    const r = await fetch(url, { signal: AbortSignal.timeout(30_000) })
+    if (!r.ok) return { ok: false as const, erro: `O Acessórias não entregou o arquivo (HTTP ${r.status}).` }
+    const buf = Buffer.from(await r.arrayBuffer())
+    const nome = this.nomeDoAnexo(r.headers.get('content-disposition')) ?? 'guia.pdf'
+    if (buf.subarray(0, 4).toString() !== '%PDF') {
+      return { ok: false as const, erro: 'O anexo não é um PDF — não dá para exibir aqui.', nome }
+    }
+    // Guia é pequena (100–300 KB); o teto só protege de um anexo fora do comum.
+    if (buf.length > 15 * 1024 * 1024) return { ok: false as const, erro: 'Arquivo grande demais para exibir aqui.', nome }
+    return { ok: true as const, nome, base64: buf.toString('base64') }
+  }
+
+  /** Nome real do arquivo, do Content-Disposition. */
+  private nomeDoAnexo(cru: string | null): string | null {
+    if (!cru) return null
+    // O Acessórias manda o nome em UTF-8 cru, e o fetch expõe cabeçalho como
+    // latin1 ("SERVIÃOS"): reinterpreta os bytes, e só fica com a versão UTF-8
+    // se ela for válida.
+    const utf8 = Buffer.from(cru, 'latin1').toString('utf8')
+    const cd = utf8.includes('\uFFFD') ? cru : utf8
+    const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+    if (!m?.[1]) return null
+    const bruto = m[1].trim()
+    try { return decodeURIComponent(bruto) } catch { return bruto }
+  }
+
+  /** Links frescos dos anexos de uma entrega (valem 60 min), da empresa carregada. */
+  private async anexosDaEntrega(entregaId: string, empresaId?: string | null):
+    Promise<{ ok: true; urls: string[]; ids: string[] } | { ok: false; erro: string }> {
+    const empresa = exigirEmpresa(empresaId)
+    const e = await prisma.acessoriasEntrega.findFirst({
+      where: { id: entregaId, ...daCarteira(empresa) },
+      select: { entId: true, prazo: true, cliente: { select: { cnpjAcessorias: true, documento: true } } },
+    })
+    if (!e) return { ok: false, erro: 'Entrega não encontrada nesta empresa.' }
+    if (!e.prazo) return { ok: false, erro: 'Entrega sem prazo — não dá para localizá-la no Acessórias.' }
+
+    // DtInitial/DtFinal filtram pelo prazo técnico (EntDtPrazo) — o `prazo` daqui.
+    const dia = e.prazo.toISOString().slice(0, 10)
+    const cnpj = this.normCnpj(e.cliente.cnpjAcessorias ?? e.cliente.documento)
+    const res = await this.request<unknown>(`/deliveries/${cnpj}?DtInitial=${dia}&DtFinal=${dia}&config&attachments=S&attachmentsId=S`)
+    if (!res.ok) return { ok: false, erro: `O Acessórias não respondeu (HTTP ${res.status}).` }
+
+    let entrega: Record<string, unknown> | undefined
+    for (const emp of ([] as unknown[]).concat(res.data ?? [])) {
+      for (const d of ((emp as Record<string, unknown>).Entregas as Array<Record<string, unknown>> | undefined) ?? []) {
+        if (String((d.Config as Record<string, unknown> | undefined)?.EntID ?? '') === e.entId) entrega = d
+      }
+    }
+    const urls = Array.isArray(entrega?.Anexos) ? (entrega?.Anexos as unknown[]).map(String).filter(Boolean) : []
+    const ids = Array.isArray(entrega?.AnexosIDs) ? (entrega?.AnexosIDs as unknown[]).map(String) : []
+
+    return { ok: true, urls, ids }
+  }
+
+  async entregasDoCliente(input: { clienteId: string; de?: string; ate?: string }, empresaId?: string | null) {
     const rows = await prisma.acessoriasEntrega.findMany({
       where: {
+        // Só da carteira da empresa carregada: sem isto, qualquer clienteId de
+        // outra empresa era aceito.
+        ...daCarteira(empresaId),
         clienteId: input.clienteId,
         ...(input.de || input.ate
           ? {
@@ -1618,16 +1862,18 @@ export class AcessoriasService {
     clienteId: string
     idAcessorias: number
     cnpjAcessorias?: string | null
-  }) {
+  }, empresaId?: string | null) {
+    const empresa = exigirEmpresa(empresaId)
     const alvo = await prisma.cliente.findFirst({
-      where: { id: input.clienteId, ...CLIENTE_ATIVO_MENSAL },
+      where: { id: input.clienteId, ...CLIENTE_ATIVO_MENSAL, empresaId: empresa },
       select: { id: true },
     })
     if (!alvo) {
       throw new Error('Só é possível vincular a um cliente ativo e de situação mensal.')
     }
     const jaUsado = await prisma.cliente.findFirst({
-      where: { idAcessorias: input.idAcessorias, id: { not: input.clienteId } },
+      // Duplicidade dentro da empresa: cada instalação tem a sua conta do Acessórias.
+      where: { idAcessorias: input.idAcessorias, id: { not: input.clienteId }, empresaId: empresa },
       select: { id: true, code: true, razaoSocial: true },
     })
     if (jaUsado) {

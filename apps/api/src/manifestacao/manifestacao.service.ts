@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Optional } from '@nestjs/common'
+import { ManifestacaoNotificacaoService, type EventoManifestacao } from './manifestacao-notificacao.service'
 import { prisma, getPrismaSkipTake, buildPaginatedResponse } from '@saas/db'
 import { randomBytes } from 'crypto'
 import type {
@@ -37,6 +38,43 @@ const STATUS_INICIAL: Record<ManifestacaoTipo, string> = {
 
 @Injectable()
 export class ManifestacaoService {
+  /** Avisos dos eventos (opcional: os testes instanciam o service sem Nest). */
+  constructor(@Optional() private readonly avisos?: ManifestacaoNotificacaoService) {}
+
+  /**
+   * Registro interno ("de dentro de casa") liberado? Só Reclamações tem a
+   * trava, a pedido da diretoria — e nasce travada. Elogio e sugestão seguem
+   * aceitando os dois.
+   */
+  async permiteInterna(tipo: ManifestacaoTipo, empresaId?: string | null): Promise<boolean> {
+    if (tipo !== 'RECLAMACAO') return true
+    if (!empresaId) return false
+    const p = await prisma.manifestacaoParametro.findUnique({
+      where: { empresaId_tipo: { empresaId, tipo } }, select: { permitirInternas: true },
+    })
+    return p?.permitirInternas ?? false
+  }
+
+  async definirPermiteInterna(tipo: ManifestacaoTipo, empresaId: string, permitir: boolean) {
+    await prisma.manifestacaoParametro.upsert({
+      where: { empresaId_tipo: { empresaId, tipo } },
+      create: { empresaId, tipo, permitirInternas: permitir },
+      update: { permitirInternas: permitir },
+    })
+    return { permitirInternas: permitir }
+  }
+
+  private async exigirOrigemPermitida(tipo: ManifestacaoTipo, origem: string | undefined, empresaId?: string | null) {
+    if (origem === 'INTERNA' && !(await this.permiteInterna(tipo, empresaId))) {
+      throw new Error('O registro de reclamações internas está desativado. Registre apenas reclamações de clientes.')
+    }
+  }
+
+  /** Dispara o aviso sem segurar a resposta — e sem deixar falha derrubar a ação. */
+  private avisar(id: string, evento: EventoManifestacao, quem?: string | null, detalhe?: string) {
+    void this.avisos?.notificar(id, evento, quem, detalhe)
+  }
+
   /**
    * Gera o código que a pessoa leva embora: ELO-7K3M-92QF.
    *
@@ -68,7 +106,8 @@ export class ManifestacaoService {
     // Sem `ver_todos`, a pessoa enxerga o que registrou — e, no caso das
     // sugestões, também o que foi publicado no mural. Anônima nunca aparece
     // aqui: sem autor gravado, ela não é "de ninguém".
-    const escopo = ctx.verTodos && !input.somenteMinhas
+    // A lista de inativas (só chega aqui para quem pode restaurar) mostra todas.
+    const escopo = (ctx.verTodos || input.inativas) && !input.somenteMinhas
       ? {}
       : {
         OR: [
@@ -77,29 +116,40 @@ export class ManifestacaoService {
         ],
       }
 
+    // Escopo e busca são dois OR: vão em AND. Espalhados no mesmo objeto, o
+    // `OR` da busca sobrescrevia o do escopo — quem não tinha `ver_todos` via a
+    // lista de todos assim que digitava algo na busca (corrigido em 05/10/2026).
     const where = {
       tipo,
       empresaId: ctx.empresaId ?? null,
-      ...escopo,
+      // Inativas só sob pedido — e o router só pede para quem pode restaurar.
+      excluidaEm: input.inativas ? { not: null } : null,
       ...(input.status ? { status: input.status } : {}),
       ...(input.origem ? { origem: input.origem } : {}),
       ...(input.areaId ? { areaId: input.areaId } : {}),
       ...(input.clienteId ? { clienteId: input.clienteId } : {}),
-      ...(search
-        ? {
-          OR: [
-            { titulo: { contains: search, mode: 'insensitive' as const } },
-            { descricao: { contains: search, mode: 'insensitive' as const } },
-            { protocolo: { contains: search.toUpperCase() } },
-          ],
-        }
-        : {}),
+      AND: [
+        escopo,
+        ...(search
+          ? [{
+            OR: [
+              { titulo: { contains: search, mode: 'insensitive' as const } },
+              { descricao: { contains: search, mode: 'insensitive' as const } },
+              { protocolo: { contains: search.toUpperCase() } },
+              { cliente: { is: { razaoSocial: { contains: search, mode: 'insensitive' as const } } } },
+            ],
+          }]
+          : []),
+      ],
     }
+    // Ordenação só por coluna conhecida — `sortBy` vem da tela.
+    const ORDENAVEIS = new Set(['protocolo', 'criadoEm', 'status', 'titulo', 'prazoRetorno'])
+    const ordem = sortBy && ORDENAVEIS.has(sortBy) ? { [sortBy]: sortDir } : { criadoEm: 'desc' as const }
 
     const [linhas, total] = await Promise.all([
       prisma.manifestacao.findMany({
         where,
-        orderBy: sortBy ? { [sortBy]: sortDir } : { criadoEm: 'desc' },
+        orderBy: ordem,
         skip,
         take,
         include: {
@@ -130,13 +180,18 @@ export class ManifestacaoService {
   async assertPodeVer(
     id: string,
     tipo: ManifestacaoTipo,
-    ctx: { userId: string; empresaId?: string | null; verTodos: boolean; verPublicas?: boolean },
+    ctx: { userId: string; empresaId?: string | null; verTodos: boolean; verPublicas?: boolean; podeRestaurar?: boolean },
   ) {
     const m = await prisma.manifestacao.findFirst({
       where: { id, tipo, empresaId: ctx.empresaId ?? null },
-      select: { id: true, autorId: true, publica: true },
+      select: { id: true, autorId: true, publica: true, excluidaEm: true },
     })
     if (!m) throw new Error('Registro não encontrado.')
+    // Inativa: só quem pode restaurar enxerga (as demais regras valem por cima).
+    if (m.excluidaEm) {
+      if (!ctx.podeRestaurar) throw new Error('Registro não encontrado.')
+      return m // quem restaura vê qualquer inativa, de qualquer autor
+    }
     const proprio = m.autorId != null && m.autorId === ctx.userId
     const noMural = !!ctx.verPublicas && m.publica
     if (!ctx.verTodos && !proprio && !noMural) {
@@ -160,7 +215,7 @@ export class ManifestacaoService {
     ctx: { userId: string; empresaId?: string | null; trata: boolean },
   ) {
     const m = await prisma.manifestacao.findFirst({
-      where: { id, tipo, empresaId: ctx.empresaId ?? null },
+      where: { id, tipo, empresaId: ctx.empresaId ?? null, excluidaEm: null },
       select: { id: true, autorId: true },
     })
     if (!m) throw new Error('Registro não encontrado.')
@@ -202,8 +257,9 @@ export class ManifestacaoService {
    * notas internas, sem log e sem quem tratou.
    */
   async porProtocolo(protocolo: string) {
-    const m = await prisma.manifestacao.findUnique({
-      where: { protocolo: protocolo.trim().toUpperCase() },
+    const m = await prisma.manifestacao.findFirst({
+      // Inativa não aparece na consulta pública.
+      where: { protocolo: protocolo.trim().toUpperCase(), excluidaEm: null },
       select: {
         protocolo: true, tipo: true, status: true, titulo: true, descricao: true,
         criadoEm: true, resposta: true, respondidoEm: true, retornoCliente: true,
@@ -223,6 +279,13 @@ export class ManifestacaoService {
 
   async criar(input: CriarManifestacaoInput, autorId: string | null, empresaId?: string | null) {
     const tipo = input.tipo
+    await this.exigirOrigemPermitida(tipo, input.origem, empresaId)
+    // Cliente de outra empresa não entra: a lista da tela já é recortada, isto
+    // fecha a chamada direta à API.
+    if (input.origem === 'CLIENTE' && input.clienteId && empresaId) {
+      const ok = await prisma.cliente.count({ where: { id: input.clienteId, empresaId } })
+      if (!ok) throw new Error('Cliente não encontrado nesta empresa.')
+    }
     const protocolo = await this.gerarProtocolo(tipo)
 
     const criado = await prisma.manifestacao.create({
@@ -255,26 +318,59 @@ export class ManifestacaoService {
     })
 
     await this.registrarLog(criado.id, input.anonima ? null : autorId, 'Registro criado')
+    this.avisar(criado.id, 'REGISTRADA', input.anonima ? null : autorId)
     return criado
   }
 
-  async atualizar(input: AtualizarManifestacaoInput, tipo: ManifestacaoTipo, empresaId?: string | null) {
+  async atualizar(input: AtualizarManifestacaoInput, tipo: ManifestacaoTipo, empresaId?: string | null, usuarioId?: string | null) {
     const atual = await this.exigir(input.id, tipo, empresaId)
 
     // Anonimato não se desfaz por edição: prometido uma vez, vale para sempre.
     // Deixar reverter permitiria descobrir o autor de um registro que nasceu
-    // sem dono — e ele não existe para ser recuperado.
+    // sem dono — e ele não existe para ser recuperado. Status e prazo também
+    // não passam por aqui: andam pelo fluxo (darRetorno, analisar, finalizar).
     const { id, tipo: _t, anonima: _a, ...resto } = input
 
-    return prisma.manifestacao.update({
-      where: { id: atual.id },
-      data: {
-        ...resto,
-        ...(resto.dataOcorrido !== undefined
-          ? { dataOcorrido: resto.dataOcorrido ? new Date(`${resto.dataOcorrido}T00:00:00.000Z`) : null }
-          : {}),
-      } as never,
-    })
+    // Passar um registro PARA interno também respeita a trava (um interno
+    // antigo pode ser editado sem mudar a origem).
+    if (resto.origem === 'INTERNA') {
+      const antes = await prisma.manifestacao.findUnique({ where: { id: atual.id }, select: { origem: true } })
+      if (antes?.origem !== 'INTERNA') await this.exigirOrigemPermitida(tipo, 'INTERNA', empresaId)
+    }
+
+    // Cliente de outra empresa não entra (mesma trava do criar).
+    if (resto.clienteId && empresaId) {
+      const ok = await prisma.cliente.count({ where: { id: resto.clienteId, empresaId } })
+      if (!ok) throw new Error('Cliente não encontrado nesta empresa.')
+    }
+    const vazio = (v: string | null | undefined) => (v === undefined ? undefined : (v?.trim() || null))
+    const origem = resto.origem
+    const data = {
+      ...(origem !== undefined ? { origem } : {}),
+      // Registro que deixou de ser "de cliente" perde o cliente.
+      ...(resto.clienteId !== undefined || origem === 'INTERNA'
+        ? { clienteId: origem === 'INTERNA' ? null : (resto.clienteId || null) }
+        : {}),
+      ...(resto.informanteNome !== undefined ? { informanteNome: vazio(resto.informanteNome) } : {}),
+      ...(resto.informanteEmail !== undefined ? { informanteEmail: vazio(resto.informanteEmail) } : {}),
+      ...(resto.informanteTelefone !== undefined ? { informanteTelefone: vazio(resto.informanteTelefone) } : {}),
+      ...(resto.canal !== undefined ? { canal: resto.canal || null } : {}),
+      ...(resto.areaId !== undefined ? { areaId: resto.areaId || null } : {}),
+      ...(resto.elogiadosIds !== undefined ? { elogiadosIds: resto.elogiadosIds } : {}),
+      ...(resto.titulo !== undefined ? { titulo: vazio(resto.titulo) } : {}),
+      ...(resto.descricao !== undefined ? { descricao: resto.descricao } : {}),
+      ...(resto.dataOcorrido !== undefined
+        ? { dataOcorrido: resto.dataOcorrido ? new Date(`${resto.dataOcorrido}T00:00:00.000Z`) : null }
+        : {}),
+      ...(resto.publica !== undefined && tipo === 'SUGESTAO' ? { publica: resto.publica } : {}),
+    }
+
+    const salvo = await prisma.manifestacao.update({ where: { id: atual.id }, data: data as never })
+    // Na linha do tempo, como os demais passos — numa auditoria, a pergunta
+    // "o relato foi alterado depois?" precisa de resposta.
+    await this.registrarLog(atual.id, atual.anonima ? null : (usuarioId ?? null), 'Registro editado')
+    this.avisar(atual.id, 'EDITADA', usuarioId)
+    return salvo
   }
 
   /** Resposta da Qualidade — o caminho de elogio e sugestão. */
@@ -298,6 +394,7 @@ export class ManifestacaoService {
     })
 
     await this.registrarLog(atual.id, userId, input.encerrar ? 'Respondida e encerrada' : 'Respondida')
+    this.avisar(atual.id, input.encerrar ? 'FINALIZADA' : 'RETORNO', userId)
     return { ok: true }
   }
 
@@ -309,9 +406,63 @@ export class ManifestacaoService {
     return { ok: true }
   }
 
-  async excluir(id: string, tipo: ManifestacaoTipo, empresaId?: string | null) {
+  /** Anexa um arquivo já enviado pelo upload genérico (aba Arquivos). */
+  async adicionarArquivo(
+    input: { id: string; nome: string; url: string; mime?: string | null; bytes?: number | null },
+    tipo: ManifestacaoTipo, userId: string, empresaId?: string | null,
+  ) {
+    const atual = await this.exigir(input.id, tipo, empresaId)
+    // Só arquivo do nosso upload — nada de URL externa gravada como anexo.
+    if (!input.url.startsWith('/api/upload/')) throw new Error('Arquivo inválido.')
+    const arq = await prisma.manifestacaoArquivo.create({
+      data: {
+        manifestacaoId: atual.id, autorId: userId, nome: input.nome.slice(0, 255),
+        arquivoPath: input.url, mime: input.mime ?? null, bytes: input.bytes ?? null,
+      },
+    })
+    await this.registrarLog(atual.id, userId, 'Arquivo anexado', arq.nome)
+    return arq
+  }
+
+  /** Remove um anexo: quem anexou, ou quem trata o módulo. */
+  async removerArquivo(arquivoId: string, tipo: ManifestacaoTipo, ctx: { userId: string; empresaId?: string | null; trata: boolean }) {
+    const arq = await prisma.manifestacaoArquivo.findFirst({
+      where: { id: arquivoId, manifestacao: { tipo, empresaId: ctx.empresaId ?? null, excluidaEm: null } },
+      select: { id: true, nome: true, autorId: true, manifestacaoId: true },
+    })
+    if (!arq) throw new Error('Arquivo não encontrado.')
+    if (!ctx.trata && arq.autorId !== ctx.userId) throw new Error('Só quem anexou (ou quem trata) remove o arquivo.')
+    await prisma.manifestacaoArquivo.delete({ where: { id: arq.id } })
+    await this.registrarLog(arq.manifestacaoId, ctx.userId, 'Arquivo removido', arq.nome)
+    return { ok: true }
+  }
+
+  /**
+   * "Excluir" envia para os inativos (05/10/2026). Antes apagava de vez — e um
+   * registro de reclamação apagado é justamente o que uma auditoria procura.
+   * Volta com `restaurar`, por quem tem a sub-permissão.
+   */
+  async excluir(id: string, tipo: ManifestacaoTipo, empresaId?: string | null, userId?: string | null, motivo?: string | null) {
     const atual = await this.exigir(id, tipo, empresaId)
-    await prisma.manifestacao.delete({ where: { id: atual.id } })
+    await prisma.manifestacao.update({
+      where: { id: atual.id },
+      data: { excluidaEm: new Date(), excluidaPorId: userId ?? null, motivoExclusao: motivo?.trim() || null },
+    })
+    await this.registrarLog(atual.id, userId ?? null, 'Enviada para os inativos', motivo?.trim() || undefined)
+    return { ok: true }
+  }
+
+  async restaurar(id: string, tipo: ManifestacaoTipo, empresaId?: string | null, userId?: string | null) {
+    const m = await prisma.manifestacao.findFirst({
+      where: { id, tipo, empresaId: empresaId ?? null, excluidaEm: { not: null } },
+      select: { id: true },
+    })
+    if (!m) throw new Error('Registro não encontrado nos inativos.')
+    await prisma.manifestacao.update({
+      where: { id: m.id },
+      data: { excluidaEm: null, excluidaPorId: null, motivoExclusao: null },
+    })
+    await this.registrarLog(m.id, userId ?? null, 'Restaurada dos inativos')
     return { ok: true }
   }
 
@@ -353,6 +504,7 @@ export class ManifestacaoService {
       },
     })
     await this.registrarLog(atual.id, userId, 'Retorno dado ao cliente')
+    this.avisar(atual.id, 'RETORNO', userId)
     return { ok: true }
   }
 
@@ -397,6 +549,7 @@ export class ManifestacaoService {
         },
       })
       await this.registrarLog(atual.id, userId, 'Julgada não procedente')
+      this.avisar(atual.id, 'ANALISADA', userId, 'Não procedente')
       return { ok: true, abriuNaoConformidade: false }
     }
 
@@ -416,6 +569,7 @@ export class ManifestacaoService {
       atual.id, userId, 'Julgada procedente',
       'Cabe abertura de Não Conformidade — o módulo ainda não existe no sistema.',
     )
+    this.avisar(atual.id, 'ANALISADA', userId, 'Procedente')
     return { ok: true, abriuNaoConformidade: false }
   }
 
@@ -439,6 +593,7 @@ export class ManifestacaoService {
       },
     })
     await this.registrarLog(atual.id, userId, 'Reclamação finalizada')
+    this.avisar(atual.id, 'FINALIZADA', userId)
     return { ok: true }
   }
 
@@ -452,7 +607,7 @@ export class ManifestacaoService {
   async indicadores(ano: number, empresaId?: string | null) {
     const inicio = new Date(Date.UTC(ano, 0, 1))
     const fim = new Date(Date.UTC(ano + 1, 0, 1))
-    const base = { tipo: 'RECLAMACAO', empresaId: empresaId ?? null, criadoEm: { gte: inicio, lt: fim } }
+    const base = { tipo: 'RECLAMACAO', empresaId: empresaId ?? null, criadoEm: { gte: inicio, lt: fim }, excluidaEm: null }
 
     const [porStatus, porArea, porOrigem, porCanal, total, procedentes, improcedentes] = await Promise.all([
       prisma.manifestacao.groupBy({ by: ['status'], where: base, _count: true }),
@@ -494,6 +649,7 @@ export class ManifestacaoService {
       data: { manifestacaoId: atual.id, autorId: userId, texto: input.texto, interna: input.interna },
     })
     await this.registrarLog(atual.id, userId, input.interna ? 'Nota interna' : 'Mensagem ao interessado')
+    this.avisar(atual.id, 'MENSAGEM', userId, input.interna ? 'Nota interna' : 'Mensagem ao interessado')
     return msg
   }
 
@@ -512,10 +668,11 @@ export class ManifestacaoService {
 
   private async exigir(id: string, tipo: ManifestacaoTipo, empresaId?: string | null) {
     const m = await prisma.manifestacao.findFirst({
-      where: { id, tipo, empresaId: empresaId ?? null },
+      // Inativa não aceita andamento nem edição — restaure antes.
+      where: { id, tipo, empresaId: empresaId ?? null, excluidaEm: null },
       select: { id: true, status: true, anonima: true, autorId: true },
     })
-    if (!m) throw new Error('Registro não encontrado.')
+    if (!m) throw new Error('Registro não encontrado (ou está nos inativos).')
     return m
   }
 

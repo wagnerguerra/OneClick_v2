@@ -2,8 +2,14 @@ import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
 import { router, readProcedure, writeProcedure, deleteProcedure, publicProcedure, writeSubProcedure, deleteSubProcedure, protectedProcedure } from '../trpc/trpc.service'
-import { createOrcamentoSchema, updateOrcamentoSchema, listOrcamentoSchema, createOrcamentoItemSchema, updateOrcamentoItemSchema, resolveOrcamentoScope, ORCAMENTO_SCOPE_DEFAULT, type OrcamentoScope } from '@saas/types'
+import { createOrcamentoSchema, updateOrcamentoSchema, listOrcamentoSchema, createOrcamentoItemSchema, updateOrcamentoItemSchema, resolveOrcamentoScope, ORCAMENTO_SCOPE_DEFAULT, type OrcamentoScope, DESTAQUE_CORES } from '@saas/types'
 import { OrcamentoService } from './orcamento.service'
+import { janelaDoPeriodo, periodoSchema, type Periodo } from '../common/periodo-br'
+
+/** `de`/`ate` (painel /comercial) vencem `dias` (demais telas). */
+function periodoOuDias(p?: Periodo) {
+  return p?.de || p?.ate ? janelaDoPeriodo(p) : p?.dias
+}
 
 const MODULE = 'orcamentos'
 
@@ -355,12 +361,34 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
 
     /** Histórico paginado de orçamentos do cliente (todos os status). */
     listOrcamentosDoClientePaginado: readProcedure(MODULE)
-      .input(z.object({ clienteId: z.string(), page: z.coerce.number().min(1).default(1), limit: z.coerce.number().min(1).max(100).default(20) }))
-      .query(({ input }) => orcamentoService.listOrcamentosDoClientePaginado(input.clienteId, input.page, input.limit)),
+      .input(z.object({
+        clienteId: z.string(),
+        page: z.coerce.number().min(1).default(1),
+        limit: z.coerce.number().min(1).max(100).default(20),
+        /** Busca por número do orçamento ou descrição do serviço. */
+        search: z.string().optional(),
+        /** Tira o próprio orçamento aberto da lista de "outros". */
+        excluirId: z.string().optional(),
+      }))
+      .query(({ input }) => orcamentoService.listOrcamentosDoClientePaginado(
+        input.clienteId, input.page, input.limit,
+        { search: input.search, excluirId: input.excluirId },
+      )),
 
     trocarResponsavel: writeSubProcedure(MODULE, 'change_responsavel', 'Alterar responsável pelos serviços')
       .input(z.object({ id: z.string(), responsavelId: z.string().nullable() }))
       .mutation(({ input, ctx }) => orcamentoService.trocarResponsavel(input.id, input.responsavelId, ctx.userId)),
+
+    /**
+     * Define quem executa UM serviço do orçamento (por item).
+     *
+     * Dois portões: esta sub-permissão, e — quando a execução já existe — o
+     * critério do módulo Serviços, aplicado por dentro do
+     * `setResponsavelExecucao` ANTES de gravar no item.
+     */
+    setResponsavelItem: writeSubProcedure(MODULE, 'change_responsavel', 'Alterar responsável pelos serviços')
+      .input(z.object({ itemId: z.string(), responsavelId: z.string().nullable() }))
+      .mutation(({ input, ctx }) => orcamentoService.setResponsavelItem(input.itemId, input.responsavelId, ctx.userId)),
 
     trocarSolicitante: writeSubProcedure(MODULE, 'change_solicitante', 'Alterar solicitante do orçamento')
       .input(z.object({ id: z.string(), solicitanteId: z.string().nullable() }))
@@ -400,8 +428,18 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
         followup_tipo_evento_id: z.string().optional(),
         // #HLP0302 — "Usar apenas desconto por item" ('1' marcada / '0' desmarcada).
         apenas_desconto_item: z.string().optional(),
+        // #HLP0411 — roteiro do Detalhamento ao pedir orçamento (HTML).
+        roteiro_solicitacao: z.string().optional(),
       }))
       .mutation(({ input, ctx }) => orcamentoService.saveConfig(input, ctx.empresaId)),
+
+    /**
+     * Roteiro do Detalhamento para quem PEDE orçamento — qualquer usuário
+     * logado: o balão do botão + não exige acesso ao módulo. null = usar o
+     * roteiro padrão.
+     */
+    roteiroSolicitacao: protectedProcedure
+      .query(({ ctx }) => orcamentoService.getRoteiroSolicitacao(ctx.empresaId)),
 
     // Imagem de fundo do header — apenas Master pode editar
     setHeaderCover: protectedProcedure
@@ -441,11 +479,11 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
     // ── Itens ──────────────────────────────────────────────
     addItem: writeSubProcedure(MODULE, 'manage_itens', 'Incluir itens em orçamentos')
       .input(createOrcamentoItemSchema)
-      .mutation(({ input, ctx }) => orcamentoService.addItem(input, ctx)),
+      .mutation(({ input }) => orcamentoService.addItem(input)),
 
     updateItem: writeSubProcedure(MODULE, 'manage_itens', 'Editar itens de orçamentos')
       .input(z.object({ id: z.string(), data: updateOrcamentoItemSchema }))
-      .mutation(({ input, ctx }) => orcamentoService.updateItem(input.id, input.data, ctx)),
+      .mutation(({ input }) => orcamentoService.updateItem(input.id, input.data)),
 
     removeItem: deleteSubProcedure(MODULE, 'manage_itens', 'Excluir itens de orçamentos')
       .input(z.object({ id: z.string() }))
@@ -539,20 +577,42 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .query(({ input, ctx }) => orcamentoService.reportIndicadores(ctx.empresaId, input.dataInicio, input.dataFim)),
 
     reportFunilComercial: readProcedure(MODULE)
-      .input(z.object({ dias: z.number().optional() }).optional())
-      .query(({ input, ctx }) => orcamentoService.reportFunilComercial(ctx.empresaId, input?.dias)),
+      .input(periodoSchema.optional())
+      .query(({ input, ctx }) => orcamentoService.reportFunilComercial(ctx.empresaId, periodoOuDias(input))),
+
+    /**
+     * "Contrato fechado" informado no Painel Comercial — alimenta o indicador
+     * Contratos assinados. `fechadoEm` nulo desfaz a marca.
+     */
+    marcarContratoFechado: writeProcedure(MODULE)
+      .input(z.object({ id: z.string(), fechadoEm: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable() }))
+      .mutation(async ({ input, ctx }) => {
+        const r = await orcamentoService.marcarContratoFechado(input.id, input.fechadoEm, ctx.userId, ctx.empresaId)
+        if (!r) throw new TRPCError({ code: 'NOT_FOUND', message: 'Orçamento não encontrado.' })
+        return r
+      }),
+
+    /** Destaque do card no quadro (todos veem; sobe para o topo da coluna). */
+    destacar: writeProcedure(MODULE)
+      .input(z.object({ id: z.string(), destacar: z.boolean(), cor: z.enum(DESTAQUE_CORES).optional() }))
+      .mutation(async ({ input, ctx }) => {
+        const r = await orcamentoService.destacar(input.id, input.destacar, ctx.userId, ctx.empresaId, input.cor)
+        if (!r) throw new TRPCError({ code: 'NOT_FOUND', message: 'Orçamento não encontrado.' })
+        return r
+      }),
 
     reportMrrAvulso: readProcedure(MODULE)
-      .input(z.object({ dias: z.number().optional() }).optional())
-      .query(({ input, ctx }) => orcamentoService.reportMrrAvulso(ctx.empresaId, input?.dias)),
+      .input(periodoSchema.optional())
+      // `de`/`ate` (painel /comercial) vencem `dias` (relatórios).
+      .query(({ input, ctx }) => orcamentoService.reportMrrAvulso(ctx.empresaId, periodoOuDias(input))),
 
     reportRankingVendedores: readProcedure(MODULE)
-      .input(z.object({ dias: z.number().optional() }).optional())
-      .query(({ input, ctx }) => orcamentoService.reportRankingVendedores(ctx.empresaId, input?.dias)),
+      .input(periodoSchema.optional())
+      .query(({ input, ctx }) => orcamentoService.reportRankingVendedores(ctx.empresaId, periodoOuDias(input))),
 
     reportDescontosMargem: readProcedure(MODULE)
-      .input(z.object({ dias: z.number().optional() }).optional())
-      .query(({ input, ctx }) => orcamentoService.reportDescontosMargem(ctx.empresaId, input?.dias)),
+      .input(periodoSchema.optional())
+      .query(({ input, ctx }) => orcamentoService.reportDescontosMargem(ctx.empresaId, periodoOuDias(input))),
 
     reportAtrasados: readProcedure(MODULE)
       .query(({ ctx }) => orcamentoService.reportAtrasados(ctx.empresaId)),
@@ -661,10 +721,12 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
 
     // ── Estatisticas ───────────────────────────────────────
     getStats: readProcedure(MODULE)
-      .query(({ ctx }) => orcamentoService.getStats(ctx.empresaId)),
+      .input(periodoSchema.optional())
+      .query(({ input, ctx }) => orcamentoService.getStats(ctx.empresaId, input?.de || input?.ate ? janelaDoPeriodo(input) : undefined)),
 
     // Stats compactas pro widget do dashboard — inclui checagem de cargo gestor+
     getDashboardStats: readProcedure(MODULE)
-      .query(({ ctx }) => orcamentoService.getDashboardStats(ctx.userId, ctx.empresaId)),
+      .input(periodoSchema.optional())
+      .query(({ input, ctx }) => orcamentoService.getDashboardStats(ctx.userId, ctx.empresaId, input?.de || input?.ate ? janelaDoPeriodo(input) : undefined)),
   })
 }

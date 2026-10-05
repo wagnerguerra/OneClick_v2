@@ -6,6 +6,7 @@ import type { drive_v3 } from 'googleapis'
 import { Readable } from 'node:stream'
 import { createHash } from 'node:crypto'
 import { DriveClient } from './drive.client'
+import { falhaDriveExigeAdministrador, mensagemDaFalhaDrive } from './drive-erro'
 import { DanfeService } from '../danfe/danfe.service'
 import { XmlInvalidoError } from '../danfe/danfe.parser'
 
@@ -648,8 +649,15 @@ export class DriveSyncService {
       console.log(`[DriveSync] [${cliente.razaoSocial}] done +${Date.now() - t0}ms vistos=${arquivosVistos} ok=${arquivosOk} ign=${arquivosIgnorados} err=${arquivosErro}`)
       return { logId: log.id, arquivosVistos, arquivosNovos, arquivosOk, arquivosErro, arquivosIgnorados, itens }
     } catch (e: unknown) {
-      const msg = (e as Error).message
-      console.error(`[DriveSync] [${cliente.razaoSocial}] ERRO +${Date.now() - t0}ms: ${msg}`)
+      const bruta = (e as Error).message
+      // Credencial expirada/revogada ou ausente não volta sozinha: vai com o
+      // mesmo marcador do resto do sistema (ver `drive-erro.ts`), e o histórico
+      // da sincronização diz o que fazer em vez de só "invalid_grant". Esta
+      // rotina roda a cada 15 min mesmo sem ninguém abrir o portal — é onde a
+      // credencial vencida aparece primeiro.
+      const exigeAdmin = falhaDriveExigeAdministrador(e)
+      const msg = exigeAdmin ? `${mensagemDaFalhaDrive(e, 'escritorio')} (${bruta})` : bruta
+      console.error(`${exigeAdmin ? '[DRIVE-EXIGE-ADMIN] ' : ''}[DriveSync] [${cliente.razaoSocial}] ERRO +${Date.now() - t0}ms: ${bruta}`)
       await prisma.driveSyncLog.update({
         where: { id: log.id },
         data: {

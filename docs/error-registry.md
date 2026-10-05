@@ -572,6 +572,19 @@ Sem esse trio, "compilou com sucesso" pode estar mascarando crash em runtime —
 
 ---
 
+## 11. SQL de deploy (`packages/db/prisma/sql/`)
+
+### 11.1 — Deploy reaplicou todos os SQL (livro não lido)
+- **Sintoma** (30/09/2026): `cat /opt/oneclick/.deploy-sql-aplicados` expirou (30s, VPS sob carga pós-build); o Service Manager tratou a saída vazia como "nada aplicado" e começou a reexecutar os 161 arquivos. Foi cancelado no 48º; dos reaplicados, só 4 eram arriscados (leves) e a conferência contra a cópia de 29/09 não achou dado alterado.
+- **Causa**: leitura do livro (e dos hashes) em **falha aberta** — erro/timeout virava "fila cheia".
+- **Correção** (SM 1.2.137): as três leituras (lista, hashes, livro) só valem com código 0 e marcador `@@FIM`; 3 tentativas (60/120/180s) e, falhando, o deploy **para**. Trava de volume: com o livro em uso, > 15 pendentes interrompe (livro incompleto). O registro no livro tem 3 tentativas e, falhando, lista as linhas a acrescentar.
+- **Pre-check ao escrever um SQL novo** — ele tem que aguentar rodar de novo sem mudar nada:
+  - DDL com `IF NOT EXISTS` / `IF EXISTS`; `INSERT` com `ON CONFLICT` ou `WHERE NOT EXISTS`.
+  - `UPDATE`/`DELETE` de correção de dado com condição de **"ainda não corrigido"** no `WHERE` — nunca a regra recalculada sobre o estado atual, que reverte ajuste feito depois na tela (a auditoria de 30/09 achou 17 arquivos assim, ex.: `seed_cliente_caracteristicas_fiscais.sql` volta o regime tributário à planilha; `add_permissoes_portal_arquivos.sql` devolve permissão retirada).
+  - O CI (`sql-deploy.yml`, Etapa 3 → `scripts/sql-ensaio-reaplicar.sh`) reaplica tudo e falha se alguma tabela mudar — mas num banco vazio, então não pega o UPDATE do item anterior. Esse é de revisão.
+
+---
+
 ## Checklist pré-entrega (rodar antes de declarar uma fase como concluída)
 
 - [ ] **Imports**: grep dos componentes usados no JSX presentes no `import`

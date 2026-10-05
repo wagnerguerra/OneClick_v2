@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   FolderOpen, CalendarCheck, LifeBuoy, LayoutGrid, Building2, ChevronDown,
-  LogOut, Moon, Sun, Loader2,
+  LogOut, Moon, Sun, Loader2, BarChart3,
 } from 'lucide-react'
 import { cn } from '@saas/ui'
 
@@ -47,6 +47,9 @@ const NAV = [
   { href: '/portal', rotulo: 'Início', icone: LayoutGrid },
   { href: '/portal/documentos', rotulo: 'Documentos', icone: FolderOpen, modulo: 'documentos' },
   { href: '/portal/obrigacoes', rotulo: 'Obrigações', icone: CalendarCheck, modulo: 'obrigacoes' },
+  // Aparece só para quem o escritório liberou pessoa a pessoa: o `bi` só entra
+  // em `modulos` com o módulo ligado na empresa E `podeVerBi` no vínculo.
+  { href: '/portal/bi', rotulo: 'Dashboard Financeiro', icone: BarChart3, modulo: 'bi' },
   { href: '/portal/chamados', rotulo: 'Atendimento', icone: LifeBuoy, modulo: 'chamados', emBreve: true },
 ] as const
 

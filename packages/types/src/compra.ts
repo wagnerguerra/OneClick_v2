@@ -7,6 +7,7 @@ export const StatusCompra = {
   AGUARDANDO_APROVACAO: 'AGUARDANDO_APROVACAO',
   APROVADO: 'APROVADO',
   REPROVADO: 'REPROVADO',
+  RECEBIDO_PARCIAL: 'RECEBIDO_PARCIAL',
   RECEBIDO: 'RECEBIDO',
   AVALIADO: 'AVALIADO',
   CANCELADO: 'CANCELADO',
@@ -18,6 +19,7 @@ export const STATUS_COMPRA_LABELS: Record<string, string> = {
   AGUARDANDO_APROVACAO: 'Aguardando Aprovação',
   APROVADO: 'Aprovado',
   REPROVADO: 'Reprovado',
+  RECEBIDO_PARCIAL: 'Recebido parcialmente',
   RECEBIDO: 'Recebido',
   AVALIADO: 'Avaliado',
   CANCELADO: 'Cancelado',
@@ -71,6 +73,24 @@ export const updateCompraSchema = z.object({
   frete: z.number().nonnegative().optional(),
   observacoes: z.string().optional().or(z.literal('')),
 })
+
+// ── Recebimento por item ─────────────────────────────────────
+/** Uma entrega: vários itens (cada um com a quantidade que chegou) num dia. */
+export const receberItensSchema = z.object({
+  compraId: z.string(),
+  /** AAAA-MM-DD — o dia em que chegou (pode ser retroativo). */
+  data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  nfNumero: z.string().max(60).optional().or(z.literal('')),
+  nfValor: z.number().nonnegative().optional(),
+  /** DANFE anexado nesta entrega (CompraAnexo.id). */
+  anexoId: z.string().optional(),
+  observacao: z.string().max(2000).optional().or(z.literal('')),
+  itens: z.array(z.object({
+    itemId: z.string(),
+    quantidade: z.number().int().positive(),
+  })).min(1, 'Informe ao menos um item recebido'),
+})
+export type ReceberItensInput = z.infer<typeof receberItensSchema>
 
 export const listCompraSchema = paginationSchema.extend({
   status: z.string().optional(),

@@ -5,12 +5,13 @@ import Link from 'next/link'
 import {
   MailWarning, Loader2, AlertTriangle, Clock, CheckCircle2, ExternalLink,
   Users, ListChecks, RefreshCw, MailOpen, Ban, SlidersHorizontal, Trash2,
-  ArrowUp, ArrowDown, FileText,
+  ArrowUp, ArrowDown, FileText, Maximize2, Minimize2,
 } from 'lucide-react'
 import {
   Button, Card, Badge, Input, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
@@ -23,39 +24,17 @@ import { PERIODOS, filtroDe, rotuloCompetencia, competenciasDisponiveis, type Re
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { AbasAcessorias } from '../_components/abas-acessorias'
 import { BadgeEntrega } from '../_components/badge-entrega'
-import { BADGE, TEXT } from '@/lib/color-styles'
+import {
+  PainelLeituraEntrega, DetalheEntregaConteudo, linkNoAcessorias, naoLidaComMulta, aplicarReclassificacao,
+  VencimentoGuiaCelula, VisualizadorGuia, useGuiaAberta,
+  type LinhaEntrega,
+} from '../_components/painel-leitura-entrega'
+import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
 
 type Foco = 'a_vencer' | 'nao_lidas' | 'atrasadas' | 'todas'
 
-interface Linha {
-  id: string
-  entId: string
-  clienteId: string
-  clienteCode: number
-  clienteNome: string
-  documento: string
-  obrigacao: string
-  competencia: string | null
-  prazo: string | null
-  diasParaPrazo: number | null
-  vencimento: string | null
-  diasParaVencimento: number | null
-  dtEntrega: string | null
-  dtFinalizacao: string | null
-  lidaEm: string | null
-  syncedAt: string
-  status: string | null
-  lida: boolean | null
-  guiaLida: string | null
-  entregue: boolean
-  dispensada: boolean
-  multa: boolean
-  dpto: string | null
-  respEntrega: string | null
-  respPrazo: string | null
-  responsavel: string | null
-  responsavelEntregou: boolean
-}
+/** A linha completa de uma entrega — definida junto do painel de leitura. */
+type Linha = LinhaEntrega
 interface Resumo {
   total: number; entregues: number; comGuia: number; lidas: number
   naoLidas: number; naoLidasAVencer: number; naoLidasCriticas: number
@@ -163,7 +142,7 @@ function situacao(l: Linha) {
   return { texto: `vence em ${dias}d`, titulo: t, cor: 'text-muted-foreground' }
 }
 
-type CampoOrdem = 'obrigacao' | 'clienteNome' | 'dpto' | 'respEntrega' | 'competencia' | 'prazo' | 'vencimento' | 'dtEntrega' | 'situacao'
+type CampoOrdem = 'obrigacao' | 'clienteNome' | 'dpto' | 'respEntrega' | 'competencia' | 'prazo' | 'vencimento' | 'vencimentoGuia' | 'dtEntrega' | 'situacao'
 
 /**
  * Chave de ordenação por coluna. Datas viram número (ausente vai para o fim,
@@ -175,6 +154,7 @@ function chaveOrdem(l: Linha, campo: CampoOrdem): string | number {
     case 'competencia': return l.competencia ? new Date(l.competencia).getTime() : Number.MAX_SAFE_INTEGER
     case 'prazo':       return l.prazo ? new Date(l.prazo).getTime() : Number.MAX_SAFE_INTEGER
     case 'vencimento':  return l.vencimento ? new Date(l.vencimento).getTime() : Number.MAX_SAFE_INTEGER
+    case 'vencimentoGuia': return l.vencimentoGuia ? new Date(l.vencimentoGuia).getTime() : Number.MAX_SAFE_INTEGER
     case 'dtEntrega':   return l.dtEntrega ? new Date(l.dtEntrega).getTime() : Number.MAX_SAFE_INTEGER
     case 'situacao': {
       // Mesmo critério de `situacao()`: entregue-mas-não-lida continua sendo
@@ -339,7 +319,7 @@ export default function PainelEntregasPage() {
           </Button>
           <BackButton href="/" label="Voltar" />
       </>}>
-        <h1 className="truncate">Entregas e leitura das guias</h1>
+        <h1 className="truncate">Acessórias</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
           <span className="text-muted-foreground/50">›</span>
@@ -347,7 +327,7 @@ export default function PainelEntregasPage() {
           <span className="text-muted-foreground/50">›</span>
           <span>Acessórias</span>
           <span className="text-muted-foreground/50">›</span>
-          <span>Entregas e leitura das guias</span>
+          <span>Entregas e guias</span>
         </p>
       </PageHeaderBar>
 
@@ -542,6 +522,7 @@ export default function PainelEntregasPage() {
                   <Th campo="competencia" atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[104px] lg:table-cell">Competência</Th>
                   <Th campo="prazo"       atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[96px] xl:table-cell">Prazo técnico</Th>
                   <Th campo="vencimento"  atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[110px]">Prazo legal</Th>
+                  <Th campo="vencimentoGuia" atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[118px]">Venc. guia</Th>
                   <Th campo="dtEntrega"   atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[104px] sm:table-cell">Entrega</Th>
                   <Th campo="situacao"    atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[126px]">Situação</Th>
                   <Th atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[64px]" />
@@ -641,6 +622,11 @@ export default function PainelEntregasPage() {
                         {fmtData(l.vencimento)}
                       </td>
 
+                      {/* Vencimento impresso na guia (PDF) — pode diferir do legal. */}
+                      <td className="px-3 py-2 text-[12px]">
+                        <VencimentoGuiaCelula linha={l} />
+                      </td>
+
                       {/* Mesmo selo dos modais: a coluna Entrega responde a
                           mesma pergunta em toda a tela, contra o vencimento. */}
                       <td className="hidden px-3 py-2 text-[12px] sm:table-cell">
@@ -694,8 +680,9 @@ export default function PainelEntregasPage() {
       {drill && (
         <ObrigacoesDoClienteModal
           cliente={drill.cliente} foco={drill.foco} rotulo={drill.rotulo}
-          dpto={dpto} responsavel={nomesDoResponsavel} janelaDias={janelaDias}
-          onAbrirDetalhe={(l) => { setDrill(null); setDetalhe(l) }}
+          dpto={dpto} responsavel={nomesDoResponsavel} janelaDias={janelaDias} recorte={recorte}
+          urlTemplate={urlTemplate}
+          onMultaAlterada={carregar}
           onClose={() => setDrill(null)}
         />
       )}
@@ -727,15 +714,35 @@ export default function PainelEntregasPage() {
  * foi clicado.
  */
 function ObrigacoesDoClienteModal({
-  cliente, foco, rotulo, dpto, responsavel, janelaDias, onAbrirDetalhe, onClose,
+  cliente, foco, rotulo, dpto, responsavel, janelaDias, recorte, urlTemplate, onMultaAlterada, onClose,
 }: {
   cliente: PorCliente; foco: Foco; rotulo: string
   dpto: string; responsavel?: string[]; janelaDias: number
-  onAbrirDetalhe: (l: Linha) => void
+  /** Período/competência da tela — sem ele o modal listava todo o histórico
+   *  do cliente e não batia com o número do badge. */
+  recorte: Recorte
+  urlTemplate: string | null
+  /** Recarrega a tela de trás — chamado ao fechar, se alguma multa mudou. */
+  onMultaAlterada: () => void
   onClose: () => void
 }) {
   const [linhas, setLinhas] = useState<Linha[]>([])
+  const [expandido, setExpandido] = useState(false)
+  // Flag do backend: só admin/diretoria reclassificam (a regra mora lá).
+  const [podeReclassificar, setPodeReclassificar] = useState(false)
+  const [multaAlterada, setMultaAlterada] = useState(false)
+  const fechar = () => {
+    if (multaAlterada) onMultaAlterada()
+    onClose()
+  }
   const [carregando, setCarregando] = useState(true)
+  // Painel de leitura: a obrigação clicada abre ao lado, sem fechar a lista.
+  const [selecionadaId, setSelecionadaId] = useState<string | null>(null)
+  const selecionada = linhas.find((l) => l.id === selecionadaId) ?? null
+  // Guia exibida no painel à direita do de leitura (fecha ao trocar de obrigação).
+  const [guiaAberta, setGuiaAberta] = useGuiaAberta(selecionada?.id)
+  const href = selecionada ? linkNoAcessorias(selecionada, urlTemplate) : null
+  const criticas = linhas.filter(naoLidaComMulta).length
 
   useEffect(() => {
     setCarregando(true)
@@ -743,22 +750,59 @@ function ObrigacoesDoClienteModal({
       .query({
         foco, janelaDias, clienteId: cliente.clienteId,
         dpto: dpto || undefined, responsavel: responsavel || undefined,
+        ...filtroDe(recorte),
       })
-      .then((d: { linhas: Linha[] }) => setLinhas(d.linhas || []))
+      .then((d: { linhas: Linha[]; podeReclassificarMulta?: boolean }) => {
+        setPodeReclassificar(!!d.podeReclassificarMulta)
+        // Críticas (não lida + multa) primeiro; o resto mantém a ordem do servidor.
+        const ls = [...(d.linhas || [])].sort((a, b) => Number(naoLidaComMulta(b)) - Number(naoLidaComMulta(a)))
+        setLinhas(ls)
+        // Abre já com a primeira selecionada: o painel nunca começa vazio.
+        setSelecionadaId(ls[0]?.id ?? null)
+      })
       .catch(() => setLinhas([]))
       .finally(() => setCarregando(false))
-  }, [cliente.clienteId, foco, janelaDias, dpto, responsavel])
+  }, [cliente.clienteId, foco, janelaDias, dpto, responsavel, recorte])
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl">
+    <TooltipProvider delayDuration={200}>
+    <Dialog open onOpenChange={(o) => !o && fechar()}>
+      <DialogContent
+        className={cn(
+          'outline-none transition-[max-width,height] duration-200',
+          expandido ? 'flex h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] flex-col' : 'max-w-6xl',
+        )}
+        // Por padrão o Radix foca o primeiro botão ao abrir — o Expandir, que
+        // vem antes do X — e o Tooltip dele abre com o foco. O foco vai para o
+        // próprio diálogo (tabIndex -1): continua preso nele, sem acender nada.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault()
+          ;(e.currentTarget as HTMLElement | null)?.focus()
+        }}
+      >
+        {/* Expandir/contrair — ao lado do X do Dialog, no mesmo estilo. */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => setExpandido((v) => !v)}
+              aria-label={expandido ? 'Contrair' : 'Expandir'}
+              className="absolute right-11 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-md opacity-60 transition-all duration-200 hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
+            >
+              {expandido ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{expandido ? 'Contrair' : 'Expandir'}</TooltipContent>
+        </Tooltip>
         <DialogHeaderIcon icon={ListChecks} color="sky">
           <DialogTitle>{rotulo}</DialogTitle>
           <DialogDescription>
             #{cliente.clienteCode} — {cliente.clienteNome} · {masks.cpfCnpj(cliente.documento)}
           </DialogDescription>
         </DialogHeaderIcon>
-        <DialogBody className="max-h-[65vh] p-0">
+        <DialogBody className={cn('p-0', expandido && 'min-h-0 flex-1')}>
+          <div className={cn('flex flex-col md:flex-row', expandido ? 'h-full' : 'max-h-[70vh]')}>
+          <div className="nice-scrollbar min-w-0 flex-1 overflow-y-auto">
           {carregando ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -766,6 +810,15 @@ function ObrigacoesDoClienteModal({
           ) : linhas.length === 0 ? (
             <p className="py-12 text-center text-sm text-muted-foreground">Nenhuma obrigação aqui.</p>
           ) : (
+            <>
+            {criticas > 0 && (
+              <div className={cn('flex items-center gap-2 border-b px-3 py-2 text-[12px]', SURFACE.rose, TEXT.rose)}>
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span>
+                  <strong>{criticas}</strong> {criticas === 1 ? 'guia não lida sujeita' : 'guias não lidas sujeitas'} a multa — {criticas === 1 ? 'destacada' : 'destacadas'} abaixo.
+                </span>
+              </div>
+            )}
             <table className="w-full table-fixed border-collapse text-sm">
               {/* O fundo vai no <th>: <thead> com position:sticky não pinta
                   background de forma confiável, e a translucidez deixava as
@@ -773,28 +826,49 @@ function ObrigacoesDoClienteModal({
               <thead className="sticky top-0 z-10 [&_th]:bg-muted">
                 <tr className="border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground">
                   <th className="px-3 py-2 text-left">Obrigação</th>
-                  <th className="hidden w-[92px] px-3 py-2 text-left sm:table-cell">Área</th>
-                  <th className="w-[104px] px-3 py-2 text-left">Prazo legal</th>
-                  <th className="hidden w-[100px] px-3 py-2 text-left sm:table-cell">Entrega</th>
-                  <th className="w-[118px] px-3 py-2 text-left">Situação</th>
+                  <th className="hidden w-[92px] px-3 py-2 text-left xl:table-cell">Área</th>
+                  <th className="w-[96px] px-3 py-2 text-left">Prazo legal</th>
+                  <th className="w-[110px] px-3 py-2 text-left">Venc. guia</th>
+                  <th className="hidden w-[100px] px-3 py-2 text-left lg:table-cell">Entrega</th>
+                  <th className="w-[112px] px-3 py-2 text-left">Situação</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
                 {linhas.map((l) => {
                   const p = situacao(l)
+                  const critica = naoLidaComMulta(l)
+                  const ativa = l.id === selecionadaId
                   return (
-                    <tr key={l.id} className="hover:bg-muted/30">
+                    <tr
+                      key={l.id}
+                      onClick={() => setSelecionadaId(l.id)}
+                      aria-selected={ativa}
+                      className={cn(
+                        'cursor-pointer transition-colors',
+                        // Selecionada: fundo suave e filete à esquerda, como item ativo de lista.
+                        ativa ? 'bg-muted/60 shadow-[inset_3px_0_0_var(--mod-administrativo,#0ea5e9)]' : 'hover:bg-muted/30',
+                      )}
+                    >
                       <td className="px-3 py-2">
-                        <button type="button" onClick={() => onAbrirDetalhe(l)}
-                          className="block w-full truncate text-left font-medium hover:underline"
-                          title="Ver tudo que veio do Acessórias nesta entrega">
-                          {l.obrigacao}
-                        </button>
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          {critica && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex shrink-0">
+                                  <AlertTriangle className={cn('h-3.5 w-3.5', TEXT.rose)} />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>Cliente não abriu a guia e a obrigação é sujeita a multa</TooltipContent>
+                            </Tooltip>
+                          )}
+                          <span className="truncate font-medium">{l.obrigacao}</span>
+                        </span>
                         <span className="text-[11px] text-muted-foreground">{fmtComp(l.competencia)}</span>
                       </td>
-                      <td className="hidden truncate px-3 py-2 text-[12px] text-muted-foreground sm:table-cell">{l.dpto || '—'}</td>
+                      <td className="hidden truncate px-3 py-2 text-[12px] text-muted-foreground xl:table-cell">{l.dpto || '—'}</td>
                       <td className="px-3 py-2 text-[12px] tabular-nums">{fmtData(l.vencimento)}</td>
-                      <td className="hidden px-3 py-2 text-[12px] sm:table-cell">
+                      <td className="px-3 py-2 text-[12px]"><VencimentoGuiaCelula linha={l} /></td>
+                      <td className="hidden px-3 py-2 text-[12px] lg:table-cell">
                         <BadgeEntrega entrega={l.dtEntrega} vencimento={l.vencimento} />
                       </td>
                       <td className={cn('px-3 py-2 text-[12px]', p.cor)} title={p.titulo}>{p.texto}</td>
@@ -803,53 +877,58 @@ function ObrigacoesDoClienteModal({
                 })}
               </tbody>
             </table>
+            </>
           )}
+          </div>
+
+          {/* Painel de leitura — detalhes da obrigação selecionada */}
+          <aside className="nice-scrollbar w-full shrink-0 overflow-y-auto border-t border-border bg-muted/10 md:w-[400px] md:border-l md:border-t-0">
+            {selecionada ? (
+              <PainelLeituraEntrega
+                linha={selecionada}
+                podeReclassificar={podeReclassificar}
+                onReclassificada={(r) => {
+                  setLinhas((ls) => aplicarReclassificacao(ls, r))
+                  setMultaAlterada(true)
+                }}
+                guiaAberta={guiaAberta}
+                onVerGuia={(g) => {
+                  setGuiaAberta(g)
+                  // Três colunas não cabem no tamanho normal: a guia expande o modal.
+                  if (g) setExpandido(true)
+                }}
+              />
+            ) : (
+              <p className="p-8 text-center text-sm text-muted-foreground">
+                {carregando ? '' : 'Selecione uma obrigação para ver os detalhes.'}
+              </p>
+            )}
+          </aside>
+
+          {/* Guia — só existe enquanto uma está aberta */}
+          {guiaAberta && <VisualizadorGuia guia={guiaAberta} onFechar={() => setGuiaAberta(null)} />}
+          </div>
         </DialogBody>
         <DialogFooter>
-          <Button size="sm" onClick={onClose}>Fechar</Button>
+          {href && (
+            <Button variant="outline" size="sm" asChild>
+              <a href={href} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />Abrir no Acessórias
+              </a>
+            </Button>
+          )}
+          <Button size="sm" onClick={fechar}>Fechar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </TooltipProvider>
   )
 }
 
-/** Uma linha "rótulo: valor" do detalhe. Valor ausente aparece como "—". */
-function Campo({ label, valor, mono }: { label: string; valor: React.ReactNode; mono?: boolean }) {
-  const vazio = valor === null || valor === undefined || valor === ''
-  return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-border/40 py-1.5 last:border-0">
-      <span className="shrink-0 text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className={cn('text-right text-[13px]', mono && 'font-mono text-[12px]', vazio && 'text-muted-foreground')}>
-        {vazio ? '—' : valor}
-      </span>
-    </div>
-  )
-}
-
-function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <p className="mb-1 text-[13px] font-semibold text-foreground">{titulo}</p>
-      <div className="rounded-lg border border-border bg-muted/20 px-3 py-1">{children}</div>
-    </div>
-  )
-}
-
-/**
- * Tudo o que o Acessórias devolveu para esta entrega.
- *
- * Mostra os campos crus (Status, EntGuiaLida) ao lado dos derivados, porque
- * quando um número do painel surpreende, a pergunta seguinte é sempre "o que
- * exatamente veio de lá?".
- */
 function DetalheEntregaModal({ linha: l, urlTemplate, onClose }: {
   linha: Linha; urlTemplate: string | null; onClose: () => void
 }) {
-  const dh = (v: string | null) => (v ? new Date(v).toLocaleString('pt-BR') : null)
-  const sim = (b: boolean) => (b ? 'Sim' : 'Não')
-  const href = urlTemplate
-    ? urlTemplate.replace('{entId}', l.entId).replace('{cnpj}', l.documento.replace(/\D/g, ''))
-    : null
+  const href = linkNoAcessorias(l, urlTemplate)
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -861,51 +940,7 @@ function DetalheEntregaModal({ linha: l, urlTemplate, onClose }: {
           </DialogDescription>
         </DialogHeaderIcon>
         <DialogBody className="max-h-[65vh] space-y-4">
-          <Secao titulo="Datas">
-            <Campo label="Competência" valor={fmtComp(l.competencia)} />
-            <Campo label="Prazo técnico (EntDtPrazo)" valor={fmtData(l.prazo)} />
-            <Campo label="Prazo legal (EntDtAtraso)" valor={fmtData(l.vencimento)} />
-            <Campo label="Entrega (EntDtEntrega)" valor={<BadgeEntrega entrega={l.dtEntrega} vencimento={l.vencimento} />} />
-            <Campo label="Finalização (EntDtFinalizacao)" valor={dh(l.dtFinalizacao)} />
-          </Secao>
-
-          <Secao titulo="Situação">
-            <Campo label="Status no Acessórias" valor={l.status} mono />
-            <Campo label="Entregue" valor={sim(l.entregue)} />
-            <Campo label="Dispensada" valor={sim(l.dispensada)} />
-            <Campo label="Sujeita a multa (EntMulta)" valor={sim(l.multa)} />
-            <Campo
-              label="Dias até o prazo legal"
-              valor={l.diasParaVencimento === null ? null : `${l.diasParaVencimento}d`}
-            />
-          </Secao>
-
-          <Secao titulo="Leitura da guia pelo cliente">
-            {/* O texto cru importa: vazio significa "não tem guia para abrir",
-                que é diferente de "não abriu". */}
-            <Campo label="EntGuiaLida (texto original)" valor={l.guiaLida} mono />
-            <Campo
-              label="Interpretação"
-              valor={l.lida === null ? 'Sem guia para abrir' : l.lida ? 'Lida' : 'Não lida'}
-            />
-            <Campo label="Última atividade (EntLastDH)" valor={dh(l.lidaEm)} />
-          </Secao>
-
-          <Secao titulo="Responsáveis e área">
-            <Campo label="Área / departamento" valor={l.dpto} />
-            <Campo label="Responsável pelo prazo" valor={l.respPrazo} />
-            <Campo label="Quem entregou" valor={l.respEntrega} />
-          </Secao>
-
-          <Secao titulo="Origem">
-            <Campo label="EntID no Acessórias" valor={l.entId} mono />
-            <Campo label="Espelhado em" valor={dh(l.syncedAt)} />
-          </Secao>
-
-          <p className="text-[11px] text-muted-foreground">
-            Estes são todos os campos que a API do Acessórias devolve para uma entrega.
-            O log por destinatário do e-mail existe só na tela deles e não é exposto pela API.
-          </p>
+          <DetalheEntregaConteudo linha={l} />
         </DialogBody>
         <DialogFooter>
           {href && (

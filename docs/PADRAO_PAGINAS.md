@@ -60,9 +60,10 @@ botões que se usam uma vez por semestre. Depois dele vêm as secundárias e, po
 último, o menu `⋮` — que é onde mora tudo o que é raro (importações, varreduras,
 configurações).
 
-Botão primário usa o `variant` padrão do `Button` (o azul do tema). Não pinte a
-ação principal com a cor do módulo: a cor do módulo é para barra de progresso,
-checkbox e destaques internos, não para o botão que existe em todas as telas.
+Botão primário usa o `variant` padrão do `Button` (a primária do tema). Não pinte
+nenhum botão com a cor do módulo — ela não entra no conteúdo da tela (barra de
+progresso é verde semântico; checkbox e destaques usam a primária). Ver o aviso
+em `/admin/design-system` → Tokens & cores.
 
 #### O espaçamento (`mb-0 sm:mb-0`)
 
@@ -270,8 +271,8 @@ direita e `<BackButton>` por último.
 ```tsx
 <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
   <div className="relative overflow-hidden">
-    {/* capa: imagem do registro OU gradiente da cor do módulo */}
-    <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR} 0%, var(--color-primary) 100%)` }} />
+    {/* capa: imagem do registro OU gradiente da PRIMÁRIA (nunca a cor do módulo) */}
+    <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary) 100%)` }} />
     <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
 
     <div className="relative z-10 px-5 pb-5 pt-24 text-white sm:px-6 sm:pt-28">
@@ -314,7 +315,10 @@ direita e `<BackButton>` por último.
 **A capa é do registro, não do módulo.** Quando o registro tem imagem própria,
 é ela que aparece: o cliente usa a capa do cliente, o orçamento a sua, e o
 usuário a imagem de fundo que a pessoa escolheu em `/perfil` (`cover_image`).
-O gradiente da cor do módulo é o que sobra quando não há imagem.
+O gradiente da primária é o que sobra quando não há imagem — a cor do módulo
+não entra no conteúdo da tela (ver o aviso em `/admin/design-system` → Tokens &
+cores). O ícone do quadro (`bg-card`) e os totais fora do hero usam
+`text-primary-on-surface`.
 
 Detalhes que não são decoração:
 - **Chips em CAIXA ALTA**, de vidro (`bg-white/15 ring-1 ring-white/25 backdrop-blur`),

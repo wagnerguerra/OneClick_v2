@@ -1,6 +1,7 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import { sqlSemEmpresaInativa } from '../common/empresa-inativa'
+import { whereDaArea } from './servico-area'
 import type { CreateServicoInput, UpdateServicoInput, CreateServicoEtapaInput, CreateServicoPassoInput, CreateExecucaoInput, CreateEncadeamentoInput, Condicao, CreateMaterialInput, UpdateMaterialInput, CreateGrupoInput, UpdateGrupoInput, IniciarGrupoInput, CreateObrigacaoInput, FlowPlan } from '@saas/types'
 import { OrcamentoService } from '../orcamento/orcamento.service'
 import { ProcessoService } from '../processo/processo.service'
@@ -9,6 +10,7 @@ import { NotificationService } from '../notification/notification.service'
 import { NotificacaoService } from '../notificacao/notificacao.service'
 import { ServicoExecucaoEventsService } from './servico-execucao-events.service'
 import { ServicoFluxoAiService } from './servico-fluxo-ai.service'
+import { decidirAlcadaResponsavel, type Alcada } from './responsavel-alcada'
 import { EmailService } from '../common/email.service'
 import type { GerarFluxoIaInput } from '@saas/types'
 
@@ -209,10 +211,57 @@ export class ServicoService {
     if (!caller) {
       return { caller: null, isPriv: false, ledAreaIds: [] as string[] }
     }
+    // Quem enxerga TODAS as áreas. GESTOR, GERENTE e SUPERVISOR saíram daqui:
+    // são chefias DE ÁREA, e tratá-las como globais anulava justamente o
+    // recorte por área — um gestor do Fiscal definia responsável de serviço
+    // Contábil. Agora eles caem no ramo do líder e ficam limitados às áreas que
+    // lideram (`Area.leaderId`). Master, diretoria e coordenação continuam
+    // globais, o mesmo critério já usado no `isPriv` da linha ~4321 deste
+    // arquivo e a mesma divisão de alçada da visibilidade de orçamentos.
     const isPriv = caller.isMaster || caller.isEmpresaMaster
-      || caller.role === 'DIRETOR' || caller.role === 'COORDENADOR' || caller.role === 'GESTOR'
-      || caller.profile === 'SUPERVISOR' || caller.profile === 'GERENTE' || caller.profile === 'ADMIN'
+      || caller.role === 'DIRETOR' || caller.role === 'COORDENADOR'
+      || caller.profile === 'ADMIN'
     return { caller, isPriv, ledAreaIds: caller.ledAreas.map(a => a.id) }
+  }
+
+  /**
+   * Pode este usuário definir quem executa ESTE serviço?
+   *
+   * A pergunta é sempre sobre a ÁREA DO SERVIÇO (`Servico.areaId` — a "Área" do
+   * cadastro, a mesma que o orçamento mostra no rodapé do quadro), e não sobre
+   * quem é o responsável atual: o que delimita a alçada de uma chefia é a área
+   * pela qual ela responde, não quem por acaso está com o trabalho.
+   *
+   * Devolve o MOTIVO junto porque as duas bocas desta regra precisam dele: o
+   * erro da gravação e a flag que a tela usa para não oferecer o menu. Uma
+   * segunda implementação para a tela deixaria as duas discordarem no primeiro
+   * ajuste.
+   */
+  async podeDefinirResponsavelDoServico(
+    callerId: string,
+    servicoId: string | null,
+  ): Promise<Alcada> {
+    const ctx = await this.resolveAssignContext(callerId)
+    if (!ctx.caller) return decidirAlcadaResponsavel(null, servicoId, null)
+    // A área só é consultada quem precisa dela: global decide sem ela, e sem
+    // servicoId não há o que buscar.
+    const area = !ctx.isPriv && servicoId
+      ? (await prisma.servico.findUnique({
+          where: { id: servicoId },
+          select: { area: { select: { id: true, name: true, isActive: true } } },
+        }).catch(() => null))?.area
+      : null
+    return decidirAlcadaResponsavel(
+      { isGlobal: ctx.isPriv, ledAreaIds: ctx.ledAreaIds },
+      servicoId,
+      area,
+    )
+  }
+
+  /** Versão que lança — para os caminhos de gravação. */
+  async assertPodeDefinirResponsavelDoServico(callerId: string, servicoId: string | null) {
+    const { podeDefinir, motivo } = await this.podeDefinirResponsavelDoServico(callerId, servicoId)
+    if (!podeDefinir) throw new Error(motivo ?? 'Sem permissão para definir o responsável deste serviço.')
   }
 
   /**
@@ -229,7 +278,7 @@ export class ServicoService {
    */
   async listResponsaveisAtribuiveis(
     callerId: string,
-    opts?: { execId?: string },
+    opts?: { execId?: string; servicoId?: string },
   ): Promise<{
     canAssign: boolean
     candidates: Array<{ id: string; name: string; image: string | null; areaName: string | null }>
@@ -241,17 +290,37 @@ export class ServicoService {
     const isLeader = ledAreaIds.length > 0
     if (!isPriv && !isLeader) return { canAssign: false, candidates: [], areaFiltro: null }
 
-    // Resolve área da execução, se solicitado
+    // Resolve a área que filtra os candidatos. Duas entradas para a MESMA
+    // pergunta ("qual a área do serviço?"):
+    //  - `execId`: a execução já existe (painel de Meus Serviços).
+    //  - `servicoId`: ainda não existe — é o caso do orçamento antes da
+    //    aprovação, onde se escolhe o responsável de um serviço que só virará
+    //    execução depois. Sem esta entrada, a tela do orçamento não teria como
+    //    pedir a lista certa.
     let areaFiltro: { id: string; name: string } | null = null
-    if (opts?.execId) {
+    let servicoIdAlvo: string | null = opts?.servicoId ?? null
+    if (!servicoIdAlvo && opts?.execId) {
       const exec = await prisma.servicoExecucao.findUnique({
         where: { id: opts.execId },
-        select: {
-          servico: { select: { area: { select: { id: true, name: true, isActive: true } } } },
-        },
+        select: { servicoId: true },
       })
-      const area = exec?.servico?.area
+      servicoIdAlvo = exec?.servicoId ?? null
+    }
+    if (servicoIdAlvo) {
+      const svc = await prisma.servico.findUnique({
+        where: { id: servicoIdAlvo },
+        select: { area: { select: { id: true, name: true, isActive: true } } },
+      })
+      const area = svc?.area
       if (area?.isActive) areaFiltro = { id: area.id, name: area.name }
+
+      // Alçada sobre ESTE serviço, pela mesma função que a gravação usa. Sem
+      // esta recusa explícita, um líder de outra área receberia `canAssign:
+      // true` com a lista vazia (a interseção entre as áreas que ele lidera e a
+      // área do serviço é nula) e a tela diria "nenhum usuário ativo na área
+      // X" — que descreve cadastro vazio, não permissão negada.
+      const alcada = decidirAlcadaResponsavel({ isGlobal: isPriv, ledAreaIds }, servicoIdAlvo, area)
+      if (!alcada.podeDefinir) return { canAssign: false, candidates: [], areaFiltro }
     }
 
     const where: any = { isActive: true }
@@ -284,38 +353,33 @@ export class ServicoService {
     }
   }
 
-  /** Lança erro se o caller não pode atribuir/alterar responsável da execução. */
+  /**
+   * Lança erro se o caller não pode atribuir/alterar responsável da execução.
+   *
+   * O critério é a ÁREA DO SERVIÇO executado. Antes olhava a área do
+   * RESPONSÁVEL ATUAL, com dois efeitos indesejados: execução sem dono ficava
+   * liberada para qualquer líder (o caso mais comum, já que a atribuição por
+   * setor nasce sem dono), e a alçada passava a depender de quem por acaso
+   * estava com o trabalho, em vez da área que responde por ele.
+   */
   async assertCanAssignResponsavel(callerId: string, execId: string) {
-    const ctx = await this.resolveAssignContext(callerId)
-    if (!ctx.caller) throw new Error('Usuário não encontrado.')
-    if (ctx.isPriv) return
-    if (ctx.ledAreaIds.length === 0) {
-      throw new Error('Você não tem permissão para atribuir responsáveis.')
-    }
-    // Líder: só pode mexer se a execução está sob sua área
-    // (sem responsável ainda, ou responsável atual é da sua área)
     const exec = await prisma.servicoExecucao.findUnique({
       where: { id: execId },
-      select: { responsavelId: true },
+      select: { servicoId: true },
     })
     if (!exec) throw new Error('Execução não encontrada.')
-    if (!exec.responsavelId) return // sem responsável → líder pode atribuir
-    const resp = await prisma.user.findUnique({
-      where: { id: exec.responsavelId },
-      select: { areaId: true },
-    })
-    if (!resp?.areaId || !ctx.ledAreaIds.includes(resp.areaId)) {
-      throw new Error('Esta execução está fora das áreas que você lidera.')
-    }
+    await this.assertPodeDefinirResponsavelDoServico(callerId, exec.servicoId)
   }
 
   /** Atribui ou troca o responsável de uma execução. Registra evento e notifica. */
   async setResponsavelExecucao(execId: string, novoResponsavelId: string | null, callerId: string) {
     await this.assertCanAssignResponsavel(callerId, execId)
 
-    // Valida que o novo responsável está dentro do escopo do caller
+    // Valida que o novo responsável está dentro do escopo do caller. Passa o
+    // `execId`: sem ele a lista vinha sem o filtro por área do serviço, e a
+    // gravação aceitava alguém que o menu da tela nunca chegou a oferecer.
     if (novoResponsavelId) {
-      const { canAssign, candidates } = await this.listResponsaveisAtribuiveis(callerId)
+      const { canAssign, candidates } = await this.listResponsaveisAtribuiveis(callerId, { execId })
       if (!canAssign || !candidates.some(c => c.id === novoResponsavelId)) {
         throw new Error('Usuário fora do seu escopo de atribuição.')
       }
@@ -449,6 +513,8 @@ export class ServicoService {
     empresaId?: string,
     categoria?: 'MENSAL' | 'EXTRA' | 'FLUXO',
     tipo?: 'comerciais' | 'internos' | 'todos',
+    /** Sub-permissão "somente_minha_area": null = sem recorte; '' = sem área (nada). */
+    areaRestrita: string | null = null,
   ) {
     // Sem `categoria` → só top-level (MENSAL+EXTRA). Itens de fluxo ficam ocultos
     // por padrão (eles aparecem como nós dentro do Fluxo do serviço-pai). Pra
@@ -466,6 +532,7 @@ export class ServicoService {
         : tipoFilter === 'internos'
           ? { ehServicoInterno: true }
           : {}),
+      ...(areaRestrita !== null ? (areaRestrita ? whereDaArea(areaRestrita) : { id: '__sem_area__' }) : {}),
     }
     const rows = await prisma.servico.findMany({
       where,
@@ -476,14 +543,6 @@ export class ServicoService {
         etapas: { orderBy: { ordem: 'asc' }, include: { passos: { orderBy: { ordem: 'asc' } } } },
         // Quando carrega FLUXO, traz infos do pai pra UI conseguir agrupar.
         servicoPai: { select: { id: true, nome: true } },
-        // Subserviços do catálogo comercial — a tela monta a árvore com isto.
-        subservicos: {
-          orderBy: { ordem: 'asc' },
-          select: { ordem: true, filho: { select: { id: true, nome: true, valorPadrao: true, ativo: true } } },
-        },
-        eSubservicoDe: {
-          select: { pai: { select: { id: true, nome: true } } },
-        },
         // Grupos a que o serviço pertence (M→N) — usado pra mostrar coluna
         // "Grupo" na listagem.
         grupos: {
@@ -508,60 +567,6 @@ export class ServicoService {
     // Expõe a relação `area { name }` crua + o escalar `areaId` (para edição).
     // O front lê `s.area?.name` direto — sem alias `categoria`.
     return rows
-  }
-
-  /**
-   * Define quais serviços são subserviços deste, de uma vez.
-   *
-   * Substitui o conjunto inteiro em vez de somar um a um: a tela edita a lista
-   * como um todo, e aplicar diferença aqui evita o estado intermediário em que
-   * o serviço fica sem nenhum filho por um instante.
-   *
-   * Um serviço não pode ser subserviço de si mesmo, e o vínculo não desce mais
-   * de um nível: a árvore que o catálogo precisa é mãe → filho → variação, e
-   * permitir neto viraria um labirinto na hora de escolher no orçamento.
-   */
-  async setSubservicos(paiId: string, filhoIds: string[]) {
-    const pai = await prisma.servico.findUnique({ where: { id: paiId }, select: { id: true } })
-    if (!pai) throw new Error('Serviço não encontrado.')
-
-    const alvos = [...new Set(filhoIds)].filter((id) => id !== paiId)
-
-    if (alvos.length > 0) {
-      // Um filho que já é pai de alguém criaria o terceiro nível.
-      const jaSaoPais = await prisma.servicoSubservico.findMany({
-        where: { paiId: { in: alvos } },
-        select: { pai: { select: { nome: true } } },
-        take: 1,
-      })
-      if (jaSaoPais.length > 0) {
-        throw new Error(
-          `"${jaSaoPais[0]!.pai.nome}" já tem subserviços próprios e por isso não pode virar subserviço de outro. `
-          + 'O catálogo trabalha com dois níveis: serviço e subserviço.',
-        )
-      }
-    }
-
-    // O próprio pai já ser filho de alguém também fecharia três níveis.
-    if (alvos.length > 0) {
-      const paiEhFilho = await prisma.servicoSubservico.findFirst({
-        where: { filhoId: paiId },
-        select: { pai: { select: { nome: true } } },
-      })
-      if (paiEhFilho) {
-        throw new Error(
-          `Este serviço já é subserviço de "${paiEhFilho.pai.nome}" e por isso não pode ter subserviços próprios.`,
-        )
-      }
-    }
-
-    await prisma.$transaction([
-      prisma.servicoSubservico.deleteMany({ where: { paiId } }),
-      ...alvos.map((filhoId, i) =>
-        prisma.servicoSubservico.create({ data: { paiId, filhoId, ordem: i } })),
-    ])
-
-    return { ok: true, total: alvos.length }
   }
 
   // ── Variações ─────────────────────────────────────────────
@@ -644,12 +649,6 @@ export class ServicoService {
           include: { grupo: { select: { id: true, nome: true, cor: true } } },
           orderBy: { grupo: { nome: 'asc' } },
         },
-        // Subserviços do catálogo comercial — aba "Subserviços".
-        subservicos: {
-          orderBy: { ordem: 'asc' },
-          select: { filho: { select: { id: true, nome: true } } },
-        },
-        eSubservicoDe: { select: { pai: { select: { id: true, nome: true } } } },
       },
     })
   }
@@ -720,9 +719,7 @@ export class ServicoService {
       /** User fixo quando atribuicaoResponsavel = MANUAL_FIXO. */
       responsavelFixoId: string | null;
       position: Position;
-      /** Subserviços do catálogo comercial — camada opcional do desenho. */
-      subservicos: Array<{ id: string; nome: string }>;
-      /** Variações oferecidas no orçamento — mesma camada. */
+      /** Variações oferecidas no orçamento — camada opcional do desenho. */
       variacoes: Array<{ id: string; titulo: string; valor: string | null }>;
       etapas: Array<{ id: string; nome: string; ordem: number; passos: Array<{ id: string; nome: string; ordem: number; obrigatorio: boolean }> }>;
     }> = []
@@ -748,13 +745,6 @@ export class ServicoService {
           acessoriasMaps: {
             where: { ativo: true, servicoId: { not: null } },
             select: { nome: true },
-          },
-          // Camada de catálogo — o desenho pode mostrá-la por cima do fluxo
-          // de execução, sem misturar as duas coisas.
-          subservicos: {
-            orderBy: { ordem: 'asc' },
-            where: { filho: { ativo: true } },
-            select: { filho: { select: { id: true, nome: true } } },
           },
           etapas: {
             orderBy: { ordem: 'asc' },
@@ -801,7 +791,6 @@ export class ServicoService {
         responsavelFixoId: svc.responsavelFixoId,
         categoriaServico: svc.categoriaServico as string,
         acessoriasObrigacoes: Array.from(new Set(svc.acessoriasMaps.map(m => m.nome))).sort(),
-        subservicos: svc.subservicos.map(v => v.filho),
         // As variações vivem na tabela do orçamento, sem relação Prisma — a
         // busca é em lote, depois do BFS, para não fazer uma consulta por bloco.
         variacoes: [],
@@ -2715,6 +2704,297 @@ export class ServicoService {
     return users.map(u => u.email).filter((e): e is string => !!e)
   }
 
+  /**
+   * Quem responde pela execução de cada serviço de um orçamento — para EXIBIR.
+   *
+   * Reusa `resolverCandidatos`, a MESMA função que o `createExecucao` usa para
+   * decidir de verdade. A tela não pode anunciar um nome e o sistema atribuir
+   * outro; uma segunda regra aqui seria exatamente esse risco.
+   *
+   * Por isso devolve `claimFirst` junto: quando há fonte de SETOR, a execução
+   * nasce sem dono — cai no painel do setor e o primeiro a marcar um passo
+   * reivindica. Dizer "Responsável: Fulano" nesse caso seria inventar uma
+   * certeza que o motor não tem. O nome da pessoa só vem preenchido na
+   * condição exata em que o createExecucao grava `responsavelId` direto: um
+   * único candidato e nenhuma fonte coletiva.
+   */
+  async resolverResponsaveisOrcamento(orcamentoId: string, callerId?: string): Promise<Array<{
+    /** Item do orçamento. Nulo = o serviço-template do próprio orçamento, que
+     *  não tem item e por isso não aceita escolha manual. */
+    itemId: string | null
+    servicoId: string
+    servicoNome: string
+    areaNome: string | null
+    responsavelNome: string | null
+    /** Foto do responsável, para a tela mostrar o rosto de quem executa. Vem
+     *  junto do nome (mesma consulta) porque um sem o outro não serve: nome sem
+     *  foto cai nas iniciais, e foto sem nome não identifica ninguém. */
+    responsavelId: string | null
+    responsavelImage: string | null
+    /** true = o nome veio de escolha MANUAL neste orçamento, não do template. */
+    responsavelManual: boolean
+    claimFirst: boolean
+    totalCandidatos: number
+    /** Este caller pode definir quem executa ESTE serviço? Vem decidido daqui
+     *  pela mesma função que o gravar usa — a tela só compõe, não reimplementa
+     *  a alçada. Sem `callerId` (chamada interna) vem `false`: quem não se
+     *  identificou não recebe permissão de brinde. */
+    podeDefinir: boolean
+    /** Por que não pode — o texto que a tela mostra no lugar do menu. */
+    motivoBloqueio: string | null
+    /** A execução deste serviço, depois da aprovação: situação e quando foi
+     *  concluída. É o que mostra, no quadro, que o responsável já finalizou o
+     *  serviço mesmo com o orçamento ainda aguardando o financeiro. Nulo antes
+     *  de a execução existir. */
+    execucao: { status: string; concluidoEm: Date | null } | null
+  }>> {
+    const orc = await prisma.orcamento.findUnique({
+      where: { id: orcamentoId },
+      select: { clienteId: true, servicoId: true },
+    }).catch(() => null)
+    if (!orc) return []
+
+    // Itera os ITENS, e não os templates deduplicados: a escolha manual é por
+    // item, e o mesmo serviço pode aparecer duas vezes no orçamento (2 dos 278
+    // pares em produção). Deduplicar colapsaria as duas linhas numa só e o
+    // clique não saberia qual item alterar.
+    const itens = await prisma.orcamentoItem.findMany({
+      where: { orcamentoId, tipo: 'SERVICO', catalogoId: { not: null } },
+      select: { id: true, catalogoId: true, responsavelId: true },
+      orderBy: { createdAt: 'asc' },
+    }).catch(() => [] as Array<{ id: string; catalogoId: string | null; responsavelId: string | null }>)
+
+    // O serviço-template do próprio orçamento também vira execução na
+    // aprovação, mas não tem item — entra sem `itemId`, e a tela não oferece
+    // edição nele por não haver onde gravar.
+    const refs: Array<{ itemId: string | null; servicoId: string; responsavelId: string | null }> = [
+      ...itens
+        .filter((i): i is typeof i & { catalogoId: string } => !!i.catalogoId)
+        .map(i => ({ itemId: i.id, servicoId: i.catalogoId, responsavelId: i.responsavelId })),
+      ...(orc.servicoId && !itens.some(i => i.catalogoId === orc.servicoId)
+        ? [{ itemId: null, servicoId: orc.servicoId, responsavelId: null }]
+        : []),
+    ]
+    if (refs.length === 0) return []
+
+    const servicos = await prisma.servico.findMany({
+      where: { id: { in: [...new Set(refs.map(r => r.servicoId))] } },
+      include: { area: { select: { name: true } } },
+    }).catch(() => [])
+    const servicoPorId = new Map(servicos.map(s => [s.id, s]))
+
+    // Alçada por SERVIÇO, resolvida uma vez por serviço distinto — dois itens
+    // do mesmo serviço têm a mesma resposta, e repetir a consulta por item
+    // seria N+1 num laço que já roda a cada abertura do orçamento.
+    const alcadaPorServico = new Map<string, { podeDefinir: boolean; motivo: string | null }>()
+    if (callerId) {
+      for (const sid of new Set(refs.map(r => r.servicoId))) {
+        alcadaPorServico.set(sid, await this.podeDefinirResponsavelDoServico(callerId, sid))
+      }
+    }
+    const alcadaDe = (sid: string) => alcadaPorServico.get(sid)
+      ?? { podeDefinir: false, motivo: 'Sem permissão para definir o responsável deste serviço.' }
+
+    // Nomes dos escolhidos à mão, numa consulta só.
+    const manuaisIds = [...new Set(refs.map(r => r.responsavelId).filter((x): x is string => !!x))]
+    const manuais = manuaisIds.length > 0
+      ? await prisma.user.findMany({ where: { id: { in: manuaisIds } }, select: { id: true, name: true, image: true } }).catch(() => [])
+      : []
+    const userPorId = new Map(manuais.map(u => [u.id, u]))
+
+    // Execuções-RAIZ do orçamento (uma por serviço aprovado), casadas com os
+    // itens pela ordem de criação: o mesmo serviço duas vezes gera duas
+    // execuções, e cada uma vai para o item correspondente.
+    const execsRaiz = await prisma.servicoExecucao.findMany({
+      where: { orcamentoId, predecessorExecucaoId: null },
+      select: { servicoId: true, status: true, concluidoEm: true },
+      orderBy: { createdAt: 'asc' },
+    }).catch(() => [] as Array<{ servicoId: string; status: string; concluidoEm: Date | null }>)
+    const filaExec = new Map<string, Array<{ status: string; concluidoEm: Date | null }>>()
+    for (const e of execsRaiz) {
+      const l = filaExec.get(e.servicoId) ?? []
+      l.push({ status: e.status, concluidoEm: e.concluidoEm })
+      filaExec.set(e.servicoId, l)
+    }
+    const proximaExec = (sid: string) => filaExec.get(sid)?.shift() ?? null
+
+    const saida = []
+    for (const ref of refs) {
+      const svc = servicoPorId.get(ref.servicoId)
+      // Id que não casa com Servico é ServicoCatalogo (taxa/despesa): não executa.
+      if (!svc) continue
+
+      // A escolha manual VENCE o template — ela foi feita por alguém com
+      // permissão justamente porque o template não resolvia uma pessoa. É a
+      // mesma precedência que o createExecucao aplica ao receber o
+      // `responsavelId` do item.
+      if (ref.responsavelId) {
+        saida.push({
+          itemId: ref.itemId,
+          servicoId: svc.id,
+          servicoNome: svc.nome,
+          areaNome: svc.area?.name ?? null,
+          responsavelNome: userPorId.get(ref.responsavelId)?.name ?? null,
+          responsavelId: ref.responsavelId,
+          responsavelImage: userPorId.get(ref.responsavelId)?.image ?? null,
+          responsavelManual: true,
+          claimFirst: false,
+          totalCandidatos: 1,
+          podeDefinir: alcadaDe(svc.id).podeDefinir,
+          motivoBloqueio: alcadaDe(svc.id).motivo,
+          execucao: proximaExec(svc.id),
+        })
+        continue
+      }
+
+      let candidatos: string[] = []
+      let claimFirst = false
+      try {
+        const r = await this.resolverCandidatos(svc, { clienteId: orc.clienteId ?? '', orcamentoId })
+        candidatos = r.candidatos
+        claimFirst = r.claimFirst
+      } catch {
+        // Template problemático não pode derrubar o detalhe do orçamento.
+      }
+
+      let responsavelNome: string | null = null
+      let responsavelId: string | null = null
+      let responsavelImage: string | null = null
+      if (!claimFirst && candidatos.length === 1) {
+        const u = await prisma.user.findUnique({
+          where: { id: candidatos[0]! },
+          select: { id: true, name: true, image: true },
+        }).catch(() => null)
+        responsavelNome = u?.name ?? null
+        // Só identifica quem o `u` confirmou existir: devolver o id do candidato
+        // com o nome nulo faria a tela desenhar um quadro de um usuário apagado.
+        responsavelId = u?.id ?? null
+        responsavelImage = u?.image ?? null
+      }
+
+      saida.push({
+        itemId: ref.itemId,
+        servicoId: svc.id,
+        servicoNome: svc.nome,
+        areaNome: svc.area?.name ?? null,
+        responsavelNome,
+        responsavelId,
+        responsavelImage,
+        responsavelManual: false,
+        claimFirst,
+        totalCandidatos: candidatos.length,
+        podeDefinir: alcadaDe(svc.id).podeDefinir,
+        motivoBloqueio: alcadaDe(svc.id).motivo,
+        execucao: proximaExec(svc.id),
+      })
+    }
+    return saida
+  }
+
+  /**
+   * Evento "Serviço incluído ao orçamento".
+   *
+   * Mora aqui, e não no OrcamentoService, porque depende do resolvedor de
+   * candidatos — a mesma função que decide quem executa de verdade. Montar o
+   * destinatário "Responsável" com uma segunda regra faria o e-mail anunciar um
+   * nome e o sistema atribuir outro, que é o desfecho que a tela do orçamento
+   * já evita.
+   *
+   * Não lança: avisar é consequência da inclusão, não condição dela. Uma falha
+   * aqui não pode impedir o serviço de entrar no orçamento.
+   */
+  async notificarServicoIncluidoOrcamento(orcamentoItemId: string): Promise<void> {
+    try {
+      const item = await prisma.orcamentoItem.findUnique({
+        where: { id: orcamentoItemId },
+        select: {
+          id: true, orcamentoId: true, catalogoId: true, responsavelId: true,
+          quantidade: true, valorUnitario: true, descontoPct: true, descontoValor: true,
+        },
+      })
+      // Sem catalogoId não é serviço do catálogo (taxa/despesa) — não executa,
+      // não notifica.
+      if (!item?.catalogoId) return
+
+      // Regra existente e ativa ANTES de qualquer outra consulta: sem regra
+      // cadastrada, este caminho inteiro é desperdício — e ele roda a cada item
+      // adicionado a qualquer orçamento.
+      const temRegra = await prisma.servicoNotificacaoRegra.count({
+        where: { servicoId: item.catalogoId, ativa: true, evento: 'SERVICO_INCLUIDO_ORCAMENTO' as any },
+      })
+      if (temRegra === 0) return
+
+      const [orc, svc] = await Promise.all([
+        prisma.orcamento.findUnique({
+          where: { id: item.orcamentoId },
+          select: { id: true, numero: true, clienteId: true },
+        }),
+        prisma.servico.findUnique({
+          where: { id: item.catalogoId },
+          include: { area: { select: { leaderId: true } } },
+        }),
+      ])
+      if (!orc || !svc) return
+
+      const cliente = orc.clienteId
+        ? await prisma.cliente.findUnique({
+            where: { id: orc.clienteId },
+            select: { razaoSocial: true, documento: true, nomeFantasia: true },
+          }).catch(() => null)
+        : null
+
+      const lider = svc.area?.leaderId
+        ? await prisma.user.findUnique({
+            where: { id: svc.area.leaderId },
+            select: { email: true },
+          }).catch(() => null)
+        : null
+
+      // Quem executa, pela MESMA precedência do createExecucao: escolha manual
+      // do item vence o template; e o template só nomeia alguém quando resolve
+      // para uma pessoa e nenhuma fonte é coletiva.
+      let responsavel: { name: string; email: string } | null = null
+      let responsavelId: string | null = item.responsavelId
+      if (!responsavelId) {
+        try {
+          const r = await this.resolverCandidatos(svc, { clienteId: orc.clienteId ?? '', orcamentoId: orc.id })
+          if (!r.claimFirst && r.candidatos.length === 1) responsavelId = r.candidatos[0]!
+        } catch {
+          // Template problemático não pode derrubar a inclusão do item.
+        }
+      }
+      if (responsavelId) {
+        const u = await prisma.user.findUnique({
+          where: { id: responsavelId },
+          select: { name: true, email: true },
+        }).catch(() => null)
+        if (u?.email) responsavel = { name: u.name ?? '', email: u.email }
+      }
+
+      const bruto = Number(item.quantidade) * Number(item.valorUnitario)
+      const desconto = (bruto * (Number(item.descontoPct ?? 0) / 100)) + Number(item.descontoValor ?? 0)
+      const valorItem = (bruto - desconto).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+      await this.notificacaoService.dispararServicoIncluido({
+        orcamentoItemId: item.id,
+        servicoId: item.catalogoId,
+        liderAreaEmail: lider?.email ?? null,
+        responsavel,
+        ctx: {
+          servicoNome: svc.nome,
+          clienteRazaoSocial: cliente?.razaoSocial ?? '',
+          clienteDocumento: cliente?.documento ?? '',
+          clienteNomeFantasia: cliente?.nomeFantasia ?? '',
+          orcamentoId: orc.id,
+          orcamentoNumero: orc.numero,
+          valorItem,
+        },
+      })
+    } catch (e) {
+      console.warn('[Servico] Falha ao notificar servico incluido no orcamento:', (e as Error).message)
+    }
+  }
+
   private passoMinutos(p: { slaMinutos: number | null; slaHoras: number | null }): number {
     return p.slaMinutos ?? (p.slaHoras != null ? p.slaHoras * 60 : 0)
   }
@@ -2940,7 +3220,7 @@ export class ServicoService {
     })
     if (!servico) {
       throw new Error(
-        `Não encontrei o serviço "${nome}". Cadastre-o em Serviços e Obrigações, `
+        `Não encontrei o serviço "${nome}". Cadastre-o em Serviços, `
         + 'ou ajuste o nome em Configurações → Cadastros.',
       )
     }
@@ -3097,7 +3377,7 @@ export class ServicoService {
 
     // Evento timeline
     await this.addEvento(execucao.id, input.responsavelId || undefined, 'criado',
-      `Execução criada${input.orcamentoId ? ' a partir de orçamento aprovado' : ''}`)
+      `Execução criada${input.orcamentoId ? ' a partir de orçamento liberado' : ''}`)
 
     // Notificações por email — dispara evento conforme statusInicial.
     // PERGUNTA cai em AGUARDANDO_RESPOSTA (humano responde no painel).
@@ -3551,8 +3831,9 @@ export class ServicoService {
    * Marca a execução como CONCLUIDO, registra evento na timeline, dispara as
    * cascatas:
    *
-   *  1. **Orçamento → FINALIZADO** (decisão 1a — apenas a execução-raiz finaliza
-   *     o orçamento; sucessores de cadeia herdam orcamentoId mas não disparam).
+   *  1. **Orçamento** — avisa o OrcamentoService (aoConcluirServico): APROVADO
+   *     fica aguardando a liberação do financeiro; LIBERADO é finalizado quando
+   *     todas as execuções do orçamento terminaram.
    *  2. **Cria execuções sucessoras** definidas em ServicoEncadeamento (DAG no
    *     template). Avalia condicionais; status inicial decidido por iniciaAuto/obrigatorio.
    *  3. **Recalcula status do Processo** (se a execução faz parte de um) —
@@ -3593,39 +3874,18 @@ export class ServicoService {
       void this.notificacaoService.disparar(exec.id, 'CONCLUIDA')
     }
 
-    // 1) Orcamento → FINALIZADO (so a raiz da cadeia, decisao 1a)
-    //    Sucessores de cadeia herdam orcamentoId mas NAO devem refinalizar o
-    //    orcamento. A diferenca eh predecessorExecucaoId: raiz nao tem.
-    //
-    //    A FSM eh APROVADO → LIBERADO → FINALIZADO. No fluxo manual, o gestor
-    //    move LIBERADO ao iniciar a execucao. Aqui, o trigger eh automatico —
-    //    a execucao ja rodou. Pulamos APROVADO → LIBERADO silenciosamente
-    //    (sem disparar email "Liberado para execucao", que faria sentido apenas
-    //    no inicio) e logo em seguida LIBERADO → FINALIZADO normal (com email
-    //    de finalizacao para o cliente + criacao da pesquisa NPS).
-    if (exec.orcamentoId && !exec.predecessorExecucaoId) {
+    // 1) Orçamento: o colaborador conclui o SERVIÇO, não o orçamento. Até
+    //    28/09/2026 a raiz concluída levava o orçamento de APROVADO a LIBERADO
+    //    em silêncio e logo a FINALIZADO — o financeiro não via a liberação e
+    //    deixava de faturar (#4803). Agora quem decide é o OrcamentoService:
+    //    APROVADO fica aguardando a liberação (com aviso); LIBERADO finaliza.
+    //    Vale para qualquer execução do orçamento (inclusive sucessoras): o
+    //    orçamento só conta como servido quando TODAS terminaram.
+    if (exec.orcamentoId) {
       try {
-        const orc = await prisma.orcamento.findUnique({
-          where: { id: exec.orcamentoId },
-          select: { status: true },
-        })
-        if (orc?.status === 'APROVADO') {
-          await this.orcamentoService.changeStatus(
-            exec.orcamentoId, 'LIBERADO', userId,
-            { skipNotifications: true },
-          )
-        }
-        // Re-busca o status pos-LIBERADO (pode ter saltado o passo acima
-        // se o gestor ja havia movido manualmente).
-        const orcAtual = await prisma.orcamento.findUnique({
-          where: { id: exec.orcamentoId },
-          select: { status: true },
-        })
-        if (orcAtual && orcAtual.status === 'LIBERADO') {
-          await this.orcamentoService.changeStatus(exec.orcamentoId, 'FINALIZADO', userId)
-        }
+        await this.orcamentoService.aoConcluirServico(exec.orcamentoId, userId)
       } catch (e) {
-        console.warn('[Servico] Falha ao finalizar orçamento vinculado:', (e as Error).message)
+        console.warn('[Servico] Falha ao atualizar o orçamento vinculado:', (e as Error).message)
       }
     }
 

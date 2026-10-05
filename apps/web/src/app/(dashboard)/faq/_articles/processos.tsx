@@ -70,7 +70,8 @@ export default function FaqProcessosPage() {
   │  5. CASCATA       │   automático
   │  • Sucessores     │   • Avalia condicionais
   │  • Orçamento      │   • Cria execuções dos próximos
-  │    FINALIZADO     │   • Finaliza o orçamento (raiz)
+  │    (ver passo 6)  │   • Avisa o orçamento (não pula
+  │                   │     a liberação do financeiro)
   └─────────┬─────────┘
             │
             ▼
@@ -253,9 +254,13 @@ export default function FaqProcessosPage() {
           <code className="text-[11px]">finalizarExecucaoComCascata</code> — três ações encadeadas:
         </p>
         <div className="space-y-2 mt-2">
-          <CascadeRow ordem="1" titulo="Orçamento → FINALIZADO" cor={MODULO_COLOR}>
-            Apenas a <strong>execução-raiz</strong> dispara isso. Sucessores herdam o
-            orcamentoId mas não refinalizam.
+          <CascadeRow ordem="1" titulo="Avisa o orçamento — sem pular o financeiro" cor={MODULO_COLOR}>
+            O colaborador conclui o <strong>serviço</strong>, não o orçamento. Quando <strong>todas</strong> as
+            execuções do orçamento (inclusive as sucessoras) terminam: se o orçamento está
+            <strong> APROVADO</strong>, ele continua aprovado com o aviso &quot;Serviço concluído — aguardando
+            liberação do financeiro&quot;, e é finalizado automaticamente quando o financeiro liberar; se já
+            está <strong>LIBERADO</strong>, é finalizado na hora. (Até 28/09/2026 a conclusão pulava direto de
+            APROVADO para FINALIZADO, e o financeiro deixava de faturar.)
           </CascadeRow>
           <CascadeRow ordem="2" titulo="Cria sucessores" cor={MODULO_COLOR}>
             Lê os ServicoEncadeamento configurados no passo 2, avalia condicionais (passo 3)

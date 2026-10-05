@@ -146,7 +146,7 @@ export default function DivergenciasPage() {
           </Button>
           <BackButton href="/" label="Voltar" />
       </>}>
-        <h1 className="truncate">Divergências com o Acessórias</h1>
+        <h1 className="truncate">Acessórias</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
           <span className="text-muted-foreground/50">›</span>
@@ -154,7 +154,7 @@ export default function DivergenciasPage() {
           <span className="text-muted-foreground/50">›</span>
           <span>Acessórias</span>
           <span className="text-muted-foreground/50">›</span>
-          <span>Divergências com o Acessórias</span>
+          <span>Divergências</span>
         </p>
       </PageHeaderBar>
 

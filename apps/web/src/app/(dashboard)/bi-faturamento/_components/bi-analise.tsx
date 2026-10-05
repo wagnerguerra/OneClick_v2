@@ -83,18 +83,22 @@ export function BiAnalise({ clienteId, ano, meses }: BiAnaliseProps) {
   const verticalRows = data?.analiseVerticalDre ?? []
   const verticalReceitaLiq = verticalRows[0]?.valor || 1
 
-  // Análise Horizontal — combo bar + line
+  // Análise Horizontal — combo bar + line, só nos meses escolhidos no filtro.
+  // Os cartões já respeitavam o filtro; o gráfico desenhava os doze.
   const horizontalData = useMemo(() => {
     const arr = data?.indicadoresHorizontaisComVariacao?.[indicadorSel] ?? []
-    return MESES_LABELS.map((label, i) => {
-      const row = arr.find(d => d.mes === i + 1)
-      return {
-        mes: label,
-        valor: row?.valor ?? 0,
-        variacao: row?.variacao ?? null,
-      }
-    })
-  }, [data, indicadorSel])
+    return MESES_LABELS
+      .map((label, i) => ({ label, mes: i + 1 }))
+      .filter(m => meses.length === 0 || meses.includes(m.mes))
+      .map(({ label, mes }) => {
+        const row = arr.find(d => d.mes === mes)
+        return {
+          mes: label,
+          valor: row?.valor ?? 0,
+          variacao: row?.variacao ?? null,
+        }
+      })
+  }, [data, indicadorSel, meses])
 
   if (loading) {
     return (

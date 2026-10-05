@@ -111,6 +111,9 @@ export const createServicoSchema = z.object({
   // Se true, é servico recorrente (mensal) — entra em contratos de prestacao continua.
   // Se false (default), é servico pontual/extra (cobranca por execucao).
   recorrenteMensal: z.boolean().optional(),
+  /** Serviço de entrada de novo cliente: o orçamento aprovado com ele conta como
+   *  contrato assinado no painel /comercial. */
+  entradaNovoCliente: z.boolean().optional(),
   // ── Campos do bloco tipo PERGUNTA ──
   /** Texto da pergunta apresentada ao gestor em runtime. Obrigatório se tipo=PERGUNTA. */
   perguntaTexto: z.string().max(500).optional().nullable(),

@@ -269,7 +269,7 @@ describe('abrirArquivo (o proxy que serve os bytes)', () => {
 describe('lado do PORTAL (o cliente olhando a própria pasta)', () => {
   // O que decide não é mais o NÍVEL, e sim a permissão por usuário. Os nomes
   // abaixo são só apelidos dos três perfis que interessam.
-  const base = { clienteId: 'cli-1', nivel: 'OPERACIONAL' as const, areas: ['fiscal'], modulos: ['documentos'] }
+  const base = { clienteId: 'cli-1', nivel: 'OPERACIONAL' as const, areas: ['fiscal'], modulos: ['documentos'], podeVerBi: false }
   const completo = { ...base, podeVer: true, podeEditar: true, podeExcluir: true }
   const soLeitura = { ...base, podeVer: true, podeEditar: false, podeExcluir: false }
   const semAcesso = { ...base, podeVer: false, podeEditar: false, podeExcluir: false }
@@ -362,7 +362,7 @@ describe('lado do PORTAL (o cliente olhando a própria pasta)', () => {
 })
 
 describe('mover (arrastar e soltar)', () => {
-  const base = { clienteId: 'cli-1', nivel: 'OPERACIONAL' as const, areas: ['fiscal'], modulos: ['documentos'] }
+  const base = { clienteId: 'cli-1', nivel: 'OPERACIONAL' as const, areas: ['fiscal'], modulos: ['documentos'], podeVerBi: false }
   const completo = { ...base, podeVer: true, podeEditar: true, podeExcluir: true }
   const soLeitura = { ...base, podeVer: true, podeEditar: false, podeExcluir: false }
 
@@ -447,7 +447,7 @@ describe('mover (arrastar e soltar)', () => {
 })
 
 describe('autoria do envio', () => {
-  const base = { clienteId: 'cli-1', nivel: 'OPERACIONAL' as const, areas: ['fiscal'], modulos: ['documentos'] }
+  const base = { clienteId: 'cli-1', nivel: 'OPERACIONAL' as const, areas: ['fiscal'], modulos: ['documentos'], podeVerBi: false }
   const completo = { ...base, podeVer: true, podeEditar: true, podeExcluir: true }
 
   it('a listagem devolve quem enviou, vindo do NOSSO log', async () => {
@@ -596,7 +596,7 @@ describe('autoria do envio', () => {
  */
 describe('área da pasta', () => {
   const completo = {
-    clienteId: 'cli-1', nivel: 'ADMINISTRADOR' as const, areas: [], modulos: ['documentos'],
+    clienteId: 'cli-1', nivel: 'ADMINISTRADOR' as const, areas: [], modulos: ['documentos'], podeVerBi: false,
     podeVer: true, podeEditar: true, podeExcluir: true,
   }
   const RAIZ_CLI = 'pasta-do-cliente'
@@ -781,7 +781,7 @@ describe('mapear pasta para area', () => {
 })
 
 describe('lixeira do Drive', () => {
-  const base = { clienteId: 'cli-1', nivel: 'OPERACIONAL' as const, areas: ['fiscal'], modulos: ['documentos'] }
+  const base = { clienteId: 'cli-1', nivel: 'OPERACIONAL' as const, areas: ['fiscal'], modulos: ['documentos'], podeVerBi: false }
   const comExcluir = { ...base, podeVer: true, podeEditar: true, podeExcluir: true }
   const semExcluir = { ...base, podeVer: true, podeEditar: true, podeExcluir: false }
   const master = { userId: 'u1', isMaster: true, empresaId: 'emp-1' }

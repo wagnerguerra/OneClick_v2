@@ -12,7 +12,7 @@ Lista canônica dos módulos do SaaS ERP/CRM, agrupados por bloco. Referenciada 
 - Empresas (`/empresas`, master)
 - Fornecedores (`/fornecedores`)
 - Grupos Empresariais (`/grupos-empresariais`, wip)
-- Serviços e Obrigações (`/servicos`)
+- Serviços (`/servicos`)
 - Sócios (`/socios`)
 - Usuários (`/usuarios`)
 

@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common'
+import { TRPCError } from '@trpc/server'
 import { prisma, Prisma } from '@saas/db'
 import { VinculosAcessoriasService } from './vinculos.service'
+import { daCarteira } from './recorte-carteira'
 
 /**
  * Painel de acompanhamento das entregas do Acessórias.
@@ -51,6 +53,10 @@ export interface LinhaPainel {
   /** Prazo LEGAL — o do órgão (EntDtAtraso). É a data que conta no painel. */
   vencimento: Date | null
   diasParaVencimento: number | null
+  /** Vencimento impresso na guia (lido do PDF). Null = sem guia legível. */
+  vencimentoGuia: Date | null
+  /** 'lido' | 'nao_encontrado' | 'sem_pdf' | 'erro' | null (ainda não lida). */
+  vencimentoGuiaStatus: string | null
   /** Quando o responsável de fato entregou — pode ser ANTES do prazo. */
   dtEntrega: Date | null
   /** EntDtFinalizacao — quando o responsável fechou a entrega no Acessórias. */
@@ -66,6 +72,10 @@ export interface LinhaPainel {
   /** Obrigação que o Acessórias marcou como não aplicável no período. */
   dispensada: boolean
   multa: boolean
+  /** EntMulta original do Acessórias (null = espelhada antes de guardarmos). */
+  multaAcessorias: boolean | null
+  /** O escritório reclassificou a multa desta obrigação para este cliente. */
+  multaReclassificada: boolean
   dpto: string | null
   /** Quem ENTREGOU. Só existe depois da entrega. */
   respEntrega: string | null
@@ -185,6 +195,94 @@ export interface CtxPainel {
   empresaId?: string
 }
 
+/**
+ * Reclassificar multa é decisão de admin/diretoria: muda o que os indicadores
+ * contam como exposição a multa da carteira inteira. Exportada porque o
+ * detalhe dos indicadores também devolve a flag.
+ */
+export async function podeReclassificarMulta(ctx: CtxPainel): Promise<boolean> {
+  if (ctx.isMaster || ctx.isEmpresaMaster) return true
+  const u = await prisma.user.findUnique({ where: { id: ctx.userId }, select: { role: true, profile: true } })
+  return String(u?.role ?? '') === 'DIRETOR' || String(u?.profile ?? '') === 'ADMIN'
+}
+
+/** Atalho para a entrega no Acessórias, configurado em /configuracoes. */
+export function urlEntregaTemplate(): string | null {
+  return process.env.ACESSORIAS_APP_ENTREGA_URL?.trim() || null
+}
+
+/**
+ * O Acessórias manda data-hora sem fuso ("2026-08-24 11:08:27"), no horário de
+ * Brasília. O sync grava esses componentes como estão, numa coluna sem fuso —
+ * e o Prisma os devolve como se fossem UTC, então a tela mostrava 3h a menos
+ * (08:08 em vez de 11:08). A correção fica aqui, na saída, e não no sync:
+ * `acessoriasLastDH` também é a chave de "mudou?" das execuções, e mudar o
+ * valor gravado faria todas parecerem alteradas de uma vez.
+ * Brasília é UTC−3 fixo desde o fim do horário de verão (2019).
+ */
+function horaDeBrasilia(d: Date | null): Date | null {
+  return d ? new Date(d.getTime() + 3 * 60 * 60 * 1000) : null
+}
+
+type EntregaComCliente = Prisma.AcessoriasEntregaGetPayload<{
+  include: { cliente: { select: { id: true; code: true; razaoSocial: true; documento: true } } }
+}>
+
+/**
+ * A linha completa de uma entrega, como o painel de leitura a mostra. Uma só
+ * montagem para o painel de entregas e o detalhe dos indicadores — senão os
+ * dois painéis de leitura divergem no primeiro campo novo.
+ */
+export async function paraLinhasPainel(rows: EntregaComCliente[], empresaId?: string): Promise<LinhaPainel[]> {
+  // Reclassificações que tocam estas linhas — uma consulta só.
+  const regrasMulta = empresaId && rows.length > 0
+    ? await prisma.acessoriasRegraMulta.findMany({
+        where: { empresaId, nome: { in: [...new Set(rows.map((r) => r.nome))] } },
+        select: { clienteId: true, nome: true },
+      })
+    : []
+  // clienteId null = regra geral ("*|nome"), vale para todos os clientes.
+  const reclassificadas = new Set(regrasMulta.map((r) => `${r.clienteId ?? '*'}|${r.nome}`))
+
+  return rows.map((r) => ({
+    id: r.id,
+    entId: r.entId,
+    clienteId: r.clienteId,
+    clienteCode: r.cliente.code,
+    clienteNome: r.cliente.razaoSocial,
+    documento: r.cliente.documento,
+    obrigacao: r.nome,
+    competencia: r.competencia,
+    prazo: r.prazo,
+    diasParaPrazo: diasAte(r.prazo),
+    // O Acessórias trabalha com DOIS prazos: EntDtPrazo é o TÉCNICO, acordado
+    // com o cliente, e EntDtAtraso é o LEGAL, junto ao órgão. Conferido contra
+    // prazos conhecidos: FGTS, DAS e DCTFWeb caem no dia 20, e a folha do 5º
+    // dia útil cai no 5º dia útil — sempre em EntDtAtraso. A régua do painel é
+    // o legal, com fallback no técnico quando o legal não vem.
+    vencimento: r.dtAtraso ?? r.prazo,
+    diasParaVencimento: diasAte(r.dtAtraso ?? r.prazo),
+    vencimentoGuia: r.vencimentoGuia,
+    vencimentoGuiaStatus: r.vencimentoGuiaStatus,
+    dtEntrega: r.dtEntrega,
+    dtFinalizacao: horaDeBrasilia(r.dtFinalizacao),
+    lidaEm: horaDeBrasilia(r.lastDH),
+    syncedAt: r.syncedAt,
+    status: r.status,
+    lida: r.lida,
+    guiaLida: r.guiaLida,
+    entregue: ehEntregue(r.status, r.dtEntrega),
+    dispensada: ehDispensada(r.status),
+    multa: r.multa,
+    multaAcessorias: r.multaAcessorias,
+    multaReclassificada: reclassificadas.has(`${r.clienteId}|${r.nome}`) || reclassificadas.has(`*|${r.nome}`),
+    dpto: r.dpto,
+    respEntrega: r.respEntrega,
+    respPrazo: r.respPrazo,
+    ...responsavelDe(r.respEntrega, r.respPrazo),
+  }))
+}
+
 @Injectable()
 export class PainelEntregasService {
   constructor(private readonly vinculos: VinculosAcessoriasService) {}
@@ -198,10 +296,58 @@ export class PainelEntregasService {
     return this.vinculos.restricaoPorArea(escopo, user, ctx.empresaId ?? null)
   }
 
+  podeReclassificarMulta(ctx: CtxPainel): Promise<boolean> {
+    return podeReclassificarMulta(ctx)
+  }
+
+  /**
+   * Marca a obrigação (pelo nome) como sujeita ou não a multa em TODAS as
+   * ocorrências — todos os clientes da empresa, todas as competências. As já
+   * espelhadas mudam agora, e o sync aplica a regra nas próximas.
+   *
+   * Se o valor escolhido é o que o Acessórias informa para esta entrega, a
+   * regra é apagada e cada entrega volta ao próprio valor de lá
+   * (`multa_acessorias`) — desfazer não pode forçar um valor único em todas.
+   */
+  async reclassificarMulta(entregaId: string, multa: boolean, ctx: CtxPainel) {
+    if (!(await this.podeReclassificarMulta(ctx))) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Só administradores e diretoria podem reclassificar a multa.' })
+    }
+    const empresaId = ctx.empresaId
+    if (!empresaId) throw new TRPCError({ code: 'FORBIDDEN', message: 'Selecione a empresa antes de reclassificar.' })
+    const entrega = await prisma.acessoriasEntrega.findFirst({
+      where: { id: entregaId, ...daCarteira(empresaId) },
+      select: { nome: true, multaAcessorias: true },
+    })
+    if (!entrega) throw new TRPCError({ code: 'NOT_FOUND', message: 'Entrega não encontrada nesta empresa.' })
+
+    // Linha antiga sem o original guardado: na dúvida, grava a regra.
+    const voltaAoAcessorias = entrega.multaAcessorias !== null && entrega.multaAcessorias === multa
+
+    await prisma.$transaction(async (tx) => {
+      // Sai tudo da obrigação — a geral e as por cliente do alcance antigo —,
+      // senão uma regra de cliente contrariaria o "todas as ocorrências".
+      await tx.acessoriasRegraMulta.deleteMany({ where: { empresaId, nome: entrega.nome } })
+      if (voltaAoAcessorias) {
+        await tx.$executeRaw`
+          UPDATE acessorias_entregas
+             SET multa = coalesce(multa_acessorias, multa)
+           WHERE empresa_id = ${empresaId} AND nome = ${entrega.nome}`
+      } else {
+        await tx.acessoriasRegraMulta.create({
+          data: { empresaId, clienteId: null, nome: entrega.nome, multa, criadoPor: ctx.userId },
+        })
+        await tx.acessoriasEntrega.updateMany({ where: { empresaId, nome: entrega.nome }, data: { multa } })
+      }
+    })
+    return { obrigacao: entrega.nome, multa, multaReclassificada: !voltaAoAcessorias }
+  }
+
   /** Filtros da tela — comuns às duas visões. */
   private baseWhere(filtro: FiltroPainel, empresaId?: string): Prisma.AcessoriasEntregaWhereInput {
     return {
-      ...(empresaId ? { empresaId } : {}),
+      // Só cliente mensal ativo da empresa carregada (ver recorte-carteira.ts).
+      ...daCarteira(empresaId),
       ...(filtro.clienteId ? { clienteId: filtro.clienteId } : {}),
       ...(filtro.dpto ? { dpto: filtro.dpto } : {}),
       // Casa nos dois papéis: quem entregou OU quem responde pelo prazo. Só
@@ -280,46 +426,17 @@ export class PainelEntregasService {
       : filtro.foco === 'atrasadas' ? wAtrasadas
       : where
 
-    const rows = await prisma.acessoriasEntrega.findMany({
-      where: wFoco,
-      orderBy: [{ prazo: 'asc' }, { nome: 'asc' }],
-      take: LIMITE_LINHAS,
-      include: { cliente: { select: { id: true, code: true, razaoSocial: true, documento: true } } },
-    })
+    const [rows, podeReclassificarMulta] = await Promise.all([
+      prisma.acessoriasEntrega.findMany({
+        where: wFoco,
+        orderBy: [{ prazo: 'asc' }, { nome: 'asc' }],
+        take: LIMITE_LINHAS,
+        include: { cliente: { select: { id: true, code: true, razaoSocial: true, documento: true } } },
+      }),
+      this.podeReclassificarMulta(ctx),
+    ])
 
-    const filtradas: LinhaPainel[] = rows.map((r) => ({
-      id: r.id,
-      entId: r.entId,
-      clienteId: r.clienteId,
-      clienteCode: r.cliente.code,
-      clienteNome: r.cliente.razaoSocial,
-      documento: r.cliente.documento,
-      obrigacao: r.nome,
-      competencia: r.competencia,
-      prazo: r.prazo,
-      diasParaPrazo: diasAte(r.prazo),
-      // O Acessórias trabalha com DOIS prazos: EntDtPrazo é o TÉCNICO, acordado
-      // com o cliente, e EntDtAtraso é o LEGAL, junto ao órgão. Conferido contra
-      // prazos conhecidos: FGTS, DAS e DCTFWeb caem no dia 20, e a folha do 5º
-      // dia útil cai no 5º dia útil — sempre em EntDtAtraso. A régua do painel é
-      // o legal, com fallback no técnico quando o legal não vem.
-      vencimento: r.dtAtraso ?? r.prazo,
-      diasParaVencimento: diasAte(r.dtAtraso ?? r.prazo),
-      dtEntrega: r.dtEntrega,
-      dtFinalizacao: r.dtFinalizacao,
-      lidaEm: r.lastDH,
-      syncedAt: r.syncedAt,
-      status: r.status,
-      lida: r.lida,
-      guiaLida: r.guiaLida,
-      entregue: ehEntregue(r.status, r.dtEntrega),
-      dispensada: ehDispensada(r.status),
-      multa: r.multa,
-      dpto: r.dpto,
-      respEntrega: r.respEntrega,
-      respPrazo: r.respPrazo,
-      ...responsavelDe(r.respEntrega, r.respPrazo),
-    }))
+    const filtradas = await paraLinhasPainel(rows, empresaId)
 
     return {
       linhas: filtradas,
@@ -328,11 +445,12 @@ export class PainelEntregasService {
       // A tela avisa quando bateu no teto. Truncar em silêncio faz uma lista
       // parcial parecer completa.
       truncado: filtradas.length >= LIMITE_LINHAS,
+      podeReclassificarMulta,
       limiteLinhas: LIMITE_LINHAS,
       // Template do atalho para o Acessórias, configurado em /configuracoes.
       // Vazio = a tela simplesmente não mostra o botão, em vez de abrir um link
       // quebrado.
-      urlEntregaTemplate: process.env.ACESSORIAS_APP_ENTREGA_URL?.trim() || null,
+      urlEntregaTemplate: urlEntregaTemplate(),
     }
   }
 
@@ -443,7 +561,7 @@ export class PainelEntregasService {
     // que o usuário não pode ver só produziria tela vazia — e vazaria os nomes.
     const recorte = await this.recorte(ctx)
     const escopoWhere: Prisma.AcessoriasEntregaWhereInput = e(
-      empresaId ? { empresaId } : {},
+      daCarteira(empresaId),
       recorte,
     )
     const porDpto = filtro.dpto ? { dpto: filtro.dpto } : {}

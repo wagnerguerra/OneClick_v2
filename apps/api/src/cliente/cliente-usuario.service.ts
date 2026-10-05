@@ -65,6 +65,8 @@ export interface VincularInput {
   podeVer?: boolean
   podeEditar?: boolean
   podeExcluir?: boolean
+  /** Dashboard Financeiro. Ausente = desligado (default do schema). */
+  podeVerBi?: boolean
   /**
    * Outras empresas do MESMO GRUPO que recebem o mesmo acesso.
    *
@@ -92,6 +94,7 @@ export class ClienteUsuarioService {
         podeVer: true,
         podeEditar: true,
         podeExcluir: true,
+        podeVerBi: true,
         areas: true,
         ativo: true,
         criadoEm: true,
@@ -201,6 +204,7 @@ export class ClienteUsuarioService {
               ...(input.podeVer !== undefined ? { podeVer: input.podeVer } : {}),
               ...(input.podeEditar !== undefined ? { podeEditar: input.podeEditar } : {}),
               ...(input.podeExcluir !== undefined ? { podeExcluir: input.podeExcluir } : {}),
+              ...(input.podeVerBi !== undefined ? { podeVerBi: input.podeVerBi } : {}),
             },
           })
         : await prisma.clienteUsuario.create({
@@ -212,6 +216,7 @@ export class ClienteUsuarioService {
               ...(input.podeVer !== undefined ? { podeVer: input.podeVer } : {}),
               ...(input.podeEditar !== undefined ? { podeEditar: input.podeEditar } : {}),
               ...(input.podeExcluir !== undefined ? { podeExcluir: input.podeExcluir } : {}),
+              ...(input.podeVerBi !== undefined ? { podeVerBi: input.podeVerBi } : {}),
               criadoPorId: ctx.userId,
             },
           })
@@ -263,6 +268,7 @@ export class ClienteUsuarioService {
           ...(input.podeVer !== undefined ? { podeVer: input.podeVer } : {}),
           ...(input.podeEditar !== undefined ? { podeEditar: input.podeEditar } : {}),
           ...(input.podeExcluir !== undefined ? { podeExcluir: input.podeExcluir } : {}),
+          ...(input.podeVerBi !== undefined ? { podeVerBi: input.podeVerBi } : {}),
           criadoPorId: ctx.userId,
         },
         select: { id: true },
@@ -318,6 +324,7 @@ export class ClienteUsuarioService {
             ...(input.podeVer !== undefined ? { podeVer: input.podeVer } : {}),
             ...(input.podeEditar !== undefined ? { podeEditar: input.podeEditar } : {}),
             ...(input.podeExcluir !== undefined ? { podeExcluir: input.podeExcluir } : {}),
+            ...(input.podeVerBi !== undefined ? { podeVerBi: input.podeVerBi } : {}),
             criadoPorId: autorId,
           },
           // Já existia e estava desligado: religa com o acesso novo, em vez de
@@ -435,7 +442,7 @@ export class ClienteUsuarioService {
       where: { id: input.id },
       select: {
         userId: true, clienteId: true, nivel: true, areas: true,
-        podeVer: true, podeEditar: true, podeExcluir: true,
+        podeVer: true, podeEditar: true, podeExcluir: true, podeVerBi: true,
       },
     })
     if (!base) throw new TRPCError({ code: 'NOT_FOUND', message: 'Vínculo não encontrado.' })
@@ -486,6 +493,7 @@ export class ClienteUsuarioService {
               podeVer: base.podeVer,
               podeEditar: base.podeEditar,
               podeExcluir: base.podeExcluir,
+              podeVerBi: base.podeVerBi,
               criadoPorId: autorId,
             },
           })
@@ -527,7 +535,7 @@ export class ClienteUsuarioService {
       orderBy: [{ ativo: 'desc' }, { cliente: { razaoSocial: 'asc' } }],
       select: {
         id: true, ativo: true, nivel: true, areas: true,
-        podeVer: true, podeEditar: true, podeExcluir: true, criadoEm: true,
+        podeVer: true, podeEditar: true, podeExcluir: true, podeVerBi: true, criadoEm: true,
         cliente: { select: { id: true, razaoSocial: true, grupo: true, status: true } },
       },
     })
@@ -569,7 +577,7 @@ export class ClienteUsuarioService {
   async atualizar(
     input: {
       id: string; nivel?: PortalNivel; areas?: string[]; ativo?: boolean
-      podeVer?: boolean; podeEditar?: boolean; podeExcluir?: boolean
+      podeVer?: boolean; podeEditar?: boolean; podeExcluir?: boolean; podeVerBi?: boolean
     },
   ) {
     const atual = await prisma.clienteUsuario.findUnique({
@@ -595,6 +603,7 @@ export class ClienteUsuarioService {
         ...(input.podeVer !== undefined ? { podeVer: input.podeVer } : {}),
         ...(input.podeEditar !== undefined ? { podeEditar: input.podeEditar } : {}),
         ...(input.podeExcluir !== undefined ? { podeExcluir: input.podeExcluir } : {}),
+        ...(input.podeVerBi !== undefined ? { podeVerBi: input.podeVerBi } : {}),
         ...(areas ? { areas } : {}),
         ...(input.ativo != null ? { ativo: input.ativo } : {}),
       },

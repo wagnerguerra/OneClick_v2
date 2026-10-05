@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
 import { router, readProcedure, writeProcedure, deleteProcedure, protectedProcedure } from '../trpc/trpc.service'
 import {
@@ -19,6 +20,8 @@ import {
 } from '@saas/types'
 import { ServicoService } from './servico.service'
 
+import { areaRestrita, exigirServicoDaArea, exigirServicosDaArea, servicoDa } from './servico-area'
+
 const MODULE = 'servicos'
 
 export function createServicoRouter(servicoService: ServicoService) {
@@ -32,7 +35,14 @@ export function createServicoRouter(servicoService: ServicoService) {
          *  todos = ambos. Filtro independente da categoria. */
         tipo: z.enum(['comerciais', 'internos', 'todos']).optional(),
       }).optional())
-      .query(({ ctx, input }) => servicoService.listServicos(ctx.empresaId, input?.categoria, input?.tipo)),
+      // Sub-permissão "somente_minha_area": a lista vem recortada pela área.
+      .query(async ({ ctx, input }) => servicoService.listServicos(ctx.empresaId, input?.categoria, input?.tipo, await areaRestrita(ctx))),
+
+    /** Área a que o usuário está preso (sub-permissão "somente_minha_area").
+     *  null = sem recorte; '' = recortado mas sem área no cadastro. A tela usa
+     *  para limitar os seletores de área — quem barra é o servidor. */
+    meuRecorteArea: readProcedure(MODULE)
+      .query(async ({ ctx }) => ({ areaId: await areaRestrita(ctx) })),
 
     // ── Obrigações acessórias (consolidadas em Serviços; ex-módulo /obrigacoes) ──
     listObrigacoesAcessorias: readProcedure(MODULE)
@@ -43,12 +53,18 @@ export function createServicoRouter(servicoService: ServicoService) {
 
     getServico: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .query(({ input }) => servicoService.getServico(input.id)),
+      .query(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, input.id)
+        return servicoService.getServico(input.id)
+      }),
 
     /** Fluxo (DAG) — usado pela aba "Fluxo" em /servicos/[id]. */
     getFluxo: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .query(({ input }) => servicoService.getFluxo(input.id)),
+      .query(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, input.id)
+        return servicoService.getFluxo(input.id)
+      }),
 
     /** Salva posições visuais dos nós no canvas (debounced no frontend). */
     saveFluxoLayout: writeProcedure(MODULE)
@@ -60,30 +76,47 @@ export function createServicoRouter(servicoService: ServicoService) {
           y: z.number(),
         })),
       }))
-      .mutation(({ input }) => servicoService.saveFluxoLayout(input.rootId, input.positions)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, input.rootId)
+        return servicoService.saveFluxoLayout(input.rootId, input.positions)
+      }),
 
     /** Apaga layout salvo de uma raiz — força auto-layout dagre na próxima abertura. */
     resetFluxoLayout: writeProcedure(MODULE)
       .input(z.object({ rootId: z.string() }))
-      .mutation(({ input }) => servicoService.resetFluxoLayout(input.rootId)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, input.rootId)
+        return servicoService.resetFluxoLayout(input.rootId)
+      }),
 
     createServico: writeProcedure(MODULE)
       .input(createServicoSchema)
-      .mutation(({ input, ctx }) => servicoService.createServico(input, ctx.empresaId)),
+      .mutation(async ({ input, ctx }) => {
+        // Recortado pela área: o serviço novo nasce na área do usuário.
+        const area = await areaRestrita(ctx)
+        if (area === '') throw new TRPCError({ code: 'FORBIDDEN', message: 'Sua área não está definida no cadastro — peça para definirem antes de criar serviços.' })
+        if (area && input.areaId && input.areaId !== area) throw new TRPCError({ code: 'FORBIDDEN', message: 'Você só pode criar serviços da sua área.' })
+        return servicoService.createServico(area ? { ...input, areaId: area } : input, ctx.empresaId)
+      }),
 
     updateServico: writeProcedure(MODULE)
       .input(z.object({ id: z.string(), data: updateServicoSchema }))
-      .mutation(({ input }) => servicoService.updateServico(input.id, input.data)),
-
-    /** Define, de uma vez, quais serviços são subserviços deste. */
-    setSubservicos: writeProcedure(MODULE)
-      .input(z.object({ paiId: z.string().min(1), filhoIds: z.array(z.string().min(1)) }))
-      .mutation(({ input }) => servicoService.setSubservicos(input.paiId, input.filhoIds)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, input.id)
+        const area = await areaRestrita(ctx)
+        if (area && input.data.areaId !== undefined && input.data.areaId !== area) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Você não pode mover o serviço para outra área.' })
+        }
+        return servicoService.updateServico(input.id, input.data)
+      }),
 
     // ── Variações do serviço (texto + valor oferecidos no orçamento) ──
     listVariacoes: readProcedure(MODULE)
       .input(z.object({ servicoId: z.string().min(1) }))
-      .query(({ input }) => servicoService.listVariacoes(input.servicoId)),
+      .query(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, input.servicoId)
+        return servicoService.listVariacoes(input.servicoId)
+      }),
 
     addVariacao: writeProcedure(MODULE)
       .input(z.object({
@@ -92,7 +125,10 @@ export function createServicoRouter(servicoService: ServicoService) {
         descricao: z.string().optional().nullable(),
         valor: z.coerce.number().min(0).optional().nullable(),
       }))
-      .mutation(({ input }) => servicoService.addVariacao(input.servicoId, input)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, input.servicoId)
+        return servicoService.addVariacao(input.servicoId, input)
+      }),
 
     updateVariacao: writeProcedure(MODULE)
       .input(z.object({
@@ -101,38 +137,57 @@ export function createServicoRouter(servicoService: ServicoService) {
         descricao: z.string().optional().nullable(),
         valor: z.coerce.number().min(0).optional().nullable(),
       }))
-      .mutation(({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.variacao(input.id))
         const { id, ...data } = input
         return servicoService.updateVariacao(id, data)
       }),
 
     removeVariacao: deleteProcedure(MODULE)
       .input(z.object({ id: z.string().min(1) }))
-      .mutation(({ input }) => servicoService.removeVariacao(input.id)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.variacao(input.id))
+        return servicoService.removeVariacao(input.id)
+      }),
 
     reordenarVariacoes: writeProcedure(MODULE)
       .input(z.object({ ids: z.array(z.string().min(1)) }))
-      .mutation(({ input }) => servicoService.reordenarVariacoes(input.ids)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicosDaArea(ctx, (await Promise.all(input.ids.map((i) => servicoDa.variacao(i)))).filter((x): x is string => !!x))
+        return servicoService.reordenarVariacoes(input.ids)
+      }),
 
     deleteServico: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => servicoService.deleteServico(input.id)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, input.id)
+        return servicoService.deleteServico(input.id)
+      }),
 
     bulkDeleteServicos: deleteProcedure(MODULE)
       .input(z.object({ ids: z.array(z.string()).min(1) }))
-      .mutation(({ input }) => servicoService.bulkDeleteServicos(input.ids)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicosDaArea(ctx, input.ids)
+        return servicoService.bulkDeleteServicos(input.ids)
+      }),
 
     /** Materializa um FlowPlan (etapas/blocos/arestas) sobre um serviço existente.
      *  Usado pelo assistente guiado e pela geração por IA. */
     aplicarFlowPlan: writeProcedure(MODULE)
       .input(aplicarFlowPlanSchema)
-      .mutation(({ input }) => servicoService.aplicarFlowPlan(input.servicoId, input.plan)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, input.servicoId)
+        return servicoService.aplicarFlowPlan(input.servicoId, input.plan)
+      }),
 
     /** Clona um serviço inteiro (etapas/passos + blocos de fluxo + encadeamentos).
      *  Motor da biblioteca de "modelos prontos". */
     duplicarServico: writeProcedure(MODULE)
       .input(z.object({ id: z.string(), novoNome: z.string().min(1).max(200).optional() }))
-      .mutation(({ input }) => servicoService.duplicarServico(input.id, { novoNome: input.novoNome })),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, input.id)
+        return servicoService.duplicarServico(input.id, { novoNome: input.novoNome })
+      }),
 
     /** Gera um rascunho de fluxo (roteiro) por IA a partir de uma descrição livre.
      *  Retorna etapas + perguntas p/ o assistente preencher (não grava nada). */
@@ -143,55 +198,91 @@ export function createServicoRouter(servicoService: ServicoService) {
     // ── Vencimentos por mês (Fase B Acessórias) ──────────────
     getVencimentosMensais: readProcedure(MODULE)
       .input(z.object({ servicoId: z.string() }))
-      .query(({ input }) => servicoService.getVencimentosMensais(input.servicoId)),
+      .query(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, input.servicoId)
+        return servicoService.getVencimentosMensais(input.servicoId)
+      }),
 
     setVencimentosMensais: writeProcedure(MODULE)
       .input(setVencimentosMensaisSchema)
-      .mutation(({ input }) => servicoService.setVencimentosMensais(input.servicoId, input.vencimentos)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, input.servicoId)
+        return servicoService.setVencimentosMensais(input.servicoId, input.vencimentos)
+      }),
 
     // ── Etapas ─────────────────────────────────────────────
     addEtapa: writeProcedure(MODULE)
       .input(createServicoEtapaSchema)
-      .mutation(({ input }) => servicoService.addEtapa(input)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, input.servicoId)
+        return servicoService.addEtapa(input)
+      }),
 
     updateEtapa: writeProcedure(MODULE)
       // slaHoras NÃO entra no input — é derivado dos passos pelo servico.service.
       .input(z.object({ id: z.string(), nome: z.string().optional(), ordem: z.number().optional() }))
-      .mutation(({ input }) => servicoService.updateEtapa(input.id, input)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.etapa(input.id))
+        return servicoService.updateEtapa(input.id, input)
+      }),
 
     deleteEtapa: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => servicoService.deleteEtapa(input.id)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.etapa(input.id))
+        return servicoService.deleteEtapa(input.id)
+      }),
 
     // ── Passos ─────────────────────────────────────────────
     addPasso: writeProcedure(MODULE)
       .input(createServicoPassoSchema)
-      .mutation(({ input }) => servicoService.addPasso(input)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.etapa(input.etapaId))
+        return servicoService.addPasso(input)
+      }),
 
     updatePasso: writeProcedure(MODULE)
       .input(z.object({ id: z.string(), data: createServicoPassoSchema.partial() }))
-      .mutation(({ input }) => servicoService.updatePasso(input.id, input.data)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.passo(input.id))
+        return servicoService.updatePasso(input.id, input.data)
+      }),
 
     deletePasso: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => servicoService.deletePasso(input.id)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.passo(input.id))
+        return servicoService.deletePasso(input.id)
+      }),
 
     // ── E-mail templates por passo ─────────────────────────
     listPassoEmailTemplates: readProcedure(MODULE)
       .input(z.object({ passoId: z.string() }))
-      .query(({ input }) => servicoService.listPassoEmailTemplates(input.passoId)),
+      .query(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.passo(input.passoId))
+        return servicoService.listPassoEmailTemplates(input.passoId)
+      }),
 
     createPassoEmailTemplate: writeProcedure(MODULE)
       .input(createPassoEmailTemplateSchema)
-      .mutation(({ input, ctx }) => servicoService.createPassoEmailTemplate(input, ctx.empresaId)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.passo(input.passoId))
+        return servicoService.createPassoEmailTemplate(input, ctx.empresaId)
+      }),
 
     updatePassoEmailTemplate: writeProcedure(MODULE)
       .input(z.object({ id: z.string(), data: updatePassoEmailTemplateSchema }))
-      .mutation(({ input }) => servicoService.updatePassoEmailTemplate(input.id, input.data)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.templateEmail(input.id))
+        return servicoService.updatePassoEmailTemplate(input.id, input.data)
+      }),
 
     deletePassoEmailTemplate: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => servicoService.deletePassoEmailTemplate(input.id)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.templateEmail(input.id))
+        return servicoService.deletePassoEmailTemplate(input.id)
+      }),
 
     /** Envia o template como teste, com placeholders preenchidos por dados fake. */
     enviarEmailTesteTemplate: writeProcedure(MODULE)
@@ -199,7 +290,10 @@ export function createServicoRouter(servicoService: ServicoService) {
         templateId: z.string(),
         destinatarios: z.array(z.string()).min(1),
       }))
-      .mutation(({ input }) => servicoService.enviarEmailTesteTemplate(input.templateId, input.destinatarios)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.templateEmail(input.templateId))
+        return servicoService.enviarEmailTesteTemplate(input.templateId, input.destinatarios)
+      }),
 
     // ── Anexos do template de e-mail ─────────────────────────
     addEmailTemplateAnexo: writeProcedure(MODULE)
@@ -210,28 +304,46 @@ export function createServicoRouter(servicoService: ServicoService) {
         fileSize: z.number().int().nonnegative().optional().nullable(),
         mimeType: z.string().max(120).optional().nullable(),
       }))
-      .mutation(({ input }) => servicoService.addEmailTemplateAnexo(input)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.templateEmail(input.templateId))
+        return servicoService.addEmailTemplateAnexo(input)
+      }),
 
     deleteEmailTemplateAnexo: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => servicoService.deleteEmailTemplateAnexo(input.id)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.anexoTemplate(input.id))
+        return servicoService.deleteEmailTemplateAnexo(input.id)
+      }),
 
     // ── Lembretes por passo (agenda corporativa) ───────────
     listPassoLembretes: readProcedure(MODULE)
       .input(z.object({ passoId: z.string() }))
-      .query(({ input }) => servicoService.listPassoLembretes(input.passoId)),
+      .query(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.passo(input.passoId))
+        return servicoService.listPassoLembretes(input.passoId)
+      }),
 
     createPassoLembrete: writeProcedure(MODULE)
       .input(createPassoLembreteSchema)
-      .mutation(({ input, ctx }) => servicoService.createPassoLembrete(input, ctx.empresaId)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.passo(input.passoId))
+        return servicoService.createPassoLembrete(input, ctx.empresaId)
+      }),
 
     updatePassoLembrete: writeProcedure(MODULE)
       .input(z.object({ id: z.string(), data: updatePassoLembreteSchema }))
-      .mutation(({ input }) => servicoService.updatePassoLembrete(input.id, input.data)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.lembrete(input.id))
+        return servicoService.updatePassoLembrete(input.id, input.data)
+      }),
 
     deletePassoLembrete: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => servicoService.deletePassoLembrete(input.id)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.lembrete(input.id))
+        return servicoService.deletePassoLembrete(input.id)
+      }),
 
     // ── Campos do cliente vinculados ao passo ───────────────
     /** Catálogo curado de campos do Cliente (whitelist) — não toca o banco. */
@@ -240,19 +352,31 @@ export function createServicoRouter(servicoService: ServicoService) {
 
     listPassoCamposCliente: readProcedure(MODULE)
       .input(z.object({ passoId: z.string() }))
-      .query(({ input }) => servicoService.listPassoCamposCliente(input.passoId)),
+      .query(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.passo(input.passoId))
+        return servicoService.listPassoCamposCliente(input.passoId)
+      }),
 
     createPassoCampoCliente: writeProcedure(MODULE)
       .input(createPassoCampoClienteSchema)
-      .mutation(({ input, ctx }) => servicoService.createPassoCampoCliente(input, ctx.empresaId)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.passo(input.passoId))
+        return servicoService.createPassoCampoCliente(input, ctx.empresaId)
+      }),
 
     updatePassoCampoCliente: writeProcedure(MODULE)
       .input(z.object({ id: z.string(), data: updatePassoCampoClienteSchema }))
-      .mutation(({ input }) => servicoService.updatePassoCampoCliente(input.id, input.data)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.campoCliente(input.id))
+        return servicoService.updatePassoCampoCliente(input.id, input.data)
+      }),
 
     deletePassoCampoCliente: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => servicoService.deletePassoCampoCliente(input.id)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.campoCliente(input.id))
+        return servicoService.deletePassoCampoCliente(input.id)
+      }),
 
     /** Preview na execução — retorna vínculos + valores atuais do cliente. */
     previewCamposClienteDoPasso: protectedProcedure
@@ -289,22 +413,32 @@ export function createServicoRouter(servicoService: ServicoService) {
         servicoOrigemId: z.string().optional(),
         servicoDestinoId: z.string().optional(),
       }).optional())
-      .query(({ input }) => servicoService.listEncadeamentos(input)),
+      .query(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, input?.servicoOrigemId ?? input?.servicoDestinoId)
+        return servicoService.listEncadeamentos(input)
+      }),
 
     addEncadeamento: writeProcedure(MODULE)
       .input(createEncadeamentoSchema)
-      .mutation(({ input }) => servicoService.addEncadeamento(input)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, input.servicoOrigemId)
+        return servicoService.addEncadeamento(input)
+      }),
 
     updateEncadeamento: writeProcedure(MODULE)
       .input(updateEncadeamentoSchema)
-      .mutation(({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.encadeamento(input.id))
         const { id, ...rest } = input
         return servicoService.updateEncadeamento(id, rest)
       }),
 
     removeEncadeamento: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => servicoService.removeEncadeamento(input.id)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.encadeamento(input.id))
+        return servicoService.removeEncadeamento(input.id)
+      }),
 
     // ── Execucoes ──────────────────────────────────────────
     listExecucoes: readProcedure(MODULE)
@@ -408,10 +542,13 @@ export function createServicoRouter(servicoService: ServicoService) {
     // profile SUPERVISOR/GERENTE/ADMIN, ou líder da área (Area.leaderId).
     // Quando `execId` é passado, filtra candidatos pela área correspondente
     // à categoria do serviço (ex: serviço "Fiscal" → users da área Fiscal).
+    // `servicoId` atende o orçamento ANTES da aprovação, quando ainda não há
+    // execução da qual derivar a área — o `execId` continua servindo ao painel
+    // de Meus Serviços.
     listResponsaveisAtribuiveis: protectedProcedure
-      .input(z.object({ execId: z.string().optional() }).optional())
+      .input(z.object({ execId: z.string().optional(), servicoId: z.string().optional() }).optional())
       .query(({ input, ctx }) =>
-        servicoService.listResponsaveisAtribuiveis(ctx.userId!, { execId: input?.execId }),
+        servicoService.listResponsaveisAtribuiveis(ctx.userId!, { execId: input?.execId, servicoId: input?.servicoId }),
       ),
 
     setResponsavelExecucao: protectedProcedure
@@ -599,27 +736,45 @@ export function createServicoRouter(servicoService: ServicoService) {
     // ── Materiais de apoio (template) ──────────────────────
     listMateriaisDeEtapa: readProcedure(MODULE)
       .input(z.object({ etapaId: z.string() }))
-      .query(({ input }) => servicoService.listMateriaisDeEtapa(input.etapaId)),
+      .query(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.etapa(input.etapaId))
+        return servicoService.listMateriaisDeEtapa(input.etapaId)
+      }),
 
     listMateriaisDePasso: readProcedure(MODULE)
       .input(z.object({ passoId: z.string() }))
-      .query(({ input }) => servicoService.listMateriaisDePasso(input.passoId)),
+      .query(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.passo(input.passoId))
+        return servicoService.listMateriaisDePasso(input.passoId)
+      }),
 
     createMaterial: writeProcedure(MODULE)
       .input(createMaterialSchema)
-      .mutation(({ input, ctx }) => servicoService.createMaterial(input, { empresaId: ctx.empresaId, userId: ctx.userId })),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, input.passoId ? await servicoDa.passo(input.passoId) : input.etapaId ? await servicoDa.etapa(input.etapaId) : null)
+        return servicoService.createMaterial(input, { empresaId: ctx.empresaId, userId: ctx.userId })
+      }),
 
     updateMaterial: writeProcedure(MODULE)
       .input(updateMaterialSchema)
-      .mutation(({ input }) => servicoService.updateMaterial(input)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.material(input.id))
+        return servicoService.updateMaterial(input)
+      }),
 
     deleteMaterial: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => servicoService.deleteMaterial(input.id)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.material(input.id))
+        return servicoService.deleteMaterial(input.id)
+      }),
 
     reorderMateriais: writeProcedure(MODULE)
       .input(reorderMateriaisSchema)
-      .mutation(({ input }) => servicoService.reorderMateriais(input.ids)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicosDaArea(ctx, (await Promise.all(input.ids.map((i) => servicoDa.material(i)))).filter((x): x is string => !!x))
+        return servicoService.reorderMateriais(input.ids)
+      }),
 
     // ── Grupos de serviço ──────────────────────────────────
     listGrupos: readProcedure(MODULE)
@@ -643,11 +798,17 @@ export function createServicoRouter(servicoService: ServicoService) {
 
     setGrupoServicos: writeProcedure(MODULE)
       .input(setGrupoServicosSchema)
-      .mutation(({ input }) => servicoService.setGrupoServicos(input.grupoId, input.servicoIds)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicosDaArea(ctx, input.servicoIds)
+        return servicoService.setGrupoServicos(input.grupoId, input.servicoIds)
+      }),
 
     setServicoGrupos: writeProcedure(MODULE)
       .input(setServicoGruposSchema)
-      .mutation(({ input }) => servicoService.setServicoGrupos(input.servicoId, input.grupoIds)),
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, input.servicoId)
+        return servicoService.setServicoGrupos(input.servicoId, input.grupoIds)
+      }),
 
     iniciarGrupo: writeProcedure(MODULE)
       .input(iniciarGrupoSchema)

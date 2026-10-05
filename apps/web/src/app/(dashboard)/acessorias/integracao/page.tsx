@@ -155,7 +155,7 @@ export default function AcessoriasPage() {
           )}
           <BackButton href="/" />
       </>}>
-        <h1 className="truncate">Acessórias — Sincronização</h1>
+        <h1 className="truncate">Acessórias</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
           <span className="text-muted-foreground/50">›</span>
@@ -163,13 +163,8 @@ export default function AcessoriasPage() {
           <span className="text-muted-foreground/50">›</span>
           <span>Acessórias</span>
           <span className="text-muted-foreground/50">›</span>
-          <span>Acessórias — Sincronização</span>
+          <span>Integração</span>
         </p>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            <p className="text-sm text-muted-foreground">
-              Integração com app.acessorias.com — sincroniza empresas, obrigações e entregas
-            </p>
-        </div>
       </PageHeaderBar>
 
       <AbasAcessorias />

@@ -32,13 +32,13 @@ export const FAQ_ARTIGOS: FaqArtigo[] = [
   {
     slug: 'orcamentos',
     titulo: 'Orçamentos: do NOVO ao FINALIZADO',
-    descricao: 'Fluxo completo da proposta comercial — criação, itens, envio ao cliente, aprovação pública, execução automática e fechamento com pesquisa NPS.',
+    descricao: 'Fluxo completo da proposta comercial — como as áreas pedem orçamento (botão + e roteiro do Detalhamento), criação, itens, envio ao cliente, aprovação pública, execução automática e fechamento com pesquisa NPS.',
     modulo: 'Orçamentos',
     moduloColor: 'var(--mod-comercial, #fb7185)',
     icon: FileSignature,
     categoria: 'Comercial',
     disponivel: true,
-    tags: ['orçamento', 'proposta', 'fsm', 'aprovação', 'link público', 'kanban', 'envio', 'pesquisa nps', 'reabrir', 'paralisar'],
+    tags: ['orçamento', 'proposta', 'fsm', 'aprovação', 'link público', 'kanban', 'envio', 'pesquisa nps', 'reabrir', 'paralisar', 'solicitar orçamento', 'botão +', 'roteiro', 'detalhamento', 'desconto', 'matriz', 'filial'],
   },
   {
     slug: 'orcamentos-notificacoes-email',

@@ -70,6 +70,41 @@
 @keyframes sheetOverlayIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes sheetOverlayOut { from { opacity: 1; } to { opacity: 0; } }
 
+/* Tooltip (Radix) com fade — classe opcional no TooltipContent. O Radix marca
+   o estado em data-state e só desmonta depois que a animação de saída acaba,
+   por isso o fade-out funciona só com CSS. Usada nos cards do quadro de
+   /orcamentos. */
+@keyframes tooltipFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tooltipFadeOut { from { opacity: 1; } to { opacity: 0; } }
+.tooltip-fade[data-state='delayed-open'],
+.tooltip-fade[data-state='instant-open'] { animation: tooltipFadeIn 150ms ease-out; }
+.tooltip-fade[data-state='closed'] { animation: tooltipFadeOut 120ms ease-in forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .tooltip-fade[data-state] { animation: none; }
+}
+
+/* Preview do orçamento (painel lateral ao clicar no card do quadro).
+   Entrada: o véu clareia o quadro, o painel aparece e se "desenrola" de cima
+   para baixo (clip-path), e o conteúdo entra em cascata (fade + sobe 6px).
+   Saída: painel e véu somem juntos com fade. */
+@keyframes previewVeuIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes previewVeuOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes previewPainelIn {
+  from { opacity: 0; clip-path: inset(0 0 100% 0 round 1rem); }
+  30%  { opacity: 1; }
+  to   { opacity: 1; clip-path: inset(0 0 0 0 round 1rem); }
+}
+@keyframes previewPainelOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(12px); } }
+@keyframes previewItemIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.preview-veu-in { animation: previewVeuIn 220ms ease-out both; }
+.preview-veu-out { animation: previewVeuOut 240ms ease-in both; }
+.preview-painel-in { animation: previewPainelIn 380ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.preview-painel-out { animation: previewPainelOut 240ms ease-in both; }
+.preview-item-in { animation: previewItemIn 360ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .preview-veu-in, .preview-veu-out, .preview-painel-in, .preview-painel-out, .preview-item-in { animation-duration: 1ms; }
+}
+
 /* Sino — efeito de "desenrolar" (roll down) e "reenrolar" (roll up) */
 /* ─── Skins de acento (painel "Configurações de layout") ───────────────────
    Fonte canônica ÚNICA: todo o palette de cada skin aqui no :root. No DARK há

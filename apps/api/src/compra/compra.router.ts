@@ -5,7 +5,7 @@ import {
 import {
   createCompraSchema, updateCompraSchema, listCompraSchema,
   createCompraItemSchema, updateCompraItemSchema,
-  reprovarCompraSchema, avaliarCompraSchema,
+  reprovarCompraSchema, avaliarCompraSchema, receberItensSchema,
   createCompraAnexoSchema, updateCompraAnexoSchema,
   createCompraMensagemSchema, updateCompraMensagemSchema,
   createCompraCriterioSchema, updateCompraCriterioSchema,
@@ -59,9 +59,17 @@ export function createCompraRouter(compraService: CompraService, cotacaoService:
     reprovar: readSubProcedure(MODULE, SUB_APROVAR, 'Aprovar pedidos de compra')
       .input(reprovarCompraSchema)
       .mutation(({ input, ctx }) => compraService.reprovar(input, ctx.userId, ctx.tenantSchema)),
+    /** Recebe tudo o que falta, com a data de hoje. */
     receber: writeProcedure(MODULE)
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => compraService.receber(input.id, ctx.userId, ctx.tenantSchema)),
+    /** Recebimento por item: os itens (e quantidades) de uma entrega, num dia. */
+    receberItens: writeProcedure(MODULE)
+      .input(receberItensSchema)
+      .mutation(({ input, ctx }) => compraService.receberItens(input, ctx.userId, ctx.tenantSchema)),
+    estornarRecebimento: writeProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input, ctx }) => compraService.estornarRecebimento(input.id, ctx.tenantSchema)),
     avaliar: writeProcedure(MODULE)
       .input(avaliarCompraSchema)
       .mutation(({ input, ctx }) => compraService.avaliar(input, ctx.tenantSchema)),
@@ -78,6 +86,21 @@ export function createCompraRouter(compraService: CompraService, cotacaoService:
     listAnexos: readProcedure(MODULE).input(z.object({ compraId: z.string() })).query(({ input, ctx }) => compraService.listAnexos(input.compraId, ctx.tenantSchema)),
     addAnexo: writeProcedure(MODULE).input(createCompraAnexoSchema).mutation(({ input, ctx }) => compraService.addAnexo(input, ctx.userId, ctx.tenantSchema)),
     updateAnexo: writeProcedure(MODULE).input(updateCompraAnexoSchema).mutation(({ input, ctx }) => compraService.updateAnexo(input, ctx.tenantSchema)),
+    /** Lê o DANFE anexado (número, valor, vendedor) — usado logo após anexar no recebimento. */
+    lerNfDoAnexo: writeProcedure(MODULE)
+      .input(z.object({ anexoId: z.string(), forcar: z.boolean().optional() }))
+      .mutation(({ input, ctx }) => compraService.lerNfDoAnexo(input.anexoId, { isMaster: ctx.isMaster ?? false, empresaId: ctx.empresaId }, ctx.tenantSchema, input.forcar)),
+    /** IQF dos fornecedores, gastos com curva ABC e conferência pedido × nota. */
+    relatorios: readProcedure(MODULE)
+      .input(z.object({
+        de: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        ate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      }))
+      .query(({ input, ctx }) => compraService.relatorios(input, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
+    /** Notas fiscais do pedido (DANFEs anexados + números do recebimento). */
+    notasFiscais: readProcedure(MODULE)
+      .input(z.object({ compraId: z.string() }))
+      .query(({ input, ctx }) => compraService.notasFiscais(input.compraId, { isMaster: ctx.isMaster ?? false, empresaId: ctx.empresaId }, ctx.tenantSchema)),
     removeAnexo: deleteProcedure(MODULE).input(z.object({ id: z.string() })).mutation(({ input, ctx }) => compraService.removeAnexo(input.id, ctx.tenantSchema)),
 
     // ── Mensagens ──

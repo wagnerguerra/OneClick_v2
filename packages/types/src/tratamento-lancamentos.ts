@@ -179,11 +179,41 @@ export const contasCorrentesSchema = z.object({
 })
 export type ContasCorrentesRule = z.infer<typeof contasCorrentesSchema>
 
+// ---- Juros e Descontos -----------------------------------------------------
+// Bloco opcional: alguns documentos trazem, além do valor principal, colunas de
+// JUROS e/ou DESCONTOS. Cada valor não-vazio dessas colunas vira um lançamento
+// SEPARADO no SCI (contrapartida = a conta contábil de juros/descontos; histórico
+// com o termo "JUROS"/"DESC" após RECEB/PGTO; demais campos herdados da linha).
+//   - ativo:   o documento traz juros/descontos? (etapa pulável quando false)
+//   - modo SEPARADAS:  duas colunas (uma de juros, uma de descontos)
+//   - modo UNIFICADA:  uma coluna única, sempre com sinal; `sinalJuros` diz qual
+//     sinal é Juro (o outro é Desconto)
+//   - contaJuros / contaDescontos: contrapartida de cada tipo (sempre exigidas)
+// Guarda os campos dos DOIS modos para não perder o preenchimento ao alternar.
+export const jurosDescontosSchema = z.object({
+  ativo: z.boolean().default(false),
+  modo: z.enum(['SEPARADAS', 'UNIFICADA']).default('UNIFICADA'),
+  colunaJuros: z.string().default(''),
+  colunaDescontos: z.string().default(''),
+  colunaUnificada: z.string().default(''),
+  /** Qual sinal, na coluna unificada, corresponde a Juros (o outro é Desconto). */
+  sinalJuros: z.enum(['POSITIVO', 'NEGATIVO']).default('POSITIVO'),
+  contaJuros: z.string().default(''),
+  contaDescontos: z.string().default(''),
+})
+export type JurosDescontosRule = z.infer<typeof jurosDescontosSchema>
+
+/** Tipo de um lançamento derivado de juros/descontos. */
+export type JurosDescontoTipo = 'JURO' | 'DESC'
+/** Termo gravado no histórico do SCI para cada tipo (após RECEB/PGTO). */
+export const JUROS_DESCONTOS_HISTORICO: Record<JurosDescontoTipo, string> = { JURO: 'JUROS', DESC: 'DESC' }
+
 // ---- Definição completa (corpo do Modelo — snapshot em JSON) ---------------
 export const treatmentDefinitionSchema = z.object({
   contasCorrentes: contasCorrentesSchema,
   columnMapping: columnMappingSchema,
   debitoCredito: debitoCreditoSchema,
+  jurosDescontos: jurosDescontosSchema,
   contrapartida: contrapartidaSchema,
 })
 export type TreatmentDefinition = z.infer<typeof treatmentDefinitionSchema>
@@ -193,6 +223,7 @@ export const EMPTY_TREATMENT_DEFINITION: TreatmentDefinition = {
   contasCorrentes: { modo: 'UNICA', unica: '', coluna: '', mapa: [] },
   columnMapping: { descricao: '', participante: '', valor: '', data: '', numeroNf: '', documento: '', documentoFixo: '' },
   debitoCredito: { tipo: 'COLUNA', coluna: '', mapa: [] },
+  jurosDescontos: { ativo: false, modo: 'UNIFICADA', colunaJuros: '', colunaDescontos: '', colunaUnificada: '', sinalJuros: 'POSITIVO', contaJuros: '', contaDescontos: '' },
   contrapartida: { modo: 'PALAVRA_CHAVE', palavraChave: [], descricao: [] },
 }
 
@@ -239,9 +270,24 @@ export function resolveHistorico(
   })
 }
 
+// ---- Tipo de arquivo do Modelo ---------------------------------------------
+// Atributo do MODELO (não da definição: mudar não gera versão). EXTRATO_BANCARIO =
+// o dinheiro passou na conta, confirmado pelo banco; PLANILHA_CLIENTE = o que o
+// cliente declarou (contas a pagar/receber, controle do financeiro).
+export const TIPO_ARQUIVO_MODELO = ['EXTRATO_BANCARIO', 'PLANILHA_CLIENTE'] as const
+export const tipoArquivoModeloSchema = z.enum(TIPO_ARQUIVO_MODELO)
+export type TipoArquivoModelo = z.infer<typeof tipoArquivoModeloSchema>
+export const TIPO_ARQUIVO_MODELO_LABELS: Record<TipoArquivoModelo, string> = {
+  EXTRATO_BANCARIO: 'Extrato bancário',
+  PLANILHA_CLIENTE: 'Planilha do cliente',
+}
+
 // ---- CRUD do Modelo de Tratamento ------------------------------------------
 export const createTreatmentModelSchema = z.object({
   nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
+  // Obrigatório ao criar; no update (partial) é opcional — modelos anteriores ao
+  // campo seguem editáveis sem ele.
+  tipoArquivo: tipoArquivoModeloSchema,
   clienteId: z.string().optional().or(z.literal('')),
   // Opcional na criação: na Fase 1 o Modelo pode nascer sem configuração e ser
   // configurado depois no editor (wizard). Quando ausente → EMPTY_TREATMENT_DEFINITION.
@@ -255,6 +301,24 @@ export const listTreatmentModelSchema = paginationSchema.extend({
   isActive: z.coerce.boolean().optional(),
   clienteId: z.string().optional(),
 })
+
+// ---- Exportação do Modelo em JSON (contrato com o Centria) -----------------
+// Um arquivo = um modelo. O Centria importa EXATAMENTE este formato — qualquer
+// mudança aqui precisa ser combinada com o lado de lá. Sem ids internos (id,
+// code, versões, cliente, empresa, autor): só nome, tipo e definição.
+// `versaoFormato` 1 = o `treatmentDefinitionSchema` atual; mudança incompatível
+// na definição sobe a versão (o importador do Centria migra).
+export const EXPORT_FORMATO = 'tratamento-lancamentos/modelo'
+export const EXPORT_VERSAO_FORMATO = 1
+export const treatmentModelExportSchema = z.object({
+  formato: z.literal(EXPORT_FORMATO),
+  versaoFormato: z.literal(EXPORT_VERSAO_FORMATO),
+  nome: z.string().min(1),
+  /** `null` = modelo ainda sem o tipo (o Centria pergunta na importação). */
+  tipoArquivo: tipoArquivoModeloSchema.nullable(),
+  definition: treatmentDefinitionSchema,
+}).strict()
+export type TreatmentModelExport = z.infer<typeof treatmentModelExportSchema>
 
 export type CreateTreatmentModelInput = z.infer<typeof createTreatmentModelSchema>
 export type UpdateTreatmentModelInput = z.infer<typeof updateTreatmentModelSchema>

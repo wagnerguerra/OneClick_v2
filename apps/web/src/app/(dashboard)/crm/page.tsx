@@ -8,7 +8,7 @@ import {
   CheckSquare, MessageSquare, Trash2, Send, LayoutGrid, List,
   Download, FileText, Settings2, GripVertical, Save, Paperclip, UploadCloud, File, History, Archive, SlidersHorizontal, Tag, Layers, Sparkles,
   Flame, Thermometer, Snowflake, Megaphone, RotateCcw,
-  Square, Edit2, AlertCircle, Bell, Mail, Search as SearchIcon,
+  Search as SearchIcon, Printer, PhoneCall, AlertTriangle, Building2, IdCard, X,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, RichEditor,
@@ -17,7 +17,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
-  Sheet, SheetContent, SheetHeader, SheetBody, SheetTitle, SheetDescription,
+  Sheet, SheetContent, SheetHeader, SheetBody, SheetTitle,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   RichContent,
 } from '@saas/ui'
@@ -32,12 +32,17 @@ import { CSS } from '@dnd-kit/utilities'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
+import { formatDocumento } from '@saas/types'
+import { AvatarPequeno, DicaIcone, LinhaCard, LogoCliente } from '@/components/kanban/card-partes'
+import { PainelPreview } from '@/components/kanban/painel-preview'
 import { alerts } from '@/lib/alerts'
+import { mensagemErro } from '@/lib/errors'
 import { moedaParaNumero, masks } from '@/lib/masks'
 import { coresTipoEvento } from '@/lib/event-type-colors'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { useAutoHideScrollbar } from '@/hooks/use-autohide-scrollbar'
-import { TarefaModal } from '../agenda/_components/tarefa-modal'
+import { AcoesTab, type AcaoCrm } from './_components/acoes-tab'
+import { InteracoesTab, type InteracaoCrm } from './_components/interacoes-tab'
 
 // Temperatura do lead (vinda do funil de captação por IA).
 const TEMP_META: Record<string, { label: string; icon: typeof Flame; cor: string }> = {
@@ -122,18 +127,9 @@ function ConversaIATab({ oportunidadeId }: { oportunidadeId: string }) {
 
 interface Etapa { id: string; nome: string; ordem: number; cor: string; probabilidade: number; ehGanho: boolean; ehPerda: boolean; slaDias: number | null; _count: { oportunidades: number } }
 
-interface Oportunidade { id: string; numero?: number | null; titulo: string; descricao: string | null; valor: number | null; origem: string | null; temperatura?: string | null; score?: number | null; previsaoFechamento: string | null; createdAt: string; updatedAt: string; etapaId: string; clienteId: string | null; responsavelId: string | null; etapa: Etapa; cliente?: { id: string; razaoSocial: string } | null; responsavel?: { id: string; name: string } | null; _count?: { agendaTarefas?: number; mensagens: number; arquivos: number; agendaEventos?: number } }
+interface Oportunidade { id: string; numero?: number | null; titulo: string; descricao: string | null; doresOportunidades?: string | null; valor: number | null; origem: string | null; temperatura?: string | null; score?: number | null; previsaoFechamento: string | null; createdAt: string; updatedAt: string; etapaId: string; clienteId: string | null; responsavelId: string | null; etapa: Etapa; cliente?: { id: string; razaoSocial: string } | null; responsavel?: { id: string; name: string } | null; _count?: { agendaTarefas?: number; mensagens: number; arquivos: number; agendaEventos?: number } }
 
-interface OportunidadeDetail extends Oportunidade { mensagens: Mensagem[]; arquivos: Arquivo[]; eventos: Evento[] }
-
-// Tarefa do CRM = AgendaTarefa vinculada (mesma forma do `agenda.tarefa.list`).
-interface Tarefa {
-  id: string; titulo: string; descricao: string | null; prazo: string; horaPrazo: string | null
-  concluida: boolean; concluidaEm: string | null; prioridade: 'BAIXA' | 'NORMAL' | 'ALTA'
-  criadorId: string; criador?: { id: string; name: string; image: string | null }
-  lembretes?: Array<{ canal: 'POPUP' | 'EMAIL'; minutosAntes: number }>
-  membros?: Array<{ usuarioId: string; name: string; image: string | null; ciente: boolean }>
-}
+interface OportunidadeDetail extends Oportunidade { mensagens: Mensagem[]; interacoes?: InteracaoCrm[]; arquivos: Arquivo[]; eventos: Evento[]; contatoNome?: string | null }
 
 interface Mensagem { id: string; mensagem: string; createdAt: string; user?: { id: string; name: string; image?: string | null } | null }
 
@@ -266,19 +262,17 @@ export default function CrmPage() {
   const [draftRestored, setDraftRestored] = useState(false)   // rascunho recuperado ao reabrir
   // Este literal duplica `formVazio()` e é DELE que sai o tipo do form —
   // campo novo tem que entrar nos dois, senão o outro nem compila.
-  const [form, setForm] = useState({ titulo: '', descricao: '', valor: '', etapaId: '', clienteId: '', responsavelId: '', previsaoFechamento: '', origem: '', atividade: '', cpfCnpj: '', razaoSocial: '', nomeFantasia: '', cnaeCodigo: '', cnaeDescricao: '', contatoNome: '', contatoCargo: '', contatoTelefone: '', contatoEmail: '', tagId: '', campanhaSlug: '' })
+  const [form, setForm] = useState({ titulo: '', descricao: '', doresOportunidades: '', valor: '', etapaId: '', clienteId: '', responsavelId: '', previsaoFechamento: '', origem: '', atividade: '', cpfCnpj: '', razaoSocial: '', nomeFantasia: '', cnaeCodigo: '', cnaeDescricao: '', contatoNome: '', contatoCargo: '', contatoTelefone: '', contatoEmail: '', tagId: '', campanhaSlug: '' })
   const [clientes, setClientes] = useState<ClienteSelect[]>([])
 
   // Detail modal
   const [detailOpen, setDetailOpen] = useState(false)
   const [detail, setDetail] = useState<OportunidadeDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
-  const [detailTab, setDetailTab] = useState<'detalhes' | 'conversa' | 'tarefas' | 'mensagens' | 'arquivos' | 'historico'>('detalhes')
-  // Tarefas do card = AgendaTarefa vinculada. Carregadas à parte (agenda.tarefa.list).
-  const [tarefasCrm, setTarefasCrm] = useState<Tarefa[]>([])
+  const [detailTab, setDetailTab] = useState<'detalhes' | 'conversa' | 'acoes' | 'interacoes' | 'mensagens' | 'arquivos' | 'historico'>('detalhes')
+  // Ações do card = AgendaTarefa vinculada. Carregadas à parte (crm.acoes.list).
+  const [tarefasCrm, setTarefasCrm] = useState<AcaoCrm[]>([])
   const [tarefasLoading, setTarefasLoading] = useState(false)
-  const [tarefaModalOpen, setTarefaModalOpen] = useState(false)
-  const [tarefaEditando, setTarefaEditando] = useState<Tarefa | null>(null)
   const [novaMensagem, setNovaMensagem] = useState('')
   const [saving, setSaving] = useState(false)
   const [buscandoCnpj, setBuscandoCnpj] = useState(false)
@@ -497,8 +491,8 @@ export default function CrmPage() {
       // pode oferecer campanha vigente — listConfigs devolve tudo, inclusive
       // desativadas e os funis "roteador", que nao sao campanha.
       setCampanhasList(((camps || []) as any[]).map(c => ({ slug: c.slug, nome: c.nome, ativo: c.ativo !== false, roteador: c.roteador === true })))
-    } catch {
-      if (!silent) alerts.error('Erro', 'Falha ao carregar dados do CRM')
+    } catch (e) {
+      if (!silent) alerts.error('Erro', mensagemErro(e, 'Falha ao carregar dados do CRM'))
     } finally {
       if (!silent) setLoading(false)
     }
@@ -538,7 +532,9 @@ export default function CrmPage() {
   useEffect(() => {
     if (!opParam) return
     openDetail(opParam)
-    if (tabParam === 'conversa' || tabParam === 'tarefas' || tabParam === 'mensagens' || tabParam === 'arquivos' || tabParam === 'historico') {
+    // `tarefas` = link antigo (a aba virou "Ações" em 25/09/2026).
+    if (tabParam === 'tarefas') setDetailTab('acoes')
+    else if (tabParam === 'conversa' || tabParam === 'acoes' || tabParam === 'interacoes' || tabParam === 'mensagens' || tabParam === 'arquivos' || tabParam === 'historico') {
       setDetailTab(tabParam)
     }
     router.replace('/crm', { scroll: false })
@@ -641,7 +637,7 @@ export default function CrmPage() {
   }, [filteredOps, etapas])
 
   // ── Create ──
-  const formVazio = () => ({ titulo: '', descricao: '', valor: '', etapaId: etapas[0]?.id || '', clienteId: '', responsavelId: '', previsaoFechamento: '', origem: '', atividade: '', cpfCnpj: '', razaoSocial: '', nomeFantasia: '', cnaeCodigo: '', cnaeDescricao: '', contatoNome: '', contatoCargo: '', contatoTelefone: '', contatoEmail: '', tagId: '', campanhaSlug: '' })
+  const formVazio = () => ({ titulo: '', descricao: '', doresOportunidades: '', valor: '', etapaId: etapas[0]?.id || '', clienteId: '', responsavelId: '', previsaoFechamento: '', origem: '', atividade: '', cpfCnpj: '', razaoSocial: '', nomeFantasia: '', cnaeCodigo: '', cnaeDescricao: '', contatoNome: '', contatoCargo: '', contatoTelefone: '', contatoEmail: '', tagId: '', campanhaSlug: '' })
 
   // Campanhas ofertáveis: só as vigentes. `listConfigs` devolve tudo, inclusive
   // desativadas e os funis "roteador", que não são campanha. Aqui (criação) não
@@ -718,6 +714,7 @@ export default function CrmPage() {
       const created = await (trpc.crm as any).create.mutate({
         titulo: form.titulo.trim(),
         descricao: form.descricao.trim() || undefined,
+        doresOportunidades: form.doresOportunidades.trim() || undefined,
         valor: form.valor ? moedaParaNumero(form.valor) : undefined,
         etapaId: form.etapaId || undefined,
         clienteId: form.clienteId || undefined,
@@ -747,14 +744,17 @@ export default function CrmPage() {
       setDraftRestored(false)
       alerts.success('Oportunidade criada')
       fetchAll()
-    } catch {
-      alerts.error('Erro', 'Falha ao criar oportunidade')
+    } catch (e) {
+      alerts.error('Erro', mensagemErro(e, 'Falha ao criar oportunidade'))
     } finally {
       setCreating(false)
     }
   }
 
   // ── Detail ──
+  // Fecha o preview e atualiza o quadro (o que a folha antiga fazia no onOpenChange).
+  const fecharDetalhe = useCallback(() => { setDetailOpen(false); fetchAll(true) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const openDetail = async (id: string) => {
     setDetailOpen(true)
     setDetailLoading(true)
@@ -763,8 +763,8 @@ export default function CrmPage() {
       const d = await (trpc.crm as any).getById.query({ id })
       setDetail(d)
       loadTarefasCrm(id)
-    } catch {
-      alerts.error('Erro', 'Falha ao carregar oportunidade')
+    } catch (e) {
+      alerts.error('Erro', mensagemErro(e, 'Falha ao carregar oportunidade'))
       setDetailOpen(false)
     } finally {
       setDetailLoading(false)
@@ -784,8 +784,8 @@ export default function CrmPage() {
       if (result.orcamentoCriado) {
         alerts.success('Orçamento criado', `Orçamento #${result.orcamentoCriado.numero} gerado automaticamente`)
       }
-    } catch {
-      alerts.error('Erro', 'Falha ao mover oportunidade')
+    } catch (e) {
+      alerts.error('Erro', mensagemErro(e, 'Falha ao mover oportunidade'))
     }
   }
 
@@ -886,52 +886,41 @@ export default function CrmPage() {
       alerts.success('Oportunidade excluída')
       setDetailOpen(false)
       fetchAll()
-    } catch {
-      alerts.error('Erro', 'Falha ao excluir')
+    } catch (e) {
+      alerts.error('Erro', mensagemErro(e, 'Falha ao excluir'))
     }
   }
 
-  // ── Tarefas (AgendaTarefa vinculada à oportunidade) ──
+  // ── Ações (AgendaTarefa vinculada à oportunidade) ──
   const loadTarefasCrm = useCallback(async (oportunidadeId: string) => {
     setTarefasLoading(true)
     try {
-      const r = await (trpc.agenda.tarefa as any).list.query({ oportunidadeId })
-      setTarefasCrm(r as Tarefa[])
+      const r = await (trpc.crm as any).acoes.list.query({ oportunidadeId })
+      setTarefasCrm(r as AcaoCrm[])
     } catch (e) {
-      console.error('[CRM] load tarefas:', (e as Error).message)
+      console.error('[CRM] load ações:', (e as Error).message)
     } finally {
       setTarefasLoading(false)
     }
   }, [])
 
-  // Recarrega a lista do card e atualiza os contadores dos cards do board.
+  // Recarrega a lista, o histórico do card e os contadores do board.
   const refreshTarefasCrm = () => {
-    if (detail) loadTarefasCrm(detail.id)
+    if (!detail) return
+    loadTarefasCrm(detail.id)
+    recarregarDetalhe()
     fetchAll(true)
   }
 
-  // Alterna a ciência do usuário atual (a tarefa só conclui quando todos os
-  // membros dão ciência — regra no backend). Numa tarefa de dono único, conclui.
-  const toggleTarefa = async (t: Tarefa) => {
+  // Interações vêm no getById: recarregar o card é recarregar a lista.
+  const recarregarDetalhe = async () => {
+    if (!detail) return
     try {
-      await (trpc.agenda.tarefa as any).toggleConcluida.mutate({ id: t.id, concluida: !t.concluida })
-      refreshTarefasCrm()
-    } catch (e) { alerts.error('Erro', (e as Error).message) }
-  }
-
-  const deleteTarefa = async (t: Tarefa) => {
-    const ok = await alerts.confirm({
-      title: 'Excluir tarefa?',
-      text: `"${t.titulo}" será removida.`,
-      confirmText: 'Excluir',
-      icon: 'warning',
-      destructive: true,
-    })
-    if (!ok) return
-    try {
-      await (trpc.agenda.tarefa as any).delete.mutate({ id: t.id })
-      refreshTarefasCrm()
-    } catch (e) { alerts.error('Erro', (e as Error).message) }
+      const d = await (trpc.crm as any).getById.query({ id: detail.id })
+      setDetail(d)
+    } catch (e) {
+      console.error('[CRM] reload detalhe:', (e as Error).message)
+    }
   }
 
   // ── Mensagens ──
@@ -946,8 +935,8 @@ export default function CrmPage() {
       const d = await (trpc.crm as any).getById.query({ id: detail.id })
       setDetail(d)
       setNovaMensagem('')
-    } catch {
-      alerts.error('Erro', 'Falha ao enviar mensagem')
+    } catch (e) {
+      alerts.error('Erro', mensagemErro(e, 'Falha ao enviar mensagem'))
     } finally {
       setSaving(false)
     }
@@ -976,8 +965,8 @@ export default function CrmPage() {
       }
       const d = await (trpc.crm as any).getById.query({ id: detail.id })
       setDetail(d)
-    } catch {
-      alerts.error('Erro', 'Falha ao enviar arquivo')
+    } catch (e) {
+      alerts.error('Erro', mensagemErro(e, 'Falha ao enviar arquivo'))
     } finally {
       setSaving(false)
     }
@@ -1003,8 +992,8 @@ export default function CrmPage() {
       const d = await (trpc.crm as any).getById.query({ id: detail.id })
       setDetail(d)
       fetchAll()
-    } catch {
-      alerts.error('Erro', 'Falha ao salvar')
+    } catch (e) {
+      alerts.error('Erro', mensagemErro(e, 'Falha ao salvar'))
     } finally {
       setSaving(false)
     }
@@ -1244,6 +1233,9 @@ export default function CrmPage() {
                               <ArrowRight className="h-3.5 w-3.5 mr-2" style={{ color: e.cor }} /> Mover para {e.nome}
                             </DropdownMenuItem>
                           ))}
+                          <DropdownMenuItem onClick={() => router.push(`/crm/${op.id}/imprimir`)}>
+                            <Printer className="h-3.5 w-3.5 mr-2" /> Imprimir
+                          </DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(op.id, op.titulo)}>
                             <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
                           </DropdownMenuItem>
@@ -1273,6 +1265,7 @@ export default function CrmPage() {
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         )}
+        <TooltipProvider delayDuration={200}>
         <DndContext sensors={kanbanSensors} collisionDetection={closestCenter} onDragStart={handleKanbanDragStart} onDragMove={handleKanbanDragMove} onDragOver={handleKanbanDragOver} onDragEnd={handleKanbanDragEnd} onDragCancel={handleKanbanDragCancel}>
         <div className="overflow-x-auto nice-scrollbar pb-4 -mx-1 flex-1">
           <div className="flex gap-4 px-1 h-full" style={{ minWidth: etapas.length > 0 ? `${etapas.length * 250}px` : undefined, width: '100%' }}>
@@ -1286,6 +1279,7 @@ export default function CrmPage() {
           {activeCard && <KanbanCardOverlay op={activeCard} diasDesde={diasDesde} velocityX={dragDeltaX} width={activeCardWidth} />}
         </DragOverlay>
         </DndContext>
+        </TooltipProvider>
         </div>
       )}
 
@@ -1454,40 +1448,63 @@ export default function CrmPage() {
                 </div>
               </div>
             )}
-            {/* Descricao */}
+            {/* Perfil do Lead (coluna `descricao`) + Dores / Oportunidades:
+                um diz QUEM é o lead, o outro o que ele PRECISA. */}
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Detalhes da oportunidade</label>
-              <RichEditor value={form.descricao} onChange={v => setForm(f => ({ ...f, descricao: v }))} placeholder="Informe abaixo os detalhes da oportunidade..." />
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Perfil do Lead</label>
+              <RichEditor value={form.descricao} onChange={v => setForm(f => ({ ...f, descricao: v }))} placeholder="Quem é o lead: porte, ramo, momento da empresa, quem decide..." />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Dores / Oportunidades</label>
+              <RichEditor value={form.doresOportunidades} onChange={v => setForm(f => ({ ...f, doresOportunidades: v }))} placeholder="O que incomoda o lead hoje e onde o escritório pode ajudar..." />
             </div>
           </SheetBody>
         </SheetContent>
       </Sheet>
 
-      {/* ── Detail Sheet (slide-over) ── */}
-      <Sheet open={detailOpen} onOpenChange={open => { setDetailOpen(open); if (!open) fetchAll(true) }}>
-        <SheetContent side="right" size="xl" className="w-full sm:w-[75vw] max-w-[1200px]">
+      {/* ── Preview do card (painel lateral animado, no molde do de orçamentos) ──
+          Mesmo conteúdo e funções da antiga folha lateral: cabeçalho com título
+          editável, imprimir e salvar, e as abas Detalhes / Conversa (IA) / Ações
+          / Interações / Anotações / Arquivos / Histórico. */}
+      <PainelPreview aberto={detailOpen} onFechar={fecharDetalhe} rotulo={detail ? `Oportunidade ${detail.titulo}` : 'Oportunidade'}>
           {detailLoading || !detail ? (
-            <div className="flex items-center justify-center py-16 flex-1">
-              <SheetTitle className="sr-only">Carregando</SheetTitle>
+            <div className="flex flex-1 items-center justify-center py-16">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : (
+          ) : (() => {
+            // Card do quadro (logo do cliente, orçamento vinculado) + situação no tempo.
+            const cardQuadro = oportunidades.find(o => o.id === detail.id) as any
+            const clienteQuadro = cardQuadro?.cliente as { razaoSocial?: string | null; nomeFantasia?: string | null; logoUrl?: string | null } | null
+            const etapaAtual = etapas.find(e => e.id === detail.etapaId) ?? (detail as any).etapa
+            const sitDetalhe = situacaoCrm(detail, etapaAtual, declinioDias)
+            const razaoDetalhe: string | null = (detail as any).razaoSocial || (detail as any).cliente?.razaoSocial || clienteQuadro?.razaoSocial || null
+            const valorDetalhe = Number(detail.valor ?? 0)
+            const orcVinculado = cardQuadro?.orcamento as { id: string; numero: number } | null | undefined
+            return (
             <>
-              <SheetHeader className="border-b-0 bg-transparent">
-                <div className="absolute right-14 top-4 z-10">
+              <header className="relative flex items-start gap-3 px-5 pb-3 pt-4">
+                <div className="absolute right-3 top-3 z-10 flex items-center gap-1">
+                  {/* Imprimir a ficha da oportunidade — mesma posição que o
+                      orçamento usa no cabeçalho do detalhe. */}
+                  <button className="flex h-7 w-7 items-center justify-center rounded-md opacity-60 transition-all hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10"
+                    onClick={() => router.push(`/crm/${detail.id}/imprimir`)} title="Imprimir">
+                    <Printer className="h-4 w-4" />
+                  </button>
                   <button className="flex h-7 w-7 items-center justify-center rounded-md opacity-60 transition-all hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10" disabled={saving} onClick={() => {
                     const btn = document.getElementById('detail-save-btn') as HTMLButtonElement
                     if (btn) btn.click()
                   }} title="Salvar">
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   </button>
+                  <button className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    onClick={fecharDetalhe} title="Fechar" aria-label="Fechar">
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-                <div className="flex items-center gap-3 pr-24">
-                  {(detail as any).responsavel ? (
-                    <UserAvatar user={(detail as any).responsavel} bg="bg-muted" fg="text-muted-foreground" className="h-10 w-10 text-sm shrink-0 border-2 border-background shadow-sm" />
-                  ) : null}
+                <LogoPreview nome={clienteQuadro?.nomeFantasia || razaoDetalhe || detail.titulo} logoUrl={clienteQuadro?.logoUrl} />
+                <div className="flex min-w-0 flex-1 items-center gap-3 pr-28">
                   <div className="flex-1 min-w-0">
-                    <SheetTitle className="text-base">
+                    <h2 className="text-[15px] font-semibold leading-tight">
                       {editingTitle ? (
                         <input
                           type="text"
@@ -1509,30 +1526,60 @@ export default function CrmPage() {
                           {detail.titulo}
                         </span>
                       )}
-                    </SheetTitle>
-                    {((detail as any).razaoSocial || (detail as any).cliente?.razaoSocial) && (
-                      <SheetDescription className="mt-0.5">
-                        {(detail as any).razaoSocial || (detail as any).cliente?.razaoSocial}
-                      </SheetDescription>
-                    )}
-                    {detail.temperatura && (
-                      <div className="mt-1.5 flex items-center gap-1.5">
-                        <TemperaturaBadge temperatura={detail.temperatura} score={detail.score} />
-                        {detail.origem === 'lead-ia' && <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground"><Sparkles className="h-3 w-3" /> Captado pela IA</span>}
-                      </div>
-                    )}
+                    </h2>
+                    {razaoDetalhe && <p className="mt-0.5 truncate text-[12px] text-muted-foreground">{razaoDetalhe}</p>}
+                    {/* Badges: nº do card, etapa (na cor dela), temperatura, IA, valor */}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                      {detail.numero != null && <span className="rounded-md bg-muted px-1.5 py-0.5 font-semibold tabular-nums text-foreground/80">#{detail.numero}</span>}
+                      {etapaAtual && (
+                        <span className="rounded-md px-1.5 py-0.5 font-semibold" style={{ backgroundColor: `${etapaAtual.cor || '#818cf8'}1A`, color: etapaAtual.cor || '#818cf8' }}>
+                          {etapaAtual.nome}
+                        </span>
+                      )}
+                      <TemperaturaBadge temperatura={detail.temperatura} score={detail.score} />
+                      {detail.origem === 'lead-ia' && <span className="inline-flex items-center gap-1 font-medium text-muted-foreground"><Sparkles className="h-3 w-3" /> Captado pela IA</span>}
+                      {valorDetalhe > 0 && (
+                        <span className="rounded-md bg-primary/10 px-1.5 py-0.5 font-semibold tabular-nums text-primary-on-surface">
+                          {valorDetalhe.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </SheetHeader>
+              </header>
 
-              {/* Tabs */}
-              <div className="flex gap-4 px-6 shrink-0 border-b border-border/40">
+              {/* Resumo: situação no tempo, responsável e orçamento vinculado */}
+              <div className="preview-item-in flex flex-wrap items-center gap-x-5 gap-y-1.5 border-y border-dashed border-border px-5 py-2 text-[12px]" style={{ animationDelay: '240ms' }}>
+                <span className={cn('flex items-center gap-1.5', sitDetalhe.cor)} title={sitDetalhe.texto}>
+                  <Clock className="h-3.5 w-3.5" strokeWidth={1.75} /> {sitDetalhe.titulo}
+                </span>
+                {(detail as any).responsavel && (
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <AvatarPequeno user={(detail as any).responsavel} />
+                    <span className="text-foreground">{(detail as any).responsavel.name}</span>
+                  </span>
+                )}
+                {orcVinculado && (
+                  <Link href={`/orcamentos/${orcVinculado.id}`} className={cn('flex items-center gap-1.5 hover:underline', TEXT.sky)}>
+                    <FileText className="h-3.5 w-3.5" strokeWidth={1.75} /> Orçamento #{orcVinculado.numero}
+                  </Link>
+                )}
+                {sitDetalhe.aviso && (
+                  <span className="ml-auto inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: `${sitDetalhe.aviso.cor}1A`, color: sitDetalhe.aviso.cor }}>
+                    <sitDetalhe.aviso.Icon className="h-3 w-3" /> {sitDetalhe.aviso.curto}
+                  </span>
+                )}
+              </div>
+
+              {/* Abas */}
+              <div className="preview-item-in nice-scrollbar flex shrink-0 gap-1 overflow-x-auto px-4 pb-2 pt-2.5" style={{ animationDelay: '280ms' }}>
                 {([
                   { key: 'detalhes' as const, label: 'Detalhes', icon: Target },
                   ...((detail.origem === 'lead-ia' || detail.temperatura)
                     ? [{ key: 'conversa' as const, label: 'Conversa (IA)', icon: Sparkles }]
                     : []),
-                  { key: 'tarefas' as const, label: `Tarefas (${tarefasCrm.length})`, icon: CheckSquare },
+                  { key: 'acoes' as const, label: `Ações (${tarefasCrm.length})`, icon: CheckSquare },
+                  { key: 'interacoes' as const, label: `Interações (${detail.interacoes?.length ?? 0})`, icon: PhoneCall },
                   { key: 'mensagens' as const, label: `Anotações (${detail.mensagens.length})`, icon: MessageSquare },
                   { key: 'arquivos' as const, label: `Arquivos (${detail.arquivos.length})`, icon: Paperclip },
                   { key: 'historico' as const, label: 'Histórico', icon: History },
@@ -1541,12 +1588,11 @@ export default function CrmPage() {
                     key={tab.key}
                     onClick={() => setDetailTab(tab.key)}
                     className={cn(
-                      'px-1 py-2.5 text-xs font-medium flex items-center gap-1.5 border-b-2 -mb-px transition-colors',
+                      'flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
                       detailTab === tab.key
-                        ? 'text-foreground'
-                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                     )}
-                    style={detailTab === tab.key ? { borderBottomColor: PRIMARY } : undefined}
                   >
                     <tab.icon className="h-3.5 w-3.5" />
                     {tab.label}
@@ -1554,7 +1600,7 @@ export default function CrmPage() {
                 ))}
               </div>
 
-              <SheetBody key={detailTab} className="px-6 py-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+              <div key={detailTab} className="preview-item-in nice-scrollbar mx-2 mb-2 flex-1 overflow-y-auto rounded-xl border border-border/60 bg-card px-5 py-5" style={{ animationDelay: '320ms' }}>
                 {/* ── Detalhes Tab ── */}
                 {detailTab === 'detalhes' && (
                   <DetailTab detail={detail} etapas={etapas} clientes={clientes} onSave={saveDetail} onMove={moverPara} saving={saving} tags={tags} opcoesAtividade={opcoesAtividade} opcoesOrigem={opcoesOrigem} campanhas={campanhasList} loadClientes={async () => {
@@ -1565,103 +1611,34 @@ export default function CrmPage() {
                 {/* ── Conversa IA Tab ── */}
                 {detailTab === 'conversa' && <ConversaIATab oportunidadeId={detail.id} />}
 
-                {/* ── Tarefas Tab (AgendaTarefa vinculada ao card) ── */}
-                {detailTab === 'tarefas' && (
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="text-[11px] text-muted-foreground leading-snug">
-                        Tarefas com prazo, lembretes e participantes. Aparecem também na lista de tarefas de cada participante e disparam os lembretes escolhidos.
-                      </p>
-                      <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5 shrink-0"
-                        onClick={() => { setTarefaEditando(null); setTarefaModalOpen(true) }}>
-                        <Plus className="h-4 w-4" />Nova tarefa
-                      </Button>
-                    </div>
-                    {tarefasLoading && tarefasCrm.length === 0 ? (
-                      <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-                    ) : tarefasCrm.length === 0 ? (
-                      <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhuma tarefa cadastrada</p>
-                    ) : (
-                      <div className="divide-y rounded-md border">
-                        {tarefasCrm.map(t => {
-                          const d = new Date(t.prazo)
-                          const hoje = new Date()
-                          const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
-                          const prazoDate = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
-                          const diffDias = Math.floor((prazoDate.getTime() - inicioHoje.getTime()) / 86400000)
-                          const atrasada = !t.concluida && diffDias < 0
-                          const hojeFlag = !t.concluida && diffDias === 0
-                          const dataFmt = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
-                          const membros = t.membros ?? []
-                          return (
-                            <div key={t.id} className={cn('group/row flex items-start gap-2.5 px-3 py-2.5 hover:bg-muted/30 transition-colors', t.concluida && 'opacity-60')}>
-                              <button type="button" onClick={() => toggleTarefa(t)} className="shrink-0 mt-0.5"
-                                title={t.concluida ? 'Reabrir (retirar ciência)' : 'Concluir (dar ciência)'}>
-                                {t.concluida
-                                  ? <CheckSquare className={cn('h-4 w-4', TEXT.emerald)} />
-                                  : <Square className="h-4 w-4 text-muted-foreground hover:text-sky-500" />}
-                              </button>
-                              <div className="flex-1 min-w-0 cursor-pointer" onClick={() => { setTarefaEditando(t); setTarefaModalOpen(true) }}>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <p className={cn('text-sm font-medium leading-snug', t.concluida && 'line-through')}>{t.titulo}</p>
-                                  {t.prioridade === 'ALTA' && (
-                                    <Badge variant="outline" className={cn('text-[10px] h-4 px-1.5', BADGE.orange)}>
-                                      <AlertCircle className="h-2.5 w-2.5 mr-0.5" />Alta
-                                    </Badge>
-                                  )}
-                                  {t.prioridade === 'BAIXA' && <Badge variant="outline" className="text-[10px] h-4 px-1.5">Baixa</Badge>}
-                                </div>
-                                <div className="flex items-center gap-3 mt-1 text-[11px] flex-wrap">
-                                  <span className={cn('inline-flex items-center gap-1 font-medium',
-                                    atrasada && TEXT.rose,
-                                    hojeFlag && TEXT.amber,
-                                    !atrasada && !hojeFlag && 'text-muted-foreground')}>
-                                    <Calendar className="h-3 w-3" />{dataFmt}{t.horaPrazo && ` · ${t.horaPrazo}`}{atrasada && ` · atrasada ${Math.abs(diffDias)}d`}{hojeFlag && ' · hoje'}
-                                  </span>
-                                  {(t.lembretes?.length ?? 0) > 0 && (
-                                    <span className="inline-flex items-center gap-1 text-muted-foreground" title="Lembretes">
-                                      {t.lembretes!.some(l => l.canal === 'EMAIL') ? <Mail className="h-3 w-3" /> : <Bell className="h-3 w-3" />}
-                                      {t.lembretes!.length}
-                                    </span>
-                                  )}
-                                  {membros.length > 1 && (
-                                    <span className="inline-flex items-center gap-1 text-muted-foreground" title="Participantes">
-                                      <span className="flex -space-x-1.5">
-                                        {membros.slice(0, 4).map(m => (
-                                          <span key={m.usuarioId} title={`${m.name} · ${m.ciente ? 'ciente' : 'pendente'}`}
-                                            className={cn('h-4 w-4 rounded-full ring-1 bg-muted flex items-center justify-center text-[8px] font-bold uppercase overflow-hidden', m.ciente ? 'ring-emerald-500' : 'ring-border opacity-60')}>
-                                            {m.image ? <img src={resolveAssetUrl(m.image)} alt="" className="h-full w-full object-cover" /> : (m.name?.[0] ?? '?')}
-                                          </span>
-                                        ))}
-                                      </span>
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-1 sm:shrink-0 opacity-100 sm:opacity-0 sm:group-hover/row:opacity-100 transition-opacity">
-                                <button type="button" onClick={() => { setTarefaEditando(t); setTarefaModalOpen(true) }}
-                                  className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Editar">
-                                  <Edit2 className="h-3.5 w-3.5" />
-                                </button>
-                                <button type="button" onClick={() => deleteTarefa(t)}
-                                  className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-rose-500/10 text-muted-foreground hover:text-rose-600" title="Excluir">
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
+                {/* ── Ações Tab (AgendaTarefa vinculada ao card) ── */}
+                {detailTab === 'acoes' && (
+                  <AcoesTab
+                    oportunidadeId={detail.id}
+                    acoes={tarefasCrm}
+                    carregando={tarefasLoading}
+                    meuId={profile?.id}
+                    moduleColor={PRIMARY}
+                    onChanged={refreshTarefasCrm}
+                  />
+                )}
+
+                {/* ── Interações Tab ── */}
+                {detailTab === 'interacoes' && (
+                  <InteracoesTab
+                    oportunidadeId={detail.id}
+                    interacoes={detail.interacoes ?? []}
+                    contatoPadrao={detail.contatoNome}
+                    onChanged={recarregarDetalhe}
+                  />
                 )}
 
                 {/* ── Mensagens Tab ── */}
                 {detailTab === 'mensagens' && (
                   <div className="space-y-3">
-                    {/* Campo no topo (igual às Tarefas) — evita colidir com o widget de ajuda.
+                    {/* Campo no topo (igual às Ações) — evita colidir com o widget de ajuda.
                         #HLP0218: era um Input de uma linha só; virou editor com toolbar
-                        (negrito e tópicos), igual ao campo de Detalhes da oportunidade.
+                        (negrito e tópicos), igual ao campo Perfil do Lead.
                         Cada anotação já é carimbada com autor e data/hora abaixo, que é
                         o histórico que antes era digitado à mão dentro dos Detalhes. */}
                     <div className="space-y-2">
@@ -1725,23 +1702,11 @@ export default function CrmPage() {
                 {detailTab === 'historico' && (
                   <HistoricoTab eventos={detail.eventos || []} />
                 )}
-              </SheetBody>
-
+              </div>
             </>
-          )}
-        </SheetContent>
-      </Sheet>
-
-      {/* ── Modal de tarefa (AgendaTarefa vinculada ao card) ── */}
-      {detail && (
-        <TarefaModal
-          open={tarefaModalOpen}
-          onOpenChange={setTarefaModalOpen}
-          tarefa={tarefaEditando}
-          oportunidadeId={detail.id}
-          onSaved={refreshTarefasCrm}
-        />
-      )}
+            )
+          })()}
+      </PainelPreview>
 
       {/* ── Gerenciar Tags Modal ── */}
       <Dialog open={tagsModal} onOpenChange={setTagsModal}>
@@ -1855,8 +1820,8 @@ export default function CrmPage() {
                 await (trpc.crm as any).saveConfig.mutate({ key: 'declinio_dias', value: String(declinioDias) })
                 alerts.success('Salvo', 'Configuração atualizada')
                 setConfigModal(false)
-              } catch {
-                alerts.error('Erro', 'Falha ao salvar configuração')
+              } catch (e) {
+                alerts.error('Erro', mensagemErro(e, 'Falha ao salvar configuração'))
               }
             }}>
               Salvar
@@ -1888,6 +1853,7 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
 }) {
   const [titulo, setTitulo] = useState(detail.titulo)
   const [descricao, setDescricao] = useState(detail.descricao || '')
+  const [dores, setDores] = useState(detail.doresOportunidades || '')
   const [cpfCnpj, setCpfCnpj] = useState((detail as any).cpfCnpj || '')
   const [razaoSocial, setRazaoSocial] = useState((detail as any).razaoSocial || '')
   const [nomeFantasia, setNomeFantasia] = useState((detail as any).nomeFantasia || '')
@@ -1925,6 +1891,7 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
   useEffect(() => {
     setTitulo(detail.titulo)
     setDescricao(detail.descricao || '')
+    setDores(detail.doresOportunidades || '')
     setCpfCnpj((detail as any).cpfCnpj || '')
     setRazaoSocial((detail as any).razaoSocial || '')
     setNomeFantasia((detail as any).nomeFantasia || '')
@@ -1984,6 +1951,7 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
     onSave({
       titulo: titulo.trim(),
       descricao: descricao.trim() || null,
+      doresOportunidades: dores.trim() || null,
       cpfCnpj: cpfCnpj.trim() || null,
       razaoSocial: razaoSocial.trim() || null,
       nomeFantasia: nomeFantasia.trim() || null,
@@ -2205,10 +2173,14 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
         )
       })()}
 
-      {/* Descricao (editor) */}
+      {/* Perfil do Lead (coluna `descricao`) + Dores / Oportunidades */}
       <div>
-        <label className="text-xs font-medium text-muted-foreground mb-1 block">Detalhes da oportunidade</label>
-        <RichEditor value={descricao} onChange={v => { setDescricao(v); markDirty() }} placeholder="Informe os detalhes..." />
+        <label className="text-xs font-medium text-muted-foreground mb-1 block">Perfil do Lead</label>
+        <RichEditor value={descricao} onChange={v => { setDescricao(v); markDirty() }} placeholder="Quem é o lead: porte, ramo, momento da empresa, quem decide..." />
+      </div>
+      <div>
+        <label className="text-xs font-medium text-muted-foreground mb-1 block">Dores / Oportunidades</label>
+        <RichEditor value={dores} onChange={v => { setDores(v); markDirty() }} placeholder="O que incomoda o lead hoje e onde o escritório pode ajudar..." />
       </div>
 
       {/* Meta */}
@@ -2298,19 +2270,12 @@ function KanbanCard({ op, isDraggingAny, etapas, onOpenDetail, onMover, onDelete
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: op.id })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }
 
-  const etapaCor = op.etapa?.cor || '#818cf8'
-
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}
-      className={cn('rounded-xl bg-white dark:bg-card shadow-sm cursor-pointer active:cursor-grabbing group touch-none overflow-hidden', isDragging ? 'border border-transparent opacity-30' : 'border border-border/60', !isDragging && !isDraggingAny && 'hover:shadow-md transition-shadow')}
+      className={cn('rounded-md bg-white dark:bg-card cursor-pointer active:cursor-grabbing group touch-none overflow-hidden', isDragging ? 'border border-transparent opacity-30' : 'border border-border/60')}
       onClick={() => { if (!isDraggingAny) onOpenDetail(op.id) }}
     >
-      <div className="flex">
-        <div className="w-1 shrink-0" style={{ backgroundColor: etapaCor }} />
-        <div className="flex-1 min-w-0">
-          <KanbanCardContent op={op} etapas={etapas} onMover={onMover} onDelete={onDelete} diasDesde={diasDesde} showMenu={!isDraggingAny} declinioDias={declinioDias} />
-        </div>
-      </div>
+      <KanbanCardContent op={op} etapas={etapas} onMover={onMover} onDelete={onDelete} diasDesde={diasDesde} showMenu={!isDraggingAny} declinioDias={declinioDias} />
     </div>
   )
 }
@@ -2349,13 +2314,11 @@ function KanbanCardOverlay({ op, diasDesde, velocityX, width }: { op: Oportunida
     return () => cancelAnimationFrame(rafRef.current)
   }, [])
 
-  const etapaCor = op.etapa?.cor || '#818cf8'
-
   return (
     <div
       // Largura dinamica capturada do card de origem (colunas usam flex-1).
       // Fallback 260px caso o measurement falhe.
-      className="rounded-xl bg-white dark:bg-card overflow-hidden"
+      className="rounded-md bg-white dark:bg-card overflow-hidden"
       style={{
         width: width ?? 260,
         transform: `rotate(${rotation.toFixed(2)}deg) scale(1.02)`,
@@ -2363,121 +2326,249 @@ function KanbanCardOverlay({ op, diasDesde, velocityX, width }: { op: Oportunida
         boxShadow: `0 10px 25px rgba(0,0,0,0.15)`,
       }}
     >
-      <div className="flex">
-        <div className="w-1 shrink-0" style={{ backgroundColor: etapaCor }} />
-        <div className="flex-1 min-w-0">
-          <KanbanCardContent op={op} etapas={[]} onMover={() => {}} onDelete={() => {}} diasDesde={diasDesde} showMenu={false} />
-        </div>
-      </div>
+      <KanbanCardContent op={op} etapas={[]} onMover={() => {}} onDelete={() => {}} diasDesde={diasDesde} showMenu={false} />
     </div>
   )
+}
+
+/** Logo (ou inicial) no cabeçalho do preview — a mesma do card, maior. */
+function LogoPreview({ nome, logoUrl }: { nome?: string | null; logoUrl?: string | null }) {
+  const [falhou, setFalhou] = useState(false)
+  const src = logoUrl && !falhou ? resolveAssetUrl(logoUrl) : ''
+  if (src) return <img src={src} alt="" onError={() => setFalhou(true)} className="h-10 w-10 shrink-0 rounded-lg border border-border/60 bg-white object-contain" />
+  return (
+    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-[15px] font-bold text-muted-foreground">
+      {(nome || '?').trim().charAt(0).toUpperCase()}
+    </span>
+  )
+}
+
+/**
+ * Situação do card no tempo — o relógio do rodapé e, quando pede atenção, o
+ * badge informativo do cabeçalho. Mesma regra do antigo SlaIndicator:
+ * Declínio conta até o arquivamento; etapas finais (orçamento, ganho, perda)
+ * mostram o tempo de vida; as demais, os dias na etapa contra o SLA.
+ */
+function situacaoCrm(op: Oportunidade, etapa: Etapa | undefined, declinioDias: number): {
+  curto: string
+  cor: string
+  titulo: string
+  texto: string
+  aviso: { curto: string; label: string; detalhe?: string; Icon: typeof Clock; cor: string } | null
+} {
+  const nome = (etapa?.nome || op.etapa?.nome || '').toLowerCase()
+  if (nome.includes('decl')) {
+    const restantes = Math.max(0, declinioDias - diasDesde(op.updatedAt))
+    return restantes === 0
+      ? { curto: '0d', cor: cn(TEXT.red, 'font-semibold'), titulo: 'Arquivamento iminente', texto: 'O card será arquivado automaticamente.',
+          aviso: { curto: 'Expirando', label: 'Arquivamento iminente', detalhe: 'O card será arquivado automaticamente', Icon: Archive, cor: '#e11d48' } }
+      : { curto: `${restantes}d`, cor: TEXT.amber, titulo: `Arquiva em ${restantes} dia(s)`, texto: 'Contagem do Declínio até o arquivamento automático.',
+          aviso: { curto: 'Arquivando', label: `Arquivamento em ${restantes} dia(s)`, detalhe: 'Card em Declínio', Icon: Archive, cor: '#d97706' } }
+  }
+  if (nome.includes('orçamento') || nome.includes('orcamento') || etapa?.ehGanho || etapa?.ehPerda || op.etapa?.ehGanho || op.etapa?.ehPerda) {
+    const dias = diasDesde(op.createdAt)
+    return { curto: `${dias}d`, cor: 'text-muted-foreground', titulo: `${dias} dia(s) de vida`, texto: 'Desde a criação do card.', aviso: null }
+  }
+  const dias = diasDesde(op.updatedAt)
+  const sla = getSlaStatus(op.updatedAt, etapa?.slaDias)
+  if (!sla) return { curto: `${dias}d`, cor: 'text-muted-foreground', titulo: `${dias} dia(s) nesta etapa`, texto: 'Etapa sem SLA definido.', aviso: null }
+  const texto = `SLA da etapa: ${sla.limite} dia(s). Está há ${sla.dias} dia(s).`
+  if (sla.status === 'expired') {
+    return { curto: `${dias}d`, cor: cn(TEXT.red, 'font-semibold'), titulo: 'SLA vencido', texto,
+      aviso: { curto: 'Vencido', label: 'SLA vencido', detalhe: texto, Icon: AlertTriangle, cor: '#e11d48' } }
+  }
+  if (sla.status === 'warning') {
+    return { curto: `${dias}d`, cor: TEXT.amber, titulo: 'SLA vencendo', texto,
+      aviso: { curto: 'Vencendo', label: 'SLA vencendo', detalhe: texto, Icon: Clock, cor: '#d97706' } }
+  }
+  return { curto: `${dias}d`, cor: 'text-muted-foreground', titulo: 'No prazo', texto, aviso: null }
 }
 
 function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }: {
   op: Oportunidade; etapas: Etapa[]
   onMover: (id: string, etapaId: string) => void; onDelete: (id: string, titulo: string) => void; diasDesde: (d: string) => number; showMenu: boolean; declinioDias?: number
 }) {
-  // Empresa/Cliente da oportunidade: prioriza o cliente cadastrado (FK),
-  // cai pro nome avulso (razaoSocial digitada). Quando existe, vai ACIMA do título.
-  const empresaCliente = (op as any).cliente?.razaoSocial || (op as any).razaoSocial || null
+  // Router local: ver o item "Imprimir" abaixo. Evita passar mais um callback
+  // por Column -> Card -> Content (e pelo Overlay, que so passa no-ops).
+  const routerCard = useRouter()
+  const x = op as any
+  const cliente = x.cliente as { razaoSocial?: string | null; nomeFantasia?: string | null; logoUrl?: string | null; documento?: string | null } | null
+  // Cliente cadastrado (FK) primeiro; senão os dados do lead digitados no card.
+  const razao: string | null = cliente?.razaoSocial || x.razaoSocial || null
+  const nomeCurto: string = cliente?.nomeFantasia?.trim() || x.nomeFantasia?.trim() || razao || op.titulo
+  const docBruto: string | null = x.cpfCnpj || cliente?.documento || null
+  const doc = docBruto ? formatDocumento(docBruto) : ''
+  const ehCnpj = doc.length > 14
+  const valor = Number(op.valor ?? 0)
+
+  const etapa = etapas.find(e => e.id === op.etapaId)
+  const sit = situacaoCrm(op, etapa, declinioDias)
+  // Badge informativo: o que pede atenção no tempo (SLA/Declínio) e a
+  // temperatura do lead. O badge mostra o primeiro; o tooltip, todos.
+  const avisos = [
+    ...(sit.aviso ? [sit.aviso] : []),
+    ...(op.temperatura && TEMP_META[op.temperatura]
+      ? [{
+          curto: TEMP_META[op.temperatura]!.label,
+          label: `Lead ${TEMP_META[op.temperatura]!.label.toLowerCase()}`,
+          detalhe: typeof op.score === 'number' ? `Score ${op.score}` : undefined,
+          Icon: TEMP_META[op.temperatura]!.icon,
+          cor: TEMP_META[op.temperatura]!.cor,
+        }]
+      : []),
+  ]
+  const aviso = avisos[0] ?? null
+  const tags: Array<{ id: string; tag?: { nome?: string; cor?: string } }> = x.tags ?? []
+
   return (
     <div className="flex flex-col">
-      {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-1 px-3 pt-2.5 pb-1">
-        <div className="min-w-0 flex-1">
-          {empresaCliente && (
-            <p className="text-[10px] font-semibold uppercase tracking-wide truncate mb-0.5 text-primary-on-surface">
-              {empresaCliente}
-            </p>
+      {/* Cabeçalho — logo + nome curto; nº do card e badge informativo à direita */}
+      <div className="flex items-center gap-2 border-b border-dashed border-border px-3 py-2.5">
+        <LogoCliente nome={nomeCurto} logoUrl={cliente?.logoUrl} />
+        <DicaIcone titulo={razao || op.titulo} texto={doc ? `${ehCnpj ? 'CNPJ' : 'CPF'} ${doc}` : 'Sem CPF/CNPJ no card'}>
+          <span className="min-w-0 flex-1 cursor-help truncate text-[13px] font-semibold">{nomeCurto}</span>
+        </DicaIcone>
+        <div className="flex shrink-0 items-center gap-1">
+          {op.numero != null && (
+            <span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-foreground/80">#{op.numero}</span>
           )}
-          <h4 className="text-[13px] font-semibold leading-tight line-clamp-2">
-            {op.numero != null && <span className="text-muted-foreground/70 font-bold tabular-nums mr-1">#{op.numero}</span>}
-            {op.titulo}
-          </h4>
-        </div>
-        <div className="flex flex-wrap items-center gap-0.5 sm:shrink-0 -mr-1 -mt-0.5">
-          <div className="h-6 w-6">
-          {showMenu && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
-                <button className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded hover:bg-muted">
-                  <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
-                <DropdownMenuItem className="text-destructive" onClick={() => onDelete(op.id, op.titulo)}>
-                  <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          {aviso && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="inline-flex max-w-[110px] cursor-help items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold"
+                  // Cor inline (fundo = a cor com ~10% de alfa): em classe, o vermelho sofre o retint do módulo.
+                  style={{ backgroundColor: `${aviso.cor}1A`, color: aviso.cor }}
+                  onClick={e => e.stopPropagation()}
+                  onPointerDown={e => e.stopPropagation()}
+                >
+                  <aviso.Icon className="h-3 w-3 shrink-0" strokeWidth={2.25} />
+                  <span className="truncate">{aviso.curto}</span>
+                  {avisos.length > 1 && <span className="shrink-0 opacity-70">+{avisos.length - 1}</span>}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="end" sideOffset={6} className="tooltip-fade max-w-[280px] text-[11px]">
+                <div className="space-y-1.5">
+                  {avisos.map(a => (
+                    <div key={a.label}>
+                      <p className="flex items-center gap-1 font-semibold"><a.Icon className="h-3 w-3 shrink-0" /> {a.label}</p>
+                      {a.detalhe && <p>{a.detalhe}</p>}
+                    </div>
+                  ))}
+                </div>
+              </TooltipContent>
+            </Tooltip>
           )}
+          <div className="-mr-1 h-6 w-6 shrink-0">
+            {showMenu && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
+                  <button className="flex h-6 w-6 items-center justify-center rounded opacity-100 transition-opacity hover:bg-muted sm:opacity-0 sm:group-hover:opacity-100">
+                    <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+                  <DropdownMenuItem onClick={() => routerCard.push(`/crm/${op.id}/imprimir`)}>
+                    <Printer className="mr-2 h-3.5 w-3.5" /> Imprimir
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-destructive" onClick={() => onDelete(op.id, op.titulo)}>
+                    <Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
+        </div>
+      </div>
+
+      {/* Corpo — uma informação por linha, cada uma com seu ícone */}
+      <div className="space-y-1.5 px-3 py-2.5 text-[12px] text-foreground/85">
+        {razao && (
+          <LinhaCard icone={Building2}>
+            <span className="truncate">{razao}</span>
+          </LinhaCard>
+        )}
+        {doc && (
+          <LinhaCard icone={IdCard}>
+            <span className="truncate tabular-nums">{ehCnpj ? `CNPJ ${doc}` : `CPF ${doc}`}</span>
+          </LinhaCard>
+        )}
+        <LinhaCard icone={Target}>
+          <span className="truncate">{op.titulo}</span>
+          {valor > 0 && (
+            <span className="ml-auto shrink-0 pl-2 font-semibold tabular-nums text-primary-on-surface">
+              {valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </span>
+          )}
+        </LinhaCard>
+        {x.campanha && (
+          <LinhaCard icone={Megaphone}>
+            <span className="truncate">{x.campanha.nome || x.campanha.slug}</span>
+          </LinhaCard>
+        )}
+        {tags.length > 0 && (
+          <LinhaCard icone={Tag}>
+            <span className="flex min-w-0 flex-wrap gap-1">
+              {tags.map(t => (
+                <span key={t.id} className="inline-flex items-center rounded-full px-1.5 text-[10px] font-medium text-white" style={{ backgroundColor: t.tag?.cor || '#94a3b8' }}>
+                  {t.tag?.nome}
+                </span>
+              ))}
+            </span>
+          </LinhaCard>
+        )}
+        {x.responsavel && (
+          <div className="flex min-w-0 items-center gap-2">
+            <AvatarPequeno user={x.responsavel} />
+            <span className="truncate">{x.responsavel.name}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Rodapé — contadores à esquerda (só os que têm algo), relógio à direita */}
+      <div className="flex items-center justify-between gap-2 border-t border-dashed border-border px-3 py-2 text-[11px] text-muted-foreground">
+        <div className="flex min-w-0 items-center gap-3">
           {(op._count?.agendaEventos ?? 0) > 0 && (
-            <span
-              className={cn('inline-flex items-center justify-center h-5 w-5 rounded-md bg-sky-50 dark:bg-sky-900/30 shrink-0', TEXT.sky)}
-              title={`${op._count!.agendaEventos} evento(s) de agenda vinculado(s)`}
-            >
-              <Calendar className="h-3 w-3" />
-            </span>
+            <DicaIcone titulo={`${op._count!.agendaEventos} ${op._count!.agendaEventos === 1 ? 'evento' : 'eventos'} de agenda`} texto="Reuniões e compromissos vinculados ao card">
+              <span className="flex cursor-help items-center gap-1"><Calendar className="h-3.5 w-3.5" strokeWidth={1.5} /> {op._count!.agendaEventos}</span>
+            </DicaIcone>
           )}
-        </div>
-      </div>
-
-      {/* ── Body ── */}
-      <div className="px-3 pb-2 space-y-1.5">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <TemperaturaBadge temperatura={op.temperatura} score={op.score} />
-          {(op as any).campanha && (
-            <span
-              className={cn('inline-flex items-center gap-1 text-[10px] font-medium bg-rose-50 dark:bg-rose-900/30 rounded-sm px-1.5 py-0.5', TEXT.rose)}
-              title={`Campanha: ${(op as any).campanha.nome || (op as any).campanha.slug}`}
-            >
-              <Megaphone className="h-3 w-3" /> {(op as any).campanha.nome || (op as any).campanha.slug}
-            </span>
-          )}
-          {(op as any).orcamento && (
-            <Link
-              href={`/orcamentos/${(op as any).orcamento.id}`}
-              onClick={e => e.stopPropagation()}
-              className={cn('inline-flex items-center gap-1 text-[10px] font-medium bg-sky-50 dark:bg-sky-900/30 rounded-sm px-1.5 py-0.5 hover:bg-sky-100 dark:hover:bg-sky-900/50 hover:underline transition-colors', TEXT.sky)}
-              title={`Abrir orçamento #${(op as any).orcamento.numero}`}
-            >
-              <FileText className="h-3 w-3" /> Orc. #{(op as any).orcamento.numero}
-            </Link>
-          )}
-          {(op as any).tags?.map((t: any) => (
-            <span key={t.id} className="inline-flex items-center rounded-full px-1.5 py-0 text-[9px] font-medium text-white" style={{ backgroundColor: t.tag?.cor || '#94a3b8' }}>
-              {t.tag?.nome}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Footer ── */}
-      <div className="flex items-center justify-between px-3 pb-2.5 pt-1">
-        <div className="flex items-center gap-2">
-          {(op as any).responsavel ? (
-            <UserAvatar user={(op as any).responsavel} bg="bg-muted" fg="text-muted-foreground" className="h-6 w-6 text-[8px] shrink-0 border border-background shadow-sm" />
-          ) : null}
-          <SlaIndicator op={op} etapas={etapas} declinioDias={declinioDias} />
-        </div>
-        <div className="flex items-center gap-2">
           {(op._count?.agendaTarefas ?? 0) > 0 && (
-            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title="Tarefas">
-              <CheckSquare className="h-3 w-3" /> {op._count!.agendaTarefas}
-            </span>
+            <DicaIcone titulo={`${op._count!.agendaTarefas} ${op._count!.agendaTarefas === 1 ? 'ação' : 'ações'}`} texto="Ações em aberto do atendimento">
+              <span className="flex cursor-help items-center gap-1"><CheckSquare className="h-3.5 w-3.5" strokeWidth={1.5} /> {op._count!.agendaTarefas}</span>
+            </DicaIcone>
           )}
           {(op._count?.mensagens ?? 0) > 0 && (
-            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title="Anotações">
-              <MessageSquare className="h-3 w-3" /> {op._count!.mensagens}
-            </span>
+            <DicaIcone titulo={`${op._count!.mensagens} ${op._count!.mensagens === 1 ? 'anotação' : 'anotações'}`} texto="Anotações do card">
+              <span className="flex cursor-help items-center gap-1"><MessageSquare className="h-3.5 w-3.5" strokeWidth={1.5} /> {op._count!.mensagens}</span>
+            </DicaIcone>
           )}
           {(op._count?.arquivos ?? 0) > 0 && (
-            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title="Arquivos">
-              <Paperclip className="h-3 w-3" /> {op._count!.arquivos}
-            </span>
+            <DicaIcone titulo={`${op._count!.arquivos} ${op._count!.arquivos === 1 ? 'arquivo' : 'arquivos'}`} texto="Arquivos do card">
+              <span className="flex cursor-help items-center gap-1"><Paperclip className="h-3.5 w-3.5" strokeWidth={1.5} /> {op._count!.arquivos}</span>
+            </DicaIcone>
+          )}
+          {x.orcamento && (
+            <DicaIcone titulo={`Orçamento #${x.orcamento.numero}`} texto="Orçamento gerado a partir deste card — clique para abrir">
+              <Link
+                href={`/orcamentos/${x.orcamento.id}`}
+                onClick={e => e.stopPropagation()}
+                onPointerDown={e => e.stopPropagation()}
+                className={cn('flex items-center gap-1 tabular-nums hover:underline', TEXT.sky)}
+              >
+                <FileText className="h-3.5 w-3.5" strokeWidth={1.5} /> {x.orcamento.numero}
+              </Link>
+            </DicaIcone>
           )}
         </div>
+        <DicaIcone titulo={sit.titulo} texto={sit.texto}>
+          <span className={cn('flex shrink-0 cursor-help items-center gap-1 tabular-nums', sit.cor)}>
+            {(etapa?.nome || op.etapa?.nome || '').toLowerCase().includes('decl')
+              ? <Archive className="h-3.5 w-3.5" strokeWidth={1.5} />
+              : <Clock className="h-3.5 w-3.5" strokeWidth={1.5} />}
+            {sit.curto}
+          </span>
+        </DicaIcone>
       </div>
     </div>
   )
@@ -2620,6 +2711,7 @@ const EVENTO_ICONS: Record<string, { icon: typeof Target; color: string }> = {
   etapa: { icon: ArrowRight, color: '#3b82f6' },
   edicao: { icon: Save, color: '#f59e0b' },
   tarefa: { icon: CheckSquare, color: '#8b5cf6' },
+  interacao: { icon: PhoneCall, color: '#0ea5e9' },
   mensagem: { icon: MessageSquare, color: '#06b6d4' },
   arquivo: { icon: Paperclip, color: '#f97316' },
   tag: { icon: FileText, color: '#ec4899' },
@@ -2685,64 +2777,6 @@ function HistoricoTab({ eventos }: { eventos: Evento[] }) {
 // ============================================================
 // SLA Indicator (no card do kanban)
 // ============================================================
-
-function SlaIndicator({ op, etapas, declinioDias = 30 }: { op: Oportunidade; etapas: Etapa[]; declinioDias?: number }) {
-  const etapa = etapas.find(e => e.id === op.etapaId)
-  const nomeEtapa = (etapa?.nome || '').toLowerCase()
-
-  // Declinio — contagem regressiva ate arquivamento
-  if (nomeEtapa.includes('decl')) {
-    const dias = diasDesde(op.updatedAt)
-    const restantes = Math.max(0, declinioDias - dias)
-    if (restantes === 0) {
-      return (
-        <span className={cn('text-[10px] font-medium flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-red-50 dark:bg-red-900/20', TEXT.red)} title="Arquivamento automático iminente">
-          <Archive className="h-3 w-3 animate-pulse" /> Expirando
-        </span>
-      )
-    }
-    return (
-      <span className={cn('text-[10px] font-medium flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/20', TEXT.amber)} title={`Arquivamento automático em ${restantes} dia(s)`}>
-        <Archive className="h-3 w-3" /> {restantes}d
-      </span>
-    )
-  }
-
-  // Etapas finais (orçamento, ganho, perdido) — exibir tempo de vida total
-  if (nomeEtapa.includes('orçamento') || nomeEtapa.includes('orcamento') || etapa?.ehGanho || etapa?.ehPerda) {
-    const dias = diasDesde(op.createdAt)
-    return (
-      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title={`Tempo de vida: ${dias} dias`}>
-        <Clock className="h-3 w-3" /> {dias}d
-      </span>
-    )
-  }
-
-  const sla = getSlaStatus(op.updatedAt, etapa?.slaDias)
-  const dias = diasDesde(op.updatedAt)
-
-  if (!sla) {
-    return (
-      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title={`${dias}d nesta etapa`}>
-        <Clock className="h-3 w-3" /> {dias}d
-      </span>
-    )
-  }
-
-  const config = {
-    ok: { label: 'No prazo', text: TEXT.emerald, bg: 'bg-emerald-50 dark:bg-emerald-900/20', pulse: false },
-    warning: { label: 'Vencendo', text: TEXT.amber, bg: 'bg-amber-50 dark:bg-amber-900/20', pulse: false },
-    expired: { label: 'Vencido', text: TEXT.red, bg: 'bg-red-50 dark:bg-red-900/20', pulse: true },
-  }
-  const c = config[sla.status]
-
-  return (
-    <span className={cn('text-[10px] font-medium flex items-center gap-0.5 rounded px-1.5 py-0.5', c.text, c.bg)} title={`${sla.dias}d / ${sla.limite}d`}>
-      <Clock className={cn('h-3 w-3', c.pulse && 'animate-pulse')} />
-      {c.label}
-    </span>
-  )
-}
 
 function SortableEtapaRow({ etapa, onSave, onChangeName, onChangeSla, onDelete }: {
   etapa: Etapa; idx: number

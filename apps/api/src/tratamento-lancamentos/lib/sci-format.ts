@@ -47,16 +47,22 @@ export interface SciLancamento {
   numeroNf?: string
   documento?: string       // CNPJ/CPF (qualquer formatação; é normalizado)
   historicoFixo?: string
+  /** Termo de juros/desconto ("JUROS"/"DESC"): inserido no histórico após
+   * RECEB/PGTO. Quando presente, FORÇA o histórico automático (ignora o fixo). */
+  jdTermo?: string
 }
 
 /** Monta o campo <6> (histórico). */
-export function buildHistorico(l: Pick<SciLancamento, 'direcao' | 'numeroNf' | 'participante' | 'historicoFixo'>): string {
-  if (l.historicoFixo && l.historicoFixo.trim()) return l.historicoFixo.trim()
+export function buildHistorico(l: Pick<SciLancamento, 'direcao' | 'numeroNf' | 'participante' | 'historicoFixo' | 'jdTermo'>): string {
+  // Lançamento de juros/desconto: sempre o histórico automático com o termo após
+  // RECEB/PGTO (ex.: "VR REF RECEB JUROS - NOME"), independentemente do fixo.
+  if (!l.jdTermo && l.historicoFixo && l.historicoFixo.trim()) return l.historicoFixo.trim()
   const ref = l.direcao === 'DEBITO' ? 'RECEB' : 'PGTO'
+  const termo = l.jdTermo && l.jdTermo.trim() ? ` ${l.jdTermo.trim()}` : ''
   const nf = l.numeroNf && l.numeroNf.trim() ? ` NF Nº ${l.numeroNf.trim()}` : ''
   const participante = (l.participante ?? '').trim().toUpperCase()
   const parte = participante ? ` - ${participante}` : '' // participante opcional → omitido se ausente
-  return `VR REF ${ref}${nf}${parte}`
+  return `VR REF ${ref}${termo}${nf}${parte}`
 }
 
 /** Valor do campo <5>: sem sinal, ponto decimal, 2 casas. */

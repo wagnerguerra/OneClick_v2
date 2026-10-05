@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import { calcularDre, INDICE, MASCARA_DRE, type CategoriaDre, type SomasPorCategoria } from './mascara-dre'
+import { carregarDepara, sqlJoinsCategoria, sqlSomenteFolhas, SQL_CATEGORIA } from './categoria-sql'
+import type { DeparaCliente } from './depara-nivel3'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -40,19 +43,10 @@ export interface KpisCompleto {
   margemLiquida: number
 }
 
-// Categorias DRE — espelham o `dPlano de Contas` + `dMáscara` do PowerBI ref.
-// Valores armazenados em `plano_contas_categoria_padrao.categoria_dre` e
-// `cliente_bi_categorias.categoria_dre` (override).
-type CategoriaDre =
-  | 'RECEITA_BRUTA'
-  | 'DEDUCOES_IMPOSTOS'
-  | 'CUSTO_DAS_VENDAS'
-  | 'DESPESAS_VARIAVEIS'
-  | 'DESPESAS_OPERACIONAIS'
-  | 'RECEITAS_FINANCEIRAS'
-  | 'DESPESAS_FINANCEIRAS'
-  | 'IR_CS'
-  | 'DISTRIBUICAO_LUCROS'
+// Categorias DRE — fonte única em `mascara-dre.ts`, que também guarda a ORDEM
+// e quais linhas são subtotal. A categoria de cada conta sai do de-para por
+// nível 3 (`depara-nivel3.ts`), com `cliente_bi_categorias.categoria_dre` como
+// override manual.
 
 type KpiTipo =
   | 'receita_bruta'
@@ -141,13 +135,17 @@ function buildPeriodoClause(
 //   CALCULATE(SUM(fResultados[Crédito]) - SUM(fResultados[Débito]),
 //             'dPlano de Contas'[Categoria] <> BLANK())
 //
-// Resolução da categoria por conta: override do cliente prevalece;
-// senão usa o template global (plano_contas_categoria_padrao).
+// Resolução da categoria por conta: override do cliente prevalece; senão o
+// de-para da máscara pelo NOME DO NÍVEL 3 (`depara-nivel3.ts`), que é como o
+// Power BI faz. Antes era o template global de 142 classificações de folha —
+// plano de contas de outra empresa, que deixava conta com movimento fora da
+// DRE sem avisar.
 // ---------------------------------------------------------------------------
 
 async function somarPorCategoriaDre(
   clienteId: string,
   categoria: CategoriaDre,
+  depara: DeparaCliente,
   periodoInicio: string,
   periodoFim: string,
   periodosSelecionados?: string[],
@@ -165,17 +163,14 @@ async function somarPorCategoriaDre(
     nextOffset += contasIgnoradas.length
   }
 
-  // COALESCE(override do cliente, template global)
   const sql = `
     SELECT COALESCE(SUM(l.creditos - l.debitos), 0)::float AS valor
     FROM cliente_bi_linhas l
-    LEFT JOIN cliente_bi_categorias cbc
-      ON cbc.cliente_id = l.cliente_id AND cbc.conta = l.conta AND cbc.categoria_dre IS NOT NULL
-    LEFT JOIN plano_contas_categoria_padrao pccp
-      ON pccp.classificacao = l.conta
+    ${sqlJoinsCategoria(depara)}
     WHERE l.cliente_id = $1
       AND ${p.sql}
-      AND COALESCE(cbc.categoria_dre, pccp.categoria_dre) = $2
+      AND ${SQL_CATEGORIA} = $2
+      AND ${sqlSomenteFolhas()}
       ${ignoradasClause}
   `
 
@@ -190,150 +185,21 @@ async function somarPorCategoriaDre(
 @Injectable()
 export class BiCalculosService {
   // ========================================================================
-  // 1. Receita Bruta — valor natural positivo (Crédito > Débito esperado)
-  // ========================================================================
-
-  async calcularReceitaBruta(
-    clienteId: string,
-    periodoInicio: string,
-    periodoFim: string,
-    periodosSelecionados?: string[],
-  ): Promise<number> {
-    return somarPorCategoriaDre(clienteId, 'RECEITA_BRUTA', periodoInicio, periodoFim, periodosSelecionados)
-  }
-
-  // ========================================================================
-  // 2. Deduções/Impostos — valor natural negativo (entrega ABS pro card)
-  // ========================================================================
-
-  async calcularDeducoes(
-    clienteId: string,
-    periodoInicio: string,
-    periodoFim: string,
-    periodosSelecionados?: string[],
-  ): Promise<number> {
-    const algebrico = await somarPorCategoriaDre(clienteId, 'DEDUCOES_IMPOSTOS', periodoInicio, periodoFim, periodosSelecionados)
-    return Math.abs(algebrico)
-  }
-
-  // ========================================================================
-  // 3. Custo das Vendas — valor natural negativo, ABS pra card
-  // ========================================================================
-
-  async calcularCustoDasVendas(
-    clienteId: string,
-    periodoInicio: string,
-    periodoFim: string,
-    contasIgnoradas?: string[],
-    periodosSelecionados?: string[],
-  ): Promise<number> {
-    const algebrico = await somarPorCategoriaDre(clienteId, 'CUSTO_DAS_VENDAS', periodoInicio, periodoFim, periodosSelecionados, contasIgnoradas)
-    return Math.abs(algebrico)
-  }
-
-  // ========================================================================
-  // 3b. Custos Fixos Card — alias de Custo das Vendas (mesma categoria DRE)
-  // (mantido pra compatibilidade com o frontend; equivale ao card "Custos Fixos"
-  // do PowerBI que filtra dMáscara[Categoria]="CUSTO DAS VENDAS")
-  // ========================================================================
-
-  async calcularCustosFixosCard(
-    clienteId: string,
-    periodoInicio: string,
-    periodoFim: string,
-    periodosSelecionados?: string[],
-  ): Promise<number> {
-    return this.calcularCustoDasVendas(clienteId, periodoInicio, periodoFim, undefined, periodosSelecionados)
-  }
-
-  // ========================================================================
-  // 4. Despesas Operacionais — valor natural negativo, ABS pra card
+  // Os NOVE métodos `calcular*` por categoria (Receita Bruta, Deduções,
+  // Custo das Vendas, Custos Fixos, Despesas Operacionais, Receitas e
+  // Despesas Financeiras, IR/CS e Lucro Líquido) foram REMOVIDOS daqui.
   //
-  // CORREÇÃO: antes usava SUM(ABS(movimento)) por leaf, o que inflava o total
-  // quando havia contas redutoras (estornos com Crédito > Débito, ex:
-  // "(-) Crédito COFINS sobre Aluguel"). Agora soma algébrico e ABS no final.
-  // ========================================================================
-
-  async calcularDespesasOperacionais(
-    clienteId: string,
-    periodoInicio: string,
-    periodoFim: string,
-    contasIgnoradas?: string[],
-    periodosSelecionados?: string[],
-  ): Promise<number> {
-    const algebrico = await somarPorCategoriaDre(clienteId, 'DESPESAS_OPERACIONAIS', periodoInicio, periodoFim, periodosSelecionados, contasIgnoradas)
-    return Math.abs(algebrico)
-  }
-
-  // ========================================================================
-  // 5. Receitas Financeiras — valor natural positivo
-  // ========================================================================
-
-  async calcularReceitasFinanceiras(
-    clienteId: string,
-    periodoInicio: string,
-    periodoFim: string,
-  ): Promise<number> {
-    return somarPorCategoriaDre(clienteId, 'RECEITAS_FINANCEIRAS', periodoInicio, periodoFim)
-  }
-
-  // ========================================================================
-  // 6. Despesas Financeiras — valor natural negativo, ABS pra card
-  // ========================================================================
-
-  async calcularDespesasFinanceiras(
-    clienteId: string,
-    periodoInicio: string,
-    periodoFim: string,
-  ): Promise<number> {
-    const algebrico = await somarPorCategoriaDre(clienteId, 'DESPESAS_FINANCEIRAS', periodoInicio, periodoFim)
-    return Math.abs(algebrico)
-  }
-
-  // ========================================================================
-  // 7. IR/CS — valor natural negativo, ABS pra card
-  // ========================================================================
-
-  async calcularIRCS(
-    clienteId: string,
-    periodoInicio: string,
-    periodoFim: string,
-  ): Promise<number> {
-    const algebrico = await somarPorCategoriaDre(clienteId, 'IR_CS', periodoInicio, periodoFim)
-    return Math.abs(algebrico)
-  }
-
-  // ========================================================================
-  // 8. Lucro Líquido — soma natural de todas as contas categorizadas no DRE
+  // Cada um era uma soma por categoria seguida de `Math.abs`, e juntos
+  // reimplementavam — com regra própria e sinal próprio — o que a máscara
+  // resolve por acumulação em `mascara-dre.ts`. Depois que o
+  // `calcularKpisCompleto` passou a usar a máscara, nenhum deles tinha mais
+  // chamador: de fora, este serviço só expõe `calcularKpisCompleto`,
+  // `obterDadosMensais` e `obterContasPorNatureza`.
   //
-  // Equivale ao subtotal "RESULTADO LÍQUIDO" da dMáscara do PowerBI:
-  // acumula todas as categorias com sinal natural. Funciona porque:
-  //   RB(+) + Ded(-) + CV(-) + DespVar(-) + DespOp(-) + RF(+) + DF(-) + IR(-) + DistLucros(-)
-  // = Lucro Líquido
+  // Deixar os nove de pé não seria inofensivo: manter duas implementações da
+  // mesma regra, uma delas com `Math.abs` embutido, é exatamente como este
+  // módulo ganhou dois motores de cálculo que não fechavam entre si.
   // ========================================================================
-
-  async calcularLucroLiquidoSerpro(
-    clienteId: string,
-    periodoInicio: string,
-    periodoFim: string,
-    periodosSelecionados?: string[],
-  ): Promise<number> {
-    const p = buildPeriodoClause('l.periodo', periodoInicio, periodoFim, periodosSelecionados, 2)
-
-    const sql = `
-      SELECT COALESCE(SUM(l.creditos - l.debitos), 0)::float AS valor
-      FROM cliente_bi_linhas l
-      LEFT JOIN cliente_bi_categorias cbc
-        ON cbc.cliente_id = l.cliente_id AND cbc.conta = l.conta AND cbc.categoria_dre IS NOT NULL
-      LEFT JOIN plano_contas_categoria_padrao pccp
-        ON pccp.classificacao = l.conta
-      WHERE l.cliente_id = $1
-        AND ${p.sql}
-        AND COALESCE(cbc.categoria_dre, pccp.categoria_dre) IS NOT NULL
-    `
-    const rows = await prisma.$queryRawUnsafe<KpiValor[]>(sql, clienteId, ...p.params)
-    return toNumber(rows[0]?.valor)
-  }
 
   // ========================================================================
   // 9. KPIs Completo — consolida tudo
@@ -351,33 +217,54 @@ export class BiCalculosService {
     periodoFim: string,
     periodosSelecionados?: string[],
   ): Promise<KpisCompleto> {
-    const [
-      receitaBruta,
-      deducoes,
-      custoDasVendas,
-      despesasOperacionais,
-      receitasFinanceiras,
-      despesasFinanceiras,
-      irCs,
-      lucroLiquido,
-    ] = await Promise.all([
-      this.calcularReceitaBruta(clienteId, periodoInicio, periodoFim, periodosSelecionados),
-      this.calcularDeducoes(clienteId, periodoInicio, periodoFim, periodosSelecionados),
-      this.calcularCustoDasVendas(clienteId, periodoInicio, periodoFim, undefined, periodosSelecionados),
-      this.calcularDespesasOperacionais(clienteId, periodoInicio, periodoFim, undefined, periodosSelecionados),
-      this.calcularReceitasFinanceiras(clienteId, periodoInicio, periodoFim),
-      this.calcularDespesasFinanceiras(clienteId, periodoInicio, periodoFim),
-      this.calcularIRCS(clienteId, periodoInicio, periodoFim),
-      this.calcularLucroLiquidoSerpro(clienteId, periodoInicio, periodoFim, periodosSelecionados),
-    ])
+    // Uma soma ALGÉBRICA por categoria da máscara — sinal natural, sem
+    // `Math.abs`. É o `Realizado Base` do Power BI, por categoria.
+    //
+    // As nove vão juntas e TODAS recebem `periodosSelecionados`. Antes,
+    // Receitas Financeiras, Despesas Financeiras e IR/CS não recebiam: com
+    // filtro de meses ativo, esses três vinham do ano inteiro e se misturavam
+    // com KPIs de um trimestre.
+    const categorias = MASCARA_DRE
+      .filter(l => l.categoria !== null)
+      .map(l => l.categoria as CategoriaDre)
 
-    // Todos os valores acima já vêm POSITIVOS (ABS aplicado pra despesas)
-    const receitaLiquida = receitaBruta - deducoes
-    const lucroBruto = receitaLiquida - custoDasVendas
+    // O de-para do plano do cliente sai do banco UMA vez e vai para as nove
+    // somas — resolver nome de conta dentro de cada consulta seria o mesmo
+    // trabalho nove vezes.
+    const depara = await carregarDepara(clienteId)
+    const valores = await Promise.all(
+      categorias.map(cat =>
+        somarPorCategoriaDre(clienteId, cat, depara, periodoInicio, periodoFim, periodosSelecionados),
+      ),
+    )
+    const somas: SomasPorCategoria = {}
+    categorias.forEach((cat, i) => { somas[cat] = valores[i] ?? 0 })
+
+    // A DRE inteira sai daqui: cada subtotal é o acumulado até o índice dele.
+    // Aposenta as fórmulas escritas à mão que existiam logo abaixo
+    // (`ebitda = lucroBruto - despesasOperacionais` etc.), que além de repetir
+    // a regra OMITIAM as Despesas Variáveis — categoria que existe no enum e
+    // nunca entrava em conta nenhuma.
+    const dre = calcularDre(somas)
+    const emIndice = (i: number) => dre.get(i) ?? 0
+
+    const receitaBruta = somas.RECEITA_BRUTA ?? 0
+    const receitaLiquida = emIndice(INDICE.RECEITA_LIQUIDA)
+    const lucroBruto = emIndice(INDICE.MARGEM_BRUTA)
+    const ebitda = emIndice(INDICE.EBITDA)
+    const lucroLiquido = emIndice(INDICE.RESULTADO_LIQUIDO)
+    const resultadoFinanceiro = (somas.RECEITAS_FINANCEIRAS ?? 0) + (somas.DESPESAS_FINANCEIRAS ?? 0)
+
+    // A tela espera despesa POSITIVA nos cartões (é rótulo, não conta): o
+    // módulo entra só na apresentação, nunca na aritmética acima.
+    const deducoes = Math.abs(somas.DEDUCOES_IMPOSTOS ?? 0)
+    const custoDasVendas = Math.abs(somas.CUSTO_DAS_VENDAS ?? 0)
+    const despesasOperacionais = Math.abs(somas.DESPESAS_OPERACIONAIS ?? 0)
+    const receitasFinanceiras = somas.RECEITAS_FINANCEIRAS ?? 0
+    const despesasFinanceiras = Math.abs(somas.DESPESAS_FINANCEIRAS ?? 0)
+    const irCs = Math.abs(somas.IR_CS ?? 0)
+
     const margemBruta = receitaLiquida !== 0 ? (lucroBruto / receitaLiquida) * 100 : 0
-    const resultadoFinanceiro = receitasFinanceiras - despesasFinanceiras
-    // EBITDA = Receita Líquida - Custo das Vendas - Despesas Operacionais (SEM resultado financeiro)
-    const ebitda = lucroBruto - despesasOperacionais
     const margemEbitda = receitaLiquida !== 0 ? (ebitda / receitaLiquida) * 100 : 0
     const margemLiquida = receitaLiquida !== 0 ? (lucroLiquido / receitaLiquida) * 100 : 0
 
@@ -420,16 +307,19 @@ export class BiCalculosService {
       ? 'SUM(l.creditos - l.debitos)'
       : 'ABS(SUM(l.creditos - l.debitos))'
 
+    // O filtro de folha NAO existia aqui. Era seguro por acidente enquanto a
+    // categoria vinha do template de 142 folhas; com o de-para por nivel 3, a
+    // conta sintetica passaria a casar junto com as filhas e a serie viria
+    // dobrada.
+    const depara = await carregarDepara(clienteId)
     const sql = `
       SELECT l.periodo, COALESCE(${valorExpr}, 0)::float AS valor
       FROM cliente_bi_linhas l
-      LEFT JOIN cliente_bi_categorias cbc
-        ON cbc.cliente_id = l.cliente_id AND cbc.conta = l.conta AND cbc.categoria_dre IS NOT NULL
-      LEFT JOIN plano_contas_categoria_padrao pccp
-        ON pccp.classificacao = l.conta
+      ${sqlJoinsCategoria(depara)}
       WHERE l.cliente_id = $1
         AND l.periodo BETWEEN $2 AND $3
-        AND COALESCE(cbc.categoria_dre, pccp.categoria_dre) = $4
+        AND ${SQL_CATEGORIA} = $4
+        AND ${sqlSomenteFolhas()}
       GROUP BY l.periodo
       ORDER BY l.periodo ASC
     `
@@ -452,16 +342,18 @@ export class BiCalculosService {
     clienteId: string,
     periodoFim: string,
   ): Promise<ContaNatureza[]> {
+    // Mesma correcao do `obterDadosMensais`: sem o filtro de folha, a
+    // sintetica de despesa apareceria no topo da lista somando as filhas que
+    // vem logo abaixo dela.
+    const depara = await carregarDepara(clienteId)
     const sql = `
       SELECT l.conta, l.nome_conta, l.saldo_atual
       FROM cliente_bi_linhas l
-      LEFT JOIN cliente_bi_categorias cbc
-        ON cbc.cliente_id = l.cliente_id AND cbc.conta = l.conta AND cbc.categoria_dre IS NOT NULL
-      LEFT JOIN plano_contas_categoria_padrao pccp
-        ON pccp.classificacao = l.conta
+      ${sqlJoinsCategoria(depara)}
       WHERE l.cliente_id = $1
         AND l.periodo = $2
-        AND COALESCE(cbc.categoria_dre, pccp.categoria_dre) = 'DESPESAS_OPERACIONAIS'
+        AND ${SQL_CATEGORIA} = 'DESPESAS_OPERACIONAIS'
+        AND ${sqlSomenteFolhas()}
       ORDER BY ABS(l.saldo_atual) DESC
       LIMIT 100
     `

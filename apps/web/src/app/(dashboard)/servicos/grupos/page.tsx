@@ -255,7 +255,7 @@ export default function GruposPage() {
           <span className="text-muted-foreground/50">›</span>
           <span>Cadastros</span>
           <span className="text-muted-foreground/50">›</span>
-          <span>Serviços e Obrigações</span>
+          <span>Serviços</span>
           <span className="text-muted-foreground/50">›</span>
           <span>Grupos de Serviço</span>
         </p>

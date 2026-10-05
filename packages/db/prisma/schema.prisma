@@ -714,6 +714,10 @@ model ClienteUsuario {
   podeVer     Boolean @default(true) @map("pode_ver")
   podeEditar  Boolean @default(false) @map("pode_editar")
   podeExcluir Boolean @default(false) @map("pode_excluir")
+  /// Dashboard Financeiro (BI) no portal. Nasce DESLIGADO: os números da
+  /// empresa não são para todo usuário do cliente — o escritório libera pessoa
+  /// a pessoa. Também depende do módulo `bi` estar liberado para a empresa.
+  podeVerBi   Boolean @default(false) @map("pode_ver_bi")
 
   /// Quem criou o vínculo. Pode ser um usuário INTERNO (escritório cadastrando
   /// o primeiro administrador) ou o próprio administrador do cliente.
@@ -930,6 +934,9 @@ model Cliente {
   apuracaoLucroReal  String?  @map("apuracao_lucro_real")
   /// Simples Nacional: sujeita ao Fator R (decide entre o Anexo III e o V).
   fatorR             Boolean? @map("fator_r")
+  /// A apuração dos impostos é feita DENTRO do sistema contábil (true) ou
+  /// fora dele, em planilha/sistema à parte (false). Null = não informado.
+  apuracaoNoSistemaContabil Boolean? @map("apuracao_no_sistema_contabil")
   /// Destaca o imposto fora da nota — muda a conferência e a apuração.
   apuraIssPorFora    Boolean? @map("apura_iss_por_fora")
   apuraIcmsPorFora   Boolean? @map("apura_icms_por_fora")
@@ -1066,6 +1073,7 @@ model Cliente {
   servicoExecucoes        ServicoExecucao[]            @relation("ClienteServicoExecucoes")
   acessoriasEntregas      AcessoriasEntrega[]
   acessoriasRegras        AcessoriasRegraObrigacao[]
+  acessoriasRegrasMulta   AcessoriasRegraMulta[]
   certificadosDigitais    CertificadoDigital[]
   processos               Processo[]                   @relation("ClienteProcessos")
   obrigacoes              ClienteObrigacao[]
@@ -2008,11 +2016,28 @@ model ClienteBiLinha {
   creditos      Decimal  @default(0) @db.Decimal(18, 2)
   saldoAtual    Decimal  @default(0) @map("saldo_atual") @db.Decimal(18, 2)
   movimento     Decimal  @default(0) @db.Decimal(18, 2)
+  /// `BDTIPCTA` do SCI: true = analitica (folha), false = sintetica.
+  ///
+  /// Classificacao da FONTE. Ate agora o modulo adivinhava folha contando
+  /// pontos na classificacao ou procurando descendente no proprio balancete —
+  /// heuristica que erra quando um nivel nao foi importado. Nulo = linha
+  /// importada antes desta coluna existir; nesses casos o calculo cai de volta
+  /// na heuristica.
+  analitica     Boolean? @map("analitica")
+  /// `BDCODTPCC` / `BDNOMTPCC` — centro de custo.
+  ///
+  /// Entra na CHAVE porque a mesma conta pode voltar uma vez por centro de
+  /// custo. Sem isso, o importador precisava deduplicar por conta e escolher
+  /// um `movimento` entre as linhas coincidentes — o que fazia
+  /// `movimento != creditos - debitos`. Vem 0 quando a empresa nao usa centro
+  /// de custo, que e o caso mais comum hoje.
+  ccCodigo      Int      @default(0) @map("cc_codigo")
+  ccNome        String   @default("") @map("cc_nome")
   createdAt     DateTime @default(now()) @map("created_at")
 
   cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
 
-  @@unique([clienteId, periodo, conta])
+  @@unique([clienteId, periodo, conta, ccCodigo])
   @@index([clienteId, periodo])
   @@map("cliente_bi_linhas")
 }
@@ -2600,6 +2625,7 @@ enum StatusCompra {
   AGUARDANDO_APROVACAO
   APROVADO
   REPROVADO
+  RECEBIDO_PARCIAL // parte dos itens chegou (recebimento por item, 25/09/2026)
   RECEBIDO
   AVALIADO
   CANCELADO
@@ -2665,6 +2691,7 @@ model Compra {
   anexos     CompraAnexo[]
   mensagens  CompraMensagem[]
   avaliacoes CompraAvaliacaoResposta[]
+  recebimentos CompraItemRecebimento[]
 
   @@index([empresaId])
   @@index([fornecedorId])
@@ -2800,10 +2827,46 @@ model CompraItem {
   createdAt     DateTime @default(now()) @map("created_at")
 
   compra Compra @relation(fields: [compraId], references: [id], onDelete: Cascade)
+  /// Entregas deste item — pode chegar em partes, em datas diferentes.
+  recebimentos CompraItemRecebimento[]
 
   @@index([compraId])
   @@map("compra_itens")
 }
+/// Recebimento de um item do pedido de compra.
+///
+/// Até 25/09/2026 o recebimento era do pedido inteiro (um clique em "Receber").
+/// Mas quem compra N coisas recebe em datas diferentes — e às vezes parte da
+/// quantidade de um mesmo item. Cada linha aqui é uma entrega: quanto chegou,
+/// quando, com qual nota e quem conferiu. O pedido fica RECEBIDO_PARCIAL até o
+/// último item completar; aí vira RECEBIDO (regras em compra/recebimento.ts).
+///
+/// Pedido recebido ANTES disto não tem linhas: a tela trata os itens dele como
+/// recebidos por inteiro na data de recebimento do pedido.
+model CompraItemRecebimento {
+  id              String   @id @default(cuid())
+  compraId        String   @map("compra_id")
+  itemId          String   @map("item_id")
+  quantidade      Int
+  /// Dia em que chegou (informado por quem recebeu; pode ser retroativo).
+  dataRecebimento DateTime @map("data_recebimento")
+  nfNumero        String?  @map("nf_numero")
+  /// Valor da NF desta entrega (lido do DANFE anexado ou digitado).
+  nfValor         Decimal? @map("nf_valor") @db.Decimal(14, 2)
+  /// O DANFE anexado nesta entrega (CompraAnexo), quando houver.
+  anexoId         String?  @map("anexo_id")
+  observacao      String?  @db.Text
+  recebedorId     String?  @map("recebedor_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  compra Compra     @relation(fields: [compraId], references: [id], onDelete: Cascade)
+  item   CompraItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([compraId])
+  @@index([itemId])
+  @@map("compra_item_recebimentos")
+}
+
 
 model CompraAnexo {
   id           String   @id @default(cuid())
@@ -2814,6 +2877,14 @@ model CompraAnexo {
   mimeType     String?  @map("mime_type")
   tamanho      Int?
   uploadedById String?  @map("uploaded_by_id")
+  /// Dados da NF-e lidos do PDF (DANFE) — ver compra/nota-fiscal-pdf.ts.
+  /// nfLeitura: 'lido' | 'nao_nf' (PDF que não é DANFE) | 'erro'; null = não lido.
+  nfLeitura    String?  @map("nf_leitura")
+  nfNumero     String?  @map("nf_numero")
+  nfSerie      String?  @map("nf_serie")
+  nfChave      String?  @map("nf_chave")
+  nfValor      Decimal? @map("nf_valor") @db.Decimal(14, 2)
+  nfEmitente   String?  @map("nf_emitente")
   isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at")
 
@@ -2886,6 +2957,13 @@ model CompraAvaliacaoResposta {
 // acoplar aos models Empresa/User/Cliente.
 // ============================================================
 
+/// Que tipo de arquivo o Modelo trata: extrato do banco (o dinheiro passou na
+/// conta) ou planilha do cliente (o que ele declarou: contas a pagar/receber).
+enum TipoArquivoModelo {
+  EXTRATO_BANCARIO
+  PLANILHA_CLIENTE
+}
+
 model TreatmentModel {
   id   String @id @default(cuid())
   code Int    @default(autoincrement())
@@ -2893,6 +2971,9 @@ model TreatmentModel {
   nome          String
   contaCorrente String? @map("conta_corrente")
   clienteId     String? @map("cliente_id")
+  /// Atributo do Modelo, fora da definição (mudar não gera versão). Opcional:
+  /// modelos anteriores ao campo ficam sem valor até alguém editar.
+  tipoArquivo   TipoArquivoModelo? @map("tipo_arquivo")
 
   // Ponteiro p/ a versão atual (snapshot). Sem FK formal p/ evitar ciclo.
   currentVersionId String? @map("current_version_id")
@@ -4342,6 +4423,10 @@ model Oportunidade {
   id                 String    @id @default(cuid())
   titulo             String
   descricao          String?   @db.Text
+  /// "Dores / Oportunidades" — o problema do lead e onde o escritório entra.
+  /// Fica ao lado da `descricao`, que na tela passou a se chamar "Perfil do
+  /// Lead": uma diz QUEM é o lead, a outra o que ele PRECISA.
+  doresOportunidades String?   @map("dores_oportunidades") @db.Text
   valor              Decimal?  @db.Decimal(12, 2)
   etapaId            String    @map("etapa_id")
   clienteId          String?   @map("cliente_id")
@@ -4377,6 +4462,7 @@ model Oportunidade {
   etapa     CrmEtapa               @relation(fields: [etapaId], references: [id])
   tags      OportunidadeTag[]
   mensagens OportunidadeMensagem[]
+  interacoes OportunidadeInteracao[]
   arquivos  OportunidadeArquivo[]
   eventos   OportunidadeEvento[]
 
@@ -4588,6 +4674,41 @@ model OportunidadeMensagem {
   @@map("oportunidade_mensagens")
 }
 
+/// Interação com o lead — cada CONTATO feito: ligação, WhatsApp, e-mail,
+/// reunião, visita.
+///
+/// Separado das anotações de propósito: a anotação é genérica (qualquer
+/// observação sobre o card); a interação responde "quando falamos com eles, por
+/// qual canal, com quem, e o que saiu disso". É o que permite contar contatos
+/// por lead e saber há quantos dias ninguém fala com ele.
+model OportunidadeInteracao {
+  id             String   @id @default(cuid())
+  oportunidadeId String   @map("oportunidade_id")
+  /// LIGACAO | WHATSAPP | EMAIL | REUNIAO | VISITA | OUTRO
+  tipo           String
+  /// Quando o contato ACONTECEU — não quando foi registrado. Quem registra à
+  /// tarde a ligação da manhã precisa poder dizer isso.
+  dataHora       DateTime @map("data_hora")
+  /// Com quem se falou do lado do lead (nome livre).
+  contato        String?
+  /// EM_ANDAMENTO | QUALIFICADO | SEM_RESPOSTA | DESQUALIFICADO — o que o
+  /// contato decidiu sobre o lead. Alimenta a Qualificação do /comercial
+  /// (ver apps/api/src/crm/indicadores-comerciais.ts). Nulo = registrado antes
+  /// do campo existir, conta como em andamento.
+  resultado      String?
+  /// O que foi conversado e o que ficou combinado (HTML do RichEditor).
+  resumo         String   @db.Text
+  /// Autor do registro. Solto, como em OportunidadeMensagem.
+  userId         String?  @map("user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  oportunidade Oportunidade @relation(fields: [oportunidadeId], references: [id], onDelete: Cascade)
+
+  @@index([oportunidadeId, dataHora])
+  @@map("oportunidade_interacoes")
+}
+
 model OportunidadeArquivo {
   id             String   @id @default(cuid())
   oportunidadeId String   @map("oportunidade_id")
@@ -4682,6 +4803,18 @@ model Orcamento {
   dtFinalizado           DateTime?       @map("dt_finalizado")
   dtEncerrado            DateTime?       @map("dt_encerrado")
   dtCancelado            DateTime?       @map("dt_cancelado")
+  // Contrato fechado com o cliente, informado à mão no Painel Comercial (lista
+  // de propostas/contratos). É a fonte mais forte do indicador "Contratos
+  // assinados": marcado, conta nesta data mesmo sem aprovação formal ou serviço
+  // de entrada. Ver apps/api/src/crm/indicadores-comerciais.ts.
+  contratoFechadoEm      DateTime?       @map("contrato_fechado_em")
+  contratoFechadoPor     String?         @map("contrato_fechado_por")
+  // Destaque do card no quadro de orçamentos: alguém marca para chamar a
+  // atenção da equipe (todos veem; o card sobe para o topo da coluna).
+  destacadoEm            DateTime?       @map("destacado_em")
+  destacadoPor           String?         @map("destacado_por")
+  /// amber | orange | rose | emerald | sky | violet (DESTAQUE_CORES).
+  destacadoCor           String?         @map("destacado_cor")
   // Paralizacao (pausa sem mudar status)
   paralizado             Boolean         @default(false)
   paralizadoEm           DateTime?       @map("paralizado_em")
@@ -4722,8 +4855,27 @@ model OrcamentoItem {
   descontoPct     Decimal? @map("desconto_pct") @db.Decimal(5, 2)
   descontoValor   Decimal? @map("desconto_valor") @db.Decimal(12, 2)
   catalogoId      String?  @map("catalogo_id")
-  // Subserviço escolhido dentro do serviço acima. Quando preenchido, é ELE que
-  // manda no texto e no valor — o serviço mãe vira só o agrupador.
+  /// Responsável pela EXECUÇÃO deste serviço, escolhido à mão neste orçamento.
+  ///
+  /// Complementa a configuração do template: o serviço define o padrão (via
+  /// `atribuicao*`), e este campo cobre o caso em que o padrão não resolve uma
+  /// pessoa — atribuição por SETOR, que é claim-first, ou serviço sem regra
+  /// nenhuma. Nulo = vale o que o template resolver.
+  ///
+  /// Id solto, sem FK, como o `Orcamento.clienteId` e o `orcamentoId` da
+  /// execução: o padrão da tabela.
+  responsavelId   String?  @map("responsavel_id")
+  /// DESCONTINUADO (25/09/2026) — o subserviço saiu do sistema. Nenhum código
+  /// lê ou grava isto. A coluna fica no schema POR UM DEPLOY, e só por isso:
+  ///
+  /// o pipeline roda `prisma db push --accept-data-loss` ANTES dos SQLs de
+  /// `prisma/sql/`. Sem a coluna aqui, o db push a derrubaria primeiro, e o
+  /// `2026-09-25-remove-subservicos.sql` — que copia o nome do subserviço
+  /// para a descrição dos 4 itens que o usavam — chegaria tarde, com a
+  /// informação já apagada.
+  ///
+  /// REMOVER no deploy seguinte ao que aplicar aquele SQL. Aí o db push
+  /// derruba a coluna, e o nome já está a salvo na descrição.
   subservicoId    String?  @map("subservico_id")
   // Texto escolhido do catálogo — vira o "texto padrão" exibido para este item
   catalogoTextoId String?  @map("catalogo_texto_id")
@@ -4732,12 +4884,8 @@ model OrcamentoItem {
 
   orcamento     Orcamento               @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
   catalogoTexto OrcamentoCatalogoTexto? @relation(fields: [catalogoTextoId], references: [id], onDelete: SetNull)
-  // SetNull, e não Cascade: apagar um serviço do catálogo não pode levar junto
-  // o item de um orçamento já enviado ao cliente.
-  subservico    Servico?                @relation("ItemSubservico", fields: [subservicoId], references: [id], onDelete: SetNull)
 
   @@index([orcamentoId])
-  @@index([subservicoId])
   @@map("orcamento_itens")
 }
 
@@ -5004,6 +5152,10 @@ model Servico {
   // por execucao). Ex: Folha mensal=true, Abertura de Empresa=false.
   // (Mantido por compat; preferir `categoriaServico` daqui pra frente.)
   recorrenteMensal    Boolean           @default(false) @map("recorrente_mensal")
+  // Serviço de ENTRADA de novo cliente (constituição, transferência de entrada...).
+  // Orçamento aprovado com um destes é um "contrato assinado" no painel /comercial.
+  // Flag e não casamento por nome: o nome muda por empresa e com o tempo.
+  entradaNovoCliente  Boolean           @default(false) @map("entrada_novo_cliente")
   // Slug do segmento de cliente ao qual este template pertence (ex: 'atacadista-lucro-real').
   // null = template genérico/avulso (Abertura de Empresa, Conciliação Bancária, certidões, etc).
   // Valores referenciam SEGMENTO_SLUGS em packages/types/src/segmento.ts
@@ -5216,14 +5368,6 @@ model Servico {
   servicoPai   Servico?  @relation("ServicoFluxoItens", fields: [servicoPaiId], references: [id], onDelete: Cascade)
   itensDeFluxo Servico[] @relation("ServicoFluxoItens")
 
-  // Subserviços — o serviço visto como pai e como filho no catálogo comercial.
-  // Ver ServicoSubservico para o porquê de não ser o servicoPaiId acima.
-  subservicos   ServicoSubservico[] @relation("SubservicoPai")
-  eSubservicoDe ServicoSubservico[] @relation("SubservicoFilho")
-
-  // Itens de orçamento que escolheram este serviço como subserviço.
-  itensComoSubservico OrcamentoItem[] @relation("ItemSubservico")
-
   // Categorias de chamado que usam este serviço como checklist sugerido.
   // Legado: a categoria está sendo substituída pelo vínculo direto do chamado
   // com o serviço (ticketsHelpdesk abaixo). Mantido enquanto houver chamado
@@ -5254,33 +5398,6 @@ model Servico {
   @@index([ehObrigacaoAcessoria])
   @@index([ehServicoInterno])
   @@map("servicos")
-}
-
-/// Subserviço: um serviço aparece como filho de outro no catálogo comercial.
-///
-/// "Serviço Extra Legalização" tem COMPETE, INVEST, Renovação como filhos —
-/// e COMPETE continua sendo um serviço inteiro, que pode entrar sozinho num
-/// orçamento e ter as próprias variações.
-///
-/// Tabela à parte, e NÃO o `Servico.servicoPaiId`: aquele campo já significa
-/// outra coisa (item interno do fluxo de trabalho), apaga o filho junto com o
-/// pai e admite um pai só. Aqui é o contrário nos três pontos — o filho
-/// sobrevive ao pai, pode ter vários pais, e o vínculo é comercial.
-model ServicoSubservico {
-  paiId     String   @map("pai_id")
-  filhoId   String   @map("filho_id")
-  /// Ordem de exibição sob o pai. O catálogo é lido por gente, e a ordem
-  /// alfabética raramente é a ordem em que se vende.
-  ordem     Int      @default(0)
-  createdAt DateTime @default(now()) @map("created_at")
-
-  // Cascade nos dois lados apaga o VÍNCULO, nunca o outro serviço.
-  pai   Servico @relation("SubservicoPai", fields: [paiId], references: [id], onDelete: Cascade)
-  filho Servico @relation("SubservicoFilho", fields: [filhoId], references: [id], onDelete: Cascade)
-
-  @@id([paiId, filhoId])
-  @@index([filhoId])
-  @@map("servico_subservicos")
 }
 
 model ServicoEtapa {
@@ -5576,6 +5693,37 @@ model AcessoriasRegraObrigacao {
   @@map("acessorias_regras_obrigacao")
 }
 
+/// Reclassificação de multa feita pelo escritório (admin/diretoria).
+///
+/// O EntMulta do Acessórias nem sempre bate com a realidade — e é regravado a
+/// cada sincronização. A regra vale para a obrigação (pelo nome) em todas as
+/// competências, e o sync a aplica por cima do valor de lá. Voltar ao que o
+/// Acessórias diz = apagar a regra.
+///
+/// `clienteId` null = vale para TODOS os clientes da empresa — é o que a tela
+/// grava desde 30/09 ("marcar uma, desmarca todas as ocorrências"). Regra com
+/// cliente (o alcance anterior) ainda é respeitada e vence a geral.
+model AcessoriasRegraMulta {
+  id        String  @id @default(cuid())
+  empresaId String  @map("empresa_id")
+  clienteId String? @map("cliente_id")
+  /// Nome exato da obrigação no Acessórias.
+  nome      String
+  multa     Boolean
+  criadoPor String? @map("criado_por")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  // Com clienteId null o Postgres não barra duplicata — a unicidade da regra
+  // geral é garantida pelo serviço (apaga as da obrigação antes de gravar).
+  @@unique([empresaId, clienteId, nome])
+  @@index([clienteId])
+  @@index([empresaId, nome])
+  @@map("acessorias_regras_multa")
+}
+
 /// Obrigações observadas no Acessórias — o resultado de "Importar obrigações".
 ///
 /// A importação percorre a carteira inteira lá (dezenas de requisições) e por
@@ -5628,7 +5776,12 @@ model AcessoriasEntrega {
   lida     Boolean?
 
   status      String?
+  /// Sujeita a multa — já com a reclassificação do escritório aplicada
+  /// (`AcessoriasRegraMulta`). É o valor que painel e indicadores usam.
   multa       Boolean @default(false)
+  /// EntMulta como veio do Acessórias, antes de qualquer reclassificação.
+  /// Null = linha espelhada antes desta coluna existir.
+  multaAcessorias Boolean? @map("multa_acessorias")
   respPrazo   String? @map("resp_prazo")
   respEntrega String? @map("resp_entrega")
   dpto        String?
@@ -5639,6 +5792,18 @@ model AcessoriasEntrega {
   respEntregaId String? @map("resp_entrega_id")
   dptoId        String? @map("dpto_id")
 
+  /// Vencimento da GUIA, lido do PDF anexado (a API não informa o "Vcto" da
+  /// tela deles). Nem sempre é o prazo legal: parcelamento, DARF recalculado e
+  /// DAM municipal divergem. Null = sem guia legível — vale o prazo legal.
+  vencimentoGuia       DateTime? @map("vencimento_guia") @db.Date
+  /// 'lido' | 'nao_encontrado' (PDF sem vencimento reconhecível, ex.: relatório)
+  /// | 'sem_pdf' | 'erro'. Null = ainda não processada.
+  vencimentoGuiaStatus String?   @map("vencimento_guia_status")
+  /// AnexosIDs já lidos (ordenados, separados por vírgula). Anexo novo — guia
+  /// reemitida — muda a chave e a guia é lida de novo.
+  vencimentoGuiaAnexos String?   @map("vencimento_guia_anexos")
+  /// dtFinalizacao e lastDH são horário de BRASÍLIA gravado sem fuso (o
+  /// Acessórias não informa fuso) — quem exibe converte (ver horaDeBrasilia).
   lastDH    DateTime? @map("last_dh")
   syncedAt  DateTime  @default(now()) @map("synced_at")
   empresaId String?   @map("empresa_id")
@@ -6318,6 +6483,9 @@ enum NotificacaoEvento {
   PAUSADA
   CANCELADA
   AGUARDANDO_RESPOSTA
+  /// Servico entrou num orcamento. Unico evento anterior a execucao: nao tem
+  /// prazo, processo nem watchers, e o log referencia o item do orcamento.
+  SERVICO_INCLUIDO_ORCAMENTO
 }
 
 enum NotificacaoCanal {
@@ -6345,6 +6513,11 @@ enum NotificacaoDestinatario {
    * Lista de e-mails livres (destinatariosCustom)
    */
   CUSTOM
+  /**
+   * Lider cadastrado na Area do servico (Area.leaderId). Distinto de GESTOR,
+   * que vem do Processo e so existe depois da execucao criada.
+   */
+  LIDER_AREA
 }
 
 model ServicoNotificacaoRegra {
@@ -6391,9 +6564,16 @@ model ServicoNotificacaoLog {
   id            String            @id @default(cuid())
   regraId       String            @map("regra_id")
   /**
-   * ID da execução que disparou a notificação.
+   * ID da execução que disparou a notificação. NULO quando o evento acontece
+   * antes de existir execução — hoje só SERVICO_INCLUIDO_ORCAMENTO, que
+   * referencia `orcamentoItemId` no lugar.
    */
-  execucaoId    String            @map("execucao_id")
+  execucaoId    String?           @map("execucao_id")
+  /**
+   * Item do orçamento que disparou a notificação. Exclusivo com `execucaoId`:
+   * um log sempre tem exatamente um dos dois preenchido.
+   */
+  orcamentoItemId String?         @map("orcamento_item_id")
   evento        NotificacaoEvento
   /**
    * Lista de e-mails efetivamente atendidos no envio (snapshot).
@@ -6405,10 +6585,14 @@ model ServicoNotificacaoLog {
 
   regra ServicoNotificacaoRegra @relation(fields: [regraId], references: [id], onDelete: Cascade)
 
-  // Idempotência: uma regra dispara no máximo 1 vez por (execucao, evento).
-  // Retries do engine não duplicam — UPSERT no insert.
+  // Idempotência: uma regra dispara no máximo 1 vez por (origem, evento).
+  // Retries do engine não duplicam — UPSERT no insert. São duas chaves porque
+  // a origem é execução OU item de orçamento; no Postgres, NULL não colide com
+  // NULL em índice único, então cada chave só governa as linhas da sua origem.
   @@unique([regraId, execucaoId, evento])
+  @@unique([regraId, orcamentoItemId, evento])
   @@index([execucaoId])
+  @@index([orcamentoItemId])
   @@map("servico_notificacao_logs")
 }
 
@@ -8761,6 +8945,12 @@ model Manifestacao {
   encerradoEm     DateTime? @map("encerrado_em")
   encerradoPorId  String?   @map("encerrado_por_id")
 
+  /// Inativa ("excluída"): some das listas, indicadores e consulta pública,
+  /// e não aceita andamento. Só quem tem a sub-permissão `restaurar` a vê e a
+  /// traz de volta (05/10/2026 — antes a exclusão apagava de vez).
+  excluidaEm    DateTime? @map("excluida_em")
+  excluidaPorId String?   @map("excluida_por_id")
+  motivoExclusao String?  @map("motivo_exclusao") @db.Text
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
@@ -8799,7 +8989,7 @@ model ManifestacaoArquivo {
   manifestacaoId String   @map("manifestacao_id")
   autorId        String?  @map("autor_id")
   nome           String
-  /// Nome do arquivo dentro de uploads/manifestacoes.
+  /// Caminho servido pelo upload genérico (`/api/upload/<arquivo>`).
   arquivoPath    String   @map("arquivo_path")
   mime           String?
   bytes          Int?
@@ -8824,6 +9014,44 @@ model ManifestacaoLog {
 
   @@index([manifestacaoId])
   @@map("manifestacao_logs")
+}
+
+/// Quem é avisado de cada evento de uma manifestação (05/10/2026). Uma linha
+/// por empresa × tipo × evento, mantida na tela de configurações do módulo
+/// (sub-permissão `configurar`). Sem linha = ninguém é avisado daquele evento.
+model ManifestacaoNotificacaoConfig {
+  id          String   @id @default(cuid())
+  empresaId   String   @map("empresa_id")
+  /// ELOGIO | RECLAMACAO | SUGESTAO (texto, como `Manifestacao.tipo` no banco).
+  tipo        String
+  /// REGISTRADA | EDITADA | RETORNO | ANALISADA | FINALIZADA | MENSAGEM
+  evento      String
+  userIds     String[] @map("user_ids")
+  /// Avisa também quem registrou (nunca numa anônima: não há autor guardado).
+  avisarAutor Boolean  @default(false) @map("avisar_autor")
+  sino        Boolean  @default(true)
+  email       Boolean  @default(false)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([empresaId, tipo, evento])
+  @@map("manifestacao_notificacao_config")
+}
+
+/// Parâmetros de um tipo de manifestação por empresa (05/10/2026).
+///
+/// `permitirInternas`: a diretoria pediu que Reclamações aceitasse só o que
+/// vem de cliente. Desligado (o padrão), o registro "de dentro de casa" some do
+/// formulário e o servidor o recusa. Só o MASTER altera. Registros internos já
+/// existentes continuam como estão.
+model ManifestacaoParametro {
+  id               String   @id @default(cuid())
+  empresaId        String   @map("empresa_id")
+  tipo             String
+  permitirInternas Boolean  @default(false) @map("permitir_internas")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@unique([empresaId, tipo])
+  @@map("manifestacao_parametros")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -10166,4 +10394,217 @@ model ClienteDossieAcesso {
   @@index([clienteId, criadoEm])
   @@index([usuarioId])
   @@map("cliente_dossie_acessos")
+}
+
+// ============================================================
+// Certidões e Alvarás (/certidoes-cnd) — 05/10/2026.
+//
+// As rotinas (apps/api/src/cnd) gravam e leem estas tabelas por SQL direto,
+// mas elas nunca tinham entrado no schema nem em SQL de deploy: existiam só
+// num banco antigo de desenvolvimento. Em produção não existiam e todo uso do
+// módulo falhava com relation "certidoes_cnd" does not exist. Declaradas
+// aqui, fiéis às colunas que o código usa, o db push do deploy as cria.
+// O id é gerado pelo banco (os INSERTs não o enviam).
+// ============================================================
+
+model CertidaoCnd {
+  id               String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  documento        String
+  tipoDocumento    Int       @default(2) @map("tipo_documento")
+  razaoSocial      String?   @map("razao_social")
+  etapa            String    @default("pendente")
+  tipoCertidao     String?   @map("tipo_certidao")
+  codigoControle   String?   @map("codigo_controle")
+  dataEmissao      DateTime? @map("data_emissao") @db.Timestamptz(6)
+  dataValidade     DateTime? @map("data_validade") @db.Timestamptz(6)
+  pdfBase64        String?   @map("pdf_base64")
+  statusApi        Int?      @map("status_api")
+  mensagemApi      String?   @map("mensagem_api")
+  respostaCompleta Json?     @map("resposta_completa")
+  sucesso          Boolean   @default(false)
+  erro             String?
+  clienteId        String?   @map("cliente_id")
+  empresaId        String?   @map("empresa_id")
+  userId           String?   @map("user_id")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  @@index([clienteId], map: "idx_cnd_cliente_id")
+  @@index([createdAt(sort: Desc)], map: "idx_cnd_created")
+  @@index([documento], map: "idx_cnd_documento")
+  @@map("certidoes_cnd")
+}
+
+model CertidaoCndEstadual {
+  id          String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  documento   String
+  razaoSocial String?  @map("razao_social")
+  uf          String   @default("ES")
+  sucesso     Boolean  @default(false)
+  mensagem    String?
+  pdfBase64   String?  @map("pdf_base64")
+  clienteId   String?  @map("cliente_id")
+  empresaId   String?  @map("empresa_id")
+  userId      String?  @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@index([createdAt(sort: Desc)], map: "idx_cnd_est_created")
+  @@index([documento], map: "idx_cnd_est_documento")
+  @@map("certidoes_cnd_estadual")
+}
+
+model CertidaoCndMunicipal {
+  id           String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  documento    String
+  razaoSocial  String?   @map("razao_social")
+  municipio    String
+  sucesso      Boolean   @default(false)
+  tipoCertidao String?   @map("tipo_certidao")
+  mensagem     String?
+  conteudoHtml String?   @map("conteudo_html")
+  /// Tenant (05/10/2026): toda leitura e gravação recorta por ele.
+  empresaId    String?   @map("empresa_id")
+  clienteId    String?   @map("cliente_id")
+  userId       String?   @map("user_id")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  debitos      Json?     @default("[]")
+  pdfBase64    String?   @map("pdf_base64")
+  dataValidade DateTime? @map("data_validade") @db.Date
+
+  @@index([documento], map: "idx_cnd_mun_doc")
+  @@index([municipio], map: "idx_cnd_mun_mun")
+  @@index([empresaId], map: "idx_certidaocndmunicipal_empresa")
+  @@map("certidoes_cnd_municipal")
+}
+
+model CertidaoCndt {
+  id             String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  documento      String
+  razaoSocial    String?   @map("razao_social")
+  sucesso        Boolean   @default(false)
+  tipoCertidao   String?   @map("tipo_certidao")
+  mensagem       String?
+  numeroCertidao String?   @map("numero_certidao")
+  dataValidade   DateTime? @map("data_validade") @db.Date
+  pdfBase64      String?   @map("pdf_base64")
+  /// Tenant (05/10/2026): toda leitura e gravação recorta por ele.
+  empresaId    String?   @map("empresa_id")
+  clienteId      String?   @map("cliente_id")
+  userId         String?   @map("user_id")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([documento], map: "idx_cndt_doc")
+  @@index([empresaId], map: "idx_certidaocndt_empresa")
+  @@map("certidoes_cndt")
+}
+
+model CertidaoCrfFgts {
+  id                String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  documento         String
+  razaoSocial       String?   @map("razao_social")
+  sucesso           Boolean   @default(false)
+  tipoCertidao      String?   @map("tipo_certidao")
+  mensagem          String?
+  numeroCertificado String?   @map("numero_certificado")
+  dataValidade      DateTime? @map("data_validade") @db.Date
+  pdfBase64         String?   @map("pdf_base64")
+  /// Tenant (05/10/2026): toda leitura e gravação recorta por ele.
+  empresaId    String?   @map("empresa_id")
+  clienteId         String?   @map("cliente_id")
+  userId            String?   @map("user_id")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([documento], map: "idx_crf_doc")
+  @@index([empresaId], map: "idx_certidaocrffgts_empresa")
+  @@map("certidoes_crf_fgts")
+}
+
+model CertidaoCgu {
+  id           String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  documento    String
+  razaoSocial  String?   @map("razao_social")
+  sucesso      Boolean   @default(false)
+  tipoCertidao String?   @map("tipo_certidao")
+  mensagem     String?
+  situacao     String?
+  dataConsulta DateTime? @map("data_consulta") @db.Timestamptz(6)
+  pdfBase64    String?   @map("pdf_base64")
+  /// Tenant (05/10/2026): toda leitura e gravação recorta por ele.
+  empresaId    String?   @map("empresa_id")
+  clienteId    String?   @map("cliente_id")
+  userId       String?   @map("user_id")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([documento], map: "idx_cgu_doc")
+  @@index([empresaId], map: "idx_certidaocgu_empresa")
+  @@map("certidoes_cgu")
+}
+
+model AlvaraBombeiros {
+  id                 String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  alvaraId           Int?     @map("alvara_id")
+  documento          String?
+  razaoSocial        String?  @map("razao_social")
+  nomeFantasia       String?  @map("nome_fantasia")
+  endereco           String?
+  municipio          String?
+  bairro             String?
+  status             String?
+  codigoValidacao    String?  @map("codigo_validacao")
+  dataInicioValidade String?  @map("data_inicio_validade")
+  dataFimValidade    String?  @map("data_fim_validade")
+  ocupacao           String?
+  /// Tenant (05/10/2026): toda leitura e gravação recorta por ele.
+  empresaId    String?   @map("empresa_id")
+  clienteId          String?  @map("cliente_id")
+  userId             String?  @map("user_id")
+  pdfBase64          String?  @map("pdf_base64")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([clienteId], map: "idx_alv_cliente")
+  @@index([documento], map: "idx_alv_documento")
+  @@index([empresaId], map: "idx_alvarabombeiros_empresa")
+  @@map("alvaras_bombeiros")
+}
+
+model AlvaraFuncionamento {
+  id          String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  documento   String
+  razaoSocial String?  @map("razao_social")
+  municipio   String
+  sucesso     Boolean  @default(false)
+  mensagem    String?
+  pdfBase64   String?  @map("pdf_base64")
+  /// Tenant (05/10/2026): toda leitura e gravação recorta por ele.
+  empresaId    String?   @map("empresa_id")
+  clienteId   String?  @map("cliente_id")
+  userId      String?  @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([documento], map: "idx_alv_func_doc")
+  @@index([municipio], map: "idx_alv_func_mun")
+  @@index([empresaId], map: "idx_alvarafuncionamento_empresa")
+  @@map("alvaras_funcionamento")
+}
+
+model CndExecLog {
+  id           String    @id
+  /// Tenant (05/10/2026).
+  empresaId    String?   @map("empresa_id")
+  tipo         String    @default("manual")
+  iniciadoPor  String?   @map("iniciado_por")
+  nomeUsuario  String?   @map("nome_usuario")
+  iniciadoEm   DateTime  @default(now()) @map("iniciado_em") @db.Timestamptz(6)
+  finalizadoEm DateTime? @map("finalizado_em") @db.Timestamptz(6)
+  total        Int       @default(0)
+  sucesso      Int       @default(0)
+  falhas       Int       @default(0)
+  status       String    @default("running")
+  itens        Json      @default("[]")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([empresaId], map: "idx_cndexeclog_empresa")
+  @@map("cnd_exec_log")
 }

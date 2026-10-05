@@ -1,13 +1,21 @@
 import { Injectable, Inject } from '@nestjs/common'
+import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
+import type { Page } from 'puppeteer'
 import { CaptchaService } from '../common/captcha.service'
+import {
+  PorEmpresa, cndLogger, comNavegador, dataIso, exigirEmpresa, limparDoc, naFilaDoNavegador, precisaReconsultar,
+} from './cnd-comum'
 
 const CNDT_URL = 'https://cndt-certidao.tst.jus.br/gerarCertidao.faces'
+const log = cndLogger('CNDT')
 
 export interface CndtResult {
   sucesso: boolean
   mensagem: string
   tipo: string | null
+  /** A consulta falhou, mas havia certidão válida anterior — ela foi mantida (não sobrescrita). */
+  mantidaAnterior?: boolean
 }
 
 export interface CndtLoteProgress {
@@ -17,272 +25,384 @@ export interface CndtLoteProgress {
   emitidas: number
   naoEmitidas: number
   erros: number
+  /** Pulados por já terem certidão válida (cada emissão custa um captcha pago). */
+  pulados: number
   currentCliente: string
-  items: Array<{ razaoSocial: string; status: 'emitida' | 'nao_emitida' | 'erro' | 'pendente' | 'processando'; erro?: string }>
+  items: Array<{ razaoSocial: string; status: 'emitida' | 'nao_emitida' | 'erro' | 'pendente' | 'processando' | 'pulada'; erro?: string }>
 }
+
+const loteVazio = (): CndtLoteProgress => ({
+  status: 'idle', total: 0, current: 0, emitidas: 0, naoEmitidas: 0, erros: 0, pulados: 0, currentCliente: '', items: [],
+})
+
+/** Resultado bruto da navegação no portal (antes de gravar). */
+interface Emissao {
+  sucesso: boolean
+  tipo: string | null
+  mensagem: string
+  pdfBase64: string | null
+}
+
+const fim4 = (doc: string) => `…${doc.slice(-4)}`
+const espera = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
+
+/** Data local de hoje em 'YYYY-MM-DD' (sem passar por UTC). */
+function hojeIso(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+async function textoDoPdf(pdfBase64: string): Promise<string> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const parse = require('pdf-parse/lib/pdf-parse.js') as (b: Buffer) => Promise<{ text?: string }>
+    const data = await parse(Buffer.from(pdfBase64, 'base64'))
+    return data.text || ''
+  } catch { return '' }
+}
+
+/**
+ * Classifica a CNDT pelo TÍTULO do PDF. Antes toda emissão era gravada como
+ * 'Negativa' — uma certidão positiva (com débito trabalhista) aparecia como
+ * regular na tela. Pega o título que aparece PRIMEIRO no texto, para que uma
+ * nota de rodapé que cite outro tipo não vença o cabeçalho.
+ */
+export function classificarCndt(texto: string): string | null {
+  const t = texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ')
+  const candidatos: Array<{ tipo: string; re: RegExp }> = [
+    { tipo: 'Positiva com efeito de negativa', re: /\bCERTIDAO POSITIVA DE DEBITOS TRABALHISTAS,? COM EFEITOS? DE NEGATIVA\b/ },
+    { tipo: 'Positiva', re: /\bCERTIDAO POSITIVA DE DEBITOS TRABALHISTAS\b/ },
+    { tipo: 'Negativa', re: /\bCERTIDAO NEGATIVA DE DEBITOS TRABALHISTAS\b/ },
+  ]
+  let melhor: { tipo: string; idx: number } | null = null
+  for (const c of candidatos) {
+    const m = c.re.exec(t)
+    // Empate de posição: a ordem da lista dá preferência ao "com efeito de negativa".
+    if (m && (!melhor || m.index < melhor.idx)) melhor = { tipo: c.tipo, idx: m.index }
+  }
+  return melhor?.tipo ?? null
+}
+
+/** Validade 'YYYY-MM-DD' lida do PDF; a "segunda data" só vale se for futura. */
+function validadeDoPdf(texto: string): string | null {
+  const patterns = [
+    /Validade\s*[:]\s*(\d{2}\/\d{2}\/\d{4})/i,
+    /V[aá]lid[ao]\s*(?:at[eé])?\s*[:]\s*(\d{2}\/\d{2}\/\d{4})/i,
+    /vencimento\s*[:]\s*(\d{2}\/\d{2}\/\d{4})/i,
+  ]
+  for (const p of patterns) {
+    const m = texto.match(p)
+    if (m) return dataIso(m[1])
+  }
+  // Fallback: segunda data do texto. A primeira costuma ser a expedição, mas
+  // nada garante — só aceita se for posterior a hoje (senão grava a expedição
+  // como validade e a certidão nasce "vencida").
+  const datas = texto.match(/\d{2}\/\d{2}\/\d{4}/g)
+  if (datas && datas.length >= 2) {
+    const iso = dataIso(datas[1])
+    if (iso && iso > hojeIso()) return iso
+  }
+  return null
+}
+
+/**
+ * Mensagem de erro do portal: só os contêineres de mensagem do JSF/PrimeFaces
+ * (e afins). Antes a decisão olhava `document.body.innerText` inteiro — e a
+ * própria página tem os rótulos "captcha"/"inválido" nas instruções, então o
+ * ramo de retentativa disparava sempre e o "não encontrado" era inalcançável.
+ */
+async function lerErroDoPortal(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const sel = [
+      '.ui-messages-error', '.ui-message-error', '.ui-growl-message', '.rf-msgs', '.rich-messages',
+      '.alert-danger', '.alert-error', '.erro', '.error', '.mensagemErro',
+      '[id*="mensage" i]', '[class*="mensage" i]', '[id*="messages" i]', '[id*="erro" i]',
+    ].join(',')
+    const textos = new Set<string>()
+    for (const el of Array.from(document.querySelectorAll(sel))) {
+      const h = el as HTMLElement
+      const txt = (h.innerText || '').trim()
+      if (txt && h.offsetParent !== null) textos.add(txt)
+    }
+    return Array.from(textos).join(' | ').slice(0, 500)
+  })
+}
+
+const ehErroDeCaptcha = (msg: string) =>
+  /(captcha|c[oó]digo|resposta|caracteres|imagem)/i.test(msg) && /(incorret|inv[aá]lid|n[aã]o confere|errad|diverg)/i.test(msg)
+const ehDocNaoEncontrado = (msg: string) =>
+  /n[aã]o (foi )?encontrad/i.test(msg) || (/(cpf|cnpj)/i.test(msg) && /inv[aá]lid/i.test(msg))
 
 @Injectable()
 export class CndtTrabalhistaService {
   constructor(@Inject(CaptchaService) private readonly captcha: CaptchaService) {}
 
-  private tableChecked = false
-  private consultaEtapa = ''
-  private loteProgress: CndtLoteProgress = {
-    status: 'idle', total: 0, current: 0, emitidas: 0, naoEmitidas: 0, erros: 0,
-    currentCliente: '', items: [],
+  /** Etapa e lote POR EMPRESA — um escritório não vê nem bloqueia o do outro. */
+  private readonly consultaEtapa = new PorEmpresa<string>(() => '')
+  private readonly loteProgress = new PorEmpresa<CndtLoteProgress>(loteVazio)
+
+  getConsultaEtapa(empresaId: string): string { return this.consultaEtapa.get(exigirEmpresa(empresaId)) }
+  getLoteProgress(empresaId: string): CndtLoteProgress {
+    const p = this.loteProgress.get(exigirEmpresa(empresaId))
+    return { ...p, items: p.items.map(i => ({ ...i })) }
   }
 
-  getConsultaEtapa(): string { return this.consultaEtapa }
-  getLoteProgress(): CndtLoteProgress { return { ...this.loteProgress } }
+  // ── Navegação no portal ───────────────────────────────
 
-  private async ensureTable() {
-    // Schema garantido por migração manual_2026_06_26_cnd_dte_tables.sql (R2-002).
-    // Sem DDL no caminho de request — os métodos apenas LEEM.
-    if (this.tableChecked) return
-    this.tableChecked = true
-  }
+  private async emitirNoPortal(empresaId: string, page: Page, doc: string): Promise<Emissao> {
+    const etapa = (s: string) => this.consultaEtapa.set(empresaId, s)
+    await page.setViewport({ width: 1200, height: 800 })
 
-  private async extrairValidadePdf(pdfBase64: string): Promise<string | null> {
-    try {
-      const buf = Buffer.from(pdfBase64, 'base64')
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const data = await require('pdf-parse/lib/pdf-parse.js')(buf)
-      const texto = data.text || ''
-
-      const patterns = [
-        /Validade\s*[:]\s*(\d{2}\/\d{2}\/\d{4})/i,
-        /V[aá]lid[ao]\s*(?:at[eé])?\s*[:]\s*(\d{2}\/\d{2}\/\d{4})/i,
-        /vencimento\s*[:]\s*(\d{2}\/\d{2}\/\d{4})/i,
-      ]
-      for (const p of patterns) {
-        const m = texto.match(p)
-        if (m) {
-          const [dd, mm, yyyy] = m[1]!.split('/')
-          return `${yyyy}-${mm}-${dd}`
+    // CDP Fetch para interceptar o PDF (vem como attachment, não abre na aba).
+    const client = await page.createCDPSession()
+    await client.send('Fetch.enable', { patterns: [{ urlPattern: '*emissaoCertidao*', requestStage: 'Response' }] })
+    const captura: { pdf: string | null } = { pdf: null }
+    client.on('Fetch.requestPaused', async (event) => {
+      try {
+        const body = await client.send('Fetch.getResponseBody', { requestId: event.requestId })
+        const buf = Buffer.from(body.body, body.base64Encoded ? 'base64' : 'utf8')
+        if (buf.length > 100 && buf[0] === 0x25 && buf[1] === 0x50) {
+          captura.pdf = buf.toString('base64')
+          log.log(`PDF capturado: ${buf.length} bytes`)
         }
+      } catch { /* resposta sem corpo — segue */ }
+      await client.send('Fetch.continueRequest', { requestId: event.requestId }).catch(() => {})
+    })
+
+    // Alguns erros do portal saem em alert(); guarda o texto e fecha o diálogo
+    // (um alert aberto trava o page.evaluate seguinte).
+    const dialogos: string[] = []
+    page.on('dialog', d => { dialogos.push(d.message()); d.dismiss().catch(() => {}) })
+
+    etapa('Acessando portal do TST...')
+    await page.goto(CNDT_URL, { waitUntil: 'networkidle2', timeout: 30000 })
+    await espera(2000)
+    etapa('Página carregada')
+
+    for (let tentativa = 1; tentativa <= 2; tentativa++) {
+      const captchaSrc = await page.evaluate(() => (document.getElementById('idImgBase64') as HTMLImageElement | null)?.src || '')
+      const b64 = captchaSrc.match(/base64,\s*(.+)/)
+      if (!b64) {
+        if (tentativa === 1) throw new Error('Captcha não carregou na página')
+        return { sucesso: false, tipo: null, mensagem: 'Captcha incorreto — tente novamente', pdfBase64: null }
       }
-      // Fallback: segunda data no texto
-      const datas = texto.match(/\d{2}\/\d{2}\/\d{4}/g)
-      if (datas && datas.length >= 2) {
-        const [dd, mm, yyyy] = datas[1]!.split('/')
-        return `${yyyy}-${mm}-${dd}`
+
+      etapa(tentativa === 1 ? 'Resolvendo captcha via 2Captcha...' : 'Resolvendo novo captcha...')
+      const resposta = await this.captcha.resolveImage(b64[1]!, { caseSensitive: true, minLen: 5, maxLen: 7, lang: 'en' })
+
+      // Valores como ARGUMENTO do evaluate — nunca interpolados no código
+      // (o texto do captcha vem de terceiro e pode conter aspas).
+      dialogos.length = 0
+      await page.evaluate((d: string, c: string) => {
+        (document.getElementById('gerarCertidaoForm:cpfCnpj') as HTMLInputElement).value = d
+        ;(document.getElementById('idCampoResposta') as HTMLInputElement).value = c
+        ;(document.getElementById('gerarCertidaoForm:btnEmitirCertidao') as HTMLElement).click()
+      }, doc, resposta)
+      etapa('Aguardando resposta do TST...')
+      for (let t = 0; t < 24 && !captura.pdf; t++) await espera(500)
+      await espera(captura.pdf ? 1000 : 0)
+
+      etapa('Verificando resultado...')
+      const corpo = await page.evaluate(() => document.body.innerText)
+      if (captura.pdf || corpo.includes('EMITIDA com sucesso') || corpo.includes('Certidão EMITIDA')) {
+        return this.classificar(captura.pdf)
       }
-      return null
-    } catch { return null }
+
+      const erro = [await lerErroDoPortal(page), ...dialogos].filter(Boolean).join(' | ')
+      if (ehErroDeCaptcha(erro)) {
+        if (tentativa < 2) {
+          etapa('Captcha incorreto, tentando novamente...')
+          log.warn(`Captcha incorreto para ${fim4(doc)}, nova tentativa`)
+          await page.evaluate(() => { (window as unknown as { loadCaptcha?: () => void }).loadCaptcha?.() })
+          await espera(3000)
+          continue
+        }
+        return { sucesso: false, tipo: null, mensagem: 'Falha na emissão — captcha incorreto', pdfBase64: null }
+      }
+      if (ehDocNaoEncontrado(erro)) return { sucesso: false, tipo: null, mensagem: 'CNPJ/CPF não encontrado', pdfBase64: null }
+      if (erro) return { sucesso: false, tipo: null, mensagem: `Portal do TST: ${erro.slice(0, 200)}`, pdfBase64: null }
+      return { sucesso: false, tipo: null, mensagem: 'Não foi possível emitir a certidão', pdfBase64: null }
+    }
+    return { sucesso: false, tipo: null, mensagem: 'Não foi possível emitir a certidão', pdfBase64: null }
+  }
+
+  /** O portal confirmou a emissão: o tipo sai do texto do PDF, não da página. */
+  private async classificar(pdfBase64: string | null): Promise<Emissao> {
+    if (!pdfBase64) {
+      return { sucesso: false, tipo: null, mensagem: 'O TST indicou emissão, mas o PDF não foi capturado — tente novamente', pdfBase64: null }
+    }
+    const tipo = classificarCndt(await textoDoPdf(pdfBase64))
+    if (!tipo) {
+      // Certidão emitida (temos o PDF), mas não inventamos o tipo.
+      return { sucesso: true, tipo: null, mensagem: 'CNDT emitida, mas não foi possível classificar (negativa/positiva) pelo PDF — confira o documento', pdfBase64 }
+    }
+    const mensagem = tipo === 'Negativa'
+      ? 'CNDT negativa emitida com sucesso'
+      : tipo === 'Positiva'
+        ? 'CNDT emitida — POSITIVA: existem débitos trabalhistas pendentes'
+        : 'CNDT emitida — positiva com efeito de negativa'
+    return { sucesso: true, tipo, mensagem, pdfBase64 }
   }
 
   // ── Consulta individual ──────────────────────────────
 
-  async consultar(documento: string, clienteId?: string, userId?: string): Promise<CndtResult> {
-    await this.ensureTable()
-    const doc = documento.replace(/\D/g, '')
+  async consultar(empresaId: string, documento: string, clienteId?: string, userId?: string): Promise<CndtResult> {
+    exigirEmpresa(empresaId)
+    const doc = limparDoc(documento)
     if (doc.length !== 14 && doc.length !== 11) throw new Error('Documento inválido')
 
-    const tag = '[CNDT]'
-    this.consultaEtapa = 'Iniciando consulta...'
-    console.log(`${tag} Consultando CNDT para ${doc}...`)
-
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const puppeteer = require('puppeteer')
-    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] })
-
-    try {
-      const page = await browser.newPage()
-      await page.setViewport({ width: 1200, height: 800 })
-
-      // CDP Fetch para interceptar o PDF (attachment)
-      const client = await page.createCDPSession()
-      await client.send('Fetch.enable', { patterns: [{ urlPattern: '*emissaoCertidao*', requestStage: 'Response' }] })
-
-      let pdfBase64: string | null = null
-      let numeroCertidao: string | null = null
-      client.on('Fetch.requestPaused', async (event: { requestId: string; request: { url: string }; responseStatusCode: number }) => {
-        try {
-          const body = await client.send('Fetch.getResponseBody', { requestId: event.requestId })
-          const buf = Buffer.from(body.body, body.base64Encoded ? 'base64' : 'utf8')
-          if (buf.length > 100 && buf[0] === 0x25 && buf[1] === 0x50) {
-            pdfBase64 = buf.toString('base64')
-            console.log(`${tag} PDF capturado: ${buf.length} bytes`)
-          }
-        } catch { /* */ }
-        await client.send('Fetch.continueRequest', { requestId: event.requestId }).catch(() => {})
-      })
-
-      this.consultaEtapa = 'Acessando portal do TST...'
-      await page.goto(CNDT_URL, { waitUntil: 'networkidle2', timeout: 30000 })
-      await new Promise((r: (v: unknown) => void) => setTimeout(r, 2000))
-      this.consultaEtapa = 'Página carregada'
-      console.log(`${tag} Página carregada`)
-
-      // Capturar captcha base64 da imagem
-      const captchaSrc: string = await page.evaluate('document.getElementById("idImgBase64")?.src || ""')
-      const b64Match = captchaSrc.match(/base64,\s*(.+)/)
-      if (!b64Match) throw new Error('Captcha não carregou na página')
-
-      this.consultaEtapa = 'Resolvendo captcha via 2Captcha...'
-      console.log(`${tag} Captcha capturado, enviando para 2Captcha...`)
-      const captchaText = await this.captcha.resolveImage(b64Match[1]!, { caseSensitive: true, minLen: 5, maxLen: 7, lang: 'en' })
-
-      // Preencher campos
-      await page.evaluate(`document.getElementById("gerarCertidaoForm:cpfCnpj").value="${doc}"`)
-      await page.evaluate(`document.getElementById("idCampoResposta").value="${captchaText}"`)
-      this.consultaEtapa = 'Emitindo certidão...'
-      console.log(`${tag} Captcha: "${captchaText}", clicando Emitir...`)
-
-      await page.evaluate('document.getElementById("gerarCertidaoForm:btnEmitirCertidao").click()')
-      this.consultaEtapa = 'Aguardando resposta do TST...'
-      await new Promise((r: (v: unknown) => void) => setTimeout(r, 12000))
-
-      // Verificar resultado
-      const texto: string = await page.evaluate('document.body.innerText')
-      this.consultaEtapa = 'Verificando resultado...'
-
-      let sucesso = false
-      let tipo: string | null = null
-      let mensagem = ''
-
-      if (texto.includes('EMITIDA com sucesso') || texto.includes('Certidão EMITIDA')) {
-        sucesso = true
-        tipo = 'Negativa'
-        mensagem = 'CNDT emitida com sucesso'
-      } else if (texto.includes('Positiva')) {
-        sucesso = false
-        tipo = 'Positiva'
-        mensagem = 'Existem débitos trabalhistas pendentes'
-      } else if (texto.includes('captcha') || texto.includes('incorret') || texto.includes('inválid')) {
-        // Retry captcha
-        this.consultaEtapa = 'Captcha incorreto, tentando novamente...'
-        console.log(`${tag} Captcha incorreto, retry...`)
-
-        await page.evaluate('loadCaptcha()')
-        await new Promise((r: (v: unknown) => void) => setTimeout(r, 3000))
-
-        const newSrc: string = await page.evaluate('document.getElementById("idImgBase64")?.src || ""')
-        const newB64 = newSrc.match(/base64,\s*(.+)/)
-        if (newB64) {
-          this.consultaEtapa = 'Resolvendo novo captcha...'
-          const newText = await this.captcha.resolveImage(newB64[1]!, { caseSensitive: true, minLen: 5, maxLen: 7, lang: 'en' })
-          await page.evaluate(`document.getElementById("idCampoResposta").value="${newText}"`)
-          await page.evaluate('document.getElementById("gerarCertidaoForm:btnEmitirCertidao").click()')
-          await new Promise((r: (v: unknown) => void) => setTimeout(r, 12000))
-
-          const texto2: string = await page.evaluate('document.body.innerText')
-          if (texto2.includes('EMITIDA com sucesso') || texto2.includes('Certidão EMITIDA')) {
-            sucesso = true; tipo = 'Negativa'; mensagem = 'CNDT emitida com sucesso'
-          } else if (texto2.includes('Positiva')) {
-            sucesso = false; tipo = 'Positiva'; mensagem = 'Existem débitos trabalhistas pendentes'
-          } else {
-            sucesso = false; tipo = null; mensagem = 'Falha na emissão — captcha incorreto ou erro no portal'
-          }
-        } else {
-          sucesso = false; tipo = null; mensagem = 'Captcha incorreto — tente novamente'
-        }
-      } else if (texto.includes('não encontrad') || texto.includes('inválido')) {
-        sucesso = false; tipo = null; mensagem = 'CNPJ/CPF não encontrado'
-      } else {
-        sucesso = false; tipo = null; mensagem = 'Não foi possível emitir a certidão'
-      }
-
-      console.log(`${tag} ${doc}: ${sucesso ? 'SUCESSO' : 'FALHA'} — ${mensagem}`)
-      await browser.close()
-
-      // Extrair número da certidão e validade do PDF
-      let dataValidade: string | null = null
-      if (pdfBase64) {
-        dataValidade = await this.extrairValidadePdf(pdfBase64)
-        if (dataValidade) console.log(`${tag} Validade: ${dataValidade}`)
-
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const pdfData = await require('pdf-parse/lib/pdf-parse.js')(Buffer.from(pdfBase64, 'base64'))
-          const numMatch = (pdfData.text as string).match(/Certidão\s*n[°º]\s*[:.]?\s*([\d/]+)/i)
-          if (numMatch) numeroCertidao = numMatch[1]!
-        } catch { /* */ }
-      }
-
-      // Resolver cliente
-      let razaoSocial: string | null = null
-      let resolvedClienteId = clienteId || null
-      if (clienteId) {
-        const cli = await prisma.cliente.findUnique({ where: { id: clienteId }, select: { razaoSocial: true } })
-        razaoSocial = cli?.razaoSocial ?? null
-      } else {
-        const cli = await prisma.$queryRawUnsafe<Array<{ id: string; razao_social: string }>>(
-          `SELECT id, razao_social FROM clientes WHERE status = 'ATIVO' AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`, doc,
-        ).then(rows => rows[0] ? { id: rows[0].id, razaoSocial: rows[0].razao_social } : null)
-        if (cli) { razaoSocial = cli.razaoSocial; resolvedClienteId = cli.id }
-      }
-
-      // Salvar (manter apenas a mais recente por documento)
-      await prisma.$executeRawUnsafe(`DELETE FROM certidoes_cndt WHERE documento = $1`, doc)
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO certidoes_cndt (documento, razao_social, sucesso, tipo_certidao, mensagem, numero_certidao, data_validade, pdf_base64, cliente_id, user_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7::date, $8, $9, $10)`,
-        doc, razaoSocial, sucesso, tipo, mensagem, numeroCertidao, dataValidade, pdfBase64, resolvedClienteId, userId || null,
+    // Cliente: sempre dentro da empresa (antes, por documento em qualquer tenant).
+    let razaoSocial: string | null = null
+    let resolvedClienteId: string | null = clienteId || null
+    if (clienteId) {
+      const cli = await prisma.cliente.findFirst({ where: { id: clienteId, empresaId }, select: { razaoSocial: true } })
+      if (!cli) throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente não encontrado nesta empresa.' })
+      razaoSocial = cli.razaoSocial
+    } else {
+      const rows = await prisma.$queryRawUnsafe<Array<{ id: string; razao_social: string }>>(
+        `SELECT id, razao_social FROM clientes
+          WHERE status = 'ATIVO' AND empresa_id = $2
+            AND UPPER(REGEXP_REPLACE(documento, '[^0-9A-Za-z]', '', 'g')) = $1
+          LIMIT 1`, doc, empresaId,
       )
-
-      return { sucesso, mensagem, tipo }
-    } catch (e) {
-      await browser.close()
-      throw e
+      if (rows[0]) { razaoSocial = rows[0].razao_social; resolvedClienteId = rows[0].id }
     }
+
+    this.consultaEtapa.set(empresaId, 'Aguardando a vez do navegador...')
+    log.log(`Consultando CNDT para ${fim4(doc)}`)
+
+    let emissao: Emissao
+    try {
+      emissao = await naFilaDoNavegador(() => comNavegador(async browser => {
+        this.consultaEtapa.set(empresaId, 'Iniciando consulta...')
+        return this.emitirNoPortal(empresaId, await browser.newPage(), doc)
+      }, { timeoutMs: 150_000 }))
+    } finally {
+      this.consultaEtapa.set(empresaId, '')
+    }
+
+    let numeroCertidao: string | null = null
+    let dataValidade: string | null = null
+    if (emissao.pdfBase64) {
+      const texto = await textoDoPdf(emissao.pdfBase64)
+      dataValidade = validadeDoPdf(texto)
+      const numMatch = texto.match(/Certid[aã]o\s*n[°º]\s*[:.]?\s*([\d/]+)/i)
+      if (numMatch) numeroCertidao = numMatch[1]!
+    }
+    log.log(`${fim4(doc)}: ${emissao.sucesso ? 'SUCESSO' : 'FALHA'} — ${emissao.mensagem}${dataValidade ? ` (validade ${dataValidade})` : ''}`)
+
+    const insert = () => prisma.$executeRawUnsafe(
+      `INSERT INTO certidoes_cndt (documento, razao_social, sucesso, tipo_certidao, mensagem, numero_certidao, data_validade, pdf_base64, cliente_id, user_id, empresa_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::date, $8, $9, $10, $11)`,
+      doc, razaoSocial, emissao.sucesso, emissao.tipo, emissao.mensagem, numeroCertidao, dataValidade, emissao.pdfBase64,
+      resolvedClienteId, userId || null, empresaId,
+    )
+
+    if (!emissao.sucesso) {
+      // Falha (captcha, portal fora...) NÃO apaga certidão válida: antes a
+      // rotina fazia DELETE + INSERT da falha e o cliente "perdia" a CNDT.
+      const validas = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+        `SELECT id FROM certidoes_cndt WHERE documento = $1 AND empresa_id = $2 AND sucesso = true LIMIT 1`, doc, empresaId,
+      )
+      if (validas.length > 0) {
+        log.warn(`${fim4(doc)}: falha mantendo a certidão anterior — ${emissao.mensagem}`)
+        return { sucesso: false, mensagem: `${emissao.mensagem} (mantida a certidão anterior)`, tipo: null, mantidaAnterior: true }
+      }
+    }
+
+    // Sucesso (ou falha sem nenhuma válida anterior): substitui as anteriores
+    // do mesmo documento DESTA empresa, atomicamente.
+    await prisma.$transaction([
+      prisma.$executeRawUnsafe(`DELETE FROM certidoes_cndt WHERE documento = $1 AND empresa_id = $2`, doc, empresaId),
+      insert(),
+    ])
+
+    return { sucesso: emissao.sucesso, mensagem: emissao.mensagem, tipo: emissao.tipo }
   }
 
   // ── Lote ─────────────────────────────────────────────
 
-  async consultarLote(documentos: Array<{ documento: string; clienteId?: string; razaoSocial?: string }>, userId?: string): Promise<{ message: string }> {
-    if (this.loteProgress.status === 'running') throw new Error('Consulta em lote já em andamento.')
+  async consultarLote(
+    empresaId: string,
+    documentos: Array<{ documento: string; clienteId?: string; razaoSocial?: string }>,
+    userId?: string,
+    forcarNova = false,
+  ): Promise<{ message: string }> {
+    exigirEmpresa(empresaId)
+    if (this.loteProgress.get(empresaId).status === 'running') throw new Error('Consulta em lote já em andamento.')
 
-    this.loteProgress = {
-      status: 'running', total: documentos.length, current: 0, emitidas: 0, naoEmitidas: 0, erros: 0,
-      currentCliente: 'Iniciando...', items: documentos.map(c => ({ razaoSocial: c.razaoSocial || c.documento, status: 'pendente' as const })),
+    const prog: CndtLoteProgress = {
+      ...loteVazio(), status: 'running', total: documentos.length, currentCliente: 'Iniciando...',
+      items: documentos.map(c => ({ razaoSocial: c.razaoSocial || c.documento, status: 'pendente' as const })),
     }
+    this.loteProgress.set(empresaId, prog)
 
-    // Executa em background
-    ;(async () => {
-      for (let i = 0; i < documentos.length; i++) {
-        const c = documentos[i]!
-        this.loteProgress.current = i + 1
-        this.loteProgress.currentCliente = c.razaoSocial || c.documento
-        this.loteProgress.items[i]!.status = 'processando'
-
-        try {
-          const result = await this.consultar(c.documento, c.clienteId, userId)
-          if (result.sucesso) {
-            this.loteProgress.emitidas++
-            this.loteProgress.items[i]!.status = 'emitida'
-          } else {
-            this.loteProgress.naoEmitidas++
-            this.loteProgress.items[i]!.status = 'nao_emitida'
-            this.loteProgress.items[i]!.erro = result.mensagem
-          }
-        } catch (e) {
-          this.loteProgress.erros++
-          this.loteProgress.items[i]!.status = 'erro'
-          this.loteProgress.items[i]!.erro = (e as Error).message
-        }
-
-        // Delay entre consultas
-        if (i < documentos.length - 1) {
-          await new Promise((r: (v: unknown) => void) => setTimeout(r, 3000))
-        }
-      }
-      this.loteProgress.status = 'done'
-      this.loteProgress.currentCliente = 'Concluído'
-    })()
+    this.runLote(empresaId, prog, documentos, userId, forcarNova)
+      .catch(e => log.error(`Lote CNDT interrompido: ${(e as Error).message}`))
+      .finally(() => { prog.status = 'done'; prog.currentCliente = 'Concluído' })
 
     return { message: `Consulta em lote iniciada para ${documentos.length} documento(s)` }
   }
 
+  private async runLote(
+    empresaId: string, prog: CndtLoteProgress,
+    documentos: Array<{ documento: string; clienteId?: string; razaoSocial?: string }>,
+    userId: string | undefined, forcarNova: boolean,
+  ) {
+    for (let i = 0; i < documentos.length; i++) {
+      const c = documentos[i]!
+      const item = prog.items[i]!
+      prog.current = i + 1
+      prog.currentCliente = c.razaoSocial || c.documento
+      item.status = 'processando'
+
+      try {
+        // Certidão ainda válida não é reemitida (cada emissão custa captcha).
+        if (!forcarNova) {
+          const ultima = await prisma.$queryRawUnsafe<Array<{ sucesso: boolean; data_validade: Date | null; created_at: Date | null }>>(
+            `SELECT sucesso, data_validade, created_at FROM certidoes_cndt
+              WHERE documento = $1 AND empresa_id = $2 AND sucesso = true
+              ORDER BY created_at DESC LIMIT 1`, limparDoc(c.documento), empresaId,
+          )
+          const u = ultima[0]
+          if (u && !precisaReconsultar({ sucesso: u.sucesso, dataValidade: u.data_validade, criadoEm: u.created_at })) {
+            prog.pulados++
+            item.status = 'pulada'
+            item.erro = 'Certidão ainda válida'
+            continue
+          }
+        }
+
+        const result = await this.consultar(empresaId, c.documento, c.clienteId, userId)
+        if (result.sucesso) {
+          prog.emitidas++
+          item.status = 'emitida'
+        } else {
+          prog.naoEmitidas++
+          item.status = 'nao_emitida'
+          item.erro = result.mensagem
+        }
+      } catch (e) {
+        prog.erros++
+        item.status = 'erro'
+        item.erro = (e as Error).message
+        log.error(`Lote CNDT, item ${i + 1}/${documentos.length}: ${(e as Error).message}`)
+      }
+
+      // Intervalo entre consultas (só depois de consultar de fato)
+      if (i < documentos.length - 1) await espera(3000)
+    }
+  }
+
   // ── Listagem ────────────────────────────────────────
 
-  async list(input: { page: number; limit: number; search?: string; filtroStatus?: string }) {
-    await this.ensureTable()
+  async list(empresaId: string, input: { page: number; limit: number; search?: string; filtroStatus?: string }) {
+    exigirEmpresa(empresaId)
     const { page, limit, search, filtroStatus } = input
     const offset = (page - 1) * limit
-    const conditions: string[] = []
-    const params: unknown[] = []
-    let idx = 1
+    const conditions: string[] = ['empresa_id = $1']
+    const params: unknown[] = [empresaId]
+    let idx = 2
 
     if (search) { conditions.push(`(documento ILIKE $${idx} OR razao_social ILIKE $${idx})`); params.push(`%${search}%`); idx++ }
 
@@ -293,7 +413,7 @@ export class CndtTrabalhistaService {
     else if (filtroStatus === 'vencendo') conditions.push(`data_validade IS NOT NULL AND data_validade >= CURRENT_DATE AND data_validade <= CURRENT_DATE + INTERVAL '15 days'`)
     else if (filtroStatus === 'vencida') conditions.push(`data_validade IS NOT NULL AND data_validade < CURRENT_DATE`)
 
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+    const where = `WHERE ${conditions.join(' AND ')}`
 
     const countRows = await prisma.$queryRawUnsafe<Array<{ total: number }>>(`SELECT COUNT(*)::int as total FROM certidoes_cndt ${where}`, ...params)
     const total = countRows[0]?.total || 0
@@ -319,8 +439,8 @@ export class CndtTrabalhistaService {
     }
   }
 
-  async totalizadores() {
-    await this.ensureTable()
+  async totalizadores(empresaId: string) {
+    exigirEmpresa(empresaId)
     const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
       SELECT
         COUNT(*)::int as total,
@@ -331,7 +451,8 @@ export class CndtTrabalhistaService {
         COUNT(*) FILTER (WHERE data_validade IS NOT NULL AND data_validade >= CURRENT_DATE AND data_validade <= CURRENT_DATE + INTERVAL '15 days')::int as vencendo,
         COUNT(*) FILTER (WHERE data_validade IS NOT NULL AND data_validade > CURRENT_DATE + INTERVAL '15 days')::int as vigentes
       FROM certidoes_cndt
-    `)
+      WHERE empresa_id = $1
+    `, empresaId)
     const r = rows[0]!
     return {
       total: Number(r.total ?? 0), negativas: Number(r.negativas ?? 0), positivas: Number(r.positivas ?? 0),
@@ -340,22 +461,27 @@ export class CndtTrabalhistaService {
     }
   }
 
-  async getPdf(id: string) {
+  async getPdf(empresaId: string, id: string) {
+    exigirEmpresa(empresaId)
     const rows = await prisma.$queryRawUnsafe<Array<{ pdf_base64: string | null }>>(
-      `SELECT pdf_base64 FROM certidoes_cndt WHERE id = $1`, id,
+      `SELECT pdf_base64 FROM certidoes_cndt WHERE id = $1 AND empresa_id = $2`, id, empresaId,
     )
     return { pdfBase64: rows[0]?.pdf_base64 || null }
   }
 
-  async deleteCndt(id: string) {
-    await prisma.$executeRawUnsafe(`DELETE FROM certidoes_cndt WHERE id = $1`, id)
+  async deleteCndt(empresaId: string, id: string) {
+    exigirEmpresa(empresaId)
+    await prisma.$executeRawUnsafe(`DELETE FROM certidoes_cndt WHERE id = $1 AND empresa_id = $2`, id, empresaId)
     return { ok: true }
   }
 
-  async deleteLote(ids: string[]) {
+  async deleteLote(empresaId: string, ids: string[]) {
+    exigirEmpresa(empresaId)
     if (ids.length === 0) return { deleted: 0 }
-    const placeholders = ids.map((_, i) => `$${i + 1}`).join(', ')
-    await prisma.$executeRawUnsafe(`DELETE FROM certidoes_cndt WHERE id IN (${placeholders})`, ...ids)
-    return { deleted: ids.length }
+    const placeholders = ids.map((_, i) => `$${i + 2}`).join(', ')
+    const deleted = await prisma.$executeRawUnsafe(
+      `DELETE FROM certidoes_cndt WHERE empresa_id = $1 AND id IN (${placeholders})`, empresaId, ...ids,
+    )
+    return { deleted }
   }
 }

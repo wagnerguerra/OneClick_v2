@@ -8,7 +8,7 @@ import {
   Plus, Loader2, Search, AlertTriangle, MessageSquare,
   CheckCircle2, LayoutGrid, List as ListIcon, Inbox, Settings, Archive,
   Paperclip, Bot, BarChart3, XCircle, MoreVertical, ExternalLink, X, FilterX, SlidersHorizontal,
-  ListChecks,
+  ListChecks, Bug, ClipboardList, HelpCircle, Lightbulb, Flag, Tag, Layers, UserCog, Clock,
 } from 'lucide-react'
 import {
   DndContext, closestCenter, DragOverlay, PointerSensor, useSensor, useSensors,
@@ -26,18 +26,18 @@ import { TEXT, SURFACE } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { resolveAssetUrl } from '@/lib/api-url'
+import { AvatarPequeno, DicaIcone, LinhaCard } from '@/components/kanban/card-partes'
 import { USER_PERMISSIONS_REFRESH_EVENT } from '@/hooks/use-user-permissions'
 import { useSession } from '@/lib/auth-client'
 import {
   HELPDESK_STATUS, HELPDESK_STATUS_LABELS, HELPDESK_PRIORIDADE, HELPDESK_PRIORIDADE_LABELS,
-  HELPDESK_PRIORIDADE_COLORS,
+  HELPDESK_PRIORIDADE_COLORS, HELPDESK_TIPO_LABELS,
   solicitantePodeCancelar, helpdeskPodeArquivar,
   type HelpdeskStatus, type HelpdeskPrioridade,
 } from '@saas/types'
 import { NovoTicketModal } from './_components/novo-ticket-modal'
 import { TicketDetalheCompletoSheet } from './_components/ticket-detalhe-completo-sheet'
 import { HELPDESK_STATUS_COR } from './_lib/status-styles'
-import { UserAvatar } from '@/components/ui/user-avatar'
 
 interface Ticket {
   id: string
@@ -811,6 +811,7 @@ export default function HelpdeskPage() {
           <p className="text-sm">Nenhum ticket encontrado</p>
         </Card>
       ) : (viewMode === 'kanban' && !verArquivados) ? (
+        <TooltipProvider delayDuration={200}>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd}>
           <div className="nice-scrollbar -mx-1 flex-1 overflow-x-auto overflow-y-hidden pb-4">
             {/* `w-max` no lugar do minWidth calculado: a largura vem das colunas,
@@ -852,6 +853,7 @@ export default function HelpdeskPage() {
             {activeCard && <KanbanCardOverlay ticket={activeCard} cor={STATUS_COR[activeCard.status]} velocityX={dragDeltaX} width={activeCardWidth} />}
           </DragOverlay>
         </DndContext>
+        </TooltipProvider>
       ) : (
         // Modo arquivados — reaproveita o mesmo TicketPanel da lista normal, com
         // o desarquivar in-place por linha (sem entrar no ticket).
@@ -1051,162 +1053,177 @@ function KanbanCardOverlay({ ticket, cor, velocityX, width }: { ticket: Ticket; 
   )
 }
 
+/** Ícone por tipo de ticket — ocupa o lugar da logo no cabeçalho do card. */
+const TIPO_ICONE: Record<Ticket['tipo'], typeof Bug> = {
+  INCIDENTE: Bug,
+  REQUISICAO: ClipboardList,
+  DUVIDA: HelpCircle,
+  MELHORIA: Lightbulb,
+}
+
+/**
+ * SLA do ticket no relógio do rodapé: tempo que falta (ou que passou) até o
+ * prazo. Vencendo = menos de 24h. Sem prazo, ou ticket encerrado: nada.
+ */
+function slaDoTicket(ticket: Ticket): { curto: string; cor: string; titulo: string; texto: string; estado: 'ok' | 'vencendo' | 'vencido' } | null {
+  if (!ticket.prazoSla || ['CONCLUIDO', 'CANCELADO', 'RESOLVIDO'].includes(ticket.status)) return null
+  const prazo = new Date(ticket.prazoSla)
+  const diff = prazo.getTime() - Date.now()
+  const abs = Math.abs(diff)
+  const horas = Math.floor(abs / 3600000)
+  const tempo = horas >= 24 ? `${Math.floor(horas / 24)}d` : horas >= 1 ? `${horas}h` : `${Math.max(1, Math.floor(abs / 60000))}min`
+  const quando = prazo.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+  if (diff < 0) return { curto: `vencido ${tempo}`, cor: cn(TEXT.rose, 'font-semibold'), titulo: 'SLA vencido', texto: `Prazo era ${quando}.`, estado: 'vencido' }
+  if (diff < 24 * 3600000) return { curto: tempo, cor: TEXT.amber, titulo: 'SLA vencendo', texto: `Prazo: ${quando}.`, estado: 'vencendo' }
+  return { curto: tempo, cor: 'text-muted-foreground', titulo: 'Dentro do SLA', texto: `Prazo: ${quando}.`, estado: 'ok' }
+}
+
 function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: string; dragging?: boolean }) {
+  void cor // a cor da coluna já aparece no cabeçalho da coluna
   const ticketNum = `#HLP${String(ticket.numero).padStart(4, '0')}`
   const corPrioridade = HELPDESK_PRIORIDADE_COLORS[ticket.prioridade]
-  const prazoAtrasado = ticket.prazoSla && new Date(ticket.prazoSla).getTime() < Date.now()
-    && !['CONCLUIDO', 'CANCELADO', 'RESOLVIDO'].includes(ticket.status)
-  const temCapa = !!ticket.capa
-  // Quando o ticket tem capa, a imagem fica acima da barra colorida (modelo
-  // de cards visuais — Hero/Trello). Quando não tem, a barra fica grossa no
-  // topo do card (modelo simples — Landing page).
+  const sla = slaDoTicket(ticket)
+  const IconeTipo = TIPO_ICONE[ticket.tipo] ?? Inbox
+
+  // Badge informativo: o que pede atenção, do mais urgente ao menos.
+  const avisos: Array<{ curto: string; label: string; detalhe?: string; Icon: typeof Bug; cor: string }> = []
+  if (ticket.aguardandoResposta) avisos.push({ curto: 'Respondeu', label: 'Solicitante respondeu', detalhe: 'Aguardando o agente', Icon: MessageSquare, cor: 'var(--color-primary-on-surface)' })
+  if (sla?.estado === 'vencido') avisos.push({ curto: 'SLA vencido', label: 'SLA vencido', detalhe: sla.texto, Icon: AlertTriangle, cor: '#e11d48' })
+  else if (sla?.estado === 'vencendo') avisos.push({ curto: 'SLA vencendo', label: 'SLA vencendo', detalhe: sla.texto, Icon: Clock, cor: '#d97706' })
+  if (ticket.prioridade === 'URGENTE' || ticket.prioridade === 'ALTA') {
+    avisos.push({ curto: HELPDESK_PRIORIDADE_LABELS[ticket.prioridade], label: `Prioridade ${HELPDESK_PRIORIDADE_LABELS[ticket.prioridade].toLowerCase()}`, Icon: Flag, cor: corPrioridade })
+  }
+  const aviso = avisos[0] ?? null
+
   return (
     <div
       className={cn(
-        // Card escuro um pouco mais preto que o bg-card global, pra destacar sobre
-        // o overlay sutil da coluna no dark.
-        // cursor-pointer indica "clicável" (ação primária = abrir ticket).
-        // O drag continua funcionando mesmo com pointer — só muda a aparência.
-        'rounded-md bg-white dark:bg-[#1f242e] cursor-pointer group overflow-hidden border border-border/50 relative',
-        dragging ? 'shadow-lg' : 'hover:shadow-md transition-shadow',
-        // Solicitante respondeu — destaca o card (bola do lado do agente).
-        ticket.aguardandoResposta && 'ring-2 ring-primary border-primary/50 shadow-[0_0_0_3px] shadow-primary/15',
+        // cursor-pointer indica "clicável" (ação primária = abrir ticket); o
+        // drag continua funcionando.
+        'group relative cursor-pointer overflow-hidden rounded-md border border-border/60 bg-white dark:bg-card',
+        dragging && 'shadow-lg',
+        // Solicitante respondeu — anel na primária (a vez é do agente).
+        ticket.aguardandoResposta && 'border-primary/60 ring-2 ring-primary',
       )}
     >
-      {/* Selo "nova resposta" — solicitante respondeu, aguarda o agente */}
-      {ticket.aguardandoResposta && (
-        <div className="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-[9px] font-semibold px-1.5 py-0.5 shadow-sm">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white/80 opacity-75" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
-          </span>
-          Respondeu
-        </div>
-      )}
-
-      {/* Capa (opcional) — primeira imagem anexada, com padding e cantos arredondados */}
-      {temCapa && (
-        <div className="px-2 pt-2">
-          <div className="relative w-full aspect-[16/9] bg-muted overflow-hidden rounded-md">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={resolveAssetUrl(ticket.capa!.fileUrl)}
-              alt={ticket.capa!.fileName}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-          </div>
-        </div>
-      )}
-      {/* Barra colorida da coluna — ocupa 1/3 da largura, alinhada à esquerda */}
-      <div
-        className={cn('ml-2.5 w-1/3 rounded-full h-1.5', temCapa ? 'mt-2 mb-2' : 'mt-2.5 mb-2')}
-        style={{ backgroundColor: cor }}
-      />
-
-      {/* Conteúdo */}
-      <div className="px-2.5 pb-2 flex flex-col gap-1.5">
-        {/* Linha 1: ticket# + prioridade + SLA atrasado */}
-        <div className="flex items-center gap-1.5">
-          <span className="font-mono text-[10px] text-muted-foreground tabular-nums">{ticketNum}</span>
-          <span className="text-[9px] uppercase tracking-wider font-medium" style={{ color: corPrioridade }}>
-            {HELPDESK_PRIORIDADE_LABELS[ticket.prioridade]}
-          </span>
-          {prazoAtrasado && (
-            <span className={cn('ml-auto inline-flex items-center gap-0.5 text-[9px] font-semibold', TEXT.rose)}>
-              <AlertTriangle className="h-2.5 w-2.5" /> SLA
-            </span>
+      {/* Cabeçalho — tipo + título; nº do ticket e badge informativo à direita */}
+      <div className="flex items-center gap-2 border-b border-dashed border-border px-3 py-2.5">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground" title={HELPDESK_TIPO_LABELS[ticket.tipo]}>
+          <IconeTipo className="h-3.5 w-3.5" strokeWidth={1.75} />
+        </span>
+        <DicaIcone titulo={ticket.titulo} texto={`${HELPDESK_TIPO_LABELS[ticket.tipo]} · aberto em ${new Date(ticket.createdAt).toLocaleDateString('pt-BR')}`}>
+          <span className="min-w-0 flex-1 cursor-help truncate text-[13px] font-semibold">{ticket.titulo}</span>
+        </DicaIcone>
+        <div className="flex shrink-0 items-center gap-1">
+          <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums text-foreground/80">{ticketNum}</span>
+          {aviso && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="inline-flex max-w-[110px] cursor-help items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold"
+                  // Cor inline (fundo = a cor com ~10% de alfa): em classe, o vermelho sofre o retint do módulo.
+                  // color-mix em vez de sufixo hex de alfa: aceita tanto hex quanto var (o "Respondeu" é a primária).
+                  style={{ backgroundColor: `color-mix(in srgb, ${aviso.cor} 10%, transparent)`, color: aviso.cor }}
+                  onClick={e => e.stopPropagation()}
+                  onPointerDown={e => e.stopPropagation()}
+                >
+                  <aviso.Icon className="h-3 w-3 shrink-0" strokeWidth={2.25} />
+                  <span className="truncate">{aviso.curto}</span>
+                  {avisos.length > 1 && <span className="shrink-0 opacity-70">+{avisos.length - 1}</span>}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="end" sideOffset={6} className="tooltip-fade max-w-[280px] text-[11px]">
+                <div className="space-y-1.5">
+                  {avisos.map(a => (
+                    <div key={a.label}>
+                      <p className="flex items-center gap-1 font-semibold"><a.Icon className="h-3 w-3 shrink-0" /> {a.label}</p>
+                      {a.detalhe && <p>{a.detalhe}</p>}
+                    </div>
+                  ))}
+                </div>
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
+      </div>
 
-        {/* Linha 2: título — com ícone de check à esquerda como nos modelos */}
-        <div className="flex items-start gap-1.5">
-          <CheckCircle2 className="h-3.5 w-3.5 mt-[1px] text-muted-foreground/70 shrink-0" />
-          <p className="text-[12px] font-semibold leading-tight line-clamp-2 flex-1">{ticket.titulo}</p>
+      {/* Capa (opcional) — primeira imagem anexada */}
+      {ticket.capa && (
+        <div className="px-3 pt-2.5">
+          <div className="relative aspect-[16/9] w-full overflow-hidden rounded-md bg-muted">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={resolveAssetUrl(ticket.capa.fileUrl)} alt={ticket.capa.fileName} className="h-full w-full object-cover" loading="lazy" />
+          </div>
         </div>
+      )}
 
-        {/* Linha 3: tag de categoria (estilo pill colorida, igual ao 'Illustration' do modelo) */}
+      {/* Corpo — uma informação por linha, cada uma com seu ícone */}
+      <div className="space-y-1.5 px-3 py-2.5 text-[12px] text-foreground/85">
         {ticket.categoria && (
-          <div>
-            <span
-              className="inline-flex items-center gap-1 text-[10px] font-semibold text-white rounded-full px-2 py-0.5"
-              style={{ backgroundColor: ticket.categoria.cor || '#5ea3cb' }}
-            >
+          <LinhaCard icone={Tag}>
+            <span className="inline-flex max-w-full items-center truncate rounded-full px-2 py-0.5 text-[10px] font-semibold text-white" style={{ backgroundColor: ticket.categoria.cor || '#5ea3cb' }}>
               {ticket.categoria.nome}
             </span>
+          </LinhaCard>
+        )}
+        {ticket.area && (
+          <LinhaCard icone={Layers}>
+            <span className="truncate">{ticket.area.name}</span>
+          </LinhaCard>
+        )}
+        <LinhaCard icone={Flag}>
+          <span className="font-medium" style={{ color: corPrioridade }}>{HELPDESK_PRIORIDADE_LABELS[ticket.prioridade]}</span>
+          <span className="text-muted-foreground">· {HELPDESK_TIPO_LABELS[ticket.tipo]}</span>
+        </LinhaCard>
+        {ticket.solicitante && (
+          <div className="flex min-w-0 items-center gap-2">
+            <AvatarPequeno user={ticket.solicitante} />
+            <span className="truncate">{ticket.solicitante.name}</span>
+            <span className="shrink-0 text-[11px] text-muted-foreground">solicitante</span>
           </div>
         )}
-
-        {/* Linha 4 (rodapé): avatar do responsável (+ nome) à esquerda · indicadores à direita.
-            Padding maior + tipos um pouco maiores pra melhorar legibilidade — antes ficava
-            apertado e com fontes 9-10px que cansavam a vista. */}
-        <div className="flex items-center justify-between gap-2 mt-1 pt-1.5 border-t border-border/40">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            {/* Avatar group horizontal, sobreposto (frente→trás, da direita p/ a
-                esquerda): solicitante ATRÁS à esquerda, peeking — nome em tooltip
-                no hover (que o traz pra frente + zoom); responsável na FRENTE à
-                direita, com o nome ao lado (como antes). O tooltip é portalizado
-                (não é cortado pelo overflow-hidden do card). Sem responsável, só o
-                solicitante aparece. */}
-            <div className="flex items-center shrink-0">
-              <TooltipProvider delayDuration={150}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="relative z-0 rounded-full ring-2 ring-card transition-transform duration-150 hover:z-20 hover:scale-110">
-                      <UserAvatar user={ticket.solicitante} bg="bg-slate-400" className="h-6 w-6 text-[10px]" />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">Solicitante: {ticket.solicitante?.name ?? '—'}</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              {ticket.responsavel && (
-                <TooltipProvider delayDuration={150}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="relative z-10 -ml-2.5 rounded-full ring-2 ring-card transition-transform duration-150 hover:z-20 hover:scale-110">
-                        <UserAvatar user={ticket.responsavel} bg="bg-[#5ea3cb]" className="h-6 w-6 text-[10px]" />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">Responsável: {ticket.responsavel.name}</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </div>
-            <span className="text-[12px] text-muted-foreground truncate min-w-0">
-              {ticket.responsavel?.name || ticket.solicitante?.name || 'Não atribuído'}
-            </span>
-          </div>
-          <div className="flex items-center gap-2.5 text-[11px] text-muted-foreground shrink-0">
-            {/* Score da triagem IA (#HLP0083). Violeta = atingiu threshold ou
-                tem plano; cinza = não-elegível. Tooltip via title detalha. */}
-            {ticket.aiScore != null && <ScoreIaBadge ticket={ticket} />}
-            {/* Checklist vinculado (#HLP0396). O card mostra só o progresso —
-                o roteiro em si fica na aba Checklist do detalhe. Verde quando
-                fecha tudo, pra o quadro dizer "este já rodou" sem abrir. */}
-            {ticket.checklist && ticket.checklist.passosTotal > 0 && (
-              <span
-                className={cn(
-                  'inline-flex items-center gap-0.5 tabular-nums',
-                  ticket.checklist.passosFechados >= ticket.checklist.passosTotal && 'text-emerald-600 dark:text-emerald-400',
-                )}
-                title={`Checklist: ${ticket.checklist.passosFechados} de ${ticket.checklist.passosTotal} passo(s) concluído(s)`}
-              >
-                <ListChecks className="h-3.5 w-3.5" />
-                {ticket.checklist.passosFechados}/{ticket.checklist.passosTotal}
-              </span>
-            )}
-            {ticket._count.anexos > 0 && (
-              <span className="inline-flex items-center gap-0.5">
-                <Paperclip className="h-3.5 w-3.5" /> {ticket._count.anexos}
-              </span>
-            )}
-            {ticket._count.mensagens > 0 && (
-              <span className="inline-flex items-center gap-0.5">
-                <MessageSquare className="h-3.5 w-3.5" /> {ticket._count.mensagens}
-              </span>
-            )}
-          </div>
+        <div className="flex min-w-0 items-center gap-2">
+          {ticket.responsavel ? <AvatarPequeno user={ticket.responsavel} /> : <UserCog className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />}
+          <span className={cn('truncate', !ticket.responsavel && 'text-muted-foreground')}>{ticket.responsavel?.name ?? 'Não atribuído'}</span>
+          {ticket.responsavel && <span className="shrink-0 text-[11px] text-muted-foreground">responsável</span>}
         </div>
+      </div>
+
+      {/* Rodapé — contadores à esquerda (só os que têm algo), SLA à direita */}
+      <div className="flex items-center justify-between gap-2 border-t border-dashed border-border px-3 py-2 text-[11px] text-muted-foreground">
+        <div className="flex min-w-0 items-center gap-3">
+          {ticket.checklist && ticket.checklist.passosTotal > 0 && (
+            <DicaIcone titulo={`Checklist ${ticket.checklist.passosFechados}/${ticket.checklist.passosTotal}`} texto="Passos concluídos do roteiro do serviço">
+              <span className={cn('flex cursor-help items-center gap-1 tabular-nums', ticket.checklist.passosFechados >= ticket.checklist.passosTotal && TEXT.emerald)}>
+                <ListChecks className="h-3.5 w-3.5" strokeWidth={1.5} /> {ticket.checklist.passosFechados}/{ticket.checklist.passosTotal}
+              </span>
+            </DicaIcone>
+          )}
+          {ticket._count.anexos > 0 && (
+            <DicaIcone titulo={`${ticket._count.anexos} ${ticket._count.anexos === 1 ? 'anexo' : 'anexos'}`} texto="Arquivos do ticket">
+              <span className="flex cursor-help items-center gap-1"><Paperclip className="h-3.5 w-3.5" strokeWidth={1.5} /> {ticket._count.anexos}</span>
+            </DicaIcone>
+          )}
+          {ticket._count.mensagens > 0 && (
+            <DicaIcone titulo={`${ticket._count.mensagens} ${ticket._count.mensagens === 1 ? 'mensagem' : 'mensagens'}`} texto="Conversa do ticket">
+              <span className="flex cursor-help items-center gap-1"><MessageSquare className="h-3.5 w-3.5" strokeWidth={1.5} /> {ticket._count.mensagens}</span>
+            </DicaIcone>
+          )}
+          {ticket.aiScore != null && <ScoreIaBadge ticket={ticket} />}
+        </div>
+        {sla ? (
+          <DicaIcone titulo={sla.titulo} texto={sla.texto}>
+            <span className={cn('flex shrink-0 cursor-help items-center gap-1 tabular-nums', sla.cor)}>
+              <Clock className="h-3.5 w-3.5" strokeWidth={1.5} /> {sla.curto}
+            </span>
+          </DicaIcone>
+        ) : (
+          <DicaIcone titulo="Aberto" texto={`em ${new Date(ticket.createdAt).toLocaleDateString('pt-BR')}`}>
+            <span className="flex shrink-0 cursor-help items-center gap-1 tabular-nums">
+              <Clock className="h-3.5 w-3.5" strokeWidth={1.5} /> {Math.max(0, Math.floor((Date.now() - new Date(ticket.createdAt).getTime()) / 86400000))}d
+            </span>
+          </DicaIcone>
+        )}
       </div>
     </div>
   )

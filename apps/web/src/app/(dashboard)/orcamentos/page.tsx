@@ -1,12 +1,18 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react'
+import { useState, useEffect, useCallback, useRef, createContext, useContext, type ReactNode } from 'react'
+import { ClienteIdentificacao, type ClienteDoc } from '@/components/cliente-identificacao'
+import { SeloExCliente, ehExCliente } from '@/components/selo-ex-cliente'
+import { mensagemErro } from '@/lib/errors'
+import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+import { ROTEIRO_SOLICITACAO_ORCAMENTO, detalhamentoPreenchido } from '@/components/orcamento/roteiro-solicitacao'
+import { useRoteiroSolicitacao } from '@/components/orcamento/use-roteiro-solicitacao'
 import { useRouter } from 'next/navigation'
 import {
   FileText, CircleDollarSign, Loader2, Plus, MoreVertical, Copy, Archive, Ban,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, ChevronsUpDown,
-  Clock, LayoutGrid, List, Eye, Settings2, Package, BarChart3, Activity,
-  MessageSquare, Paperclip, RotateCcw, Star, SlidersHorizontal, X, Target,
+  Highlighter, Building2, IdCard, ListChecks, Pause, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, ChevronsUpDown,
+  Clock, AlertTriangle, LayoutGrid, List, Eye, Settings2, Package, BarChart3, Activity,
+  MessageSquare, Paperclip, RotateCcw, Star, SlidersHorizontal, X, Target, Check,
   Download, FileSpreadsheet, FileDown, CheckCircle2, Pencil, ThumbsDown, Search as SearchIcon,
   Wrench,
 } from 'lucide-react'
@@ -14,7 +20,7 @@ import {
   Button, Input, Badge, Card, Checkbox,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   Label, RichEditor,
@@ -23,9 +29,11 @@ import { ClienteCombobox } from './_components/cliente-combobox'
 import { UserCombobox } from './_components/user-combobox'
 import { CatalogoCombobox } from './_components/catalogo-combobox'
 import { RelatorioColunaModal } from './_components/relatorio-coluna-modal'
+import { PreviewOrcamento } from './_components/preview-orcamento'
+import { AvatarPequeno, DicaIcone, LinhaCard, LogoCliente } from '@/components/kanban/card-partes'
 import { ReprocessarServicosModal } from './_components/reprocessar-servicos-modal'
 import { cn } from '@saas/ui'
-import { TEXT, BADGE, DOT } from '@/lib/color-styles'
+import { TEXT, BADGE } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { useAutoHideScrollbar } from '@/hooks/use-autohide-scrollbar'
@@ -37,14 +45,14 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from '@dnd-kit/utilities'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { resolveAssetUrl, getApiUrl } from '@/lib/api-url'
+import { getApiUrl } from '@/lib/api-url'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 // ============================================================
 // Tipos e constantes
 // ============================================================
 
-import { isOrcamentoTransitionAllowed, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_COLORS, resolveOrcamentoScope, type OrcamentoScope } from '@saas/types'
+import { isOrcamentoTransitionAllowed, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_COLORS, resolveOrcamentoScope, type OrcamentoScope, formatDocumento, ehMatrizCnpj, DESTAQUE_CORES, DESTAQUE_COR_LABELS, type DestaqueCor } from '@saas/types'
 
 const STATUS_ORDER = ['NOVO', 'A_ENVIAR', 'ENVIADO', 'APROVADO', 'LIBERADO', 'FINALIZADO', 'ENCERRADO'] as const
 
@@ -69,6 +77,12 @@ interface OrcamentoRow {
   id: string
   numero: number
   status: string
+  /** Card destacado no quadro (todos veem; sobe para o topo da coluna). */
+  destacadoEm?: string | null
+  destacadoCor?: DestaqueCor | null
+  destacadoPorUser?: { id: string; name: string; image?: string | null } | null
+  /** APROVADO com o serviço já concluído — falta a liberação do financeiro. */
+  servicosConcluidos?: boolean
   totalGeral: number
   valorTotal?: number
   clienteId: string | null
@@ -117,10 +131,33 @@ const DEFAULT_CONFIG: OrcConfig = { diasEnviar: 7, diasAprovar: 15, diasRevisar:
 // Context para que o KanbanCardContent pegue config sem prop drilling
 const OrcConfigContext = createContext<OrcConfig>(DEFAULT_CONFIG)
 
+/**
+ * Cor do destaque em hex, aplicada inline na bolinha do menu, na borda do card
+ * e no ícone do rodapé — os três idênticos. Não usa classes Tailwind porque a
+ * página roda sob `.mod-comercial`, e o retint do globals.css troca as classes
+ * rosa pela cor do módulo (a borda saía lavada, puxando para o laranja). Cor
+ * escolhida pelo usuário é conceito, não módulo: mapa `*_COR` local.
+ */
+const DESTAQUE_COR: Record<DestaqueCor, string> = {
+  amber: '#f59e0b',
+  orange: '#f97316',
+  rose: '#e11d48',
+  emerald: '#10b981',
+  sky: '#0ea5e9',
+  violet: '#8b5cf6',
+}
+/** Cores da quina de aviso do header (inline pelo mesmo motivo do DESTAQUE_COR). */
+const AVISO_COR = { verde: '#10b981', ambar: '#f59e0b', vermelho: '#e11d48' } as const
+
+const corDoDestaque = (orc: { destacadoCor?: DestaqueCor | null }): DestaqueCor =>
+  orc.destacadoCor && (DESTAQUE_CORES as readonly string[]).includes(orc.destacadoCor) ? orc.destacadoCor : 'amber'
+
 interface PrazoInfo {
   label: string  // texto curto pro card. ex: "3d p/ enviar", "vencido 2d"
   tooltip: string
   variant: 'ok' | 'warning' | 'danger' | 'neutral'
+  /** 0–100: quanto do prazo da etapa ainda resta (medidor do preview). */
+  restantePct?: number
 }
 
 function calcularPrazoCard(orc: OrcamentoRow, config: OrcConfig): PrazoInfo {
@@ -175,10 +212,11 @@ function calcularPrazoCard(orc: OrcamentoRow, config: OrcConfig): PrazoInfo {
       label: `vencido ${atraso}d`,
       tooltip: `${acaoTooltip}. Vencido há ${atraso} dia(s)`,
       variant: 'danger',
+      restantePct: 0,
     }
   }
   if (restantes === 0) {
-    return { label: 'vence hoje', tooltip: `${acaoTooltip}. Vence hoje!`, variant: 'danger' }
+    return { label: 'vence hoje', tooltip: `${acaoTooltip}. Vence hoje!`, variant: 'danger', restantePct: 0 }
   }
 
   // Cor baseada na proporção do prazo restante
@@ -190,6 +228,7 @@ function calcularPrazoCard(orc: OrcamentoRow, config: OrcConfig): PrazoInfo {
     label: `${restantes}d ${acaoLabel}`,
     tooltip: `${acaoTooltip}. Restam ${restantes} dia(s)`,
     variant,
+    restantePct: Math.round(Math.min(1, ratio) * 100),
   }
 }
 
@@ -252,6 +291,10 @@ export default function OrcamentosPage() {
   const canCadastroCompleto = isMaster || subPerms.cadastro_completo === true
   // Mover cards no kanban — só com sub-permissão explícita ou master
   const canMoverKanban = isMaster || subPerms.mover_kanban === true
+  // Clique no orçamento: detalhes direto (sub-permissão) ou preview. É
+  // preferência de navegação, não acesso — por isso o master também segue a
+  // marcação, sem bypass.
+  const abrirDetalhesDireto = subPerms.abrir_detalhes_direto === true
   // panel_consultas: pagina de consultas ainda nao implementada (legado index-consulta.asp); flag pronta para uso futuro
   // Escopo de listagem — escolha ÚNICA gravada na permissão do usuário, com
   // 'proprios' como padrão e fallback (#HLP0266). Master/EmpresaMaster vê tudo.
@@ -300,9 +343,14 @@ export default function OrcamentosPage() {
     setIncluirParalizados(true); setPage(1)
   }
   const [orcamentos, setOrcamentos] = useState<OrcamentoRow[]>([])
+  // Preview (painel lateral) do card clicado no quadro.
+  const [previewId, setPreviewId] = useState<string | null>(null)
+  // Quem está logado — o destaque aplicado aqui já mostra "Por <nome>" sem
+  // recarregar a lista.
+  const { profile: eu } = useCurrentUserProfile()
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
-  const [clientesMap, setClientesMap] = useState<Map<string, { razaoSocial: string }>>(new Map())
+  const [clientesMap, setClientesMap] = useState<Map<string, ClienteDoc>>(new Map())
   const [orcConfig, setOrcConfig] = useState<OrcConfig>(DEFAULT_CONFIG)
   const [viewMode, setViewMode] = useState<'tabela' | 'kanban'>(() => {
     if (typeof window === 'undefined') return 'kanban'
@@ -511,7 +559,7 @@ export default function OrcamentosPage() {
     try { setFormasCatalogo((await (trpc.orcamento as any).listFormasPagamento.query()) || []) } catch { /* sem permissão no módulo */ }
   }, [])
   useEffect(() => { void loadFormasCatalogo() }, [loadFormasCatalogo])
-  const [clientes, setClientes] = useState<{ id: string; razaoSocial: string; documento?: string | null }[]>([])
+  const [clientes, setClientes] = useState<{ id: string; razaoSocial: string; documento?: string | null; status?: string | null }[]>([])
   const [usuarios, setUsuarios] = useState<{ id: string; name: string }[]>([])
   const [creating, setCreating] = useState(false)
   // Áreas a notificar — lista + pills compartilhadas com o balão do FAB
@@ -529,9 +577,16 @@ export default function OrcamentosPage() {
     descontoPct: '',
     descontoValor: '',
     observacoes: '',
-    textoInterno: '',
+    // Abre com o roteiro do que o comercial precisa (#HLP0411) — lembrete, não trava.
+    textoInterno: ROTEIRO_SOLICITACAO_ORCAMENTO,
   }
   const [form, setForm] = useState(FORM_INITIAL)
+  // Roteiro configurável (Configurações → Textos padrão): substitui o padrão
+  // no Detalhamento enquanto ninguém mexeu nele.
+  const roteiro = useRoteiroSolicitacao()
+  useEffect(() => {
+    setForm(f => (f.textoInterno === ROTEIRO_SOLICITACAO_ORCAMENTO ? { ...f, textoInterno: roteiro } : f))
+  }, [roteiro, createOpen])
 
   useEffect(() => { const t = setTimeout(() => { setDebouncedSearch(search); setPage(1) }, 400); return () => clearTimeout(t) }, [search])
   useEffect(() => { const t = setTimeout(() => { setDebouncedNumero(numeroFilter); setPage(1) }, 400); return () => clearTimeout(t) }, [numeroFilter])
@@ -549,7 +604,8 @@ export default function OrcamentosPage() {
     void (async () => {
       try {
         const [cls, usrs, cat] = await Promise.all([
-          (trpc.cliente as any).listForSelect.query(),
+          // Filtro por cliente alcança os orçamentos de ex-clientes também.
+          (trpc.cliente as any).listForSelect.query({ incluirInativos: true }),
           (trpc.orcamento as any).listUsuarios.query(),
           (trpc.orcamento as any).listCatalogo.query({ somenteDisponiveis: true, tipoOrcamento: null }),
         ])
@@ -621,9 +677,11 @@ export default function OrcamentosPage() {
       const clienteIds = [...new Set(result.data.map((o: OrcamentoRow) => o.clienteId).filter(Boolean))] as string[]
       if (clienteIds.length > 0) {
         try {
-          const cls = await (trpc.cliente as any).listForSelect.query()
-          const map = new Map<string, { razaoSocial: string }>()
-          for (const c of cls) map.set(c.id, { razaoSocial: c.razaoSocial })
+          // Ex-clientes também: orçamento de cliente que foi inativado (a
+          // própria baixa da empresa, p.ex. #4783) aparecia como "Sem cliente".
+          const cls = await (trpc.cliente as any).listForSelect.query({ incluirInativos: true })
+          const map = new Map<string, ClienteDoc>()
+          for (const c of cls) map.set(c.id, { razaoSocial: c.razaoSocial, documento: c.documento, tipoDocumento: c.tipoDocumento, ehMatriz: c.ehMatriz, nomeFantasia: c.nomeFantasia, logoUrl: c.logoUrl, status: c.status })
           setClientesMap(map)
         } catch { /* */ }
       }
@@ -709,7 +767,8 @@ export default function OrcamentosPage() {
         validadeDias: form.validadeDias ? Number(form.validadeDias) : 90,
         descontoPct: form.descontoPct ? Number(form.descontoPct) : undefined,
         descontoValor: form.descontoValor ? Number(form.descontoValor) : undefined,
-        textoInterno: form.textoInterno || undefined,
+        // Roteiro intacto (nenhuma resposta) não é gravado como detalhamento.
+        textoInterno: detalhamentoPreenchido(form.textoInterno, roteiro) ? form.textoInterno : undefined,
       })
       // Vincula as áreas marcadas — é isso que dispara sino/e-mail pro líder (e
       // substituto) com o prazo pra detalhar. Falhar aqui não desfaz o orçamento,
@@ -750,6 +809,29 @@ export default function OrcamentosPage() {
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
+  /**
+   * Destaque sem recarregar a página: atualiza só o card, na hora (a coluna o
+   * reposiciona sozinha, porque a ordem sai de `orcByStatus`). Se a API recusar,
+   * o card volta como estava.
+   */
+  async function handleDestacar(id: string, destacar: boolean, cor?: DestaqueCor) {
+    const antes = orcamentos.find(o => o.id === id)
+    if (!antes) return
+    const aplicar = (patch: Partial<OrcamentoRow>) =>
+      setOrcamentos(lista => lista.map(o => (o.id === id ? { ...o, ...patch } : o)))
+    aplicar(destacar
+      ? { destacadoEm: new Date().toISOString(), destacadoCor: cor ?? 'amber', destacadoPorUser: eu ? { id: eu.id, name: eu.name, image: eu.image } : null }
+      : { destacadoEm: null, destacadoCor: null, destacadoPorUser: null })
+    try {
+      const r = await (trpc.orcamento as any).destacar.mutate({ id, destacar, cor }) as { destacadoEm: string | null }
+      // Hora oficial do servidor (a local pode diferir alguns segundos).
+      if (destacar && r?.destacadoEm) aplicar({ destacadoEm: r.destacadoEm })
+    } catch (e) {
+      aplicar({ destacadoEm: antes.destacadoEm ?? null, destacadoCor: antes.destacadoCor ?? null, destacadoPorUser: antes.destacadoPorUser ?? null })
+      alerts.error('Erro', mensagemErro(e, 'Não foi possível alterar o destaque.'))
+    }
+  }
+
   async function handleCancelar(id: string) {
     // #HLP0303 — não existe mais exclusão permanente. Cancelar é soft: o orçamento
     // sai do funil e passa a constar como "Cancelado" no cadastro do cliente.
@@ -772,7 +854,9 @@ export default function OrcamentosPage() {
     setCreateOpen(true)
     try {
       const [cls, usrs] = await Promise.all([
-        (trpc.cliente as any).listForSelect.query(),
+        // Ex-clientes também, como no botão "+" (solicitar orçamento): é assim
+        // que um cliente que saiu volta. Vêm marcados no combobox.
+        (trpc.cliente as any).listForSelect.query({ incluirInativos: true }),
         (trpc.orcamento as any).listUsuarios.query(),
       ])
       setClientes(cls)
@@ -795,14 +879,27 @@ export default function OrcamentosPage() {
 
   // ── Kanban data ──
   const orcByStatus = STATUS_ORDER.reduce((acc, status) => {
-    acc[status] = orcamentos.filter(o => o.status === status)
+    const daColuna = orcamentos.filter(o => o.status === status)
+    // Destacados sobem para o topo (o mais recente primeiro); os demais
+    // mantêm a ordem de sempre — sort estável, só separa os dois grupos.
+    acc[status] = [
+      ...daColuna.filter(o => o.destacadoEm).sort((a, b) => (b.destacadoEm ?? '').localeCompare(a.destacadoEm ?? '')),
+      ...daColuna.filter(o => !o.destacadoEm),
+    ]
     return acc
   }, {} as Record<string, OrcamentoRow[]>)
 
-  const getClienteNome = (orc: OrcamentoRow) => {
+  // Nome + final do CNPJ e selo Matriz/Filial (#HLP0410): matriz e filiais
+  // de uma mesma empresa apareciam idênticas na lista.
+  const getClienteNome = (orc: OrcamentoRow, variante: 'linha' | 'bloco' = 'linha'): ReactNode => {
     if (!orc.clienteId) return null
-    return clientesMap.get(orc.clienteId)?.razaoSocial || null
+    const cli = clientesMap.get(orc.clienteId)
+    return cli ? <ClienteIdentificacao cliente={cli} variante={variante} /> : null
   }
+  // O card do quadro mostra só a razão social; CNPJ e matriz/filial vão para o
+  // tooltip do título, por isso ele recebe o cliente cru.
+  const getCliente = (orc: OrcamentoRow): ClienteDoc | null =>
+    orc.clienteId ? clientesMap.get(orc.clienteId) ?? null : null
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -1026,18 +1123,20 @@ export default function OrcamentosPage() {
                       draggable={canMoverKanban}
                       onToggleCollapse={() => toggleColumnCollapse(status)}
                       onRelatorio={() => setRelatorioColuna(status)}
-                      getClienteNome={getClienteNome}
+                      getCliente={getCliente}
                       onOpenDetail={(id) => router.push(`/orcamentos/${id}`)}
                       onDuplicar={handleDuplicar}
                       onArquivar={handleArquivar}
                       onCancelar={handleCancelar}
+                      onDestacar={handleDestacar}
+                      onPreview={(id) => (abrirDetalhesDireto ? router.push(`/orcamentos/${id}`) : setPreviewId(id))}
                     />
                   )
                 })}
               </div>
             </div>
             <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
-              {activeCard && <KanbanCardOverlay orc={activeCard} clienteNome={getClienteNome(activeCard)} velocityX={dragDeltaX} />}
+              {activeCard && <KanbanCardOverlay orc={activeCard} cliente={getCliente(activeCard)} velocityX={dragDeltaX} />}
             </DragOverlay>
           </DndContext>
           </OrcConfigContext.Provider>
@@ -1149,14 +1248,18 @@ export default function OrcamentosPage() {
                   Nenhum orçamento encontrado
                 </TableCell></TableRow>
               ) : orcamentos.map(orc => (
-                <TableRow key={orc.id} className="cursor-pointer hover:bg-muted/40 sm:whitespace-nowrap" onClick={() => router.push(`/orcamentos/${orc.id}`)}>
+                <TableRow key={orc.id} className="cursor-pointer hover:bg-muted/40 sm:whitespace-nowrap" onClick={() => (abrirDetalhesDireto ? router.push(`/orcamentos/${orc.id}`) : setPreviewId(orc.id))}>
                   <TableCell className="hidden sm:table-cell font-mono text-xs font-medium">{orc.numero}</TableCell>
                   <TableCell className="hidden sm:table-cell"><StatusBadge status={orc.status} /></TableCell>
                   <TableCell className="text-sm">
                     <span className="flex items-center gap-1.5 min-w-0">
-                      <span className="truncate">{getClienteNome(orc) || '—'}</span>
+                      <span className="flex min-w-0">{getClienteNome(orc) || '—'}</span>
                       {orc.paralizado && (
                         <Badge variant="outline" className={cn('shrink-0 text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.amber)}>Paralisado</Badge>
+                      )}
+                      {orc.status === 'APROVADO' && orc.servicosConcluidos && (
+                        <Badge variant="outline" title="Serviço concluído — ao liberar, o orçamento é finalizado automaticamente"
+                          className={cn('shrink-0 text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.emerald)}>Serviço concluído</Badge>
                       )}
                     </span>
                     {/* Número e status, que ganham coluna a partir de `sm` */}
@@ -1216,6 +1319,22 @@ export default function OrcamentosPage() {
       <FormasPagamentoModal open={formasModal} onOpenChange={(o) => { setFormasModal(o); if (!o) void loadFormasCatalogo() }} />
       <ReprocessarServicosModal open={reprocessarModal} onOpenChange={setReprocessarModal} />
 
+      {/* Preview do orçamento — abre ao clicar no card do quadro */}
+      {(() => {
+        const o = previewId ? orcamentos.find(x => x.id === previewId) ?? null : null
+        return (
+          <PreviewOrcamento
+            orc={o}
+            cliente={o ? getCliente(o) : null}
+            prazo={o ? calcularPrazoCard(o, orcConfig) : null}
+            statusLabel={o ? (STATUS_LABELS[o.status] ?? o.status) : ''}
+            statusCor={o ? (STATUS_COLORS[o.status] ?? '#94a3b8') : '#94a3b8'}
+            onClose={() => setPreviewId(null)}
+            onAbrir={(id) => router.push(`/orcamentos/${id}`)}
+          />
+        )
+      })()}
+
       {/* Relatório de uma coluna do kanban (menu ⋮ da coluna) */}
       {relatorioColuna && (
         <RelatorioColunaModal
@@ -1243,6 +1362,7 @@ export default function OrcamentosPage() {
                 value={form.clienteId}
                 onSelect={v => setForm({ ...form, clienteId: v })}
                 placeholder="Selecione o cliente ou digite o nome"
+                marcarExClientes
                 onCreate={async (nome) => {
                   try {
                     const novo = await (trpc.orcamento as any).criarClienteRapido.mutate({ nome }) as { id: string; razaoSocial: string; documento?: string | null } | null
@@ -1258,6 +1378,7 @@ export default function OrcamentosPage() {
                 }}
               />
               <p className="text-[11px] text-muted-foreground">
+                A busca cobre os clientes da empresa carregada, inclusive ex-clientes (marcados na lista).
                 Cliente não cadastrado? Digite o nome — cadastramos automaticamente como prospect.
               </p>
             </div>
@@ -1403,7 +1524,7 @@ function SortHead({ label, sortKey, sort, onSort, className, align = 'left' }: {
 // Kanban DnD Components
 // ============================================================
 
-function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisabled, draggable, onToggleCollapse, onRelatorio, getClienteNome, onOpenDetail, onDuplicar, onArquivar, onCancelar }: {
+function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisabled, draggable, onToggleCollapse, onRelatorio, getCliente, onOpenDetail, onDuplicar, onArquivar, onCancelar, onDestacar, onPreview }: {
   status: string
   items: OrcamentoRow[]
   isOver: boolean
@@ -1413,11 +1534,13 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
   draggable: boolean
   onToggleCollapse: () => void
   onRelatorio: () => void
-  getClienteNome: (orc: OrcamentoRow) => string | null
+  getCliente: (orc: OrcamentoRow) => ClienteDoc | null
   onOpenDetail: (id: string) => void
   onDuplicar: (id: string) => void
   onArquivar: (id: string) => void
   onCancelar: (id: string) => void
+  onDestacar: (id: string, destacar: boolean, cor?: DestaqueCor) => void
+  onPreview: (id: string) => void
 }) {
   // Quando user não pode mover, desabilita também o drop (defesa em profundidade)
   const { setNodeRef } = useDroppable({ id: status, disabled: dropDisabled || !draggable })
@@ -1526,12 +1649,14 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
               key={orc.id}
               orc={orc}
               isDraggingAny={!!activeCardId}
-              clienteNome={getClienteNome(orc)}
+              cliente={getCliente(orc)}
               draggable={draggable}
               onOpenDetail={onOpenDetail}
               onDuplicar={onDuplicar}
               onArquivar={onArquivar}
               onCancelar={onCancelar}
+              onDestacar={onDestacar}
+              onPreview={onPreview}
             />
           ))}
         </div>
@@ -1540,19 +1665,40 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
   )
 }
 
-function KanbanCard({ orc, isDraggingAny, clienteNome, draggable, onOpenDetail, onDuplicar, onArquivar, onCancelar }: {
+function KanbanCard({ orc, isDraggingAny, cliente, draggable, onOpenDetail, onDuplicar, onArquivar, onCancelar, onDestacar, onPreview }: {
   orc: OrcamentoRow
   isDraggingAny: boolean
-  clienteNome: string | null
+  cliente: ClienteDoc | null
   draggable: boolean
   onOpenDetail: (id: string) => void
   onDuplicar: (id: string) => void
   onArquivar: (id: string) => void
   onCancelar: (id: string) => void
+  onDestacar: (id: string, destacar: boolean, cor?: DestaqueCor) => void
+  onPreview: (id: string) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: orc.id, disabled: !draggable })
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }
-  const color = STATUS_COLORS[orc.status] || '#94a3b8'
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    // O dnd-kit controla `transition` do movimento; a da cor da borda (fade do
+    // destaque) vai junto, senão uma sobrescreveria a outra.
+    transition: [transition, 'border-color 500ms ease-out', 'box-shadow 500ms ease-out'].filter(Boolean).join(', '),
+    opacity: isDragging ? 0.3 : 1,
+    // Destacado: borda e sombra na mesma cor. Três camadas leves que se somam
+    // num degradê suave (hex + alfa: 26 ≈ 15%, 38 ≈ 22%). Nenhuma passa de 6px
+    // para os lados: a lista da coluna tem 6px de margem e rola, então sombra
+    // mais larga era cortada e deixava a borda grosseira.
+    ...(orc.destacadoEm && !isDragging
+      ? {
+          borderColor: DESTAQUE_COR[corDoDestaque(orc)],
+          boxShadow: [
+            `0 1px 2px ${DESTAQUE_COR[corDoDestaque(orc)]}26`,
+            `0 2px 5px ${DESTAQUE_COR[corDoDestaque(orc)]}26`,
+            `0 4px 8px -3px ${DESTAQUE_COR[corDoDestaque(orc)]}38`,
+          ].join(', '),
+        }
+      : { boxShadow: '0 0 0 transparent, 0 0 0 transparent, 0 0 0 transparent' }),
+  }
 
   return (
     <div
@@ -1561,30 +1707,27 @@ function KanbanCard({ orc, isDraggingAny, clienteNome, draggable, onOpenDetail, 
       {...(draggable ? attributes : {})}
       {...(draggable ? listeners : {})}
       className={cn(
-        'rounded-xl bg-white dark:bg-card shadow-sm group touch-none overflow-hidden',
+        'rounded-md bg-white dark:bg-card group touch-none overflow-hidden',
         draggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
-        isDragging ? 'border border-transparent opacity-30' : 'border border-border/60',
-        !isDragging && !isDraggingAny && 'hover:shadow-md transition-shadow',
+        isDragging ? 'border border-transparent opacity-30'
+          // Destacado: borda de 1px na cor escolhida (inline, ver DESTAQUE_COR).
+          : orc.destacadoEm ? 'border'
+          : 'border border-border/60',
       )}
-      onClick={() => { if (!isDraggingAny) onOpenDetail(orc.id) }}
+      // Clique abre o preview; o "Detalhes" do menu ⋮ segue indo à página.
+      onClick={() => { if (!isDraggingAny) onPreview(orc.id) }}
     >
-      <div className="flex">
-        <div className="w-1 shrink-0" style={{ backgroundColor: color }} />
-        <div className="flex-1 min-w-0">
-          <KanbanCardContent orc={orc} clienteNome={clienteNome} onDuplicar={onDuplicar} onArquivar={onArquivar} onCancelar={onCancelar} onOpenDetail={onOpenDetail} showMenu={!isDraggingAny} />
-        </div>
-      </div>
+      <KanbanCardContent orc={orc} cliente={cliente} onDuplicar={onDuplicar} onArquivar={onArquivar} onCancelar={onCancelar} onDestacar={onDestacar} onOpenDetail={onOpenDetail} showMenu={!isDraggingAny} />
     </div>
   )
 }
 
-function KanbanCardOverlay({ orc, clienteNome, velocityX }: { orc: OrcamentoRow; clienteNome: string | null; velocityX: number }) {
+function KanbanCardOverlay({ orc, cliente, velocityX }: { orc: OrcamentoRow; cliente: ClienteDoc | null; velocityX: number }) {
   const [rotation, setRotation] = useState(0)
   const rotRef = useRef(0)
   const angVelRef = useRef(0)
   const rafRef = useRef(0)
   const inputVelRef = useRef(0)
-  const color = STATUS_COLORS[orc.status] || '#94a3b8'
 
   useEffect(() => { inputVelRef.current = velocityX * 0.3 }, [velocityX])
 
@@ -1613,181 +1756,267 @@ function KanbanCardOverlay({ orc, clienteNome, velocityX }: { orc: OrcamentoRow;
     <div
       // Largura casa com o card da coluna (w-[340px] - padding px-1.5 12px = 328px),
       // pra evitar o efeito "encolher" ao iniciar o drag e "voltar ao normal" ao soltar.
-      className="rounded-xl bg-white dark:bg-card w-[328px] overflow-hidden"
+      className="rounded-md bg-white dark:bg-card w-[328px] overflow-hidden"
       style={{
         transform: `rotate(${rotation.toFixed(2)}deg) scale(1.02)`,
         transformOrigin: 'top center',
         boxShadow: `0 10px 25px rgba(0,0,0,0.15)`,
       }}
     >
-      <div className="flex">
-        <div className="w-1 shrink-0" style={{ backgroundColor: color }} />
-        <div className="flex-1 min-w-0">
-          <KanbanCardContent orc={orc} clienteNome={clienteNome} onDuplicar={() => {}} onArquivar={() => {}} onCancelar={() => {}} onOpenDetail={() => {}} showMenu={false} />
-        </div>
-      </div>
+      <KanbanCardContent orc={orc} cliente={cliente} onDuplicar={() => {}} onArquivar={() => {}} onCancelar={() => {}} onDestacar={() => {}} onOpenDetail={() => {}} showMenu={false} />
     </div>
   )
 }
 
-function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancelar, onOpenDetail, showMenu }: {
+function KanbanCardContent({ orc, cliente, onDuplicar, onArquivar, onCancelar, onDestacar, onOpenDetail, showMenu }: {
   orc: OrcamentoRow
-  clienteNome: string | null
+  cliente: ClienteDoc | null
   onOpenDetail: (id: string) => void
   onDuplicar: (id: string) => void
   onArquivar: (id: string) => void
   onCancelar: (id: string) => void
+  onDestacar: (id: string, destacar: boolean, cor?: DestaqueCor) => void
   showMenu: boolean
 }) {
   const valor = Number(orc.totalGeral || orc.valorTotal || 0)
+  const prazo = calcularPrazoCard(orc, useContext(OrcConfigContext))
+  // Avisos do badge informativo do cabeçalho (o papel que era da quina), do
+  // mais importante ao menos. O badge mostra o primeiro; o tooltip, todos.
+  const avisos: Array<{ curto: string; label: string; detalhe?: string; Icon: typeof Clock; cor: string }> = []
+  if (orc.decisaoTipo) {
+    const quando = orc.decisaoEm
+      ? `Respondido em ${new Date(orc.decisaoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}`
+      : undefined
+    avisos.push(orc.decisaoTipo === 'APROVADO'
+      ? { curto: 'Aprovado', label: 'Cliente aprovou pelo link', detalhe: quando, Icon: CheckCircle2, cor: AVISO_COR.verde }
+      : orc.decisaoTipo === 'REVISAO_SOLICITADA'
+      ? { curto: 'Revisão', label: 'Cliente pediu revisão', detalhe: quando, Icon: Pencil, cor: AVISO_COR.ambar }
+      : { curto: 'Recusado', label: 'Cliente recusou pelo link', detalhe: quando, Icon: ThumbsDown, cor: AVISO_COR.vermelho })
+  }
+  if (prazo.variant === 'danger') avisos.push({ curto: prazo.label === 'vence hoje' ? 'Vence hoje' : 'Vencido', label: `Prazo ${prazo.label}`, detalhe: prazo.tooltip, Icon: AlertTriangle, cor: AVISO_COR.vermelho })
+  else if (prazo.variant === 'warning') avisos.push({ curto: 'Vencendo', label: `Prazo: ${prazo.label}`, detalhe: prazo.tooltip, Icon: Clock, cor: AVISO_COR.ambar })
+  if (orc.status === 'APROVADO' && orc.servicosConcluidos) avisos.push({ curto: 'Serviço concluído', label: 'Serviço concluído', detalhe: 'Ao liberar, o orçamento é finalizado automaticamente', Icon: CheckCircle2, cor: AVISO_COR.verde })
+  if (orc.paralizado) avisos.push({ curto: 'Paralisado', label: 'Orçamento paralisado', Icon: Pause, cor: AVISO_COR.ambar })
+  const aviso = avisos[0] ?? null
+
+  // Cabeçalho: nome curto (fantasia, senão a razão social); o corpo traz a
+  // razão social completa em uma linha.
+  const nomeCurto = cliente?.nomeFantasia?.trim() || cliente?.razaoSocial || 'Sem cliente'
+  const doc = cliente?.documento ? formatDocumento(cliente.documento) : ''
+  const ehCnpj = cliente?.tipoDocumento ? cliente.tipoDocumento === 'CNPJ' : doc.length > 14
+  const matriz = ehCnpj && cliente ? ehMatrizCnpj(cliente.documento, cliente.ehMatriz, cliente.tipoDocumento) : false
+  // Relógio do rodapé em versão curta ("3d p/ enviar" → "3d"); a frase inteira fica no tooltip.
+  const prazoCurto = prazo.label.replace(/\s*p\/.*$/, '')
+  const prazoCor: Record<typeof prazo.variant, string> = {
+    ok: 'text-muted-foreground', neutral: 'text-muted-foreground',
+    warning: TEXT.amber, danger: cn(TEXT.rose, 'font-semibold'),
+  }
 
   return (
     <div className="flex flex-col">
-      {/* Header — número à esquerda do nome do cliente para ganhar espaço vertical */}
-      <div className="flex items-start justify-between gap-1 px-3 pt-2.5 pb-1">
-        <h4 className="min-w-0 text-[13px] font-semibold leading-tight line-clamp-2">
-          <span className="shrink-0">#{orc.numero}</span> {clienteNome || 'Sem cliente'}
-          {orc.paralizado && (
-            <Badge variant="outline" className={cn('ml-1 align-middle text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.amber)}>Paralisado</Badge>
+      {/* Cabeçalho — logo + nome curto à esquerda; nº do orçamento e badge informativo à direita */}
+      <div
+        className="flex items-center gap-2 px-3 py-2.5 border-b border-dashed border-border transition-colors duration-500 ease-out"
+        style={{ backgroundColor: orc.destacadoEm ? `${DESTAQUE_COR[corDoDestaque(orc)]}12` : 'transparent' }}
+      >
+        <LogoCliente nome={cliente?.nomeFantasia || cliente?.razaoSocial} logoUrl={cliente?.logoUrl} />
+        <DadosClienteTooltip numero={orc.numero} cliente={cliente}>
+          <span className="min-w-0 flex-1 cursor-help truncate text-[13px] font-semibold">{nomeCurto}</span>
+        </DadosClienteTooltip>
+        {ehExCliente(cliente) && <SeloExCliente />}
+        <div className="flex shrink-0 items-center gap-1">
+          <span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-foreground/80">#{orc.numero}</span>
+          {aviso && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="inline-flex max-w-[110px] cursor-help items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold"
+                  // Cor inline (fundo = a cor com ~10% de alfa): em classe, o vermelho sofre o retint do módulo.
+                  style={{ backgroundColor: `${aviso.cor}1A`, color: aviso.cor }}
+                  onClick={e => e.stopPropagation()}
+                  onPointerDown={e => e.stopPropagation()}
+                >
+                  <aviso.Icon className="h-3 w-3 shrink-0" strokeWidth={2.25} />
+                  <span className="truncate">{aviso.curto}</span>
+                  {avisos.length > 1 && <span className="shrink-0 opacity-70">+{avisos.length - 1}</span>}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="end" sideOffset={6} className="tooltip-fade text-[11px] max-w-[280px]">
+                <div className="space-y-1.5">
+                  {avisos.map(a => (
+                    <div key={a.label}>
+                      <p className="flex items-center gap-1 font-semibold"><a.Icon className="h-3 w-3 shrink-0" /> {a.label}</p>
+                      {a.detalhe && <p>{a.detalhe}</p>}
+                    </div>
+                  ))}
+                </div>
+              </TooltipContent>
+            </Tooltip>
           )}
-        </h4>
-        <div className="h-6 w-6 shrink-0 -mr-1 -mt-0.5">
-          {showMenu && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
-                <button className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded hover:bg-muted">
-                  <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
-                <DropdownMenuItem onClick={() => onOpenDetail(orc.id)}><Eye className="h-3.5 w-3.5 mr-2" /> Detalhes</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDuplicar(orc.id)}><Copy className="h-3.5 w-3.5 mr-2" /> Duplicar</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onArquivar(orc.id)}><Archive className="h-3.5 w-3.5 mr-2" /> Arquivar</DropdownMenuItem>
-                <DropdownMenuItem className={TEXT.amber} onClick={() => onCancelar(orc.id)}><Ban className="h-3.5 w-3.5 mr-2" /> Cancelar</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      </div>
-      {/* Resposta do cliente pelo link — faixa de destaque pra ninguém deixar passar */}
-      {orc.decisaoTipo && (() => {
-        const meta = orc.decisaoTipo === 'APROVADO'
-          ? { label: 'Cliente aprovou pelo link', Icon: CheckCircle2, cls: BADGE.emerald, dot: DOT.emerald }
-          : orc.decisaoTipo === 'REVISAO_SOLICITADA'
-          ? { label: 'Cliente pediu revisão', Icon: Pencil, cls: BADGE.amber, dot: DOT.amber }
-          : { label: 'Cliente recusou pelo link', Icon: ThumbsDown, cls: BADGE.rose, dot: DOT.rose }
-        const Icon = meta.Icon
-        return (
-          <div className={cn('mx-3 mb-1.5 flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium', meta.cls)}
-               title={orc.decisaoEm ? `Respondido em ${new Date(orc.decisaoEm).toLocaleString('pt-BR')}` : undefined}>
-            <span className="relative flex h-2 w-2 shrink-0">
-              <span className={cn('absolute inline-flex h-full w-full animate-ping rounded-full opacity-60', meta.dot)} />
-              <span className={cn('relative inline-flex h-2 w-2 rounded-full', meta.dot)} />
-            </span>
-            <Icon className="h-3 w-3 shrink-0" />
-            <span className="truncate">{meta.label}</span>
-          </div>
-        )
-      })()}
-      {/* Body */}
-      <div className="px-3 pb-2 space-y-1">
-        {valor > 0 && (
-          <span className={cn('text-xs font-semibold', TEXT.emerald)}>{formatCurrency(valor)}</span>
-        )}
-        {orc.itens && orc.itens.length > 0 && (
-          <div className="space-y-0.5 pt-0.5">
-            {orc.itens.map(item => (
-              <div key={item.id} className="text-[11px] text-foreground/75 leading-tight flex items-start gap-1.5">
-                <span className="text-muted-foreground/60 shrink-0 mt-px">•</span>
-                <span className="truncate flex-1">{stripHtml(item.descricao)}</span>
-              </div>
-            ))}
-            {(orc._count?.itens ?? 0) > orc.itens.length && (() => {
-              const ocultos = orc._count!.itens - orc.itens.length
-              // O card mostra os 2 primeiros; o tooltip lista os que sobraram.
-              const restantes = (orc.itensDescricoes ?? []).slice(orc.itens!.length)
-              return (
-                <ItensRestantesTooltip restantes={restantes}>
-                  <div
-                    className={cn(
-                      'text-[10px] font-medium pl-3 w-fit',
-                      restantes.length > 0 && 'underline decoration-dotted underline-offset-2 cursor-help',
+          <div className="-mr-1 h-6 w-6 shrink-0">
+              {showMenu && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
+                    <button className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded hover:bg-muted">
+                      <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+                    <DropdownMenuItem onClick={() => onOpenDetail(orc.id)}><Eye className="h-3.5 w-3.5 mr-2" /> Detalhes</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onDuplicar(orc.id)}><Copy className="h-3.5 w-3.5 mr-2" /> Duplicar</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <p className="flex items-center gap-2 px-2 pt-1 text-xs text-muted-foreground">
+                      <Highlighter className="h-3.5 w-3.5" /> {orc.destacadoEm ? 'Cor do destaque' : 'Destacar'}
+                    </p>
+                    {/* Uma bolinha por cor; cada uma é item do menu (teclado e
+                        fechamento ao escolher vêm de graça). */}
+                    <div className="flex items-center gap-1 px-1.5 pb-1 pt-1.5">
+                      {DESTAQUE_CORES.map(c => {
+                        const atual = !!orc.destacadoEm && corDoDestaque(orc) === c
+                        return (
+                          <DropdownMenuItem
+                            key={c}
+                            title={DESTAQUE_COR_LABELS[c]}
+                            aria-label={`Destacar em ${DESTAQUE_COR_LABELS[c]}`}
+                            onClick={() => { if (!atual) onDestacar(orc.id, true, c) }}
+                            className="h-7 w-7 justify-center rounded-full p-0"
+                          >
+                            <span className={cn('flex h-4 w-4 items-center justify-center rounded-full', atual && 'ring-2 ring-offset-2 ring-offset-popover ring-foreground/40')} style={{ backgroundColor: DESTAQUE_COR[c] }}>
+                              {atual && <Check className="!size-2.5 text-white" strokeWidth={3} />}
+                            </span>
+                          </DropdownMenuItem>
+                        )
+                      })}
+                    </div>
+                    {orc.destacadoEm && (
+                      <DropdownMenuItem onClick={() => onDestacar(orc.id, false)}>
+                        <X className="h-3.5 w-3.5 mr-2" /> Remover destaque
+                      </DropdownMenuItem>
                     )}
-                    style={{ color: PRIMARY }}
-                  >
-                    + {ocultos} {ocultos === 1 ? 'outro item' : 'outros itens'}
-                  </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => onArquivar(orc.id)}><Archive className="h-3.5 w-3.5 mr-2" /> Arquivar</DropdownMenuItem>
+                    <DropdownMenuItem className={TEXT.amber} onClick={() => onCancelar(orc.id)}><Ban className="h-3.5 w-3.5 mr-2" /> Cancelar</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+          </div>
+        </div>
+      </div>
+
+      {/* Corpo — uma informação por linha, cada uma com seu ícone */}
+      <div className="space-y-1.5 px-3 py-2.5 text-[12px] text-foreground/85">
+        <LinhaCard icone={Building2}>
+          <span className="truncate">{cliente?.razaoSocial || 'Sem cliente'}</span>
+        </LinhaCard>
+        {doc && (
+          <LinhaCard icone={IdCard}>
+            <span className="truncate tabular-nums">{ehCnpj ? `CNPJ ${doc}` : `CPF ${doc}`}</span>
+            {ehCnpj && <span className="shrink-0 text-muted-foreground">· {matriz ? 'Matriz' : 'Filial'}</span>}
+          </LinhaCard>
+        )}
+        <LinhaCard icone={ListChecks}>
+          {orc.itens && orc.itens.length > 0 ? (
+            <>
+              <span className="truncate">{stripHtml(orc.itens[0]!.descricao)}</span>
+              {(orc._count?.itens ?? orc.itens.length) > 1 && (
+                <ItensRestantesTooltip restantes={(orc.itensDescricoes ?? []).slice(1)}>
+                  <span className="shrink-0 cursor-help text-[11px] font-medium text-primary-on-surface">
+                    +{(orc._count?.itens ?? orc.itens.length) - 1}
+                  </span>
                 </ItensRestantesTooltip>
-              )
-            })()}
+              )}
+            </>
+          ) : (
+            <span className="truncate text-muted-foreground">{orc.observacoes ? stripHtml(orc.observacoes) : 'Sem serviços'}</span>
+          )}
+          {valor > 0 && (
+            <span className={cn('ml-auto shrink-0 pl-2 font-semibold tabular-nums', TEXT.emerald)}>{formatCurrency(valor)}</span>
+          )}
+        </LinhaCard>
+        {orc.solicitante && (
+          <div className="flex min-w-0 items-center gap-2">
+            <AvatarPequeno user={orc.solicitante} />
+            <span className="truncate">{orc.solicitante.name}</span>
           </div>
         )}
-        {orc.observacoes && (!orc.itens || orc.itens.length === 0) && (
-          <p className="text-[11px] text-muted-foreground truncate">{stripHtml(orc.observacoes)}</p>
-        )}
       </div>
-      {/* Footer — ícones inline no corpo branco (sem faixa), como no /crm */}
-      <div className="flex items-center justify-between px-3 pb-2.5 pt-1">
-        <div className="flex items-center gap-2">
-          {(orc.solicitante || orc.responsavel) && (
-            <div className="flex items-center -space-x-1.5">
-              {orc.solicitante && <UserChip user={orc.solicitante} role="Solicitante" />}
-              {orc.responsavel && <UserChip user={orc.responsavel} role="Responsável" />}
-            </div>
+
+      {/* Rodapé — contadores à esquerda, relógio do prazo à direita */}
+      <div className="flex items-center justify-between gap-2 border-t border-dashed border-border px-3 py-2 text-[11px] text-muted-foreground">
+        <div className="flex min-w-0 items-center gap-3">
+          {orc.destacadoEm && (
+            <DicaIcone
+              titulo="Card destacado"
+              texto={`${orc.destacadoPorUser?.name ? `Por ${orc.destacadoPorUser.name} em ` : 'Em '}${new Date(orc.destacadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}`}
+            >
+              <span className="flex cursor-help items-center" style={{ color: DESTAQUE_COR[corDoDestaque(orc)] }}>
+                <Highlighter className="h-3.5 w-3.5" strokeWidth={1.5} />
+              </span>
+            </DicaIcone>
           )}
-          <PrazoBadge orc={orc} />
-        </div>
-        <div className="flex items-center gap-2">
           {orc.oportunidadeId && (
-            <span className={cn('inline-flex items-center gap-1 text-[10px] font-medium rounded-sm px-1.5 py-0.5', BADGE.fuchsia)} title="Card de CRM vinculado">
-              <Target className="h-3 w-3" /> CRM{orc.oportunidadeNumero != null ? ` #${orc.oportunidadeNumero}` : ''}
-            </span>
+            <DicaIcone titulo={`CRM${orc.oportunidadeNumero != null ? ` #${orc.oportunidadeNumero}` : ''}`} texto="Card de CRM vinculado">
+              <span className={cn('flex cursor-help items-center gap-1 tabular-nums', TEXT.fuchsia)}>
+                <Target className="h-3.5 w-3.5" strokeWidth={1.5} />
+                {orc.oportunidadeNumero != null && orc.oportunidadeNumero}
+              </span>
+            </DicaIcone>
           )}
+          {/* Contadores só aparecem com algo a contar — zero não informa nada. */}
           {(orc._count?.itens ?? 0) > 0 && (
-            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title={`${orc._count!.itens} ${orc._count!.itens === 1 ? 'item' : 'itens'}`}>
-              <FileText className="h-3 w-3" /> {orc._count!.itens}
-            </span>
+            <DicaIcone titulo={`${orc._count!.itens} ${orc._count!.itens === 1 ? 'item' : 'itens'}`} texto="Serviços, taxas e despesas do orçamento">
+              <span className="flex cursor-help items-center gap-1"><ListChecks className="h-3.5 w-3.5" strokeWidth={1.5} /> {orc._count!.itens}</span>
+            </DicaIcone>
           )}
           {(orc._count?.mensagens ?? 0) > 0 && (
-            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title={`${orc._count!.mensagens} ${orc._count!.mensagens === 1 ? 'mensagem' : 'mensagens'}`}>
-              <MessageSquare className="h-3 w-3" /> {orc._count!.mensagens}
-            </span>
+            <DicaIcone titulo={`${orc._count!.mensagens} ${orc._count!.mensagens === 1 ? 'mensagem' : 'mensagens'}`} texto="Mensagens trocadas no orçamento">
+              <span className="flex cursor-help items-center gap-1"><MessageSquare className="h-3.5 w-3.5" strokeWidth={1.5} /> {orc._count!.mensagens}</span>
+            </DicaIcone>
           )}
           {(orc._count?.arquivos ?? 0) > 0 && (
-            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title={`${orc._count!.arquivos} ${orc._count!.arquivos === 1 ? 'arquivo' : 'arquivos'}`}>
-              <Paperclip className="h-3 w-3" /> {orc._count!.arquivos}
-            </span>
+            <DicaIcone titulo={`${orc._count!.arquivos} ${orc._count!.arquivos === 1 ? 'arquivo' : 'arquivos'}`} texto="Anexos do orçamento">
+              <span className="flex cursor-help items-center gap-1"><Paperclip className="h-3.5 w-3.5" strokeWidth={1.5} /> {orc._count!.arquivos}</span>
+            </DicaIcone>
           )}
           {orc.pesquisaRespondida && (
-            <span className="text-[10px] flex items-center gap-0.5" style={{ color: 'var(--color-primary)' }} title="Cliente respondeu a pesquisa de satisfação">
-              <Star className="h-3 w-3 fill-current" />
-            </span>
+            <DicaIcone titulo="Pesquisa respondida" texto="O cliente respondeu a pesquisa de satisfação">
+              <span className="flex cursor-help items-center text-primary-on-surface">
+                <Star className="h-3.5 w-3.5 fill-current" />
+              </span>
+            </DicaIcone>
           )}
         </div>
+        <DicaIcone titulo={prazo.label} texto={prazo.tooltip}>
+          <span className={cn('flex shrink-0 cursor-help items-center gap-1 tabular-nums', prazoCor[prazo.variant])}>
+            <Clock className="h-3.5 w-3.5" strokeWidth={1.5} /> {prazoCurto}
+          </span>
+        </DicaIcone>
       </div>
     </div>
   )
 }
 
-// Badge de prazo no card do kanban — calcula dinamicamente baseado no status + config + datas
-function PrazoBadge({ orc }: { orc: OrcamentoRow }) {
-  const config = useContext(OrcConfigContext)
-  const prazo = calcularPrazoCard(orc, config)
-  const colorClasses: Record<typeof prazo.variant, string> = {
-    ok: TEXT.emerald,
-    warning: TEXT.amber,
-    danger: cn(TEXT.rose, 'font-semibold'),
-    neutral: 'text-muted-foreground',
+/**
+ * Tooltip do título do card: nome completo (o título corta com "…") e os dados
+ * que saíram do card para liberar espaço — CNPJ formatado e se é matriz ou
+ * filial (#HLP0410). Abre sempre, já que essa informação não está mais à vista.
+ */
+function DadosClienteTooltip({ numero, cliente, children }: { numero: number; cliente: ClienteDoc | null; children: React.ReactElement }) {
+  const tipo = cliente?.tipoDocumento ?? null
+  const doc = cliente?.documento ? formatDocumento(cliente.documento) : ''
+  const ehCnpj = tipo ? tipo === 'CNPJ' : doc.length > 14
+  let linhaDoc = cliente ? 'Sem CPF/CNPJ no cadastro' : ''
+  if (doc) {
+    linhaDoc = ehCnpj
+      ? `CNPJ ${doc} · ${ehMatrizCnpj(cliente!.documento, cliente!.ehMatriz, tipo) ? 'Matriz' : 'Filial'}`
+      : `CPF ${doc}`
   }
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <span className={cn('text-[10px] flex items-center gap-0.5 whitespace-nowrap', colorClasses[prazo.variant])}>
-          <Clock className="h-3 w-3" /> {prazo.label}
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6} className="text-[11px]">
-        {prazo.tooltip}
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="top" align="start" sideOffset={6} className="tooltip-fade text-[11px] max-w-[320px]">
+        <p className="font-semibold">#{numero} {cliente?.razaoSocial || 'Sem cliente'}</p>
+        {linhaDoc && <p>{linhaDoc}</p>}
       </TooltipContent>
     </Tooltip>
   )
@@ -1806,7 +2035,7 @@ function ItensRestantesTooltip({ restantes, children }: { restantes: string[]; c
   return (
     <Tooltip>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6} className="text-[11px] max-w-[280px]">
+      <TooltipContent side="top" sideOffset={6} className="tooltip-fade text-[11px] max-w-[280px]">
         <ul className="space-y-0.5">
           {restantes.map((d, i) => <li key={i}>• {stripHtml(d)}</li>)}
         </ul>
@@ -1877,23 +2106,3 @@ function PessoasCell({ solicitante, responsavel }: { solicitante?: UserRef | nul
   )
 }
 
-function UserChip({ user, role }: { user: UserRef; role: 'Solicitante' | 'Responsável' }) {
-  const initials = (user.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
-  const chip = user.image ? (
-    <img src={resolveAssetUrl(user.image)} alt={user.name} className="h-6 w-6 rounded-full object-cover shrink-0 border-2 border-background shadow-sm" />
-  ) : (
-    <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0 border-2 border-background shadow-sm">
-      <span className="text-[8px] font-bold text-muted-foreground">{initials}</span>
-    </div>
-  )
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="inline-flex">{chip}</span>
-      </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6} className="text-[11px]">
-        <span className="font-semibold">{role}:</span> {user.name}
-      </TooltipContent>
-    </Tooltip>
-  )
-}

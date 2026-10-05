@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { janelaDoPeriodo, periodoSchema } from '../common/periodo-br'
 import { router, readProcedure, writeProcedure, deleteProcedure, protectedProcedure, publicProcedure } from '../trpc/trpc.service'
 import {
   createClausulaSchema,
@@ -92,7 +93,9 @@ export function createContratoRouter(svc: ContratoService) {
 
     // Relatorio consolidado p/ o Painel de Gestao a Vista (comercial)
     reportComercial: readProcedure(MODULE)
-      .query(({ ctx }) => svc.reportComercial(ctx.empresaId)),
+      .input(periodoSchema.optional())
+      // Com data inicial/final (/comercial), tudo segue o período; sem, hoje.
+      .query(({ input, ctx }) => svc.reportComercial(ctx.empresaId, input?.de || input?.ate ? janelaDoPeriodo(input) : undefined)),
 
     getContrato: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))

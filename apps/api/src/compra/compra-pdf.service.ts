@@ -181,7 +181,7 @@ export class CompraPdfService {
   <div class="doc">
     <div class="tit">PEDIDO DE COMPRA</div>
     <div class="num">nº ${compra.code} &middot; ${dataBR(compra.criadoEm)}</div>
-    <div class="situacao ${compra.status === 'APROVADO' || compra.status === 'RECEBIDO' || compra.status === 'AVALIADO' ? 'ok' : ''}${compra.status === 'REPROVADO' || compra.status === 'CANCELADO' ? 'ruim' : ''}">${esc(compra.statusLabel)}</div>
+    <div class="situacao ${compra.status === 'APROVADO' || compra.status === 'RECEBIDO_PARCIAL' || compra.status === 'RECEBIDO' || compra.status === 'AVALIADO' ? 'ok' : ''}${compra.status === 'REPROVADO' || compra.status === 'CANCELADO' ? 'ruim' : ''}">${esc(compra.statusLabel)}</div>
   </div>
 </div>
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Shield, ShieldCheck, Loader2, Users, ExternalLink, Plus, Trash2, Eye, EyeOff, Check, CheckCircle2, XCircle, AlertTriangle, FileText, FileLock, KeyRound, Clock, ListChecks, Link2, Download, Printer, Pencil, MoreVertical, ChevronDown } from 'lucide-react'
+import { Shield, ShieldCheck, Loader2, Users, ExternalLink, Plus, Trash2, Eye, EyeOff, Check, Copy, CheckCircle2, XCircle, AlertTriangle, FileText, FileLock, KeyRound, Clock, ListChecks, Link2, Download, Printer, Pencil, MoreVertical, ChevronDown } from 'lucide-react'
 import {
   Button, Input, Label, Card, Checkbox,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle,
@@ -621,8 +621,10 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           })}
         </div>
 
-        {/* Conteudo */}
-        <div key={activeTab} className="flex-1" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+        {/* Conteudo — `min-w-0` é o que prende o conteúdo à largura do card.
+            Sem ele, o item flex crescia até a tabela/linha mais larga e tudo
+            vazava pela direita em telas menores (#HLP0408). */}
+        <div key={activeTab} className="flex-1 min-w-0" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
           {/* Registro de Inscrições — veio da aba Fiscal. A sub-permissão que
               guarda estas mutações no backend sempre se chamou
               `manage_registration` ("Gerenciar aba de registro / legalização"),
@@ -707,7 +709,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           {activeTab === 'socios' && (
             <>
               <div className="-m-0">
-                <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+                <div className="px-5 py-3 border-b border-border flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <h4 className="text-[13px] font-semibold text-foreground">Sócios vinculados</h4>
                     <div className="flex items-center gap-3">
@@ -750,7 +752,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     <p className="text-xs mt-1">Vincule sócios no módulo de Sócios.</p>
                   </div>
                 ) : (
-                  <div className="rounded-lg border overflow-hidden">
+                  <div className="rounded-lg border overflow-x-auto nice-scrollbar">
                     <table className="w-full text-[12px]">
                       <thead>
                         <tr className="bg-muted/30 text-[11px] text-muted-foreground">
@@ -860,7 +862,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           {activeTab === 'acessos' && (
             <>
               <div className="-m-0">
-                <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+                <div className="px-5 py-3 border-b border-border flex flex-wrap items-center justify-between gap-2">
                   <h4 className="text-[13px] font-semibold text-foreground">Acessos a Portais</h4>
                   <div className="flex items-center gap-1.5">
                     {acessos.length > 0 && (
@@ -882,7 +884,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                 ) : acessos.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">Nenhum acesso cadastrado.</p>
                 ) : (
-                  <div className="rounded-lg border overflow-hidden">
+                  <div className="rounded-lg border overflow-x-auto nice-scrollbar">
                     <table className="w-full text-xs">
                       <thead><tr className="bg-muted/30 border-b">
                         <th className="text-left px-3 py-2 font-medium">Tipo</th>
@@ -896,10 +898,16 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                           <tr key={a.id} className="border-b last:border-b-0 hover:bg-muted/20">
                             <td className="px-3 py-2 font-medium">{a.portal}</td>
                             <td className="px-3 py-2 text-muted-foreground max-w-[150px] truncate" title={a.observacoes || ''}>{a.observacoes || '—'}</td>
-                            <td className="px-3 py-2 font-mono">{a.usuario || '—'}</td>
-                            <td className="px-3 py-2 font-mono">
+                            <td className="px-3 py-2 font-mono whitespace-nowrap">
+                              {a.usuario || '—'}
+                              {a.usuario && <BotaoCopiar texto={a.usuario} rotulo="usuário" />}
+                            </td>
+                            <td className="px-3 py-2 font-mono whitespace-nowrap">
                               {senhaVisivel.has(a.id) ? (a.senha || '—') : (a.senha ? '••••••' : '—')}
-                              {a.senha && <button type="button" className="ml-1 text-muted-foreground hover:text-foreground" onClick={() => setSenhaVisivel(prev => { const n = new Set(prev); if (n.has(a.id)) n.delete(a.id); else n.add(a.id); return n })}>{senhaVisivel.has(a.id) ? <EyeOff className="h-3 w-3 inline" /> : <Eye className="h-3 w-3 inline" />}</button>}
+                              {a.senha && <button type="button" className="ml-1 text-muted-foreground hover:text-foreground" title={senhaVisivel.has(a.id) ? 'Ocultar senha' : 'Mostrar senha'} onClick={() => setSenhaVisivel(prev => { const n = new Set(prev); if (n.has(a.id)) n.delete(a.id); else n.add(a.id); return n })}>{senhaVisivel.has(a.id) ? <EyeOff className="h-3 w-3 inline" /> : <Eye className="h-3 w-3 inline" />}</button>}
+                              {/* Copia sem precisar revelar: era o que a Erica fazia
+                                  arrastando a janela para a tela maior (#HLP0408). */}
+                              {a.senha && <BotaoCopiar texto={a.senha} rotulo="senha" />}
                             </td>
                             <td className="px-3 py-2 text-right">
                               <button type="button" className="rounded p-1 hover:bg-muted mr-1" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openAceModal(a) }}><Pencil className="h-3 w-3 text-muted-foreground" /></button>
@@ -919,7 +927,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           {activeTab === 'vencimentos' && (
             <>
               <div className="-m-0">
-                <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+                <div className="px-5 py-3 border-b border-border flex flex-wrap items-center justify-between gap-2">
                   <h4 className="text-[13px] font-semibold text-foreground">Vencimentos e Prazos</h4>
                   <div className="flex items-center gap-1.5">
                     {vencimentos.length > 0 && (
@@ -941,7 +949,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                 ) : vencimentos.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">Nenhum vencimento cadastrado.</p>
                 ) : (
-                  <div className="rounded-lg border overflow-hidden">
+                  <div className="rounded-lg border overflow-x-auto nice-scrollbar">
                     <table className="w-full text-xs">
                       <thead><tr className="bg-muted/30 border-b">
                         <th className="text-left px-3 py-2 font-medium">Tipo</th>
@@ -989,7 +997,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           {activeTab === 'andamentos' && (
             <>
               <div className="-m-0">
-                <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+                <div className="px-5 py-3 border-b border-border flex flex-wrap items-center justify-between gap-2">
                   <h4 className="text-[13px] font-semibold text-foreground">Registro de Andamentos</h4>
                   {clienteId && canManageRegistration && <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openAndModal() }} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Adicionar</Button>}
                 </div>
@@ -1000,7 +1008,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                 ) : andamentos.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">Nenhum andamento registrado.</p>
                 ) : (
-                  <div className="rounded-lg border overflow-hidden">
+                  <div className="rounded-lg border overflow-x-auto nice-scrollbar">
                     <table className="w-full text-xs">
                       <thead><tr className="bg-muted/30 border-b">
                         <th className="text-left px-3 py-2 font-medium">Tipo</th>
@@ -1042,7 +1050,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           {activeTab === 'cnaes' && (
             <>
               <div className="-m-0">
-                <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+                <div className="px-5 py-3 border-b border-border flex flex-wrap items-center justify-between gap-2">
                   <h4 className="text-[13px] font-semibold text-foreground">CNAE (Receita Federal / Serpro)</h4>
                   <div className="flex items-center gap-1.5">
                     {clienteId && canManageFiscal && <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openCnaeModal() }} className="gap-1.5 h-7 text-[11px]"><Plus className="h-3 w-3" /> Manual</Button>}
@@ -1055,7 +1063,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                 ) : cnaes.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">Use o botão <strong>Importar</strong> (no topo) para carregar os CNAEs da Receita Federal.</p>
                 ) : (
-                  <div className="rounded-lg border overflow-hidden">
+                  <div className="rounded-lg border overflow-x-auto nice-scrollbar">
                     <table className="w-full text-xs">
                       <thead><tr className="bg-muted/30 border-b">
                         <th className="text-left px-3 py-2 font-medium w-[90px]">Tipo</th>
@@ -1092,7 +1100,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           {activeTab === 'certidoes' && (
             <>
               <div className="-m-0">
-                <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+                <div className="px-5 py-3 border-b border-border flex flex-wrap items-center justify-between gap-2">
                   <h4 className="text-[13px] font-semibold text-foreground">CND's e Alvarás</h4>
                   {clienteId && (
                     <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1"
@@ -1195,7 +1203,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           {activeTab === 'certificados' && (
             <>
               <div className="-m-0">
-                <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+                <div className="px-5 py-3 border-b border-border flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <h4 className="text-[13px] font-semibold text-foreground">Certificado Digital</h4>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -1232,7 +1240,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     </p>
                   </div>
                 ) : (
-                  <div className="grid gap-2">
+                  <div className="grid grid-cols-1 gap-2">
                     {certificados.map(cert => {
                       const exp = cert.expiraEm ? new Date(cert.expiraEm) : null
                       const diasParaExpirar = exp ? Math.ceil((exp.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null
@@ -1380,7 +1388,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           {activeTab === 'dte' && (
             <>
               <div className="-m-0">
-                <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+                <div className="px-5 py-3 border-b border-border flex flex-wrap items-center justify-between gap-2">
                   <h4 className="text-[13px] font-semibold text-foreground">DT-e — Domicílio Tributário Eletrônico</h4>
                   {clienteId && canManageFiscal && (
                     <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1" type="button"
@@ -1399,7 +1407,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     Nenhuma mensagem DT-e registrada
                   </div>
                 ) : (
-                  <div className="rounded-lg border overflow-hidden">
+                  <div className="rounded-lg border overflow-x-auto nice-scrollbar">
                     <table className="w-full text-xs">
                       <thead><tr className="bg-muted/30 border-b">
                         <th className="text-left px-3 py-2 font-medium">Tipo</th>
@@ -1987,5 +1995,38 @@ function EditSocioModal(props: {
       </DialogContent>
     </Dialog>,
     document.body,
+  )
+}
+
+/**
+ * Copiar usuário/senha de um acesso (#HLP0408). Clipboard API em HTTPS; no
+ * http://IP do dev ela não existe, e aí cai no textarea + execCommand — o
+ * mesmo caminho do painel de acesso do certificado.
+ */
+function BotaoCopiar({ texto, rotulo }: { texto: string; rotulo: string }) {
+  const [copiado, setCopiado] = useState(false)
+  async function copiar(e: React.MouseEvent) {
+    e.preventDefault(); e.stopPropagation()
+    let ok = false
+    if (typeof navigator !== 'undefined' && navigator.clipboard && window.isSecureContext) {
+      try { await navigator.clipboard.writeText(texto); ok = true } catch { /* fallback abaixo */ }
+    }
+    if (!ok) {
+      const ta = document.createElement('textarea')
+      ta.value = texto
+      ta.setAttribute('readonly', '')
+      ta.style.position = 'absolute'
+      ta.style.left = '-9999px'
+      document.body.appendChild(ta)
+      try { ta.select(); ok = document.execCommand('copy') } catch { ok = false } finally { ta.remove() }
+    }
+    if (ok) { setCopiado(true); setTimeout(() => setCopiado(false), 1500) }
+  }
+  return (
+    <button type="button" onClick={copiar}
+      className="ml-1 text-muted-foreground hover:text-foreground"
+      title={copiado ? 'Copiado!' : `Copiar ${rotulo}`} aria-label={`Copiar ${rotulo}`}>
+      {copiado ? <Check className={cn('h-3 w-3 inline', TEXT.emerald)} /> : <Copy className="h-3 w-3 inline" />}
+    </button>
   )
 }

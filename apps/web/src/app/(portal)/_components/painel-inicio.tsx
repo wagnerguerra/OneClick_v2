@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
-  AlertTriangle, ArrowRight, CalendarCheck, CheckCircle2, Clock, FileCheck2, Folder,
+  AlertTriangle, ArrowRight, BarChart3, CalendarCheck, CheckCircle2, Clock, FileCheck2, Folder,
   FolderOpen, LayoutGrid, LifeBuoy, Mail, Receipt, ShieldCheck, Upload, Users,
 } from 'lucide-react'
 
@@ -195,10 +195,11 @@ function Carregando({ linhas = 3 }: { linhas?: number }) {
   )
 }
 
-function Falhou() {
+/** `mensagem` é a do servidor, quando ele disse o que houve; senão, a genérica. */
+function Falhou({ mensagem }: { mensagem?: string | null }) {
   return (
     <p className="px-5 py-6 text-center text-[12.5px] text-slate-500 dark:text-slate-400">
-      Não foi possível carregar agora. Tente de novo em instantes.
+      {mensagem || 'Não foi possível carregar agora. Tente de novo em instantes.'}
     </p>
   )
 }
@@ -505,7 +506,7 @@ function extensao(nome: string): string {
   return partes.length > 1 ? (partes.pop() ?? '').slice(0, 4).toUpperCase() : 'ARQ'
 }
 
-export function BlocoDocumentos({ pasta, hoje }: { pasta: Consulta<PastaDrive>; hoje: Date | null }) {
+export function BlocoDocumentos({ pasta, hoje, erro }: { pasta: Consulta<PastaDrive>; hoje: Date | null; erro?: string | null }) {
   const recentes = (pasta?.itens ?? [])
     .slice()
     .sort((a, b) => {
@@ -523,7 +524,7 @@ export function BlocoDocumentos({ pasta, hoje }: { pasta: Consulta<PastaDrive>; 
       subtitulo={pasta?.vinculada ? (pasta.nome ?? 'Pasta da sua empresa') : undefined}
       acao={<VerTudo href="/portal/documentos">Abrir documentos</VerTudo>}
     >
-      {pasta === undefined ? <Carregando linhas={4} /> : pasta === null ? <Falhou /> : !pasta.vinculada ? (
+      {pasta === undefined ? <Carregando linhas={4} /> : pasta === null ? <Falhou mensagem={erro} /> : !pasta.vinculada ? (
         <Vazio
           icone={FolderOpen}
           titulo="Documentos indisponíveis"
@@ -648,6 +649,7 @@ interface Recurso {
 const RECURSOS: Recurso[] = [
   { titulo: 'Documentos', icone: FolderOpen, cor: TOM.azul, href: '/portal/documentos', modulo: 'documentos' },
   { titulo: 'Obrigações', icone: CalendarCheck, cor: TOM.verde, href: '/portal/obrigacoes', modulo: 'obrigacoes' },
+  { titulo: 'Dashboard Financeiro', icone: BarChart3, cor: 'bg-[#e8f6fb] text-[#0b87b5] dark:bg-[#0f2230] dark:text-[#6cc7ea]', href: '/portal/bi', modulo: 'bi' },
   { titulo: 'Certidões', icone: FileCheck2, cor: 'bg-[#eef0fd] text-[#5b62d6] dark:bg-[#1a1d3a] dark:text-[#a3a8f0]', modulo: 'certidoes' },
   { titulo: 'Certificado digital', icone: ShieldCheck, cor: 'bg-[#fdeef5] text-[#c2477f] dark:bg-[#2a1320] dark:text-[#e98ab5]', modulo: 'certificado' },
   { titulo: 'Notas fiscais', icone: Receipt, cor: 'bg-[#e8f4f7] text-[#2b7f95] dark:bg-[#10242a] dark:text-[#7cc4d6]', modulo: 'notas' },

@@ -12,8 +12,11 @@ import { AlvaraFuncionamentoService } from './alvara-funcionamento.service'
 import { CompilarCertidoesService } from './compilar-certidoes.service'
 import { CaptchaService } from '../common/captcha.service'
 import { EmailService } from '../common/email.service'
+import { AuthModule } from '../auth/auth.module'
 
 @Module({
+  // AuthModule: o CndController confere a sessão antes de servir o PDF.
+  imports: [AuthModule],
   controllers: [CndController],
   providers: [CndService, CndSchedulerService, CndEstadualService, AlvaraBombeirosService, CndMunicipalService, CndtTrabalhistaService, CrfFgtsService, CguCertidaoService, AlvaraFuncionamentoService, CompilarCertidoesService, CaptchaService, EmailService],
   exports: [CndService, CndSchedulerService, CndEstadualService, AlvaraBombeirosService, CndMunicipalService, CndtTrabalhistaService, CrfFgtsService, CguCertidaoService, AlvaraFuncionamentoService, CompilarCertidoesService],

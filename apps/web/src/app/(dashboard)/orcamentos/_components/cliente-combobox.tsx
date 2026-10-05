@@ -5,6 +5,7 @@ import { ChevronDown, Plus, Loader2 } from 'lucide-react'
 import { Input, cn } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
 import { useAnchoredDropdown } from '@/components/ui/use-anchored-dropdown'
+import { SeloExCliente } from '@/components/selo-ex-cliente'
 
 /**
  * Formata documento (CPF 11 dígitos / CNPJ 14 dígitos) com máscara padrão.
@@ -23,8 +24,10 @@ function formatDocumento(doc: string | null | undefined): string {
  * ou documento (CNPJ/CPF). Usado no modal de criacao e no detalhe do
  * orcamento.
  */
-export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabled, onCreate }: {
-  clientes: Array<{ id: string; razaoSocial: string; documento?: string | null }>
+export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabled, onCreate, marcarExClientes }: {
+  clientes: Array<{ id: string; razaoSocial: string; documento?: string | null; status?: string | null }>
+  /** A lista inclui ex-clientes (status INATIVO): mostra o selo neles. */
+  marcarExClientes?: boolean
   value: string
   onSelect: (id: string) => void
   placeholder?: string
@@ -87,7 +90,10 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
       >
         {selected ? (
           <span className="flex flex-col items-start min-w-0 flex-1 truncate">
-            <span className="truncate text-sm font-medium leading-tight">{selected.razaoSocial}</span>
+            <span className="flex max-w-full items-center gap-1.5">
+              <span className="truncate text-sm font-medium leading-tight">{selected.razaoSocial}</span>
+              {marcarExClientes && selected.status === 'INATIVO' && <SeloExCliente />}
+            </span>
             {selected.documento && (
               <span className="text-[11px] text-muted-foreground font-mono leading-tight">{formatDocumento(selected.documento)}</span>
             )}
@@ -125,7 +131,10 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
                 )}
                 onClick={() => { onSelect(c.id); close() }}
               >
-                <span className="text-sm font-medium leading-tight truncate">{c.razaoSocial}</span>
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="text-sm font-medium leading-tight truncate">{c.razaoSocial}</span>
+                  {marcarExClientes && c.status === 'INATIVO' && <SeloExCliente />}
+                </span>
                 {c.documento && (
                   <span className="text-[11px] text-muted-foreground font-mono leading-tight">{formatDocumento(c.documento)}</span>
                 )}

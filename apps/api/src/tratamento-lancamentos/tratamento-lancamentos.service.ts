@@ -143,6 +143,7 @@ export class TratamentoLancamentosService {
       const model = await db.treatmentModel.create({
         data: {
           nome: input.nome,
+          tipoArquivo: input.tipoArquivo,
           contaCorrente,
           clienteId: input.clienteId || null,
           empresaId: empresaId || null,
@@ -176,6 +177,8 @@ export class TratamentoLancamentosService {
       const data: Prisma.TreatmentModelUpdateInput = {}
       let versionCreated = false
       if (input.nome !== undefined) data.nome = input.nome
+      // Tipo de arquivo é atributo do modelo (fora da definição) → não gera versão.
+      if (input.tipoArquivo !== undefined) data.tipoArquivo = input.tipoArquivo
       if (input.clienteId !== undefined) data.clienteId = input.clienteId || null
       if (input.isActive !== undefined) data.isActive = input.isActive
 
@@ -240,6 +243,7 @@ export class TratamentoLancamentosService {
       const model = await db.treatmentModel.create({
         data: {
           nome: `${src.nome} (cópia)`,
+          tipoArquivo: src.tipoArquivo,
           contaCorrente: src.contaCorrente,
           clienteId: src.clienteId,
           empresaId: src.empresaId,
@@ -276,7 +280,9 @@ export class TratamentoLancamentosService {
 
   /**
    * Devolve uma versão específica COM a definição completa (snapshot JSON) —
-   * usado pelo visualizador de histórico/diff para comparar duas versões.
+   * usado pelo visualizador de histórico/diff para comparar duas versões e pelo
+   * "Exportar esta versão". `modelTipoArquivo` é o tipo ATUAL do modelo (o tipo
+   * não é versionado: a exportação de uma versão antiga leva o tipo de hoje).
    */
   async getVersion(versionId: string, isMaster?: boolean, empresaId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, async (db) => {
@@ -293,6 +299,7 @@ export class TratamentoLancamentosService {
         authorImage: version.authorId ? authors.get(version.authorId)?.image ?? null : null,
         createdAt: version.createdAt,
         definition: version.definition as unknown as TreatmentDefinition,
+        modelTipoArquivo: model.tipoArquivo,
       }
     })
   }

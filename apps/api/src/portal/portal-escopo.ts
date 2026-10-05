@@ -1,5 +1,5 @@
 import { prisma } from '@saas/db'
-import { resolverLiberados } from './portal-modulos'
+import { resolverLiberados, modulosDoVinculo } from './portal-modulos'
 
 /**
  * Escopo do usuário externo — a peça que impede um cliente de ler o outro.
@@ -44,8 +44,11 @@ export interface VinculoPortal {
   podeVer: boolean
   podeEditar: boolean
   podeExcluir: boolean
+  /** Vê o Dashboard Financeiro (BI). Já refletido em `modulos`. */
+  podeVerBi: boolean
   /**
-   * Módulos que o master liberou para a empresa dona deste cliente.
+   * Módulos que o master liberou para a empresa dona deste cliente, MENOS os
+   * que exigem uma permissão que esta pessoa não tem (ver `modulosDoVinculo`).
    *
    * Viaja no vínculo pelo mesmo motivo das áreas e das permissões: quem recebe
    * um `VinculoPortal` recebe TUDO que decide acesso, e não precisa lembrar de
@@ -116,6 +119,7 @@ export async function resolverVinculo(userId: string, clienteId: string): Promis
       podeVer: true,
       podeEditar: true,
       podeExcluir: true,
+      podeVerBi: true,
       cliente: {
         select: {
           status: true,
@@ -150,7 +154,8 @@ export async function resolverVinculo(userId: string, clienteId: string): Promis
     podeVer: vinculo.podeVer,
     podeEditar: vinculo.podeEditar,
     podeExcluir: vinculo.podeExcluir,
-    modulos: [...resolverLiberados(excecoes)],
+    podeVerBi: vinculo.podeVerBi,
+    modulos: modulosDoVinculo(resolverLiberados(excecoes), { podeVerBi: vinculo.podeVerBi }),
     areas: intersecaoAreas(
       vinculo.areas,
       vinculo.cliente.servicosContratados.map(a => a.areaId),
@@ -188,6 +193,7 @@ export async function listarVinculos(
       podeVer: true,
       podeEditar: true,
       podeExcluir: true,
+      podeVerBi: true,
       cliente: {
         select: {
           razaoSocial: true,
@@ -225,7 +231,11 @@ export async function listarVinculos(
     podeVer: v.podeVer,
     podeEditar: v.podeEditar,
     podeExcluir: v.podeExcluir,
-    modulos: [...resolverLiberados(porEmpresa.get(v.cliente.empresaId ?? '') ?? [])],
+    podeVerBi: v.podeVerBi,
+    modulos: modulosDoVinculo(
+      resolverLiberados(porEmpresa.get(v.cliente.empresaId ?? '') ?? []),
+      { podeVerBi: v.podeVerBi },
+    ),
     areas: intersecaoAreas(v.areas, v.cliente.servicosContratados.map(a => a.areaId)),
     razaoSocial: v.cliente.razaoSocial,
     escritorio: v.cliente.empresa

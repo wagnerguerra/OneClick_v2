@@ -1,12 +1,41 @@
 import { z } from 'zod'
+import { TRPCError } from '@trpc/server'
 import { router, readProcedure, writeProcedure, deleteProcedure } from '../trpc/trpc.service'
 import { createOportunidadeSchema, updateOportunidadeSchema, listOportunidadeSchema, listForaDoFunilSchema, updateCrmEtapaSchema } from '@saas/types'
 import { CrmService } from './crm.service'
 import { ImportComercialService } from './import-comercial.service'
+import type { AgendaTarefaService } from '../agenda/agenda-tarefa.service'
+import { interacaoSchema, lembreteAcaoSchema, lembretesDaAcao, tituloDaAcao } from './crm-acao'
+import { janelaDoPeriodo, periodoSchema, type Periodo } from '../common/periodo-br'
+import { CAMPOS_INDICADOR } from './indicadores-comerciais'
 
 const MODULE = 'crm'
 
-export function createCrmRouter(crmService: CrmService, importComercialService?: ImportComercialService) {
+const dataIso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+const hora = z.string().regex(/^\d{2}:\d{2}$/)
+
+/** Datas explícitas viram janela; senão segue a contagem de dias de sempre. */
+function periodoOuDias(p: Periodo) {
+  return p.de || p.ate ? janelaDoPeriodo(p) : p.dias
+}
+
+export function createCrmRouter(crmService: CrmService, tarefaService: AgendaTarefaService, importComercialService?: ImportComercialService) {
+  const oportunidade = async (id: string, empresaId?: string | null) => {
+    const op = await crmService.oportunidadeNoEscopo(id, empresaId)
+    if (!op) throw new TRPCError({ code: 'NOT_FOUND', message: 'Oportunidade não encontrada.' })
+    return op
+  }
+  const acao = async (id: string, empresaId?: string | null) => {
+    const t = await crmService.acaoNoEscopo(id, empresaId)
+    if (!t) throw new TRPCError({ code: 'NOT_FOUND', message: 'Ação não encontrada.' })
+    return t
+  }
+  const interacao = async (id: string, empresaId?: string | null) => {
+    const i = await crmService.interacaoNoEscopo(id, empresaId)
+    if (!i) throw new TRPCError({ code: 'NOT_FOUND', message: 'Interação não encontrada.' })
+    return i
+  }
+
   return router({
     // ── Etapas do Pipeline ─────────────────────────────────
     listEtapas: readProcedure(MODULE)
@@ -81,9 +110,129 @@ export function createCrmRouter(crmService: CrmService, importComercialService?:
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => crmService.delete(input.id, ctx.userId)),
 
-    // ── Tarefas ────────────────────────────────────────────
-    // Migraram para AgendaTarefa vinculada à oportunidade — usar `trpc.agenda.tarefa.*`
-    // (create/update/toggleConcluida/delete/lembrete) e `agenda.tarefa.list({ oportunidadeId })`.
+    // ── Ações ──────────────────────────────────────────────
+    // O andamento do atendimento, com prazo e responsáveis. Por baixo são
+    // AgendaTarefas vinculadas ao card (ver crm-acao.ts): ciência por membro,
+    // lembretes por sino/e-mail e presença na lista de tarefas da Agenda. As
+    // rotas moram aqui, e não em `agenda.tarefa.*`, para valerem pela permissão
+    // do CRM — quem atende lead nem sempre tem a Agenda liberada.
+    acoes: router({
+      list: readProcedure(MODULE)
+        .input(z.object({ oportunidadeId: z.string() }))
+        .query(async ({ input, ctx }) => {
+          await oportunidade(input.oportunidadeId, ctx.empresaId)
+          return tarefaService.list({ oportunidadeId: input.oportunidadeId })
+        }),
+
+      create: writeProcedure(MODULE)
+        .input(z.object({
+          oportunidadeId: z.string(),
+          descricao: z.string().min(1),
+          prazo: dataIso,
+          horaPrazo: hora.nullable().optional(),
+          /** Usuários responsáveis. Vazio = só quem registra. */
+          responsaveis: z.array(z.string()).default([]),
+          lembrete: lembreteAcaoSchema.default({ minutosAntes: null, email: false }),
+          /** Registro de algo que JÁ foi feito: nasce concluída, sem lembrete. */
+          realizada: z.boolean().default(false),
+        }))
+        .mutation(async ({ input, ctx }) => {
+          const op = await oportunidade(input.oportunidadeId, ctx.empresaId)
+          const titulo = tituloDaAcao(input.descricao)
+          // Quem registra é sempre membro (regra da AgendaTarefa). Numa ação já
+          // realizada os responsáveis não entram: não há o que lembrar a eles.
+          const t = await tarefaService.create({
+            titulo,
+            descricao: input.descricao,
+            prazo: input.prazo,
+            horaPrazo: input.horaPrazo ?? null,
+            participantes: input.realizada ? [] : input.responsaveis,
+            empresaId: op.empresaId,
+            oportunidadeId: op.id,
+          }, ctx.userId)
+          if (input.realizada) {
+            await tarefaService.darCiencia(t.id, ctx.userId, true)
+          } else {
+            await tarefaService.saveLembretes(t.id, lembretesDaAcao(input.lembrete))
+          }
+          await crmService.addEvento(op.id, ctx.userId, 'tarefa', `Ação registrada: ${titulo}`)
+          return tarefaService.getById(t.id)
+        }),
+
+      update: writeProcedure(MODULE)
+        .input(z.object({
+          id: z.string(),
+          descricao: z.string().min(1).optional(),
+          prazo: dataIso.optional(),
+          horaPrazo: hora.nullable().optional(),
+          responsaveis: z.array(z.string()).optional(),
+          /** Só vem quando o usuário mexeu no lembrete — senão os atuais ficam. */
+          lembrete: lembreteAcaoSchema.optional(),
+        }))
+        .mutation(async ({ input, ctx }) => {
+          const t = await acao(input.id, ctx.empresaId)
+          const titulo = input.descricao !== undefined ? tituloDaAcao(input.descricao) : t.titulo
+          await tarefaService.update(t.id, {
+            ...(input.descricao !== undefined ? { titulo, descricao: input.descricao } : {}),
+            ...(input.prazo !== undefined ? { prazo: input.prazo } : {}),
+            ...(input.horaPrazo !== undefined ? { horaPrazo: input.horaPrazo } : {}),
+            ...(input.responsaveis !== undefined ? { participantes: input.responsaveis } : {}),
+          })
+          if (input.lembrete) await tarefaService.saveLembretes(t.id, lembretesDaAcao(input.lembrete))
+          await crmService.addEvento(t.oportunidadeId, ctx.userId, 'tarefa', `Ação editada: ${titulo}`)
+          return tarefaService.getById(t.id)
+        }),
+
+      /**
+       * Concluir = o usuário atual dá ciência. A ação só fica concluída quando
+       * todos os responsáveis derem (regra da AgendaTarefa).
+       */
+      alternarConclusao: writeProcedure(MODULE)
+        .input(z.object({ id: z.string(), concluida: z.boolean() }))
+        .mutation(async ({ input, ctx }) => {
+          const t = await acao(input.id, ctx.empresaId)
+          const r = await tarefaService.darCiencia(t.id, ctx.userId, input.concluida)
+          await crmService.addEvento(t.oportunidadeId, ctx.userId, 'tarefa',
+            r.concluida ? `Ação concluída: ${t.titulo}` : input.concluida ? `Ciência dada na ação: ${t.titulo}` : `Ação reaberta: ${t.titulo}`)
+          return r
+        }),
+
+      delete: deleteProcedure(MODULE)
+        .input(z.object({ id: z.string() }))
+        .mutation(async ({ input, ctx }) => {
+          const t = await acao(input.id, ctx.empresaId)
+          await tarefaService.delete(t.id)
+          await crmService.addEvento(t.oportunidadeId, ctx.userId, 'tarefa', `Ação excluída: ${t.titulo}`)
+          return { id: t.id }
+        }),
+    }),
+
+    // ── Interações ─────────────────────────────────────────
+    // Cada contato com o lead. A lista vem no `getById` (campo `interacoes`).
+    interacoes: router({
+      create: writeProcedure(MODULE)
+        .input(interacaoSchema.extend({ oportunidadeId: z.string() }))
+        .mutation(async ({ input, ctx }) => {
+          const { oportunidadeId, ...dados } = input
+          await oportunidade(oportunidadeId, ctx.empresaId)
+          return crmService.addInteracao(oportunidadeId, ctx.userId || '', dados)
+        }),
+
+      update: writeProcedure(MODULE)
+        .input(interacaoSchema.extend({ id: z.string() }))
+        .mutation(async ({ input, ctx }) => {
+          const { id, ...dados } = input
+          await interacao(id, ctx.empresaId)
+          return crmService.updateInteracao(id, ctx.userId || '', dados)
+        }),
+
+      delete: deleteProcedure(MODULE)
+        .input(z.object({ id: z.string() }))
+        .mutation(async ({ input, ctx }) => {
+          await interacao(input.id, ctx.empresaId)
+          return crmService.deleteInteracao(input.id, ctx.userId || '')
+        }),
+    }),
 
     // ── Mensagens ──────────────────────────────────────────
     addMensagem: writeProcedure(MODULE)
@@ -150,13 +299,31 @@ export function createCrmRouter(crmService: CrmService, importComercialService?:
       .query(({ ctx }) => crmService.getStats(ctx.isMaster ?? false, ctx.empresaId)),
 
     // ── Relatorios ────────────────────────────────────────
+    // `de`/`ate` (painel /comercial) vencem `dias` (demais telas).
     reportFunil: readProcedure(MODULE)
-      .input(z.object({ dias: z.number().optional() }))
-      .query(({ input, ctx }) => crmService.reportFunil(ctx.empresaId, input.dias)),
+      .input(periodoSchema.extend({ apenasAtivos: z.boolean().optional() }))
+      .query(({ input, ctx }) => crmService.reportFunil(ctx.empresaId, periodoOuDias(input), undefined, { apenasAtivos: input.apenasAtivos })),
 
     reportDesempenho: readProcedure(MODULE)
-      .input(z.object({ dias: z.number().optional() }))
-      .query(({ input, ctx }) => crmService.reportDesempenho(ctx.empresaId, input.dias)),
+      .input(periodoSchema)
+      .query(({ input, ctx }) => crmService.reportDesempenho(ctx.empresaId, periodoOuDias(input))),
+
+    /** Qualificação e Fechamento do /comercial — ver indicadores-comerciais.ts. */
+    indicadoresComerciais: readProcedure(MODULE)
+      .input(periodoSchema)
+      .query(({ input, ctx }) => crmService.indicadoresComerciais(ctx.empresaId, input)),
+
+    /** Lista por trás de um número do funil (clique no total ou na pessoa). */
+    indicadorDetalhe: readProcedure(MODULE)
+      .input(periodoSchema.extend({
+        campo: z.enum(CAMPOS_INDICADOR),
+        /** Omitido = todos; '' = sem responsável. */
+        userId: z.string().optional(),
+      }))
+      .query(({ input, ctx }) => {
+        const { campo, userId, ...periodo } = input
+        return crmService.detalheIndicador(ctx.empresaId, periodo, campo, userId)
+      }),
 
     reportOrigem: readProcedure(MODULE)
       .input(z.object({ dias: z.number().optional() }))

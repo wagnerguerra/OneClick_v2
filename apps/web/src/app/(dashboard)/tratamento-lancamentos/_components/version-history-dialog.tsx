@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { History, Loader2, RotateCcw, ArrowLeft, Check, Eye } from 'lucide-react'
+import { History, Loader2, RotateCcw, ArrowLeft, Check, Eye, FileJson } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Button, Badge, Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
@@ -16,6 +16,7 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { computeDiff } from './version-diff'
 import { normalizeDefinition } from './treatment-definition'
 import { VersionOverview } from './version-overview'
+import { buildModeloJson, downloadModeloJson } from '../lib/export-modelos'
 
 interface VersionRow {
   id: string
@@ -57,6 +58,7 @@ export function VersionHistoryDialog({ modelId, modelNome, open, onOpenChange, c
   const [loadingList, setLoadingList] = useState(false)
   const [defs, setDefs] = useState<Record<string, TreatmentDefinition>>({})
   const [restoringId, setRestoringId] = useState<string | null>(null)
+  const [exportingId, setExportingId] = useState<string | null>(null)
   // Versão sendo visualizada (null = modo lista) e versão de comparação ('' = nenhuma).
   const [viewingId, setViewingId] = useState<string | null>(null)
   const [compareId, setCompareId] = useState('')
@@ -128,6 +130,21 @@ export function VersionHistoryDialog({ modelId, modelNome, open, onOpenChange, c
   function openVersion(v: VersionRow) {
     setViewingId(v.id)
     setCompareId('')
+  }
+
+  /** Exporta o `.json` DESTA versão (o tipo de arquivo é o atual do modelo — não é versionado). */
+  async function handleExport(v: VersionRow) {
+    setExportingId(v.id)
+    try {
+      const ver = await trpc.tratamentoLancamentos.getVersion.query({ versionId: v.id })
+      const r = buildModeloJson(modelNome, ver.modelTipoArquivo, ver.definition)
+      if (!r.ok) { alerts.error('Não foi possível exportar', `Versão ${v.versionNumber}: ${r.error}`); return }
+      downloadModeloJson(r.fileName.replace(/\.json$/, `-v${v.versionNumber}.json`), r.json)
+    } catch {
+      alerts.error('Erro ao exportar', 'Não foi possível carregar esta versão.')
+    } finally {
+      setExportingId(null)
+    }
   }
 
   async function handleRestore(v: VersionRow) {
@@ -254,6 +271,15 @@ export function VersionHistoryDialog({ modelId, modelNome, open, onOpenChange, c
                     <Button variant="ghost" size="sm" className="shrink-0" onClick={() => openVersion(v)}>
                       <Eye className="h-3.5 w-3.5" /> Visualizar
                     </Button>
+                    {canManage && (
+                      <Button
+                        variant="ghost" size="icon-sm" className="shrink-0" title="Exportar esta versão (JSON)"
+                        disabled={exportingId !== null}
+                        onClick={() => handleExport(v)}
+                      >
+                        {exportingId === v.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileJson className="h-3.5 w-3.5" />}
+                      </Button>
+                    )}
                     {canManage && !v.isCurrent && (
                       <Button
                         variant="soft" size="sm" className="shrink-0"
@@ -277,6 +303,12 @@ export function VersionHistoryDialog({ modelId, modelNome, open, onOpenChange, c
               <Button variant="outline" size="sm" onClick={() => setViewingId(null)}>
                 <ArrowLeft className="h-4 w-4" /> Voltar à lista
               </Button>
+              {canManage && (
+                <Button variant="outline" size="sm" disabled={exportingId !== null} onClick={() => handleExport(viewingVersion)}>
+                  {exportingId === viewingVersion.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileJson className="h-3.5 w-3.5" />}
+                  Exportar esta versão
+                </Button>
+              )}
               {canManage && !viewingIsCurrent && (
                 <Button variant="soft" size="sm" disabled={restoringId !== null} onClick={() => handleRestore(viewingVersion)}>
                   {restoringId === viewingVersion.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}

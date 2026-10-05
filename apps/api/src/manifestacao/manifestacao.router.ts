@@ -9,6 +9,8 @@ import {
   type ManifestacaoTipo,
 } from '@saas/types'
 import { ManifestacaoService } from './manifestacao.service'
+import { ManifestacaoNotificacaoService, EVENTOS_MANIFESTACAO } from './manifestacao-notificacao.service'
+import { TRPCError } from '@trpc/server'
 
 /**
  * Um router por módulo, sobre a mesma engrenagem.
@@ -21,7 +23,13 @@ export function createManifestacaoRouter(
   service: ManifestacaoService,
   tipo: ManifestacaoTipo,
   MODULE: string,
+  avisos?: ManifestacaoNotificacaoService,
 ) {
+  const empresaDe = (empresaId?: string | null) => {
+    if (!empresaId) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Selecione a empresa antes de configurar.' })
+    if (!avisos) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+    return { empresaId, avisos }
+  }
   /**
    * Escopo de leitura do usuário atual. Espelha o roteamento do legado, onde o
    * nível 1 caía em `usu/` (só as suas) e o 3 em `adm/` (todas).
@@ -33,14 +41,16 @@ export function createManifestacaoRouter(
     userId: string; empresaId?: string | null; isMaster?: boolean; isEmpresaMaster?: boolean
   }) {
     const opts = { isMaster: ctx.isMaster, isEmpresaMaster: ctx.isEmpresaMaster }
-    const [verTodos, trata] = await Promise.all([
+    const [verTodos, trata, podeRestaurar] = await Promise.all([
       hasSubPermission(ctx.userId, MODULE, 'ver_todos', opts),
       hasSubPermission(ctx.userId, MODULE, 'tratar', opts),
+      hasSubPermission(ctx.userId, MODULE, 'restaurar', opts),
     ])
     return {
       userId: ctx.userId,
       empresaId: ctx.empresaId,
       verTodos: verTodos || trata,
+      podeRestaurar,
       // No mural das sugestões, o que foi publicado é de todos.
       verPublicas: tipo === 'SUGESTAO',
     }
@@ -51,14 +61,27 @@ export function createManifestacaoRouter(
       .input(listarManifestacoesSchema)
       .query(async ({ input, ctx }) => {
         // `somenteMinhas` é aplicado no service, que já é o dono dessa regra.
-        return service.listar(tipo, input, await escopoDeLeitura(ctx))
+        const escopo = await escopoDeLeitura(ctx)
+        // A lista de inativas é só de quem pode restaurar.
+        if (input.inativas && !escopo.podeRestaurar) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Sem acesso aos inativos.' })
+        }
+        return service.listar(tipo, input, escopo)
       }),
 
     getById: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))
       .query(async ({ input, ctx }) => {
         await service.assertPodeVer(input.id, tipo, await escopoDeLeitura(ctx))
-        return service.getById(tipo, input.id, ctx.empresaId)
+        const m = await service.getById(tipo, input.id, ctx.empresaId)
+        // Editar = quem registrou ou quem trata (a mesma regra do `atualizar`).
+        // Vai como flag: a tela não reimplementa a regra.
+        const trata = await hasSubPermission(ctx.userId, MODULE, 'tratar', {
+          isMaster: ctx.isMaster, isEmpresaMaster: ctx.isEmpresaMaster,
+        })
+        // Inativa não se edita (restaure antes).
+        const podeEditar = !!m && !m.excluidaEm && (trata || (!m.anonima && m.autor?.id === ctx.userId))
+        return m ? { ...m, podeEditar } : m
       }),
 
     // `registrar` já estava no catálogo de permissões, mas o criar exigia só a
@@ -82,7 +105,44 @@ export function createManifestacaoRouter(
             isMaster: ctx.isMaster, isEmpresaMaster: ctx.isEmpresaMaster,
           }),
         })
-        return service.atualizar({ ...input, tipo }, tipo, ctx.empresaId)
+        return service.atualizar({ ...input, tipo }, tipo, ctx.empresaId, ctx.userId)
+      }),
+
+    /** Parâmetros que a tela precisa (flag do servidor, não regra no front). */
+    parametros: readProcedure(MODULE)
+      .query(async ({ ctx }) => ({
+        permitirInternas: await service.permiteInterna(tipo, ctx.empresaId),
+        // Só o master global altera a trava (pedido da diretoria).
+        podeAlterarInternas: tipo === 'RECLAMACAO' && !!ctx.isMaster,
+      })),
+    definirPermiteInterna: writeProcedure(MODULE)
+      .input(z.object({ permitir: z.boolean() }))
+      .mutation(({ input, ctx }) => {
+        if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Só o master altera esta opção.' })
+        if (tipo !== 'RECLAMACAO') throw new TRPCError({ code: 'BAD_REQUEST', message: 'Opção exclusiva de Reclamações.' })
+        if (!ctx.empresaId) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Selecione a empresa.' })
+        return service.definirPermiteInterna(tipo, ctx.empresaId, input.permitir)
+      }),
+
+    // ── Configurações: quem recebe os avisos de cada evento ──
+    // Sub-permissão própria (`configurar`): decidir quem é avisado de uma
+    // reclamação é decisão de gestão, não de quem registra ou trata.
+    notificacoesConfig: readSubProcedure(MODULE, 'configurar', 'Acessar as configuracoes')
+      .query(({ ctx }) => {
+        const { empresaId, avisos: a } = empresaDe(ctx.empresaId)
+        return a.listar(empresaId, tipo)
+      }),
+    salvarNotificacoesConfig: writeSubProcedure(MODULE, 'configurar', 'Acessar as configuracoes')
+      .input(z.array(z.object({
+        evento: z.enum(EVENTOS_MANIFESTACAO),
+        userIds: z.array(z.string()).max(200),
+        avisarAutor: z.boolean(),
+        sino: z.boolean(),
+        email: z.boolean(),
+      })).max(EVENTOS_MANIFESTACAO.length))
+      .mutation(({ input, ctx }) => {
+        const { empresaId, avisos: a } = empresaDe(ctx.empresaId)
+        return a.salvar(empresaId, tipo, input)
       }),
 
     responder: writeSubProcedure(MODULE, 'tratar', 'Responder e encerrar')
@@ -104,12 +164,33 @@ export function createManifestacaoRouter(
         return service.adicionarMensagem(input, tipo, ctx.userId, ctx.empresaId)
       }),
 
+    // ── Arquivos: quem enxerga o registro anexa; remove quem anexou ou trata ──
+    adicionarArquivo: writeProcedure(MODULE)
+      .input(z.object({
+        id: z.string().min(1), nome: z.string().min(1).max(255), url: z.string().min(1),
+        mime: z.string().max(120).optional().nullable(), bytes: z.number().int().nonnegative().optional().nullable(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        await service.assertPodeVer(input.id, tipo, await escopoDeLeitura(ctx))
+        return service.adicionarArquivo(input, tipo, ctx.userId, ctx.empresaId)
+      }),
+    removerArquivo: writeProcedure(MODULE)
+      .input(z.object({ arquivoId: z.string().min(1) }))
+      .mutation(async ({ input, ctx }) => service.removerArquivo(input.arquivoId, tipo, {
+        userId: ctx.userId, empresaId: ctx.empresaId,
+        trata: await hasSubPermission(ctx.userId, MODULE, 'tratar', { isMaster: ctx.isMaster, isEmpresaMaster: ctx.isEmpresaMaster }),
+      })),
+
     // No legado o botão de excluir só aparecia no nível de administração
     // (`If SGQ_ELO = "3"` em central/modules/sgq_elogios/details.asp). Aqui
     // vira sub-permissão própria, em vez de bastar o delete do módulo.
+    // Excluir = enviar para os inativos (não apaga mais).
     excluir: deleteSubProcedure(MODULE, 'excluir', 'Excluir manifestações')
+      .input(z.object({ id: z.string(), motivo: z.string().max(1000).optional().nullable() }))
+      .mutation(({ input, ctx }) => service.excluir(input.id, tipo, ctx.empresaId, ctx.userId, input.motivo)),
+    restaurar: writeSubProcedure(MODULE, 'restaurar', 'Restaurar manifestações')
       .input(z.object({ id: z.string() }))
-      .mutation(({ input, ctx }) => service.excluir(input.id, tipo, ctx.empresaId)),
+      .mutation(({ input, ctx }) => service.restaurar(input.id, tipo, ctx.empresaId, ctx.userId)),
 
     // ── Fluxo, só para Reclamações ──
     ...(tipo === 'RECLAMACAO'

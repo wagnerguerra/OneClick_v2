@@ -156,6 +156,168 @@ export class NotificacaoService {
   }
 
   /**
+   * Evento "Serviço incluído ao orçamento" — o único que acontece ANTES de
+   * existir execução.
+   *
+   * Tem entrada própria porque o `disparar` acima parte de uma
+   * `ServicoExecucao` para tudo: destinatários, variáveis e log. Aqui nada
+   * disso existe ainda — o serviço só foi proposto. Quem monta o payload é o
+   * ServicoService, que já é dono do resolvedor de candidatos; assim este
+   * serviço não passa a depender dele, e a regra de quem executa continua
+   * escrita num lugar só.
+   *
+   * Destinatários possíveis: LIDER_AREA, RESPONSAVEL e CUSTOM. GESTOR (vem do
+   * processo), WATCHERS (da execução) e CLIENTE não têm origem antes da venda
+   * — regra com um deles cai no "sem destinatário válido" e não envia. A tela
+   * não oferece essas opções para este evento.
+   */
+  async dispararServicoIncluido(input: {
+    orcamentoItemId: string
+    servicoId: string
+    liderAreaEmail: string | null
+    responsavel: { name: string; email: string } | null
+    ctx: {
+      servicoNome: string
+      clienteRazaoSocial: string
+      clienteDocumento: string
+      clienteNomeFantasia: string
+      orcamentoId: string
+      orcamentoNumero: number
+      valorItem: string
+    }
+  }): Promise<void> {
+    try {
+      await this.dispararServicoIncluidoInterno(input)
+    } catch (e) {
+      this.logger.warn(
+        `[Notificacao] Falha no evento SERVICO_INCLUIDO_ORCAMENTO item=${input.orcamentoItemId}: ${(e as Error).message}`,
+      )
+    }
+  }
+
+  private async dispararServicoIncluidoInterno(input: {
+    orcamentoItemId: string
+    servicoId: string
+    liderAreaEmail: string | null
+    responsavel: { name: string; email: string } | null
+    ctx: {
+      servicoNome: string
+      clienteRazaoSocial: string
+      clienteDocumento: string
+      clienteNomeFantasia: string
+      orcamentoId: string
+      orcamentoNumero: number
+      valorItem: string
+    }
+  }) {
+    const evento = 'SERVICO_INCLUIDO_ORCAMENTO' as const
+    const regras = await prisma.servicoNotificacaoRegra.findMany({
+      where: { servicoId: input.servicoId, ativa: true, evento: evento as any },
+    })
+    if (regras.length === 0) return
+
+    const ctx = this.buildContextOrcamento(input)
+
+    for (const regra of regras) {
+      const jaEnviado = await prisma.servicoNotificacaoLog.findUnique({
+        where: {
+          regraId_orcamentoItemId_evento: {
+            regraId: regra.id, orcamentoItemId: input.orcamentoItemId, evento: evento as any,
+          },
+        },
+      })
+      if (jaEnviado && jaEnviado.status === 'ENVIADO') continue
+
+      let to: string[] = []
+      switch (regra.destinatariosTipo) {
+        case 'LIDER_AREA':  if (input.liderAreaEmail)     to = [input.liderAreaEmail];     break
+        case 'RESPONSAVEL': if (input.responsavel?.email) to = [input.responsavel.email];  break
+        case 'CUSTOM':      to = regra.destinatariosCustom;                                break
+        // GESTOR, WATCHERS e CLIENTE: sem origem antes da venda. Cai fora.
+        default: to = []
+      }
+      to = Array.from(new Set(to.filter(Boolean)))
+      if (to.length === 0) {
+        this.logger.debug(`[Notificacao] Regra ${regra.id} sem destinatário válido — pula`)
+        continue
+      }
+
+      const assuntoFinal = this.renderTemplate(regra.assunto, ctx)
+      const corpoFinal = this.renderTemplate(regra.corpoHtml, ctx)
+
+      let okEnvio = false
+      let erro: string | null = null
+      try {
+        okEnvio = await this.emailService.sendMail({ to, subject: assuntoFinal, html: corpoFinal })
+      } catch (e) {
+        erro = (e as Error).message
+      }
+
+      await prisma.servicoNotificacaoLog.upsert({
+        where: {
+          regraId_orcamentoItemId_evento: {
+            regraId: regra.id, orcamentoItemId: input.orcamentoItemId, evento: evento as any,
+          },
+        },
+        create: {
+          regraId: regra.id, orcamentoItemId: input.orcamentoItemId, evento: evento as any,
+          destinatarios: to,
+          status: okEnvio ? 'ENVIADO' : 'FALHA',
+          erro: okEnvio ? null : (erro ?? 'envio retornou false'),
+        },
+        update: {
+          destinatarios: to,
+          status: okEnvio ? 'ENVIADO' : 'FALHA',
+          erro: okEnvio ? null : (erro ?? 'envio retornou false'),
+          sentAt: new Date(),
+        },
+      })
+    }
+  }
+
+  /**
+   * Contexto do evento de orçamento. As famílias que dependem da execução
+   * (`prazo`, `processo`, `link.execucao`) vêm VAZIAS de propósito: escrever um
+   * valor plausível ali faria o e-mail afirmar um prazo que ninguém combinou.
+   */
+  private buildContextOrcamento(input: {
+    responsavel: { name: string; email: string } | null
+    ctx: {
+      servicoNome: string
+      clienteRazaoSocial: string
+      clienteDocumento: string
+      clienteNomeFantasia: string
+      orcamentoId: string
+      orcamentoNumero: number
+      valorItem: string
+    }
+  }): Record<string, Record<string, string>> {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.API_URL?.replace(/:\d+$/, '') || 'http://localhost:3000'
+    return {
+      servico: { nome: input.ctx.servicoNome },
+      cliente: {
+        razaoSocial: input.ctx.clienteRazaoSocial,
+        documento: input.ctx.clienteDocumento,
+        nomeFantasia: input.ctx.clienteNomeFantasia,
+      },
+      responsavel: {
+        name: input.responsavel?.name ?? '—',
+        email: input.responsavel?.email ?? '',
+      },
+      prazo: { data: '—', hora: '—' },
+      processo: { nome: '' },
+      orcamento: {
+        numero: String(input.ctx.orcamentoNumero),
+        valor: input.ctx.valorItem,
+      },
+      link: {
+        execucao: '',
+        orcamento: `${baseUrl}/orcamentos/${input.ctx.orcamentoId}`,
+      },
+    }
+  }
+
+  /**
    * Envia e-mail de teste com dados fake — sem gravar log, sem checar regras
    * persistidas. Útil pra UI "Enviar teste" antes de salvar.
    */
@@ -219,6 +381,7 @@ export class NotificacaoService {
 export type NotificacaoEventoStr =
   | 'INICIADA' | 'CONCLUIDA' | 'ATRASADA' | 'PRAZO_PROXIMO'
   | 'PAUSADA' | 'CANCELADA' | 'AGUARDANDO_RESPOSTA'
+  | 'SERVICO_INCLUIDO_ORCAMENTO'
 
 // ============================================================
 // Exporta o renderer + builder de contexto pra uso público

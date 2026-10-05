@@ -3,10 +3,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Plus, Loader2, Search, Copy, Check, EyeOff, MessageSquare, Paperclip,
-  Building2, User as UserIcon,
+  Building2, User as UserIcon, MoreVertical, Eye, Inbox, Settings, Trash2, ArchiveRestore,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUp, ArrowDown, ArrowUpDown,
 } from 'lucide-react'
 import {
   Button, Card, Input, Label, Badge, cn,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
@@ -44,10 +46,15 @@ export const STATUS_LABEL: Record<string, { texto: string; classe: string }> = {
  * correção feita em uma delas.
  */
 export function ManifestacaoPage({ config }: { config: Config }) {
-  const { isMaster, permissions } = useUserPermissions()
+  const { isMaster, isEmpresaMaster, permissions } = useUserPermissions()
   const subs = (permissions.find(p => p.moduleSlug === config.slug)?.subPermissions ?? {}) as Record<string, boolean>
   const podeTratar = isMaster || subs.tratar === true
   const podeRegistrar = isMaster || subs.registrar === true || subs.tratar === true
+  const podeConfigurar = isMaster || isEmpresaMaster || subs.configurar === true
+  const podeExcluir = isMaster || isEmpresaMaster || subs.excluir === true
+  const podeRestaurar = isMaster || isEmpresaMaster || subs.restaurar === true
+  // Lista de inativos ("excluídas") — só para quem pode restaurar.
+  const [inativas, setInativas] = useState(false)
 
   const [linhas, setLinhas] = useState<Linha[]>([])
   const [total, setTotal] = useState(0)
@@ -55,10 +62,19 @@ export function ManifestacaoPage({ config }: { config: Config }) {
   const [busca, setBusca] = useState('')
   const [buscaAtrasada, setBuscaAtrasada] = useState('')
   const [status, setStatus] = useState('')
+  const [origem, setOrigem] = useState('')
   const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
+  const [sortBy, setSortBy] = useState<string>('criadoEm')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
   const [novoOpen, setNovoOpen] = useState(false)
   const [abertoId, setAbertoId] = useState<string | null>(null)
+  // Link das notificações: /reclamacoes?abrir=<id> já abre o registro.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('abrir')
+    if (id) setAbertoId(id)
+  }, [])
   const [protocoloNovo, setProtocoloNovo] = useState<string | null>(null)
 
   // Busca com respiro: uma consulta por tecla digitada castigaria o servidor
@@ -74,9 +90,11 @@ export function ManifestacaoPage({ config }: { config: Config }) {
     setCarregando(true)
     try {
       const r = await api.listar.query({
-        page, limit: 20,
+        page, limit, sortBy, sortDir,
+        ...(inativas ? { inativas: true } : {}),
         ...(buscaAtrasada ? { search: buscaAtrasada } : {}),
         ...(status ? { status } : {}),
+        ...(origem ? { origem } : {}),
       })
       setLinhas(r?.data ?? [])
       setTotal(r?.total ?? 0)
@@ -85,17 +103,81 @@ export function ManifestacaoPage({ config }: { config: Config }) {
     } finally {
       setCarregando(false)
     }
-  }, [api, page, buscaAtrasada, status])
+  }, [api, page, limit, sortBy, sortDir, buscaAtrasada, status, origem, inativas])
+
+  // Paginação — PADRAO_PAGINAS §1.4
+  const totalPages = Math.max(1, Math.ceil(total / limit))
+  const startRecord = total ? (page - 1) * limit + 1 : 0
+  const endRecord = Math.min(page * limit, total)
+  const paginas = (() => {
+    let ini = Math.max(1, page - 2)
+    const fim = Math.min(totalPages, ini + 4)
+    ini = Math.max(1, fim - 4)
+    return Array.from({ length: fim - ini + 1 }, (_, i) => ini + i)
+  })()
+  const ordenar = (campo: string) => {
+    if (sortBy === campo) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortBy(campo); setSortDir(campo === 'criadoEm' ? 'desc' : 'asc') }
+    setPage(1)
+  }
+  async function excluir(l: Linha) {
+    const r = await alerts.input({
+      title: `Excluir ${l.protocolo}?`,
+      text: 'O registro vai para os inativos — sai das listas e dos indicadores, mas pode ser restaurado por quem tem permissão.',
+      inputPlaceholder: 'Motivo (opcional)',
+      inputType: 'textarea',
+      icon: 'warning',
+      confirmText: 'Excluir',
+    })
+    if (r === null) return
+    try {
+      await api.excluir.mutate({ id: l.id, motivo: r || null })
+      alerts.toast('Enviado para os inativos')
+      void carregar()
+    } catch (e) { alerts.error('Não foi possível excluir', (e as Error).message) }
+  }
+
+  async function restaurar(l: Linha) {
+    const ok = await alerts.confirm({ title: `Restaurar ${l.protocolo}?`, text: 'Ele volta para a lista, com a situação em que estava.', confirmText: 'Restaurar' })
+    if (!ok) return
+    try {
+      await api.restaurar.mutate({ id: l.id })
+      alerts.toast('Restaurado')
+      void carregar()
+    } catch (e) { alerts.error('Não foi possível restaurar', (e as Error).message) }
+  }
+
+  const copiarProtocolo = async (protocolo: string) => {
+    try { await navigator.clipboard.writeText(protocolo); alerts.toast('Protocolo copiado') } catch { /* sem área de transferência */ }
+  }
 
   useEffect(() => { void carregar() }, [carregar])
 
+  const Th = ({ campo, children, className }: { campo?: string; children?: React.ReactNode; className?: string }) => (
+    <TableHead className={cn('whitespace-nowrap text-xs font-semibold uppercase tracking-wider', className)}>
+      {campo ? (
+        <button type="button" onClick={() => ordenar(campo)} className="inline-flex items-center gap-1 uppercase hover:text-foreground">
+          {children}
+          {sortBy === campo
+            ? (sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)
+            : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+        </button>
+      ) : children}
+    </TableHead>
+  )
+
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex h-[calc(100vh-98px)] flex-col gap-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
           {podeRegistrar && (
-            <Button variant="success" size="sm" className="gap-1.5" onClick={() => setNovoOpen(true)}>
+            <Button size="sm" className="gap-1.5" onClick={() => setNovoOpen(true)}>
               <Plus className="h-4 w-4" /> {config.rotuloNovo}
+            </Button>
+          )}
+          {podeConfigurar && (
+            <Button variant="outline" size="icon-sm" asChild title="Configurações (quem recebe as notificações)">
+              <Link href={`/${config.slug}/configuracoes`}><Settings className="h-4 w-4" /></Link>
             </Button>
           )}
       </>}>
@@ -109,103 +191,160 @@ export function ManifestacaoPage({ config }: { config: Config }) {
         </p>
       </PageHeaderBar>
 
-      <Card className="overflow-hidden p-0">
-        <div className="flex flex-wrap items-center gap-3 border-b border-border/60 bg-muted/20 px-4 py-3">
-          <div className="relative min-w-[220px] flex-1">
+      {/* Card da tabela — PADRAO_PAGINAS §1.3/§1.5: só os registros rolam */}
+      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
+        <div className="flex shrink-0 flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span className="hidden sm:inline">Exibir</span>
+            <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}>
+              <SelectTrigger className="h-8 w-[68px] bg-card text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>{[10, 20, 50, 100].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
+            </Select>
+            <span className="hidden sm:inline">registros</span>
+            <Select value={status || '__all__'} onValueChange={v => { setStatus(v === '__all__' ? '' : v); setPage(1) }}>
+              <SelectTrigger className="h-8 w-[180px] bg-card text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todas as situações</SelectItem>
+                {config.status.map(st => <SelectItem key={st} value={st}>{STATUS_LABEL[st]?.texto ?? st}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={origem || '__all__'} onValueChange={v => { setOrigem(v === '__all__' ? '' : v); setPage(1) }}>
+              <SelectTrigger className="h-8 w-[150px] bg-card text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todas as origens</SelectItem>
+                <SelectItem value="CLIENTE">De cliente</SelectItem>
+                <SelectItem value="INTERNA">De dentro de casa</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+          {podeRestaurar && (
+            <Button variant={inativas ? 'soft' : 'outline'} size="sm" className="h-8 shrink-0 gap-1.5 text-xs"
+              onClick={() => { setInativas(v => !v); setPage(1) }}
+              title={inativas ? 'Voltar para a lista' : 'Ver os registros excluídos'}>
+              <ArchiveRestore className="h-3.5 w-3.5" /> Inativos
+            </Button>
+          )}
+          <div className="relative w-full sm:w-[300px]">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input value={busca} onChange={e => setBusca(e.target.value)}
-              placeholder="Buscar por texto ou protocolo..." className="h-9 pl-8 text-sm" />
+              placeholder="Buscar por texto, cliente ou protocolo..." className="h-8 pl-8 text-xs" />
           </div>
-          <Select value={status || '__all__'}
-            onValueChange={v => { setStatus(v === '__all__' ? '' : v); setPage(1) }}>
-            <SelectTrigger className="h-9 w-[190px] text-sm"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">Todas as situações</SelectItem>
-              {config.status.map(s => (
-                <SelectItem key={s} value={s}>{STATUS_LABEL[s]?.texto ?? s}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <span className="text-xs tabular-nums text-muted-foreground">{total} registro(s)</span>
+          </div>
         </div>
-
-        <Table className="table-fixed">
-          <TableHeader>
-            <TableRow className="bg-muted/40">
-              <TableHead className="w-[130px] text-xs font-semibold uppercase tracking-wider">Protocolo</TableHead>
-              <TableHead className="text-xs font-semibold uppercase tracking-wider">Assunto</TableHead>
-              <TableHead className="w-[190px] text-xs font-semibold uppercase tracking-wider">Quem registrou</TableHead>
-              <TableHead className="w-[170px] text-xs font-semibold uppercase tracking-wider">Situação</TableHead>
-              <TableHead className="w-[110px] text-xs font-semibold uppercase tracking-wider">Registro</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {carregando ? (
-              <TableRow><TableCell colSpan={5} className="py-10 text-center">
-                <Loader2 className="mx-auto h-4 w-4 animate-spin text-muted-foreground" />
-              </TableCell></TableRow>
-            ) : linhas.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="py-10 text-center text-sm italic text-muted-foreground">
-                {config.vazio}
-              </TableCell></TableRow>
-            ) : linhas.map(l => {
-              const st = STATUS_LABEL[l.status] ?? { texto: l.status, classe: 'bg-muted' }
-              return (
-                <TableRow key={l.id} className="cursor-pointer" onClick={() => setAbertoId(l.id)}>
-                  <TableCell className="font-mono text-[12px]">{l.protocolo}</TableCell>
-                  <TableCell className="truncate text-[13px]">
-                    {l.titulo || l.descricao.replace(/<[^>]*>/g, '').slice(0, 90)}
-                    <span className="ml-2 inline-flex items-center gap-2 align-middle text-muted-foreground">
-                      {l._count?.mensagens ? <span className="inline-flex items-center gap-0.5 text-[11px]"><MessageSquare className="h-3 w-3" />{l._count.mensagens}</span> : null}
-                      {l._count?.arquivos ? <span className="inline-flex items-center gap-0.5 text-[11px]"><Paperclip className="h-3 w-3" />{l._count.arquivos}</span> : null}
-                    </span>
-                  </TableCell>
-                  <TableCell className="truncate text-[13px]">
-                    {l.anonima ? (
-                      <span className="inline-flex items-center gap-1 text-muted-foreground">
-                        <EyeOff className="h-3.5 w-3.5" /> Anônima
-                      </span>
-                    ) : l.origem === 'CLIENTE' ? (
-                      <span className="inline-flex items-center gap-1">
-                        <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                        {l.cliente?.razaoSocial ?? l.informanteNome ?? 'Cliente'}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1">
-                        <UserIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                        {l.autor?.name ?? '—'}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={cn('text-[10px]', st.classe)}>{st.texto}</Badge>
-                  </TableCell>
-                  <TableCell className="text-[12px] tabular-nums text-muted-foreground">
-                    {new Date(l.criadoEm).toLocaleDateString('pt-BR')}
-                    {/* Farol do prazo, como no v1: só enquanto o retorno ao
-                        cliente está pendente. Depois disso a data já cumpriu o
-                        papel e vira ruído. */}
-                    {config.temFluxo && l.prazoRetorno && l.status === 'AGUARDANDO_RETORNO' && (
-                      <Farol prazo={l.prazoRetorno} />
-                    )}
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
-
-        {total > 20 && (
-          <div className="flex items-center justify-between border-t border-border/60 bg-muted/20 px-4 py-2">
-            <span className="text-xs text-muted-foreground">
-              Página {page} de {Math.ceil(total / 20)}
-            </span>
-            <div className="flex gap-1.5">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Anterior</Button>
-              <Button variant="outline" size="sm" disabled={page >= Math.ceil(total / 20)} onClick={() => setPage(p => p + 1)}>Próxima</Button>
-            </div>
+        {inativas && (
+          <div className="shrink-0 border-b border-border/60 bg-amber-500/10 px-4 py-1.5 text-[12px] text-amber-700 dark:text-amber-400">
+            Mostrando os <b>inativos</b> (excluídos). Use o menu ⋮ para restaurar.
           </div>
         )}
+
+        <div className="nice-scrollbar min-h-0 flex-1 overflow-y-auto">
+          <Table className="table-fixed">
+            <TableHeader className="sticky top-0 z-10 [&_th]:bg-muted">
+              <TableRow>
+                <Th campo="protocolo" className="w-[132px]">Protocolo</Th>
+                <Th campo="criadoEm" className="w-[104px]">Registro</Th>
+                <Th campo="status" className="w-[230px]">Situação</Th>
+                <Th className="hidden w-[240px] md:table-cell">Quem registrou</Th>
+                <Th campo="titulo">Assunto</Th>
+                <Th className="hidden w-[150px] xl:table-cell">Área</Th>
+                <Th className="w-[80px] text-right">Ações</Th>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {carregando ? (
+                <TableRow><TableCell colSpan={7} className="py-10 text-center">
+                  <Loader2 className="mx-auto h-4 w-4 animate-spin text-muted-foreground" />
+                </TableCell></TableRow>
+              ) : linhas.length === 0 ? (
+                <TableRow><TableCell colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
+                  <Inbox className="mx-auto mb-2 h-6 w-6 opacity-50" />
+                  {buscaAtrasada || status || origem ? 'Nada encontrado com esses filtros.' : config.vazio}
+                </TableCell></TableRow>
+              ) : linhas.map(l => {
+                const st = STATUS_LABEL[l.status] ?? { texto: l.status, classe: 'bg-muted' }
+                const assunto = l.titulo || l.descricao.replace(/<[^>]*>/g, '').slice(0, 140)
+                // Uma linha por registro (PADRAO_PAGINAS §1.3): tudo nowrap, e
+                // o farol do prazo vai inline, ao lado da situação.
+                return (
+                  <TableRow key={l.id} className="cursor-pointer whitespace-nowrap hover:bg-muted/40" onClick={() => setAbertoId(l.id)}>
+                    <TableCell className="font-mono text-[12px]">{l.protocolo}</TableCell>
+                    <TableCell className="text-[12px] tabular-nums text-muted-foreground">
+                      {new Date(l.criadoEm).toLocaleDateString('pt-BR')}
+                    </TableCell>
+                    <TableCell>
+                      <span className="inline-flex max-w-full items-center gap-1.5">
+                        <Badge variant="outline" className={cn('shrink-0 text-[10px]', st.classe)}>{st.texto}</Badge>
+                        {/* Farol do prazo, como no v1: só enquanto o retorno ao
+                            cliente está pendente. Depois disso vira ruído. */}
+                        {config.temFluxo && l.prazoRetorno && l.status === 'AGUARDANDO_RETORNO' && (
+                          <Farol prazo={l.prazoRetorno} />
+                        )}
+                      </span>
+                    </TableCell>
+                    <TableCell className="hidden truncate text-[13px] md:table-cell">
+                      {l.anonima ? (
+                        <span className="inline-flex items-center gap-1 text-muted-foreground">
+                          <EyeOff className="h-3.5 w-3.5 shrink-0" /> Anônima
+                        </span>
+                      ) : l.origem === 'CLIENTE' ? (
+                        <span className="inline-flex max-w-full items-center gap-1" title={l.cliente?.razaoSocial ?? l.informanteNome ?? ''}>
+                          <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{l.cliente?.razaoSocial ?? l.informanteNome ?? 'Cliente'}</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex max-w-full items-center gap-1">
+                          <UserIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{l.autor?.name ?? '—'}</span>
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-[13px]">
+                      <span className="flex min-w-0 items-center gap-2" title={assunto}>
+                        <span className="truncate">{assunto}</span>
+                        {l._count?.mensagens ? <span className="inline-flex shrink-0 items-center gap-0.5 text-[11px] text-muted-foreground"><MessageSquare className="h-3 w-3" />{l._count.mensagens}</span> : null}
+                        {l._count?.arquivos ? <span className="inline-flex shrink-0 items-center gap-0.5 text-[11px] text-muted-foreground"><Paperclip className="h-3 w-3" />{l._count.arquivos}</span> : null}
+                      </span>
+                    </TableCell>
+                    <TableCell className="hidden truncate text-[12px] text-muted-foreground xl:table-cell">{l.area?.name ?? '—'}</TableCell>
+                    <TableCell className="text-right" onClick={e => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon-sm" aria-label="Ações"><MoreVertical className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setAbertoId(l.id)}><Eye className="h-4 w-4" />Abrir</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => copiarProtocolo(l.protocolo)}><Copy className="h-4 w-4" />Copiar protocolo</DropdownMenuItem>
+                          {inativas
+                            ? (podeRestaurar && <DropdownMenuItem onClick={() => restaurar(l)}><ArchiveRestore className="h-4 w-4" />Restaurar</DropdownMenuItem>)
+                            : (podeExcluir && <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => excluir(l)}><Trash2 className="h-4 w-4" />Excluir</DropdownMenuItem>)}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Rodapé — PADRAO_PAGINAS §1.4 */}
+        <div className="flex shrink-0 flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-muted-foreground">
+            Mostrando <span className="font-medium">{startRecord}</span> a <span className="font-medium">{endRecord}</span> de <span className="font-medium">{total}</span> registros
+          </p>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="icon-xs" disabled={page === 1} onClick={() => setPage(1)}><ChevronsLeft className="h-3.5 w-3.5" /></Button>
+              <Button variant="outline" size="icon-xs" disabled={page === 1} onClick={() => setPage(p => p - 1)}><ChevronLeft className="h-3.5 w-3.5" /></Button>
+              {paginas.map(n => (
+                <Button key={n} variant={n === page ? 'soft' : 'outline'} size="icon-xs" className="text-xs" onClick={() => setPage(n)}>{n}</Button>
+              ))}
+              <Button variant="outline" size="icon-xs" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight className="h-3.5 w-3.5" /></Button>
+              <Button variant="outline" size="icon-xs" disabled={page === totalPages} onClick={() => setPage(totalPages)}><ChevronsRight className="h-3.5 w-3.5" /></Button>
+            </div>
+          )}
+        </div>
       </Card>
 
       {novoOpen && (
@@ -254,7 +393,7 @@ function Farol({ prazo }: { prazo: string }) {
     : faltam === 0 ? 'vence hoje' : `faltam ${faltam}d`
 
   return (
-    <span className={cn('mt-0.5 block w-fit rounded px-1.5 py-0.5 text-[10px] font-semibold', cor)}>
+    <span className={cn('inline-block w-fit shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-semibold', cor)}>
       {texto}
     </span>
   )

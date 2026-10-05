@@ -4,6 +4,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { prisma } from '@saas/db'
 import { DriveClient } from '../drive-sync/drive.client'
+import { falhaDriveExigeAdministrador, mensagemDaFalhaDrive, type PublicoDoErro } from '../drive-sync/drive-erro'
 import type { VinculoPortal } from '../portal/portal-escopo'
 import {
   resolverEscopo,
@@ -65,6 +66,39 @@ export class GestaoArquivosDriveService {
 
   // O aviso nao sai daqui: `registrar` acumula a leva e o balde e quem dispara.
   constructor(private readonly lote: GestaoArquivosLoteService) {}
+
+  /**
+   * Registra a falha do Drive no nível certo e devolve o erro com a mensagem
+   * certa para quem vai ler.
+   *
+   * Todas as falhas diziam "Não foi possível falar com o Google Drive agora"
+   * e iam para o log como aviso. Em 25/09/2026 isso escondeu por dias um
+   * refresh token revogado: a frase soava passageira, e o aviso se perdia no
+   * meio dos de rede. Agora a falha que só um administrador resolve vai como
+   * ERRO, com um marcador fixo para ser achada, e a tela diz o que fazer.
+   * Ver `drive-sync/drive-erro.ts`.
+   */
+  private falhaDrive(
+    e: unknown,
+    contexto: string,
+    publico: PublicoDoErro,
+    /**
+     * A frase da OPERAÇÃO ("Não foi possível enviar o arquivo ao Drive."), para
+     * a falha passageira. Na falha que exige administrador ela é descartada: com
+     * a credencial expirada, "não foi possível enviar" faz a pessoa reenviar, e
+     * reenviar nunca vai funcionar.
+     */
+    mensagemDaOperacao?: string,
+  ): TRPCError {
+    const exigeAdmin = falhaDriveExigeAdministrador(e)
+    if (exigeAdmin) {
+      this.logger.error(`[DRIVE-EXIGE-ADMIN] ${contexto}: ${String(e)}`)
+    } else {
+      this.logger.warn(`${contexto}: ${String(e)}`)
+    }
+    const message = !exigeAdmin && mensagemDaOperacao ? mensagemDaOperacao : mensagemDaFalhaDrive(e, publico)
+    return new TRPCError({ code: 'BAD_GATEWAY', message })
+  }
 
   /** Config da empresa, ou null se o master ainda não apontou a pasta raiz. */
   async obterConfig(empresaId: string) {
@@ -136,11 +170,7 @@ export class GestaoArquivosDriveService {
 
     const [subpastas, vinculados] = await Promise.all([
       drive.listSubfolders(config.pastaRaizId).catch((e: unknown) => {
-        this.logger.warn(`Falha ao listar subpastas do Drive: ${String(e)}`)
-        throw new TRPCError({
-          code: 'BAD_GATEWAY',
-          message: 'Não foi possível falar com o Google Drive agora.',
-        })
+        throw this.falhaDrive(e, 'Falha ao listar subpastas do Drive', 'escritorio')
       }),
       prisma.cliente.findMany({
         where: { empresaId, portalDriveFolderId: { not: null } },
@@ -339,11 +369,11 @@ export class GestaoArquivosDriveService {
         })
         resultados.push({ clienteId: destino.id, nome: destino.razaoSocial, status: 'ok', ...contas })
       } catch (e) {
-        this.logger.warn(`Falha ao copiar estrutura para ${destino.id}: ${String(e)}`)
+        const falha = this.falhaDrive(e, `Falha ao copiar estrutura para ${destino.id}`, 'escritorio')
         resultados.push({
           clienteId: destino.id, nome: destino.razaoSocial, status: 'falhou',
           criadas: 0, existentes: 0, areasMapeadas: 0, areasPuladas: 0,
-          erro: 'Não foi possível falar com o Google Drive agora.',
+          erro: falha.message,
         })
       }
     }
@@ -514,11 +544,7 @@ export class GestaoArquivosDriveService {
         })),
       }
     } catch (e) {
-      this.logger.warn(`Falha ao listar pasta ${alvo} do Drive: ${String(e)}`)
-      throw new TRPCError({
-        code: 'BAD_GATEWAY',
-        message: 'Não foi possível falar com o Google Drive agora.',
-      })
+      throw this.falhaDrive(e, `Falha ao listar pasta ${alvo} do Drive`, 'escritorio')
     }
   }
 
@@ -561,11 +587,8 @@ export class GestaoArquivosDriveService {
       const stream = await drive.downloadStream(input.fileId)
       return { stream, nome: meta.name, mimeType: meta.mimeType, tamanho: meta.size }
     } catch (e) {
-      this.logger.warn(`Falha ao baixar ${input.fileId} do Drive: ${String(e)}`)
-      throw new TRPCError({
-        code: 'BAD_GATEWAY',
-        message: 'Não foi possível baixar o arquivo do Drive.',
-      })
+      throw this.falhaDrive(e, `Falha ao baixar ${input.fileId} do Drive`, 'escritorio',
+        'Não foi possível baixar o arquivo do Drive.')
     }
   }
 
@@ -638,8 +661,7 @@ export class GestaoArquivosDriveService {
         })),
       }
     } catch (e) {
-      this.logger.warn(`Falha ao listar pasta ${alvo} para o portal: ${String(e)}`)
-      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível falar com o Google Drive agora.' })
+      throw this.falhaDrive(e, `Falha ao listar pasta ${alvo} para o portal`, 'portal')
     }
   }
 
@@ -668,8 +690,8 @@ export class GestaoArquivosDriveService {
       const stream = await drive.downloadStream(fileId)
       return { stream, nome: meta.name, mimeType: meta.mimeType, tamanho: meta.size }
     } catch (e) {
-      this.logger.warn(`Falha ao baixar ${fileId} para o portal: ${String(e)}`)
-      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível baixar o arquivo.' })
+      throw this.falhaDrive(e, `Falha ao baixar ${fileId} para o portal`, 'portal',
+        'Não foi possível baixar o arquivo.')
     }
   }
 
@@ -703,8 +725,8 @@ export class GestaoArquivosDriveService {
       const criada = await drive.createFolder(limpo, destino)
       return { id: criada.id, nome: criada.name }
     } catch (e) {
-      this.logger.warn(`Falha ao criar pasta no Drive: ${String(e)}`)
-      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível criar a pasta no Drive.' })
+      throw this.falhaDrive(e, 'Falha ao criar pasta no Drive', 'portal',
+        'Não foi possível criar a pasta.')
     }
   }
 
@@ -778,8 +800,8 @@ export class GestaoArquivosDriveService {
 
       return { id: enviado.id, nome: enviado.name }
     } catch (e) {
-      this.logger.warn(`Falha ao subir arquivo para o Drive: ${String(e)}`)
-      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível enviar o arquivo ao Drive.' })
+      throw this.falhaDrive(e, 'Falha ao subir arquivo para o Drive', 'portal',
+        'Não foi possível enviar o arquivo. Tente de novo em instantes.')
     }
   }
 
@@ -870,8 +892,8 @@ export class GestaoArquivosDriveService {
       await drive.trashFile(itemId)
       return { ok: true }
     } catch (e) {
-      this.logger.warn(`Falha ao excluir ${itemId} no Drive: ${String(e)}`)
-      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível excluir no Drive.' })
+      throw this.falhaDrive(e, `Falha ao excluir ${itemId} no Drive`, 'portal',
+        'Não foi possível excluir o item.')
     }
   }
 
@@ -894,7 +916,7 @@ export class GestaoArquivosDriveService {
     if (!vinculo.podeEditar) {
       throw new TRPCError({ code: 'FORBIDDEN', message: 'Você não tem permissão para mover arquivos.' })
     }
-    return this.mover(vinculo.clienteId, itemId, destinoId)
+    return this.mover(vinculo.clienteId, itemId, destinoId, 'portal')
   }
 
   /** Mesmo movimento, pelo lado do escritório. O escopo já foi conferido. */
@@ -911,10 +933,10 @@ export class GestaoArquivosDriveService {
       select: { id: true },
     })
     if (!cliente) throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente não encontrado.' })
-    return this.mover(input.clienteId, input.itemId, input.destinoId)
+    return this.mover(input.clienteId, input.itemId, input.destinoId, 'escritorio')
   }
 
-  private async mover(clienteId: string, itemId: string, destinoId: string | null) {
+  private async mover(clienteId: string, itemId: string, destinoId: string | null, publico: PublicoDoErro) {
     const raiz = await this.raizDoCliente(clienteId)
     const destino = destinoId ?? raiz
 
@@ -951,7 +973,7 @@ export class GestaoArquivosDriveService {
       paiAtual = pais[0]!
     } catch (e) {
       if (e instanceof TRPCError) throw e
-      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível falar com o Google Drive agora.' })
+      throw this.falhaDrive(e, `Falha ao localizar a pasta de ${itemId}`, publico)
     }
 
     if (paiAtual === destino) return { ok: true, semMudanca: true }
@@ -960,8 +982,8 @@ export class GestaoArquivosDriveService {
       await drive.moveFile(itemId, destino, paiAtual)
       return { ok: true, semMudanca: false }
     } catch (e) {
-      this.logger.warn(`Falha ao mover ${itemId} no Drive: ${String(e)}`)
-      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível mover o item no Drive.' })
+      throw this.falhaDrive(e, `Falha ao mover ${itemId} no Drive`, publico,
+        'Não foi possível mover o item.')
     }
   }
 
@@ -1169,8 +1191,7 @@ export class GestaoArquivosDriveService {
     try {
       return await this.lixeiraDe(raiz)
     } catch (e) {
-      this.logger.warn(`Falha ao listar a lixeira: ${String(e)}`)
-      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível falar com o Google Drive agora.' })
+      throw this.falhaDrive(e, 'Falha ao listar a lixeira', 'portal')
     }
   }
 
@@ -1188,8 +1209,7 @@ export class GestaoArquivosDriveService {
     try {
       return await this.lixeiraDe(cliente.portalDriveFolderId)
     } catch (e) {
-      this.logger.warn(`Falha ao listar a lixeira: ${String(e)}`)
-      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível falar com o Google Drive agora.' })
+      throw this.falhaDrive(e, 'Falha ao listar a lixeira', 'escritorio')
     }
   }
 
@@ -1200,7 +1220,7 @@ export class GestaoArquivosDriveService {
    * com o item na lixeira — é o que impede restaurar, por um id colado à mão,
    * algo que nunca foi deste cliente.
    */
-  async restaurarDaLixeira(clienteId: string, itemId: string) {
+  async restaurarDaLixeira(clienteId: string, itemId: string, publico: PublicoDoErro) {
     const raiz = await this.raizDoCliente(clienteId)
     const dentro = await this.dentroDaPastaDoCliente(itemId, raiz)
     if (!dentro) throw new TRPCError({ code: 'NOT_FOUND', message: 'Item não encontrado na lixeira.' })
@@ -1209,8 +1229,8 @@ export class GestaoArquivosDriveService {
       await drive.untrashFile(itemId)
       return { ok: true }
     } catch (e) {
-      this.logger.warn(`Falha ao restaurar ${itemId}: ${String(e)}`)
-      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível restaurar o item.' })
+      throw this.falhaDrive(e, `Falha ao restaurar ${itemId}`, publico,
+        'Não foi possível restaurar o item.')
     }
   }
 
@@ -1218,7 +1238,7 @@ export class GestaoArquivosDriveService {
     if (!vinculo.podeExcluir) {
       throw new TRPCError({ code: 'FORBIDDEN', message: 'Você não tem permissão para restaurar.' })
     }
-    return this.restaurarDaLixeira(vinculo.clienteId, itemId)
+    return this.restaurarDaLixeira(vinculo.clienteId, itemId, 'portal')
   }
 
   async restaurarParaEscritorio(
@@ -1229,7 +1249,7 @@ export class GestaoArquivosDriveService {
     if (!alcancaCliente(escopo, input.clienteId)) {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente não encontrado.' })
     }
-    return this.restaurarDaLixeira(input.clienteId, input.itemId)
+    return this.restaurarDaLixeira(input.clienteId, input.itemId, 'escritorio')
   }
 
   /**
@@ -1259,8 +1279,8 @@ export class GestaoArquivosDriveService {
       await drive.deleteFilePermanently(input.itemId)
       return { ok: true }
     } catch (e) {
-      this.logger.warn(`Falha ao apagar ${input.itemId} de vez: ${String(e)}`)
-      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível apagar o item.' })
+      throw this.falhaDrive(e, `Falha ao apagar ${input.itemId} de vez`, 'escritorio',
+        'Não foi possível apagar o item.')
     }
   }
 

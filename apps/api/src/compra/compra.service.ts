@@ -6,10 +6,15 @@ import { NotificationService } from '../notification/notification.service'
 import { invalidateUserPermissionsCache } from '../trpc/trpc.service'
 import { CompraPdfService } from './compra-pdf.service'
 import { STATUS_COMPRA_LABELS } from '@saas/types'
+import { quantidadeRecebida, situacaoDoItem, statusPeloRecebimento, validarEntrega } from './recebimento'
+import { extrairNotaFiscal } from './nota-fiscal-pdf'
+import { montarConferencia, montarGastos, montarIqf, type PedidoRelatorio } from './relatorios'
+import { readFile } from 'fs/promises'
+import { basename, join } from 'path'
 import type {
   CreateCompraInput, UpdateCompraInput, ListCompraInput,
   CreateCompraItemInput, UpdateCompraItemInput,
-  ReprovarCompraInput, AvaliarCompraInput,
+  ReprovarCompraInput, AvaliarCompraInput, ReceberItensInput,
   CreateCompraAnexoInput, UpdateCompraAnexoInput,
   CreateCompraMensagemInput, UpdateCompraMensagemInput,
   CreateCompraCriterioInput, UpdateCompraCriterioInput,
@@ -177,13 +182,40 @@ export class CompraService {
         where: { id },
         include: {
           fornecedor: { select: { id: true, razaoSocial: true, documento: true } },
-          itens: { where: { isActive: true }, orderBy: { createdAt: 'asc' } },
+          itens: {
+            where: { isActive: true },
+            orderBy: { createdAt: 'asc' },
+            include: { recebimentos: { orderBy: { dataRecebimento: 'asc' } } },
+          },
+          _count: { select: { mensagens: true, anexos: true } },
         },
       })
       if (!isMaster && empresaId && c.empresaId !== empresaId) throw new Error('Acesso negado.')
-      const uMap = await resolverUsuarios(db, [c.solicitanteId, c.aprovadorId, c.recebedorId])
+      const recebedores = c.itens.flatMap(i => i.recebimentos.map(r => r.recebedorId))
+      const uMap = await resolverUsuarios(db, [c.solicitanteId, c.aprovadorId, c.recebedorId, ...recebedores])
+      const base = this.serializar(c)
+      // Recebimento por item: quanto chegou de cada um e a situação.
+      const itens = base.itens.map(({ recebimentos: regs, ...it }: { id: string; quantidade: number; recebimentos: Array<{ quantidade: number }> }) => {
+        const recebida = quantidadeRecebida(it, regs, c.status)
+        return { ...it, quantidadeRecebida: recebida, situacaoRecebimento: situacaoDoItem(it.quantidade, recebida) }
+      })
+      // Histórico de entregas, da mais recente para a mais antiga.
+      const recebimentos = c.itens
+        .flatMap(i => i.recebimentos.map(r => ({
+          id: r.id, itemId: i.id, item: i.descricao, unidade: i.unidade, quantidade: r.quantidade,
+          dataRecebimento: r.dataRecebimento, nfNumero: r.nfNumero, nfValor: r.nfValor != null ? Number(r.nfValor) : null,
+          observacao: r.observacao, createdAt: r.createdAt,
+          recebedor: r.recebedorId ? uMap.get(r.recebedorId) ?? null : null,
+        })))
+        .sort((a, b) => b.dataRecebimento.getTime() - a.dataRecebimento.getTime() || b.createdAt.getTime() - a.createdAt.getTime())
       return {
-        ...this.serializar(c),
+        ...base,
+        itens,
+        recebimentos,
+        // Pedido recebido antes do recebimento por item: itens contam inteiros,
+        // sem histórico de entregas — a tela avisa.
+        recebimentoLegado: recebimentos.length === 0 && (c.status === 'RECEBIDO' || c.status === 'AVALIADO'),
+        _count: c._count,
         total: this.total(c.itens, c.frete),
         solicitante: c.solicitanteId ? uMap.get(c.solicitanteId) ?? null : null,
         aprovador: c.aprovadorId ? uMap.get(c.aprovadorId) ?? null : null,
@@ -362,10 +394,82 @@ export class CompraService {
     })
   }
 
+  /**
+   * "Receber tudo": registra hoje o que falta de cada item. Atalho para quando
+   * a entrega veio completa — o caso comum continua sendo um clique só.
+   */
   async receber(id: string, userId?: string, tenantSchema?: string) {
+    const pendentes = await scoped(tenantSchema, async (db) => {
+      await this.assertStatus(db, id, ['APROVADO', 'RECEBIDO_PARCIAL'])
+      const itens = await db.compraItem.findMany({
+        where: { compraId: id, isActive: true },
+        include: { recebimentos: { select: { quantidade: true } } },
+      })
+      return itens
+        .map(i => ({ itemId: i.id, quantidade: i.quantidade - i.recebimentos.reduce((t, r) => t + r.quantidade, 0) }))
+        .filter(i => i.quantidade > 0)
+    })
+    if (pendentes.length === 0) throw new Error('Não há itens pendentes de recebimento.')
+    const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
+    return this.receberItens({ compraId: id, data: hoje, itens: pendentes }, userId, tenantSchema)
+  }
+
+  /**
+   * Registra uma entrega: os itens (e quantidades) que chegaram num dia. O
+   * pedido passa a RECEBIDO_PARCIAL enquanto faltar algo e a RECEBIDO quando o
+   * último item completar — só então pode ser avaliado.
+   */
+  async receberItens(input: ReceberItensInput, userId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, async (db) => {
-      await this.assertStatus(db, id, ['APROVADO'])
-      return db.compra.update({ where: { id }, data: { status: 'RECEBIDO', dataRecebimento: new Date(), recebedorId: userId || null } })
+      await this.assertStatus(db, input.compraId, ['APROVADO', 'RECEBIDO_PARCIAL'])
+      const itens = await db.compraItem.findMany({
+        where: { compraId: input.compraId, isActive: true },
+        include: { recebimentos: { select: { quantidade: true } } },
+      })
+      const situacao = itens.map(i => ({
+        id: i.id, descricao: i.descricao, quantidade: i.quantidade,
+        recebida: i.recebimentos.reduce((t, r) => t + r.quantidade, 0),
+      }))
+      const erro = validarEntrega(situacao, input.itens)
+      if (erro) throw new Error(erro)
+
+      // Meio-dia de Brasília: o dia informado não escorrega em nenhum fuso.
+      const quando = new Date(`${input.data}T12:00:00.000-03:00`)
+      await db.compraItemRecebimento.createMany({
+        data: input.itens.map(e => ({
+          compraId: input.compraId, itemId: e.itemId, quantidade: e.quantidade, dataRecebimento: quando,
+          nfNumero: input.nfNumero || null, nfValor: input.nfValor ?? null, anexoId: input.anexoId || null,
+          observacao: input.observacao || null, recebedorId: userId || null,
+        })),
+      })
+      const doEntregue = new Map(input.itens.map(e => [e.itemId, e.quantidade]))
+      const novo = statusPeloRecebimento(situacao.map(i => ({ quantidade: i.quantidade, recebida: i.recebida + (doEntregue.get(i.id) ?? 0) })))
+      return db.compra.update({
+        where: { id: input.compraId },
+        data: {
+          status: novo,
+          // Recebido por inteiro: data da entrega que completou e quem recebeu.
+          ...(novo === 'RECEBIDO' ? { dataRecebimento: quando, recebedorId: userId || null } : {}),
+        },
+      })
+    })
+  }
+
+  /** Desfaz uma entrega registrada por engano. Pedido já avaliado não mexe. */
+  async estornarRecebimento(recebimentoId: string, tenantSchema?: string) {
+    return scoped(tenantSchema, async (db) => {
+      const r = await db.compraItemRecebimento.findUniqueOrThrow({ where: { id: recebimentoId }, select: { compraId: true } })
+      await this.assertStatus(db, r.compraId, ['RECEBIDO_PARCIAL', 'RECEBIDO'])
+      await db.compraItemRecebimento.delete({ where: { id: recebimentoId } })
+      const itens = await db.compraItem.findMany({
+        where: { compraId: r.compraId, isActive: true },
+        include: { recebimentos: { select: { quantidade: true } } },
+      })
+      const novo = statusPeloRecebimento(itens.map(i => ({ quantidade: i.quantidade, recebida: i.recebimentos.reduce((t, x) => t + x.quantidade, 0) })))
+      return db.compra.update({
+        where: { id: r.compraId },
+        data: { status: novo, ...(novo !== 'RECEBIDO' ? { dataRecebimento: null, recebedorId: null } : {}) },
+      })
     })
   }
 
@@ -441,6 +545,140 @@ export class CompraService {
       db.compraAnexo.create({ data: { compraId: input.compraId, descricao: input.descricao || null, fileUrl: input.fileUrl, fileName: input.fileName, mimeType: input.mimeType || null, tamanho: input.tamanho ?? null, uploadedById: userId || null } }),
     )
   }
+  /**
+   * Lê o DANFE de um anexo PDF (número, série, chave, valor, emitente) e guarda
+   * no anexo. Lido uma vez: depois a resposta sai do banco. `forcar` relê.
+   */
+  async lerNfDoAnexo(anexoId: string, ctx: { isMaster: boolean; empresaId?: string }, tenantSchema?: string, forcar = false) {
+    return scoped(tenantSchema, (db) => this.lerNf(db, anexoId, ctx, forcar))
+  }
+
+  private async lerNf(db: ScopedDb, anexoId: string, ctx: { isMaster: boolean; empresaId?: string }, forcar = false) {
+    const a = await db.compraAnexo.findUniqueOrThrow({
+      where: { id: anexoId },
+      include: { compra: { select: { empresaId: true } } },
+    })
+    if (!ctx.isMaster && ctx.empresaId && a.compra.empresaId !== ctx.empresaId) throw new Error('Acesso negado.')
+    const resposta = (x: typeof a) => ({
+      anexoId: x.id, leitura: x.nfLeitura, numero: x.nfNumero, serie: x.nfSerie, chave: x.nfChave,
+      valor: x.nfValor != null ? Number(x.nfValor) : null, emitente: x.nfEmitente,
+    })
+    if (a.nfLeitura && !forcar) return resposta(a)
+
+    let dados: Prisma.CompraAnexoUpdateInput = { nfLeitura: 'nao_nf' }
+    try {
+      // Só arquivo do nosso upload (`/api/upload/<nome>`): o nome passa por
+      // basename para nunca sair da pasta.
+      if (!a.fileUrl.startsWith('/api/upload/') || !/\.pdf$/i.test(a.fileName + a.fileUrl)) {
+        dados = { nfLeitura: 'nao_nf' }
+      } else {
+        const buf = await readFile(join(process.cwd(), 'uploads', basename(a.fileUrl)))
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const texto = String((await require('pdf-parse/lib/pdf-parse.js')(buf)).text ?? '')
+        const nf = extrairNotaFiscal(texto)
+        dados = nf
+          ? { nfLeitura: 'lido', nfNumero: nf.numero, nfSerie: nf.serie, nfChave: nf.chave, nfValor: nf.valor, nfEmitente: nf.emitente }
+          : { nfLeitura: 'nao_nf' }
+      }
+    } catch {
+      dados = { nfLeitura: 'erro' }
+    }
+    return resposta(await db.compraAnexo.update({
+      where: { id: anexoId }, data: dados, include: { compra: { select: { empresaId: true } } },
+    }))
+  }
+
+  /**
+   * As notas fiscais do pedido — uma compra de marketplace chega por vários
+   * vendedores, cada um com a sua (pedido #617: 4 itens, 4 notas). Junta os
+   * DANFEs anexados (lidos agora, se ainda não foram) e os números digitados no
+   * recebimento sem anexo. Base do pré-preenchimento da avaliação.
+   */
+  async notasFiscais(compraId: string, ctx: { isMaster: boolean; empresaId?: string }, tenantSchema?: string) {
+    return scoped(tenantSchema, async (db) => {
+      const c = await db.compra.findUniqueOrThrow({ where: { id: compraId }, select: { empresaId: true } })
+      if (!ctx.isMaster && ctx.empresaId && c.empresaId !== ctx.empresaId) throw new Error('Acesso negado.')
+
+      const anexos = await db.compraAnexo.findMany({
+        where: { compraId, isActive: true }, orderBy: { createdAt: 'asc' }, select: { id: true, fileName: true },
+      })
+      const notas: Array<{
+        numero: string; serie: string | null; valor: number | null; emitente: string | null
+        anexoId: string | null; arquivo: string | null
+      }> = []
+      for (const a of anexos) {
+        const nf = await this.lerNf(db, a.id, ctx)
+        if (nf.leitura === 'lido' && nf.numero) {
+          notas.push({ numero: nf.numero, serie: nf.serie, valor: nf.valor, emitente: nf.emitente, anexoId: a.id, arquivo: a.fileName })
+        }
+      }
+      // Número digitado no recebimento, sem DANFE anexado (ou com um ilegível).
+      const recs = await db.compraItemRecebimento.findMany({
+        where: { compraId, nfNumero: { not: null } }, select: { nfNumero: true, nfValor: true },
+      })
+      const so = (n: string) => n.replace(/\D/g, '').replace(/^0+/, '') || n.trim()
+      const vistos = new Set(notas.map((n) => so(n.numero)))
+      for (const r of recs) {
+        const num = (r.nfNumero ?? '').trim()
+        if (!num || vistos.has(so(num))) continue
+        vistos.add(so(num))
+        notas.push({ numero: num, serie: null, valor: r.nfValor != null ? Number(r.nfValor) : null, emitente: null, anexoId: null, arquivo: null })
+      }
+      const total = notas.reduce((t, n) => t + (n.valor ?? 0), 0)
+      return { notas, total: Math.round(total * 100) / 100, semValor: notas.filter((n) => n.valor === null).length }
+    })
+  }
+
+  /**
+   * Os três relatórios do módulo (IQF, gastos/ABC, pedido × nota) para um
+   * período. Uma consulta só e o cálculo em relatorios.ts: são centenas de
+   * pedidos, não vale agregar em SQL e perder os testes.
+   *
+   * Período pela data do pedido (solicitação, senão criação); no IQF vale a
+   * data da avaliação, que é quando o fornecimento foi julgado.
+   */
+  async relatorios(input: { de?: string; ate?: string }, isMaster: boolean, empresaId?: string, tenantSchema?: string) {
+    return scoped(tenantSchema, async (db) => {
+      const rows = await db.compra.findMany({
+        where: { ...empresaFilter(isMaster, empresaId), isActive: true },
+        include: {
+          fornecedor: { select: { id: true, razaoSocial: true } },
+          itens: { where: { isActive: true }, select: { valorUnitario: true, quantidade: true } },
+          recebimentos: { select: { nfValor: true } },
+          anexos: { where: { isActive: true, nfLeitura: 'lido' }, select: { nfValor: true } },
+          avaliacoes: { include: { criterio: { select: { criterio: true, ordem: true } } } },
+        },
+      })
+      const de = input.de ? new Date(`${input.de}T00:00:00-03:00`) : null
+      const ate = input.ate ? new Date(`${input.ate}T23:59:59-03:00`) : null
+      const dentro = (d: Date) => (!de || d >= de) && (!ate || d <= ate)
+      const soma = (vs: Array<{ nfValor: unknown }>) => {
+        const com = vs.filter((v) => v.nfValor != null)
+        return com.length ? com.reduce((t, v) => t + Number(v.nfValor), 0) : null
+      }
+
+      const todos: PedidoRelatorio[] = rows.map((c) => ({
+        id: c.id, code: c.code, status: c.status,
+        fornecedorId: c.fornecedorId, fornecedor: c.fornecedor.razaoSocial,
+        data: c.dataSolicitacao ?? c.createdAt, dataAvaliacao: c.dataAvaliacao,
+        totalPedido: this.total(c.itens, c.frete),
+        nfValorAvaliacao: c.nfValor != null ? Number(c.nfValor) : null,
+        nfValorRecebimentos: soma(c.recebimentos),
+        nfValorAnexos: soma(c.anexos),
+        tipoFornecimento: c.tipoFornecimento, melhoria: c.melhoria,
+        respostas: c.avaliacoes.map((a) => ({ criterio: a.criterio.criterio, ordem: a.criterio.ordem, atende: a.atende })),
+      }))
+      const doPeriodo = todos.filter((p) => dentro(p.data))
+      const avaliadosNoPeriodo = todos.filter((p) => dentro(p.dataAvaliacao ?? p.data))
+      return {
+        periodo: { de: input.de ?? null, ate: input.ate ?? null },
+        iqf: montarIqf(avaliadosNoPeriodo),
+        gastos: montarGastos(doPeriodo),
+        conferencia: montarConferencia(doPeriodo),
+      }
+    })
+  }
+
   async updateAnexo(input: UpdateCompraAnexoInput, tenantSchema?: string) {
     return scoped(tenantSchema, (db) => db.compraAnexo.update({ where: { id: input.id }, data: { descricao: input.descricao || null } }))
   }

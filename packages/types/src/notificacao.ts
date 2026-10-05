@@ -126,6 +126,10 @@ export const RECORRENCIA_PRESETS: Array<{
 export const NOTIFICACAO_EVENTO = [
   'INICIADA', 'CONCLUIDA', 'ATRASADA', 'PRAZO_PROXIMO',
   'PAUSADA', 'CANCELADA', 'AGUARDANDO_RESPOSTA',
+  // Único evento que acontece ANTES de existir execução: o serviço entrou num
+  // orçamento e ainda não foi vendido. Por isso não tem prazo, processo nem
+  // watchers — as variáveis dessas famílias saem vazias nas regras deste evento.
+  'SERVICO_INCLUIDO_ORCAMENTO',
 ] as const
 export type NotificacaoEvento = (typeof NOTIFICACAO_EVENTO)[number]
 
@@ -137,13 +141,14 @@ export const NOTIFICACAO_EVENTO_LABELS: Record<NotificacaoEvento, string> = {
   PAUSADA: 'Execução pausada',
   CANCELADA: 'Execução cancelada',
   AGUARDANDO_RESPOSTA: 'Aguardando resposta (bloco PERGUNTA)',
+  SERVICO_INCLUIDO_ORCAMENTO: 'Serviço incluído ao orçamento',
 }
 
 export const NOTIFICACAO_CANAL = ['EMAIL'] as const
 export type NotificacaoCanal = (typeof NOTIFICACAO_CANAL)[number]
 
 export const NOTIFICACAO_DESTINATARIO = [
-  'RESPONSAVEL', 'GESTOR', 'CLIENTE', 'WATCHERS', 'CUSTOM',
+  'RESPONSAVEL', 'GESTOR', 'CLIENTE', 'WATCHERS', 'CUSTOM', 'LIDER_AREA',
 ] as const
 export type NotificacaoDestinatario = (typeof NOTIFICACAO_DESTINATARIO)[number]
 
@@ -153,6 +158,10 @@ export const NOTIFICACAO_DESTINATARIO_LABELS: Record<NotificacaoDestinatario, st
   CLIENTE: 'Cliente vinculado',
   WATCHERS: 'Watchers da execução',
   CUSTOM: 'E-mails específicos',
+  // Distinto de GESTOR: aquele é o responsável do PROCESSO, que só existe
+  // depois da execução criada. Este é o líder cadastrado na Área do serviço
+  // (Area.leaderId) e responde por ele desde o orçamento.
+  LIDER_AREA: 'Líder da área do serviço',
 }
 
 export const createNotificacaoRegraSchema = z.object({
@@ -239,6 +248,31 @@ export const NOTIFICACAO_TEMPLATES_PADRAO: Array<{
       '<p><a href="{{link.execucao}}">Abrir execução</a></p>',
   },
   {
+    nome: 'Incluído no orçamento → Líder da área',
+    descricao: 'Avisa a área que um serviço dela entrou num orçamento.',
+    evento: 'SERVICO_INCLUIDO_ORCAMENTO',
+    destinatariosTipo: 'LIDER_AREA',
+    assunto: 'Serviço {{servico.nome}} incluído ao orçamento #{{orcamento.numero}}',
+    // Corpo escrito para QUEM RECEBE: o líder da área, que ainda não tem
+    // trabalho para fazer — tem uma proposta para acompanhar. Daí dizer o que
+    // é (proposta, não execução), o que falta (quem executa) e onde agir.
+    //
+    // Não usa {{prazo.*}} nem {{link.execucao}}: neste evento as duas saem
+    // vazias, porque nada disso existe antes da venda.
+    corpoHtml:
+      '<p>Olá,</p>' +
+      '<p>O serviço <strong>{{servico.nome}}</strong>, da sua área, acaba de ser incluído no ' +
+      'orçamento <strong>#{{orcamento.numero}}</strong>.</p>' +
+      '<p><strong>Cliente:</strong> {{cliente.razaoSocial}} ({{cliente.documento}})<br>' +
+      '<strong>Valor do item:</strong> {{orcamento.valor}}<br>' +
+      '<strong>Responsável previsto:</strong> {{responsavel.name}}</p>' +
+      '<p>Ainda é uma <strong>proposta</strong>: a execução só será criada se o orçamento for ' +
+      'aprovado. Se o responsável previsto estiver como “—”, o cadastro do serviço não ' +
+      'resolve uma pessoa: quem lidera a área pode definir quem executa no próprio orçamento, ' +
+      'no card <em>Responsáveis pela Execução</em>.</p>' +
+      '<p><a href="{{link.orcamento}}">Abrir orçamento</a></p>',
+  },
+  {
     nome: 'Iniciada → Responsável',
     descricao: 'Notifica o responsável assim que a execução começa.',
     evento: 'INICIADA',
@@ -268,4 +302,8 @@ export const NOTIFICACAO_VARIAVEIS = [
   { key: '{{prazo.hora}}',             label: 'Hora do prazo (HH:mm)' },
   { key: '{{processo.nome}}',          label: 'Nome do processo' },
   { key: '{{link.execucao}}',          label: 'Link absoluto da execução' },
+  // Só preenchem no evento "Serviço incluído ao orçamento"; nos demais saem vazias.
+  { key: '{{orcamento.numero}}',       label: 'Número do orçamento' },
+  { key: '{{orcamento.valor}}',        label: 'Valor do item no orçamento' },
+  { key: '{{link.orcamento}}',         label: 'Link absoluto do orçamento' },
 ] as const

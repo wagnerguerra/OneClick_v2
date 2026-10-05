@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, Save, Clock, SlidersHorizontal, Mail, FileText, Users, Bell, Sparkles, Plus, Pencil, Trash2, Star, ArrowUp, ArrowDown, History } from 'lucide-react'
+import { Loader2, Save, Clock, SlidersHorizontal, Mail, FileText, Users, Bell, Sparkles, Plus, Pencil, Trash2, Star, ArrowUp, ArrowDown, History, RotateCcw } from 'lucide-react'
 import { Button, Card, Input, RichEditor, Select, SelectTrigger, SelectValue, SelectContent, SelectItem, Switch, Checkbox, Badge, Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
@@ -14,6 +14,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { IA_SUGESTOES_PADRAO, type IaSugestao } from '@/components/orcamento/ia-sugestoes-padrao'
+import { ROTEIRO_SOLICITACAO_ORCAMENTO, roteiroEfetivo } from '@/components/orcamento/roteiro-solicitacao'
 
 const PRIMARY = 'var(--color-primary)'
 
@@ -41,7 +42,9 @@ interface ConfigState {
   emailLembretes: string
   // #HLP0302 — "Usar apenas desconto por item". true (padrão) = desconto geral bloqueado.
   apenasDescontoItem: boolean
-  exigirSubservico: boolean
+  // #HLP0411 — roteiro do Detalhamento ao pedir orçamento. null = nunca
+  // configurado (vale o padrão do sistema).
+  roteiroSolicitacao: string | null
 }
 
 const DEFAULT_CONFIG: ConfigState = {
@@ -66,7 +69,7 @@ const DEFAULT_CONFIG: ConfigState = {
   followupTipoEventoId: '',
   emailLembretes: '',
   apenasDescontoItem: true,
-  exigirSubservico: true,
+  roteiroSolicitacao: null,
 }
 
 type TabKey = 'gerais' | 'prazos' | 'emails' | 'textos' | 'areas' | 'modelos' | 'ia' | 'pesquisa'
@@ -144,7 +147,9 @@ export default function OrcamentosConfiguracoesPage() {
         followup_tipo_evento_id: config.followupTipoEventoId,
         email_lembretes: config.emailLembretes,
         apenas_desconto_item: config.apenasDescontoItem ? '1' : '0',
-        exigir_subservico: config.exigirSubservico ? '1' : '0',
+        // Só grava depois que alguém editou: até lá a empresa segue o padrão
+        // do sistema (e recebe melhorias nele).
+        ...(config.roteiroSolicitacao !== null ? { roteiro_solicitacao: config.roteiroSolicitacao } : {}),
       })
       alerts.success('Salvo', 'Configurações atualizadas')
     } catch {
@@ -351,17 +356,6 @@ export default function OrcamentosConfiguracoesPage() {
                       </span>
                     </label>
                   </div>
-
-                  {/* #HLP0374 — exigência de subserviço */}
-                  <div className="col-span-12 border-t border-border pt-4 mt-1 space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground block">Itens do orçamento</label>
-                    <label className="flex items-start gap-2 cursor-pointer select-none">
-                      <Checkbox checked={config.exigirSubservico} onCheckedChange={v => setConfig(c => ({ ...c, exigirSubservico: v === true }))} accentColor="var(--color-primary)" className="mt-0.5" />
-                      <span className="text-[11px] text-muted-foreground">
-                        <strong className="text-foreground font-medium">Exigir subserviço ao incluir um item.</strong> Marcado, um serviço que foi dividido em subserviços só entra no orçamento com o subserviço escolhido — quem precisa vendê-lo fechado depende da permissão <em>&quot;Incluir serviço sem escolher o subserviço&quot;</em>. Desmarcado, a exigência não vale para ninguém e o serviço pode ser orçado como um todo.
-                      </span>
-                    </label>
-                  </div>
                 </div>
               )}
 
@@ -412,6 +406,29 @@ export default function OrcamentosConfiguracoesPage() {
                     <label className="text-xs font-medium text-muted-foreground block">Apresentação no e-mail ao cliente</label>
                     <p className="text-[11px] text-muted-foreground">Mensagem que acompanha o e-mail enviado ao cliente</p>
                     <RichEditor value={config.textoApresentacao} onChange={v => setConfig(c => ({ ...c, textoApresentacao: v }))} placeholder="Apresentação..." />
+                  </div>
+                  {/* #HLP0411 — roteiro que abre no Detalhamento de quem pede orçamento. */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-end justify-between gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground block">Roteiro da solicitação de orçamento</label>
+                        <p className="text-[11px] text-muted-foreground">
+                          Perguntas que já abrem no campo Detalhamento ao pedir um orçamento — pelo botão + e pelo Novo Orçamento.
+                          É lembrete, não trava. Deixe vazio para o Detalhamento abrir em branco.
+                          {config.roteiroSolicitacao === null && ' Em uso: o roteiro padrão do sistema.'}
+                        </p>
+                      </div>
+                      <Button type="button" variant="outline" size="xs" className="shrink-0"
+                        disabled={config.roteiroSolicitacao === null || config.roteiroSolicitacao === ROTEIRO_SOLICITACAO_ORCAMENTO}
+                        onClick={() => setConfig(c => ({ ...c, roteiroSolicitacao: ROTEIRO_SOLICITACAO_ORCAMENTO }))}>
+                        <RotateCcw className="h-3.5 w-3.5" />Restaurar padrão
+                      </Button>
+                    </div>
+                    <RichEditor
+                      value={roteiroEfetivo(config.roteiroSolicitacao)}
+                      onChange={v => setConfig(c => ({ ...c, roteiroSolicitacao: v }))}
+                      placeholder="Sem roteiro — o Detalhamento abre em branco."
+                    />
                   </div>
                 </div>
               )}

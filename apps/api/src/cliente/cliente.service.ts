@@ -4,6 +4,9 @@ import type { Prisma } from '@saas/db'
 import type { CreateClienteInput, UpdateClienteInput, ListClienteInput, CreateInscricaoInput, UpdateInscricaoInput } from '@saas/types'
 import { limparCnpj, ehMatrizCnpj } from '@saas/types'
 import { BiSyncEventsService } from '../bi/bi-sync-events.service'
+import { carregarDepara } from '../bi/categoria-sql'
+import { nivel3De } from '../bi/depara-nivel3'
+import { SINAL_POR_CATEGORIA } from '../bi/mascara-dre'
 import { isValidDocumento } from './documento.util'
 import { assertDocumentoUnico } from './documento-unico'
 
@@ -17,6 +20,7 @@ const FIELD_LABELS: Record<string, string> = {
   observacoes: 'Observações',
   tributacao: 'Tributação', regime: 'Regime', inscricaoEstadual: 'IE', inscricaoMunicipal: 'IM',
   apuracaoLucroReal: 'Apuração do Lucro Real', fatorR: 'Fator R',
+  apuracaoNoSistemaContabil: 'Apuração no sistema contábil',
   apuraIssPorFora: 'Apura ISS por fora', apuraIcmsPorFora: 'Apura ICMS por fora',
   possuiProLabore: 'Possui pró-labore', possuiFuncionarios: 'Possui funcionários',
   semMovimento: 'Sem movimento',
@@ -588,6 +592,7 @@ export class ClienteService {
           // e apagaria justamente a resposta "não".
           apuracaoLucroReal: input.apuracaoLucroReal ?? null,
           fatorR: input.fatorR ?? null,
+          apuracaoNoSistemaContabil: input.apuracaoNoSistemaContabil ?? null,
           apuraIssPorFora: input.apuraIssPorFora ?? null,
           apuraIcmsPorFora: input.apuraIcmsPorFora ?? null,
           possuiProLabore: input.possuiProLabore ?? null,
@@ -1024,18 +1029,35 @@ export class ClienteService {
   // ============================================================
   // Lista para select (dropdown)
   // ============================================================
-  // Lookup leve usado em vários módulos (orçamentos, CRM, contratos, etc).
-  // Diferente do `list` completo, este filtro inclui clientes órfãos
-  // (empresaId=null — legado/migração) para que dropdowns nunca venham
-  // vazios por causa de divergência de scope. Master continua vendo tudo.
-  async listForSelect(isMaster?: boolean, empresaId?: string) {
-    // Isolamento estrito: não-master só vê clientes da própria empresa (nunca NULL/global).
-    const where: Prisma.ClienteWhereInput = isMaster
-      ? { status: 'ATIVO' }
-      : { status: 'ATIVO', empresaId: empresaId ?? '__none__' }
+  /**
+   * Lookup leve usado em vários módulos (orçamentos, CRM, contratos, BI).
+   *
+   * A empresa ATIVA vale também para o master — mesmo critério do
+   * `area.listForSelect`. Um seletor que mistura clientes de dois tenants
+   * mostra nomes que não existem na empresa carregada e não diz de qual
+   * tenant cada um é; trocar de empresa é pelo seletor do cabeçalho, que já
+   * alimenta o `ctx.empresaId`. Só master SEM empresa ativa vê tudo.
+   *
+   * Isolamento estrito para quem não é master: nunca clientes órfãos
+   * (empresaId=null) nem de outra empresa.
+   */
+  async listForSelect(isMaster?: boolean, empresaId?: string, incluirInativos = false, somenteMensais = false) {
+    // Ex-cliente só quando pedido; o padrão continua sendo só ativos (57 telas usam isto).
+    const status: Prisma.ClienteWhereInput = {
+      ...(incluirInativos ? { status: { in: ['ATIVO', 'INATIVO'] } } : { status: 'ATIVO' }),
+      ...(somenteMensais ? { situacao: 'MENSAL' } : {}),
+    }
+    const where: Prisma.ClienteWhereInput = empresaId
+      ? { ...status, empresaId }
+      : isMaster
+        ? status
+        : { ...status, empresaId: '__none__' }
     return prisma.cliente.findMany({
       where,
-      select: { id: true, razaoSocial: true, nomeFantasia: true, code: true, documento: true, situacao: true },
+      // tipoDocumento/ehMatriz: o final do CNPJ e o selo Matriz/Filial nas
+      // listas que usam este seletor (#HLP0410).
+      // logoUrl: a logo do cliente no card do quadro de orçamentos.
+      select: { id: true, razaoSocial: true, nomeFantasia: true, code: true, documento: true, situacao: true, tipoDocumento: true, ehMatriz: true, logoUrl: true, status: true },
       orderBy: { razaoSocial: 'asc' },
     })
   }
@@ -2737,14 +2759,41 @@ export class ClienteService {
   }
 
   /**
-   * Retorna o template global de Plano de Contas (categoria DRE + sinal padrão).
-   * UI usa pra mostrar valor herdado quando o cliente não tem override.
+   * A categoria que cada conta do cliente HERDA, para a tela mostrar de onde
+   * vem o valor quando não há override.
+   *
+   * Sai do de-para da máscara pelo nome do nível 3 — o mesmo que o cálculo
+   * usa. Antes vinha do template global de 142 classificações da Serrafer, e
+   * por isso a tela mostrava "— sem categoria —" em quase todas as linhas de
+   * um cliente com plano de contas diferente, enquanto os cartões calculavam
+   * em cima de um punhado de contas sem dizer quais.
    */
-  async biListPlanoContasPadrao() {
-    return prisma.planoContasCategoriaPadrao.findMany({
-      orderBy: { classificacao: 'asc' },
-      select: { classificacao: true, categoriaDre: true, sinal: true, nivel5: true },
-    })
+  async biListPlanoContasPadrao(clienteId?: string) {
+    if (!clienteId) return []
+
+    const [contas, depara] = await Promise.all([
+      prisma.clienteBiCategoria.findMany({
+        where: { clienteId },
+        select: { conta: true, nomeSci: true },
+        orderBy: { conta: 'asc' },
+      }),
+      carregarDepara(clienteId),
+    ])
+
+    const porNivel3 = new Map(depara.map(d => [d.conta3, d.categoria]))
+    const out: Array<{ classificacao: string; categoriaDre: string; sinal: number; nivel5: string | null }> = []
+    for (const c of contas) {
+      const n3 = nivel3De(c.conta)
+      const categoria = n3 ? porNivel3.get(n3) : undefined
+      if (!categoria) continue
+      out.push({
+        classificacao: c.conta,
+        categoriaDre: categoria,
+        sinal: SINAL_POR_CATEGORIA[categoria],
+        nivel5: c.nomeSci,
+      })
+    }
+    return out
   }
 
   async biListLinhas(clienteId: string, periodo?: string) {

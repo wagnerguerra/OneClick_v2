@@ -1,7 +1,15 @@
 import { Injectable } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import { formatDocumento } from '@saas/types'
+import { cndLogger, comNavegador, limparDoc, naFilaDoNavegador, PorEmpresa, precisaReconsultar } from './cnd-comum'
+
+const logger = cndLogger('Cgu')
+/** Só os 4 últimos caracteres do documento vão para o log (LGPD). */
+const fimDoc = (doc: string) => `…${doc.slice(-4)}`
+const espera = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 
 export interface CguResult {
+  /** true só para certidão LIMPA (Nada Consta). "Consta" volta false com tipo 'Consta'. */
   sucesso: boolean
   mensagem: string
   tipo: string | null
@@ -14,235 +22,356 @@ export interface CguLoteProgress {
   emitidas: number
   naoEmitidas: number
   erros: number
+  /** Pulados por já terem certidão ainda válida. */
+  pulados: number
   currentCliente: string
-  items: Array<{ razaoSocial: string; status: 'emitida' | 'nao_emitida' | 'erro' | 'pendente' | 'processando'; erro?: string }>
+  items: Array<{ razaoSocial: string; status: 'emitida' | 'nao_emitida' | 'erro' | 'pendente' | 'processando' | 'pulada'; erro?: string }>
+}
+
+const loteVazio = (): CguLoteProgress => ({
+  status: 'idle', total: 0, current: 0, emitidas: 0, naoEmitidas: 0, erros: 0, pulados: 0,
+  currentCliente: '', items: [],
+})
+
+type SituacaoCgu = 'Nada Consta' | 'Consta'
+
+/**
+ * Situação de UMA certidão pelo texto do bloco dela. "Nada consta" vem antes
+ * porque contém a palavra "consta". Sem acento e case-insensitive.
+ */
+function classificarBloco(texto: string): SituacaoCgu | null {
+  const t = texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  if (/\bnada\s+consta\b/i.test(t)) return 'Nada Consta'
+  if (/\bconsta\b/i.test(t)) return 'Consta'
+  return null
 }
 
 @Injectable()
 export class CguCertidaoService {
-  private tableChecked = false
-  private consultaEtapa = ''
-  private loteProgress: CguLoteProgress = {
-    status: 'idle', total: 0, current: 0, emitidas: 0, naoEmitidas: 0, erros: 0,
-    currentCliente: '', items: [],
+  // Estado por EMPRESA: antes era único e um escritório via a etapa/lote do outro.
+  private readonly consultaEtapa = new PorEmpresa<string>(() => '')
+  private readonly loteProgress = new PorEmpresa<CguLoteProgress>(loteVazio)
+
+  getConsultaEtapa(empresaId: string): string { return this.consultaEtapa.get(empresaId) }
+  getLoteProgress(empresaId: string): CguLoteProgress {
+    const p = this.loteProgress.get(empresaId)
+    return { ...p, items: [...p.items] }
   }
 
-  getConsultaEtapa(): string { return this.consultaEtapa }
-  getLoteProgress(): CguLoteProgress { return { ...this.loteProgress } }
-
-  private async ensureTable() {
-    // Schema garantido por migração manual_2026_06_26_cnd_dte_tables.sql (R2-002).
-    // Sem DDL no caminho de request — os métodos apenas LEEM.
-    if (this.tableChecked) return
-    this.tableChecked = true
-  }
-
-  private formatCnpj(doc: string): string {
-    const d = doc.replace(/\D/g, '')
-    if (d.length === 14) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`
-    if (d.length === 11) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`
-    return doc
+  /** Cliente da MESMA empresa — pelo id informado ou pelo documento. */
+  private async resolverCliente(empresaId: string, doc: string, clienteId?: string): Promise<{ clienteId: string | null; razaoSocial: string | null }> {
+    if (clienteId) {
+      // findFirst com empresaId: um id de cliente de outra empresa não é vinculado.
+      const cli = await prisma.cliente.findFirst({ where: { id: clienteId, empresaId }, select: { razaoSocial: true } })
+      return cli ? { clienteId, razaoSocial: cli.razaoSocial } : { clienteId: null, razaoSocial: null }
+    }
+    // Compara só letras e dígitos (CNPJ alfanumérico), com ou sem máscara gravada.
+    const rows = await prisma.$queryRawUnsafe<Array<{ id: string; razao_social: string }>>(
+      `SELECT id, razao_social FROM clientes
+        WHERE empresa_id = $1 AND status = 'ATIVO'
+          AND regexp_replace(upper(documento), '[^0-9A-Z]', '', 'g') = $2
+        LIMIT 1`,
+      empresaId, doc,
+    )
+    return rows[0] ? { clienteId: rows[0].id, razaoSocial: rows[0].razao_social } : { clienteId: null, razaoSocial: null }
   }
 
   // ── Consulta individual ──────────────────────────────
 
-  async consultar(documento: string, clienteId?: string, userId?: string): Promise<CguResult> {
-    await this.ensureTable()
-    const doc = documento.replace(/\D/g, '')
-    if (doc.length !== 14 && doc.length !== 11) throw new Error('Documento inválido')
-
-    const tag = '[CGU]'
-    this.consultaEtapa = 'Iniciando consulta...'
-    console.log(`${tag} Consultando CGU para ${doc}...`)
-
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const puppeteer = require('puppeteer')
-    const browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'],
-    })
-
-    try {
-      const page = await browser.newPage()
-      await page.evaluateOnNewDocument(() => { Object.defineProperty(navigator, 'webdriver', { get: () => false }) })
-      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36')
-      await page.setExtraHTTPHeaders({ 'Accept-Language': 'pt-BR,pt;q=0.9' })
-
-      // Interceptar response da API de emissão
-      let pdfBase64: string | null = null
-      page.on('response', async (res: { url: () => string; json: () => Promise<{ conteudo?: string; nomeArquivo?: string }> }) => {
-        if (res.url().includes('/api/publico/emissao/')) {
-          try {
-            const data = await res.json()
-            if (data.conteudo) {
-              pdfBase64 = data.conteudo
-              console.log(`${tag} PDF capturado via API: ${data.nomeArquivo || 'certidao.pdf'}`)
-            }
-          } catch { /* */ }
-        }
-      })
-
-      this.consultaEtapa = 'Acessando portal da CGU...'
-      await page.goto('https://certidoes.cgu.gov.br/', { waitUntil: 'networkidle2', timeout: 30000 })
-      console.log(`${tag} Página inicial carregada`)
-
-      // Clicar Emitir Certidão
-      this.consultaEtapa = 'Navegando para emissão...'
-      await page.click('button.btn-primary')
-      await new Promise((r: (v: unknown) => void) => setTimeout(r, 3000))
-
-      // Selecionar Ente Privado
-      this.consultaEtapa = 'Selecionando Ente Privado...'
-      await page.click('#__BVID__26')
-      await new Promise((r: (v: unknown) => void) => setTimeout(r, 2000))
-
-      // Preencher CNPJ formatado
-      this.consultaEtapa = 'Preenchendo CNPJ...'
-      await page.focus('#cpfCnpj')
-      await page.keyboard.type(this.formatCnpj(doc), { delay: 30 })
-      await new Promise((r: (v: unknown) => void) => setTimeout(r, 500))
-
-      // Consultar
-      this.consultaEtapa = 'Consultando...'
-      console.log(`${tag} Clicando Consultar...`)
-      await page.click('#consultar')
-      await new Promise((r: (v: unknown) => void) => setTimeout(r, 8000))
-
-      // Verificar resultado
-      const texto: string = await page.evaluate('document.body.innerText')
-
-      if (texto.includes('inválido')) {
-        await browser.close()
-        const msg = 'CNPJ/CPF inválido'
-        await this.salvar(doc, null, false, null, msg, null, null, clienteId ?? null, userId ?? null)
-        return { sucesso: false, mensagem: msg, tipo: null }
-      }
-
-      // Extrair razão social do texto
-      let razaoSocialExtraida: string | null = null
-      const razaoMatch = texto.match(/Consultado:\s*(.+?)\s+CPF\/CNPJ:/)
-      if (razaoMatch) razaoSocialExtraida = razaoMatch[1]!.trim()
-
-      // Verificar situação (Nada Consta / Consta)
-      const nadaConsta = texto.includes('Nada Consta')
-      const consta = texto.includes('Consta') && !nadaConsta
-
-      // Pegar botão Certidão
-      const btnId: string | null = await page.evaluate(`(function(){
-        var btns = document.querySelectorAll('button');
-        for(var i=0;i<btns.length;i++){ if(btns[i].id && btns[i].id.startsWith('btnEmitirCertidao')) return btns[i].id; }
-        return null;
-      })()`)
-
-      if (btnId) {
-        this.consultaEtapa = 'Emitindo certidão...'
-        console.log(`${tag} Clicando ${btnId}...`)
-        await page.click(`#${btnId}`)
-        await new Promise((r: (v: unknown) => void) => setTimeout(r, 10000))
-      }
-
-      await browser.close()
-
-      let sucesso = false
-      let tipo: string | null = null
-      let mensagem = ''
-      let situacao: string | null = null
-
-      if (pdfBase64) {
-        sucesso = true
-        tipo = nadaConsta ? 'Nada Consta' : consta ? 'Consta' : 'Emitida'
-        situacao = tipo
-        mensagem = 'Certidão CGU emitida com sucesso'
-      } else if (nadaConsta) {
-        sucesso = true
-        tipo = 'Nada Consta'
-        situacao = 'Nada Consta'
-        mensagem = 'Nada consta — certidão negativa'
-      } else if (consta) {
-        sucesso = false
-        tipo = 'Consta'
-        situacao = 'Consta'
-        mensagem = 'Consta registro nos sistemas da CGU'
-      } else {
-        sucesso = false
-        tipo = null
-        mensagem = 'Não foi possível emitir a certidão'
-      }
-
-      console.log(`${tag} ${doc}: ${sucesso ? 'SUCESSO' : 'FALHA'} — ${mensagem}`)
-
-      // Resolver cliente
-      let razaoSocial = razaoSocialExtraida
-      let resolvedClienteId = clienteId || null
-      if (clienteId) {
-        const cli = await prisma.cliente.findUnique({ where: { id: clienteId }, select: { razaoSocial: true } })
-        if (cli?.razaoSocial) razaoSocial = cli.razaoSocial
-      } else {
-        const cli = await prisma.$queryRawUnsafe<Array<{ id: string; razao_social: string }>>(
-          `SELECT id, razao_social FROM clientes WHERE status = 'ATIVO' AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`, doc,
-        ).then(rows => rows[0] ? { id: rows[0].id, razaoSocial: rows[0].razao_social } : null)
-        if (cli) { razaoSocial = cli.razaoSocial; resolvedClienteId = cli.id }
-      }
-
-      await this.salvar(doc, razaoSocial, sucesso, tipo, mensagem, situacao, pdfBase64, resolvedClienteId, userId ?? null)
-      return { sucesso, mensagem, tipo }
-    } catch (e) {
-      await browser.close()
-      throw e
-    }
+  /** Um Chromium por vez no processo (fila global), com teto de tempo. */
+  consultar(empresaId: string, documento: string, clienteId?: string, userId?: string): Promise<CguResult> {
+    return naFilaDoNavegador(() => this.executarConsulta(empresaId, documento, clienteId, userId))
   }
 
-  private async salvar(doc: string, razaoSocial: string | null, sucesso: boolean, tipo: string | null, mensagem: string, situacao: string | null, pdfBase64: string | null, clienteId: string | null, userId: string | null) {
-    await prisma.$executeRawUnsafe(`DELETE FROM certidoes_cgu WHERE documento = $1`, doc)
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO certidoes_cgu (documento, razao_social, sucesso, tipo_certidao, mensagem, situacao, data_consulta, pdf_base64, cliente_id, user_id)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9)`,
-      doc, razaoSocial, sucesso, tipo, mensagem, situacao, pdfBase64, clienteId, userId || null,
+  private async executarConsulta(empresaId: string, documento: string, clienteId?: string, userId?: string): Promise<CguResult> {
+    const doc = limparDoc(documento)
+    if (doc.length !== 14 && doc.length !== 11) throw new Error('Documento inválido')
+
+    const etapa = (e: string) => this.consultaEtapa.set(empresaId, e)
+    etapa('Iniciando consulta...')
+    logger.log(`Consultando CGU para ${fimDoc(doc)}...`)
+
+    const coleta = await comNavegador(async (browser) => {
+      const page = await browser.newPage()
+      await page.evaluateOnNewDocument(() => { Object.defineProperty(navigator, 'webdriver', { get: () => false }) })
+      // O user-agent real do Chromium, só sem o "Headless": um UA fixo de outra
+      // versão destoa das demais impressões do navegador e o WAF segura a página.
+      await page.setUserAgent((await browser.userAgent()).replace('HeadlessChrome', 'Chrome'))
+      await page.setExtraHTTPHeaders({ 'Accept-Language': 'pt-BR,pt;q=0.9' })
+
+      // A certidão vem em base64 na resposta da API de emissão.
+      let pdfBase64: string | null = null
+      page.on('response', async (res) => {
+        if (!res.url().includes('/api/publico/emissao/') || pdfBase64) return
+        try {
+          const data = await res.json() as { conteudo?: string; nomeArquivo?: string }
+          if (data.conteudo) {
+            pdfBase64 = data.conteudo
+            logger.log(`PDF capturado via API: ${data.nomeArquivo || 'certidao.pdf'}`)
+          }
+        } catch { /* resposta sem JSON — ignora */ }
+      })
+
+      etapa('Acessando portal da CGU...')
+      await page.goto('https://certidoes.cgu.gov.br/', { waitUntil: 'networkidle2', timeout: 30000 })
+
+      // "Emitir certidão": pelo texto do botão; `button.btn-primary` fica só de reserva.
+      etapa('Navegando para emissão...')
+      // O desafio do WAF (AWS) roda antes do app montar: espera o botão existir.
+      await page.waitForFunction(() => Array.from(document.querySelectorAll('button')).some(b => /emitir/i.test(b.textContent || '')), { timeout: 30_000 })
+      // Clique de mouse no <button> (n\u00e3o `.click()` no <a> que o envolve: o
+      // portal s\u00f3 navega pelo handler do bot\u00e3o \u2014 testado em 05/10/2026).
+      const emitir = await page.evaluateHandle(() => Array.from(document.querySelectorAll<HTMLElement>('button'))
+        .find(el => /emitir\s+certid/i.test((el.innerText || '').normalize('NFD').replace(/[\u0300-\u036f]/g, ''))) ?? null)
+      const botaoEmitir = emitir.asElement() as import('puppeteer').ElementHandle<Element> | null
+      if (botaoEmitir) await botaoEmitir.click(); else await page.click('button.btn-primary')
+      await espera(3000)
+
+      // "Ente Privado": o id (#__BVID__26) era gerado pelo bootstrap-vue e muda
+      // a cada build do portal. Procura o rótulo pelo texto e marca o rádio dele.
+      etapa('Selecionando Ente Privado...')
+      const marcouPrivado = await page.evaluate(() => {
+        const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        const label = Array.from(document.querySelectorAll<HTMLLabelElement>('label'))
+          .find(l => /ente\s+privado/i.test(norm(l.innerText || '')))
+        if (!label) return false
+        const input = (label.htmlFor ? document.getElementById(label.htmlFor) : null) as HTMLInputElement | null
+          ?? label.querySelector('input')
+        if (input) input.click(); else label.click()
+        return true
+      })
+      if (!marcouPrivado) throw new Error('Opção "Ente Privado" não encontrada — o portal da CGU pode ter mudado.')
+      await espera(2000)
+
+      etapa('Preenchendo CNPJ...')
+      await page.focus('#cpfCnpj')
+      await page.keyboard.type(formatDocumento(doc), { delay: 30 })
+      await espera(500)
+
+      etapa('Consultando...')
+      await page.click('#consultar')
+      await espera(8000)
+
+      const texto = await page.evaluate(() => document.body.innerText)
+      // Desde out/2026 o portal pede um CAPTCHA de imagens (<awswaf-captcha>, em shadow DOM) depois de
+      // "Consultar". Não há como seguir sem uma pessoa: avisa com clareza em vez
+      // de "nenhuma certidão no resultado".
+      if (await page.$('awswaf-captcha') || /confirmar que voc[eê] [eé] humano/i.test(texto)) {
+        throw new Error('O portal da CGU passou a exigir verificação humana (CAPTCHA de imagens). Emita esta certidão manualmente em certidoes.cgu.gov.br.')
+      }
+      if (/inv[aá]lido/i.test(texto)) return { invalido: true as const, texto }
+
+      // Situação POR CERTIDÃO: o bloco (linha/cartão) de cada botão de emissão.
+      // Antes o texto da página inteira decidia — um "Nada Consta" em qualquer
+      // lugar escondia um "Consta" de outra certidão.
+      const blocos = await page.evaluate(() => {
+        const btns = Array.from(document.querySelectorAll<HTMLButtonElement>('button[id^="btnEmitirCertidao"]'))
+        return btns.map(b => {
+          let el: HTMLElement = b
+          for (let n = 0; n < 6; n++) {
+            if (el.tagName === 'TR' || el.tagName === 'LI') break
+            const pai = el.parentElement
+            if (!pai || pai === document.body) break
+            // Para antes de englobar o bloco de outra certidão.
+            if (pai.querySelectorAll('button[id^="btnEmitirCertidao"]').length > 1) break
+            el = pai
+          }
+          return { id: b.id, texto: el.innerText || '' }
+        })
+      })
+
+      if (blocos[0]) {
+        etapa('Emitindo certidão...')
+        await page.click(`[id="${blocos[0].id.replace(/"/g, '')}"]`)
+        await espera(10000)
+      }
+
+      return { invalido: false as const, texto, blocos, pdfBase64: pdfBase64 as string | null }
+    }, { timeoutMs: 120_000, disfarcarAutomacao: true })
+
+    if (coleta.invalido) {
+      const msg = 'CNPJ/CPF inválido'
+      const cli = await this.resolverCliente(empresaId, doc, clienteId)
+      const gravado = await this.gravar(empresaId, doc, {
+        razaoSocial: cli.razaoSocial, sucesso: false, tipo: null, mensagem: msg, situacao: null, pdfBase64: null,
+        clienteId: cli.clienteId, userId: userId ?? null, definitivo: false,
+      })
+      return { sucesso: false, mensagem: gravado ? msg : `${msg} (a certidão anterior, ainda válida, foi mantida)`, tipo: null }
+    }
+
+    const { texto, blocos, pdfBase64 } = coleta
+    const razaoMatch = texto.match(/Consultado:\s*(.+?)\s+CPF\/CNPJ:/)
+    const razaoSocialExtraida = razaoMatch ? razaoMatch[1]!.trim() : null
+
+    const situacoes = blocos.map(b => classificarBloco(b.texto))
+    // Qualquer certidão com "Consta" torna o resultado "Consta"; "Nada Consta"
+    // só quando TODAS as certidões do resultado foram reconhecidas como tal.
+    const situacao: SituacaoCgu | null = situacoes.includes('Consta')
+      ? 'Consta'
+      : situacoes.length > 0 && situacoes.every(s => s === 'Nada Consta') ? 'Nada Consta' : null
+
+    let sucesso: boolean
+    let tipo: string | null
+    let mensagem: string
+    // "Definitivo" = o portal respondeu a situação (não é falha técnica): grava
+    // mesmo havendo certidão limpa anterior, para a tela não esconder um "Consta" novo.
+    let definitivo = false
+    if (situacao === 'Nada Consta') {
+      sucesso = true
+      tipo = 'Nada Consta'
+      mensagem = pdfBase64 ? 'Certidão CGU emitida — Nada Consta' : 'Nada consta — certidão negativa (PDF não capturado)'
+    } else if (situacao === 'Consta') {
+      // Certidão emitida, mas NÃO é certidão limpa: sucesso=false com tipo/situação 'Consta'.
+      sucesso = false
+      tipo = 'Consta'
+      definitivo = true
+      mensagem = pdfBase64 ? 'Certidão CGU emitida — CONSTA registro nos sistemas da CGU' : 'CONSTA registro nos sistemas da CGU'
+    } else if (pdfBase64) {
+      sucesso = false
+      tipo = null
+      mensagem = 'Certidão baixada, mas não foi possível identificar se é "Nada Consta" ou "Consta" — confira o PDF.'
+    } else {
+      sucesso = false
+      tipo = null
+      mensagem = blocos.length === 0 ? 'Não foi possível emitir a certidão (nenhuma certidão no resultado do portal).' : 'Não foi possível classificar a situação da certidão.'
+    }
+
+    logger.log(`${fimDoc(doc)}: ${tipo ?? 'sem classificação'} — ${mensagem}`)
+
+    const cli = await this.resolverCliente(empresaId, doc, clienteId)
+    const gravado = await this.gravar(empresaId, doc, {
+      razaoSocial: cli.razaoSocial ?? razaoSocialExtraida, sucesso, tipo, mensagem, situacao, pdfBase64,
+      clienteId: cli.clienteId, userId: userId ?? null, definitivo,
+    })
+    if (!gravado) mensagem = `${mensagem} (a certidão anterior, ainda válida, foi mantida)`
+    return { sucesso, mensagem, tipo }
+  }
+
+  /**
+   * Grava sem perder certidão válida:
+   * - sucesso: insere a nova e apaga as anteriores do documento (na empresa), em transação;
+   * - resultado definitivo não-limpo ("Consta"): substitui as não-limpas e MANTÉM a
+   *   última limpa (o PDF dela continua válido para o dossiê), mas a mais recente
+   *   — a que a tela do cliente mostra — passa a ser o "Consta";
+   * - falha técnica com certidão bem-sucedida anterior: não toca em nada;
+   * - falha sem nenhuma bem-sucedida: substitui as falhas anteriores.
+   * Devolve se gravou.
+   */
+  private async gravar(empresaId: string, doc: string, d: {
+    razaoSocial: string | null; sucesso: boolean; tipo: string | null; mensagem: string; situacao: string | null
+    pdfBase64: string | null; clienteId: string | null; userId: string | null; definitivo: boolean
+  }): Promise<boolean> {
+    const insert = () => prisma.$executeRawUnsafe(
+      `INSERT INTO certidoes_cgu (documento, razao_social, sucesso, tipo_certidao, mensagem, situacao, data_consulta, pdf_base64, cliente_id, user_id, empresa_id)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10)`,
+      doc, d.razaoSocial, d.sucesso, d.tipo, d.mensagem, d.situacao, d.pdfBase64, d.clienteId, d.userId, empresaId,
     )
+    if (d.sucesso) {
+      await prisma.$transaction([
+        prisma.$executeRawUnsafe(`DELETE FROM certidoes_cgu WHERE empresa_id = $1 AND documento = $2`, empresaId, doc),
+        insert(),
+      ])
+      return true
+    }
+    if (!d.definitivo) {
+      const validas = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+        `SELECT id FROM certidoes_cgu WHERE empresa_id = $1 AND documento = $2 AND sucesso = true LIMIT 1`, empresaId, doc,
+      )
+      if (validas.length > 0) {
+        logger.warn(`Falha na consulta de ${fimDoc(doc)} — certidão anterior válida mantida: ${d.mensagem}`)
+        return false
+      }
+    }
+    await prisma.$transaction([
+      prisma.$executeRawUnsafe(`DELETE FROM certidoes_cgu WHERE empresa_id = $1 AND documento = $2 AND sucesso = false`, empresaId, doc),
+      insert(),
+    ])
+    return true
   }
 
   // ── Lote ─────────────────────────────────────────────
 
-  async consultarLote(documentos: Array<{ documento: string; clienteId?: string; razaoSocial?: string }>, userId?: string): Promise<{ message: string }> {
-    if (this.loteProgress.status === 'running') throw new Error('Consulta em lote já em andamento.')
+  async consultarLote(
+    empresaId: string,
+    documentos: Array<{ documento: string; clienteId?: string; razaoSocial?: string }>,
+    userId?: string,
+    forcarNova = false,
+  ): Promise<{ message: string }> {
+    if (this.loteProgress.get(empresaId).status === 'running') throw new Error('Consulta em lote já em andamento.')
 
-    this.loteProgress = {
-      status: 'running', total: documentos.length, current: 0, emitidas: 0, naoEmitidas: 0, erros: 0,
-      currentCliente: 'Iniciando...', items: documentos.map(c => ({ razaoSocial: c.razaoSocial || c.documento, status: 'pendente' as const })),
+    const progresso: CguLoteProgress = {
+      ...loteVazio(),
+      status: 'running', total: documentos.length, currentCliente: 'Iniciando...',
+      items: documentos.map(c => ({ razaoSocial: c.razaoSocial || c.documento, status: 'pendente' as const })),
     }
+    this.loteProgress.set(empresaId, progresso)
 
-    ;(async () => {
-      for (let i = 0; i < documentos.length; i++) {
-        const c = documentos[i]!
-        this.loteProgress.current = i + 1
-        this.loteProgress.currentCliente = c.razaoSocial || c.documento
-        this.loteProgress.items[i]!.status = 'processando'
-
-        try {
-          const result = await this.consultar(c.documento, c.clienteId, userId)
-          if (result.sucesso) { this.loteProgress.emitidas++; this.loteProgress.items[i]!.status = 'emitida' }
-          else { this.loteProgress.naoEmitidas++; this.loteProgress.items[i]!.status = 'nao_emitida'; this.loteProgress.items[i]!.erro = result.mensagem }
-        } catch (e) {
-          this.loteProgress.erros++; this.loteProgress.items[i]!.status = 'erro'; this.loteProgress.items[i]!.erro = (e as Error).message
-        }
-
-        if (i < documentos.length - 1) await new Promise((r: (v: unknown) => void) => setTimeout(r, 3000))
-      }
-      this.loteProgress.status = 'done'; this.loteProgress.currentCliente = 'Concluído'
-    })()
+    // Segundo plano: o erro inesperado é logado e o lote sempre termina como 'done'.
+    this.runLote(empresaId, progresso, documentos, userId, forcarNova)
+      .catch(e => {
+        logger.error(`Lote interrompido: ${(e as Error).message}`)
+        progresso.currentCliente = `Erro: ${(e as Error).message}`
+      })
+      .finally(() => {
+        progresso.status = 'done'
+        if (!progresso.currentCliente.startsWith('Erro')) progresso.currentCliente = 'Concluído'
+      })
 
     return { message: `Consulta em lote iniciada para ${documentos.length} documento(s)` }
   }
 
+  private async runLote(
+    empresaId: string,
+    progresso: CguLoteProgress,
+    documentos: Array<{ documento: string; clienteId?: string; razaoSocial?: string }>,
+    userId: string | undefined,
+    forcarNova: boolean,
+  ) {
+    for (let i = 0; i < documentos.length; i++) {
+      const c = documentos[i]!
+      const doc = limparDoc(c.documento)
+      const nome = c.razaoSocial || c.documento
+      progresso.current = i + 1
+      progresso.currentCliente = nome
+      progresso.items[i] = { razaoSocial: nome, status: 'processando' }
+
+      try {
+        if (!forcarNova) {
+          // Olha a ÚLTIMA (qualquer resultado): se for um "Consta" posterior à
+          // limpa, precisaReconsultar devolve true e a empresa é reconsultada.
+          const ultima = await prisma.$queryRawUnsafe<Array<{ sucesso: boolean; created_at: Date }>>(
+            `SELECT sucesso, created_at FROM certidoes_cgu WHERE empresa_id = $1 AND documento = $2 ORDER BY created_at DESC LIMIT 1`,
+            empresaId, doc,
+          )
+          const u = ultima[0]
+          if (u && !precisaReconsultar({ sucesso: u.sucesso, criadoEm: u.created_at })) {
+            progresso.pulados++
+            progresso.items[i] = { razaoSocial: nome, status: 'pulada', erro: 'Certidão ainda válida — não reemitida' }
+            continue
+          }
+        }
+
+        const result = await this.consultar(empresaId, c.documento, c.clienteId, userId)
+        if (result.sucesso) { progresso.emitidas++; progresso.items[i] = { razaoSocial: nome, status: 'emitida' } }
+        else { progresso.naoEmitidas++; progresso.items[i] = { razaoSocial: nome, status: 'nao_emitida', erro: result.mensagem } }
+      } catch (e) {
+        progresso.erros++
+        progresso.items[i] = { razaoSocial: nome, status: 'erro', erro: (e as Error).message }
+        logger.warn(`Lote: erro em ${fimDoc(doc)}: ${(e as Error).message}`)
+      }
+
+      if (i < documentos.length - 1) await espera(3000)
+    }
+  }
+
   // ── Listagem ────────────────────────────────────────
 
-  async list(input: { page: number; limit: number; search?: string; filtroStatus?: string }) {
-    await this.ensureTable()
+  async list(empresaId: string, input: { page: number; limit: number; search?: string; filtroStatus?: string }) {
     const { page, limit, search, filtroStatus } = input
     const offset = (page - 1) * limit
-    const conditions: string[] = []
-    const params: unknown[] = []
-    let idx = 1
+    const conditions: string[] = ['empresa_id = $1']
+    const params: unknown[] = [empresaId]
+    let idx = 2
 
     if (search) { conditions.push(`(documento ILIKE $${idx} OR razao_social ILIKE $${idx})`); params.push(`%${search}%`); idx++ }
 
@@ -250,7 +379,7 @@ export class CguCertidaoService {
     else if (filtroStatus === 'consta') conditions.push(`tipo_certidao = 'Consta'`)
     else if (filtroStatus === 'nao_emitida') conditions.push(`sucesso = false AND tipo_certidao IS NULL`)
 
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+    const where = `WHERE ${conditions.join(' AND ')}`
 
     const countRows = await prisma.$queryRawUnsafe<Array<{ total: number }>>(`SELECT COUNT(*)::int as total FROM certidoes_cgu ${where}`, ...params)
     const total = countRows[0]?.total || 0
@@ -276,8 +405,7 @@ export class CguCertidaoService {
     }
   }
 
-  async totalizadores() {
-    await this.ensureTable()
+  async totalizadores(empresaId: string) {
     const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
       SELECT
         COUNT(*)::int as total,
@@ -285,7 +413,8 @@ export class CguCertidaoService {
         COUNT(*) FILTER (WHERE tipo_certidao = 'Consta')::int as consta,
         COUNT(*) FILTER (WHERE sucesso = false AND tipo_certidao IS NULL)::int as nao_emitidas
       FROM certidoes_cgu
-    `)
+      WHERE empresa_id = $1
+    `, empresaId)
     const r = rows[0]!
     return {
       total: Number(r.total ?? 0), nadaConsta: Number(r.nada_consta ?? 0),
@@ -293,22 +422,24 @@ export class CguCertidaoService {
     }
   }
 
-  async getPdf(id: string) {
+  async getPdf(empresaId: string, id: string) {
     const rows = await prisma.$queryRawUnsafe<Array<{ pdf_base64: string | null }>>(
-      `SELECT pdf_base64 FROM certidoes_cgu WHERE id = $1`, id,
+      `SELECT pdf_base64 FROM certidoes_cgu WHERE id = $1 AND empresa_id = $2`, id, empresaId,
     )
     return { pdfBase64: rows[0]?.pdf_base64 || null }
   }
 
-  async deleteCgu(id: string) {
-    await prisma.$executeRawUnsafe(`DELETE FROM certidoes_cgu WHERE id = $1`, id)
+  async deleteCgu(empresaId: string, id: string) {
+    await prisma.$executeRawUnsafe(`DELETE FROM certidoes_cgu WHERE id = $1 AND empresa_id = $2`, id, empresaId)
     return { ok: true }
   }
 
-  async deleteLote(ids: string[]) {
+  async deleteLote(empresaId: string, ids: string[]) {
     if (ids.length === 0) return { deleted: 0 }
-    const placeholders = ids.map((_, i) => `$${i + 1}`).join(', ')
-    await prisma.$executeRawUnsafe(`DELETE FROM certidoes_cgu WHERE id IN (${placeholders})`, ...ids)
-    return { deleted: ids.length }
+    const placeholders = ids.map((_, i) => `$${i + 2}`).join(', ')
+    const deleted = await prisma.$executeRawUnsafe(
+      `DELETE FROM certidoes_cgu WHERE empresa_id = $1 AND id IN (${placeholders})`, empresaId, ...ids,
+    )
+    return { deleted }
   }
 }

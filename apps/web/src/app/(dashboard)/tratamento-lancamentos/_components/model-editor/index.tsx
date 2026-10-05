@@ -4,14 +4,18 @@ import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } fro
 import { useRouter } from 'next/navigation'
 import {
   Save, Upload, Loader2, Info, Image as ImageIcon,
-  Tag, Columns3, ArrowLeftRight, Network, ArrowLeft, ArrowRight, History, Landmark, AlertTriangle, X,
+  Tag, Columns3, ArrowLeftRight, Network, ArrowLeft, ArrowRight, History, Landmark, AlertTriangle, X, Percent,
 } from 'lucide-react'
 import {
   Button, Input, Label, Checkbox, Card, TooltipProvider, cn,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { BADGE, TEXT } from '@/lib/color-styles'
-import type { TreatmentDefinition } from '@saas/types'
-import { EMPTY_TREATMENT_DEFINITION, formatValorExibicao, extrairMarcadorDC, matchPalavraChaveIndex } from '@saas/types'
+import type { TreatmentDefinition, TipoArquivoModelo } from '@saas/types'
+import {
+  EMPTY_TREATMENT_DEFINITION, formatValorExibicao, extrairMarcadorDC, matchPalavraChaveIndex,
+  TIPO_ARQUIVO_MODELO, TIPO_ARQUIVO_MODELO_LABELS,
+} from '@saas/types'
 import { normalizeDefinition } from '../treatment-definition'
 import { DetectedRowsStatus } from '../detected-rows-status'
 import { trpc } from '@/lib/trpc'
@@ -31,6 +35,7 @@ import { StepHeader, EmptyHint, Stepper, ModeCards, ColumnSelect, FloatingAction
 import { DebitoCreditoColunaMap } from './sections/debito-credito'
 import { ContasCorrentesMap } from './sections/contas-correntes'
 import { ContrapartidaPalavraChave, ContrapartidaDescricao } from './sections/contrapartida'
+import { JurosDescontosSection } from './sections/juros-descontos'
 
 // <style> injetado no html dos alertas para corrigir o word-break do título — é
 // um <h2> e herda o `word-break: break-all` global, que o quebra no meio da
@@ -109,6 +114,8 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   // Dados de identificação do Modelo. (Conta corrente vive na definição —
   // etapa "Contas correntes" — pois pode ser única ou múltipla.)
   const [nome, setNome] = useState('')
+  // null = modelo anterior ao campo (ou criação ainda sem escolha).
+  const [tipoArquivo, setTipoArquivo] = useState<TipoArquivoModelo | null>(null)
   const [isActive, setIsActive] = useState(true)
   const [note, setNote] = useState('')
 
@@ -153,10 +160,11 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         if (!active) return
         const loadedDef = m.definition ? normalizeDefinition(m.definition) : EMPTY_TREATMENT_DEFINITION
         setNome(m.nome)
+        setTipoArquivo(m.tipoArquivo)
         setIsActive(m.isActive)
         setDef(loadedDef)
         setDocFixoAtivo(!!loadedDef.columnMapping.documentoFixo)
-        baselineRef.current = serializeForm(m.nome, m.isActive, loadedDef)
+        baselineRef.current = serializeForm(m.nome, m.tipoArquivo, m.isActive, loadedDef)
       } catch {
         alerts.error('Erro', 'Não foi possível carregar o Modelo.')
       } finally {
@@ -168,7 +176,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
 
   // Baseline do modo criação (parte do estado vazio).
   useEffect(() => {
-    if (mode === 'create') baselineRef.current = serializeForm('', true, EMPTY_TREATMENT_DEFINITION)
+    if (mode === 'create') baselineRef.current = serializeForm('', null, true, EMPTY_TREATMENT_DEFINITION)
   }, [mode])
 
   // A cada mudança de etapa do wizard, volta ao topo da página (a etapa de
@@ -260,6 +268,11 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     Object.entries(def.columnMapping).forEach(([k, v]) => { if (v && k !== 'documentoFixo') fromDef.add(v) })
     if (def.debitoCredito.tipo === 'COLUNA' && def.debitoCredito.coluna) fromDef.add(def.debitoCredito.coluna)
     if (def.contasCorrentes.modo === 'MULTIPLAS' && def.contasCorrentes.coluna) fromDef.add(def.contasCorrentes.coluna)
+    const jd = def.jurosDescontos
+    if (jd.ativo) {
+      if (jd.modo === 'SEPARADAS') { if (jd.colunaJuros) fromDef.add(jd.colunaJuros); if (jd.colunaDescontos) fromDef.add(jd.colunaDescontos) }
+      else if (jd.colunaUnificada) fromDef.add(jd.colunaUnificada)
+    }
     return [...fromDef]
   }, [preview, def])
 
@@ -412,6 +425,8 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   function probDados(): string[] {
     const p: string[] = []
     if (!nome.trim() || nome.trim().length < 2) p.push('Informe um <b>nome</b> para o modelo (mínimo 2 caracteres).')
+    // Obrigatório só na criação: modelos anteriores ao campo seguem salvando sem ele.
+    if (mode === 'create' && !tipoArquivo) p.push('Selecione o <b>tipo de arquivo</b> do modelo.')
     return p
   }
   function probArquivo(): string[] {
@@ -465,6 +480,20 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     }
     return p
   }
+  function probJurosDescontos(): string[] {
+    const jd = def.jurosDescontos
+    if (!jd.ativo) return [] // etapa pulável quando desmarcada
+    const p: string[] = []
+    if (jd.modo === 'SEPARADAS') {
+      if (!jd.colunaJuros.trim()) p.push('Em <b>Juros e Descontos</b>, selecione a <b>coluna de Juros</b>.')
+      if (!jd.colunaDescontos.trim()) p.push('Em <b>Juros e Descontos</b>, selecione a <b>coluna de Descontos</b>.')
+    } else if (!jd.colunaUnificada.trim()) {
+      p.push('Em <b>Juros e Descontos</b>, selecione a <b>coluna única</b> de Juros/Descontos.')
+    }
+    if (!jd.contaJuros.trim()) p.push('Em <b>Juros e Descontos</b>, informe a <b>conta contábil de Juros</b>.')
+    if (!jd.contaDescontos.trim()) p.push('Em <b>Juros e Descontos</b>, informe a <b>conta contábil de Descontos</b>.')
+    return p
+  }
   function probContrapartida(): string[] {
     const p: string[] = []
     if (def.contrapartida.modo === 'PALAVRA_CHAVE') {
@@ -511,6 +540,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     const secoes: Array<[string, boolean]> = [
       ['rev-depara', Object.keys(fora.dePara).length > 0],
       ['rev-cc', !!fora.cc || probContasCorrentes().length > 0],
+      ['rev-jd', Object.keys(fora.jd).length > 0 || probJurosDescontos().length > 0],
       ['rev-dc', !!fora.dc || probDC().length > 0],
       ['rev-cp', probContrapartida().length > 0],
     ]
@@ -538,6 +568,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     () => [...probArquivo(), ...probDados()],
     probDePara,
     probContasCorrentes,
+    probJurosDescontos,
     () => [...probDC(), ...probContrapartida()],
   ]
 
@@ -555,7 +586,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   }
 
   async function handleSave() {
-    const problemas = [...probDados(), ...probDePara(), ...probContasCorrentes(), ...probDC(), ...probContrapartida()]
+    const problemas = [...probDados(), ...probDePara(), ...probContasCorrentes(), ...probJurosDescontos(), ...probDC(), ...probContrapartida()]
     if (problemas.length) {
       await showProblemas('Revise o preenchimento do modelo', problemas)
       return
@@ -583,12 +614,12 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       if (mode === 'edit' && modelId) {
         const res = await trpc.tratamentoLancamentos.update.mutate({
           id: modelId,
-          data: { nome, isActive, definition, note: note || undefined },
+          data: { nome, tipoArquivo: tipoArquivo ?? undefined, isActive, definition, note: note || undefined },
         })
         await alerts.success('Modelo salvo', res.versionCreated ? 'As alterações foram salvas (nova versão gerada).' : 'As alterações foram salvas.')
         savedModelId = modelId
-      } else {
-        const created = await trpc.tratamentoLancamentos.create.mutate({ nome, isActive, definition, note: note || undefined })
+      } else if (tipoArquivo) {
+        const created = await trpc.tratamentoLancamentos.create.mutate({ nome, tipoArquivo, isActive, definition, note: note || undefined })
         await alerts.success('Modelo criado', `"${nome}" foi criado com sucesso.`)
         savedModelId = created.id
       }
@@ -614,8 +645,8 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
 
   // Alterações não salvas: compara o estado atual com o baseline.
   const dirty = useMemo(
-    () => baselineRef.current !== '' && serializeForm(nome, isActive, def) !== baselineRef.current,
-    [nome, isActive, def],
+    () => baselineRef.current !== '' && serializeForm(nome, tipoArquivo, isActive, def) !== baselineRef.current,
+    [nome, tipoArquivo, isActive, def],
   )
   dirtyRef.current = dirty
 
@@ -652,7 +683,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   // campo. Vale SEMPRE (editar e revisar): não prunamos mais as ausentes, então a
   // própria `def` ainda carrega a coluna selecionada para comparar.
   const fora = colunasForaDoArquivo(def, preview?.headers)
-  const temAmber = Object.keys(fora.dePara).length > 0 || !!fora.dc || !!fora.cc
+  const temAmber = Object.keys(fora.dePara).length > 0 || !!fora.dc || !!fora.cc || Object.keys(fora.jd).length > 0
 
   // ---- Blocos de seção: construídos uma vez. Empilhados na "visão geral"
   //      (edição + revisão final do wizard) ou exibidos um a um no wizard. --
@@ -660,12 +691,27 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     <Card className="p-5 space-y-4">
       <StepHeader
         icon={Tag} color="bg-violet-500" title="Informações básicas"
-        hint="Dê um nome fácil de reconhecer para este modelo (por exemplo, o nome do banco ou do cliente). A conta corrente é definida na etapa Contas correntes."
+        hint="Dê um nome fácil de reconhecer para este modelo (por exemplo, o nome do banco ou do cliente) e diga que tipo de arquivo ele trata. A conta corrente é definida na etapa Contas correntes."
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-1.5">
           <Label className="text-[13px] font-semibold">Nome do modelo <span className="text-destructive">*</span></Label>
           <Input className="h-9 text-sm" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: nome da empresa, nome do banco..." />
+        </div>
+        <div className="space-y-1.5">
+          {/* Label inline (como o do nome): em flex, a altura mudava e desalinhava os campos. */}
+          <Label className="text-[13px] font-semibold">
+            Tipo de arquivo {mode === 'create' && <span className="text-destructive">*</span>}
+            <span className="ml-1.5 inline-flex align-middle"><HelpTip text="Extrato bancário: o dinheiro passou na conta, confirmado pelo banco. Planilha do cliente: o que o cliente declarou (contas a pagar/receber, controle do financeiro)." /></span>
+          </Label>
+          <Select value={tipoArquivo ?? ''} onValueChange={(v) => setTipoArquivo(v as TipoArquivoModelo)}>
+            <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+            <SelectContent>
+              {TIPO_ARQUIVO_MODELO.map((t) => (
+                <SelectItem key={t} value={t}>{TIPO_ARQUIVO_MODELO_LABELS[t]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         {/* "Ativo" só na edição — na criação o modelo nasce sempre ativo. */}
         {mode === 'edit' && (
@@ -829,6 +875,16 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     </Card>
   )
 
+  const secJurosDescontos = (
+    <Card className="p-5 space-y-4">
+      <StepHeader
+        icon={Percent} color="bg-indigo-500" title="Juros e Descontos"
+        hint="Se o documento traz colunas de juros e/ou descontos, marque a opção: cada valor encontrado vira um lançamento separado no SCI (com a conta contábil de juros/descontos e o termo JUROS/DESC no histórico). Se não traz, deixe desmarcado e siga."
+      />
+      <JurosDescontosSection def={def} setDef={setDef} headers={headers} fora={fora.jd} samplesFor={samplesFor} />
+    </Card>
+  )
+
   const secDC = (
     <Card className="p-5 space-y-4">
       <StepHeader
@@ -931,10 +987,11 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   // memoizada no topo, em `temSemCorrespPC` — aqui só se lê o booleano.)
   const revProbs = {
     cc: modoRevisao && !fora.cc ? probContasCorrentes() : [],
+    jd: modoRevisao ? probJurosDescontos() : [],
     dc: modoRevisao && !fora.dc ? probDC() : [],
     cp: modoRevisao ? probContrapartida() : [],
   }
-  const revProbsTotal = revProbs.cc.length + revProbs.dc.length + revProbs.cp.length
+  const revProbsTotal = revProbs.cc.length + revProbs.jd.length + revProbs.dc.length + revProbs.cp.length
   const temRevisao = revProbsTotal > 0 || temAmber
 
   // Visão geral = todas as seções empilhadas (edição + revisão final do wizard).
@@ -947,6 +1004,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       {secArquivo}
       <div id="rev-depara" className="scroll-mt-[var(--app-header-offset)]">{secDePara}</div>
       <SecaoRevisao ativo={modoRevisao} problems={revProbs.cc} id="rev-cc">{secContasCorrentes}</SecaoRevisao>
+      <SecaoRevisao ativo={modoRevisao} problems={revProbs.jd} id="rev-jd">{secJurosDescontos}</SecaoRevisao>
       <SecaoRevisao ativo={modoRevisao} problems={revProbs.dc} id="rev-dc">{secDC}</SecaoRevisao>
       <SecaoRevisao ativo={modoRevisao} problems={revProbs.cp} id="rev-cp">{secContrapartida}</SecaoRevisao>
       {mode === 'edit' && secNota}
@@ -959,6 +1017,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       { label: 'Início', node: (<>{secArquivo}{secDados}</>) },
       { label: 'Colunas', node: secDePara },
       { label: 'Contas correntes', node: secContasCorrentes },
+      { label: 'Juros e Descontos', node: secJurosDescontos },
       { label: 'Débito/Crédito e Contrapartida', node: (<>{secDC}{secContrapartida}</>) },
     ]
     const isReview = step >= wizardSteps.length
@@ -1078,6 +1137,7 @@ function colunasForaDoArquivo(defOrig: TreatmentDefinition | null, headers?: str
     dePara: {} as Partial<Record<keyof TreatmentDefinition['columnMapping'], string>>,
     dc: '',
     cc: '',
+    jd: {} as { juros?: string; descontos?: string; unificada?: string },
   }
   if (!defOrig || !headers) return out
   const hset = new Set(headers)
@@ -1091,6 +1151,15 @@ function colunasForaDoArquivo(defOrig: TreatmentDefinition | null, headers?: str
   if (dc.tipo === 'COLUNA' && dc.coluna && !hset.has(dc.coluna)) out.dc = dc.coluna
   const cc = defOrig.contasCorrentes
   if (cc.modo === 'MULTIPLAS' && cc.coluna && !hset.has(cc.coluna)) out.cc = cc.coluna
+  const jd = defOrig.jurosDescontos
+  if (jd.ativo) {
+    if (jd.modo === 'SEPARADAS') {
+      if (jd.colunaJuros && !hset.has(jd.colunaJuros)) out.jd.juros = jd.colunaJuros
+      if (jd.colunaDescontos && !hset.has(jd.colunaDescontos)) out.jd.descontos = jd.colunaDescontos
+    } else if (jd.colunaUnificada && !hset.has(jd.colunaUnificada)) {
+      out.jd.unificada = jd.colunaUnificada
+    }
+  }
   return out
 }
 

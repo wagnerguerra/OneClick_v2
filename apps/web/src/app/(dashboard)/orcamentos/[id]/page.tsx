@@ -9,6 +9,7 @@ import {
   Package, History, Type, ThumbsUp, ThumbsDown, CheckCircle2,
   Paperclip, Image as ImageIcon, Archive, MessageSquare, Files, Shield, Lock, Globe,
   Sparkles, Star, Link2, Hash, Building2, Calendar, Layers, Bell, Undo2,
+  ChevronDown, UserCheck, Search as SearchIcon, ChevronLeft, ChevronRight, Percent,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, CardHeader, CardContent, Label, Checkbox,
@@ -24,7 +25,7 @@ import {
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT, BADGE, SURFACE } from '@/lib/color-styles'
+import { TEXT, BADGE, SURFACE, STRONG, type ColorName } from '@/lib/color-styles'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { SectionCard } from '@/components/section-card'
@@ -34,6 +35,7 @@ import { UserMultiPicker } from '@/components/user-multi-picker'
 import { OrcamentosLegadoSection } from '@/components/orcamento/orcamentos-legado-section'
 import { OrcamentoIaSection } from '@/components/orcamento/orcamento-ia-section'
 import { EmailChipsInput } from '@/components/ui/email-chips-input'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { masks } from '@/lib/masks'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -82,16 +84,18 @@ interface OrcamentoItem {
   descontoPct?: number | string | null
   descontoValor?: number | string | null
   catalogoId?: string | null
-  subservicoId?: string | null
   catalogoTextoId?: string | null
   /** Nomes do que foi escolhido — vêm do servidor só para exibição. */
-  subservico?: { id: string; nome: string } | null
   catalogoTexto?: { id: string; titulo: string } | null
   situacao?: string
   ordem?: number
 }
 
 // Desconto líquido de um item de serviço (limitado ao próprio subtotal).
+/** Mesma frase do backend — a tela explica, o servidor barra. */
+const TRAVA_DESCONTO_ITEM =
+  'Este orçamento já tem desconto geral. Zere o desconto geral (em "Desconto e Pagamento") para aplicar desconto item a item — os dois juntos somariam.'
+
 function descontoDoItem(item: { tipo: string; quantidade: number; valorUnitario: number; descontoPct?: number | string | null; descontoValor?: number | string | null }): number {
   if (item.tipo !== 'SERVICO') return 0
   const subtotal = (Number(item.quantidade) || 0) * (Number(item.valorUnitario) || 0)
@@ -144,10 +148,20 @@ interface Orcamento {
   numero: number
   token: string
   status: string
+  /** Situação dos serviços executados (backend: servicos-do-orcamento.ts). */
+  servicos?: { total: number; concluidos: number; todosConcluidos: boolean; concluidoEm: string | null } | null
   tipo: string
   valorTotal: number
   descontoValor: number
   descontoPct: number
+  /** Totais GRAVADOS pelo `recalcularTotais` do backend. São a fonte da
+   *  verdade do resumo financeiro — só lá o desconto por item se soma ao
+   *  desconto geral. */
+  totalServicos?: number | string | null
+  totalTaxas?: number | string | null
+  totalDespesas?: number | string | null
+  descontoAplicado?: number | string | null
+  totalGeral?: number | string | null
   validadeDias: number
   formaPagamento: string | null
   textoInterno: string | null
@@ -157,6 +171,39 @@ interface Orcamento {
   /** Áreas derivadas dos serviços dos itens (#HLP0266) — somente leitura, o
    *  backend calcula. Não confundir com o campo texto `area`, legado. */
   areas?: Array<{ id: string; nome: string }>
+  /**
+   * Quem responde pela EXECUÇÃO de cada serviço — somente leitura. Resolvido
+   * no backend pelo mesmo `resolverCandidatos` que o createExecucao usa, para
+   * a tela não anunciar um responsável diferente do que será atribuído.
+   *
+   * Não confundir com `responsavel` acima, que é o responsável COMERCIAL pelo
+   * orçamento (um usuário escolhido à mão).
+   */
+  responsaveis?: Array<{
+    /** Item do orçamento. Nulo = serviço-template do próprio orçamento, que
+     *  não tem item — e por isso não aceita escolha manual. */
+    itemId: string | null
+    servicoId: string
+    servicoNome: string
+    areaNome: string | null
+    responsavelNome: string | null
+    /** Identidade de quem executa — o quadro mostra o rosto, e cai nas iniciais
+     *  quando não há foto. Nulos juntos quando ninguém foi resolvido. */
+    responsavelId: string | null
+    responsavelImage: string | null
+    /** true = escolhido à mão NESTE orçamento; false = veio do template. */
+    responsavelManual: boolean
+    /** Fonte coletiva (setor): a execução nasce sem dono, o primeiro assume. */
+    claimFirst: boolean
+    totalCandidatos: number
+    /** Alçada POR SERVIÇO, decidida no backend: quem não é master/diretoria/
+     *  coordenação só define responsável de serviço de área que lidera. A tela
+     *  compõe com a sub-permissão, sem reimplementar a regra. */
+    podeDefinir: boolean
+    /** Execução do serviço (depois da aprovação): situação e conclusão. */
+    execucao?: { status: string; concluidoEm: string | null } | null
+    motivoBloqueio: string | null
+  }>
   solicitanteId: string | null
   responsavelId: string | null
   solicitante: { id: string; name: string; image?: string | null } | string | null
@@ -210,6 +257,51 @@ interface Orcamento {
 
 /** Formata o documento de faturamento (CPF 11 / CNPJ 14 dígitos). */
 /** "31/08/2026 às 11:10" — o mesmo formato que a pagina ja usa nas datas. */
+/**
+ * Quem executa um serviço, no formato que o QUADRO precisa: um rótulo grande
+ * (o nome, ou a pendência quando não há nome) e um detalhe pequeno embaixo.
+ *
+ * Antes isto devolvia uma lista de crachás lado a lado ("Área: Fiscal",
+ * "Responsável: Fulano"), porque o campo era uma linha dentro do card de
+ * Detalhes. No quadro a foto já ocupa o lugar de destaque e a área virou um
+ * crachá próprio, então repetir o prefixo "Responsável:" embaixo do rosto só
+ * gastaria a largura que o nome precisa.
+ *
+ * As REGRAS não mudaram. O nome da pessoa só vem preenchido quando o motor de
+ * atribuição resolve para UMA pessoa e nenhuma fonte é coletiva — a mesma
+ * condição em que o `createExecucao` grava `responsavelId` direto. Havendo
+ * SETOR, a execução nasce sem dono (cai no painel do setor e o primeiro a
+ * marcar um passo reivindica), e escrever um nome ali afirmaria uma certeza que
+ * o sistema não tem. Por isso o quadro diz o que de fato acontece, em vez de
+ * escolher alguém.
+ */
+function estadoResponsavelExecucao(r: {
+  responsavelNome: string | null
+  responsavelManual: boolean
+  claimFirst: boolean
+  totalCandidatos: number
+}): { rotulo: string; detalhe: string; tom: ColorName } {
+  if (r.responsavelNome) {
+    // O detalhe distingue a ORIGEM porque a ação de corrigir é diferente: o
+    // herdado do template se muda no catálogo do serviço e vale para todos os
+    // orçamentos; o definido aqui se muda nesta tela e vale só para este.
+    // Mostrar os dois iguais levaria alguém a editar o catálogo inteiro por um
+    // caso pontual.
+    return {
+      rotulo: r.responsavelNome,
+      detalhe: r.responsavelManual ? 'Definido neste orçamento' : 'Padrão do serviço',
+      tom: 'emerald',
+    }
+  }
+  if (r.claimFirst) {
+    return { rotulo: 'A definir', detalhe: 'O primeiro do setor que assumir', tom: 'amber' }
+  }
+  if (r.totalCandidatos > 1) {
+    return { rotulo: 'A definir', detalhe: `${r.totalCandidatos} candidatos na área`, tom: 'amber' }
+  }
+  return { rotulo: 'Não definido', detalhe: 'O serviço não define responsável', tom: 'slate' }
+}
+
 function fmtDataHora(iso: string): string {
   return new Date(iso).toLocaleString('pt-BR', {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -439,8 +531,11 @@ export default function OrcamentoDetailPage() {
   const canRetroagir = isMaster || subPerms.acao_retroagir_aprovacao === true
   const canDuplicar = isMaster || subPerms.acao_duplicar === true
   const canChangeSolicitante = isMaster || subPerms.change_solicitante === true
-  // Quem tem isto pode vender o serviço como um todo, sem dizer qual subserviço.
-  const canItemSemSubservico = isMaster || subPerms.item_sem_subservico === true
+  // Definir quem executa um serviço do orçamento. Este é só o PRIMEIRO portão:
+  // o backend aplica também o critério do módulo Serviços (gestor ou líder da
+  // área), e o `canAssign` que o servidor devolve é o que decide se o menu
+  // chega a listar alguém — assim a tela não oferece o que o servidor recusa.
+  const canChangeResponsavel = isMaster || subPerms.change_responsavel === true
   const canEnviarPesquisa = isMaster || subPerms.enviar_pesquisa === true
   // Catálogo de serviços é configuração administrativa do módulo — restrito a master/empresa-master
   const canManageCatalogo = isMaster || isEmpresaMaster
@@ -465,7 +560,7 @@ export default function OrcamentoDetailPage() {
   const initialLoadRef = useRef(true)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savedHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [clientes, setClientes] = useState<{ id: string; razaoSocial: string; documento?: string | null }[]>([])
+  const [clientes, setClientes] = useState<{ id: string; razaoSocial: string; documento?: string | null; status?: string | null }[]>([])
 
   // Imagem de fundo do header (config global) — apenas Master pode editar
   const [headerCover, setHeaderCover] = useState<string>('')
@@ -501,7 +596,69 @@ export default function OrcamentoDetailPage() {
   // Trocar responsavel/solicitante
   const [usuarios, setUsuarios] = useState<Array<{ id: string; name: string; email: string | null; image: string | null }>>([])
 
-  // Historico de orcamentos do cliente
+  // ── Responsável pela EXECUÇÃO, por item ──
+  // Candidatos em cache POR SERVIÇO: a lista é a mesma para itens do mesmo
+  // serviço e só é buscada quando o menu abre. Carregar no load da página
+  // seriam N consultas para um menu que talvez ninguém abra.
+  const [respCandidatos, setRespCandidatos] = useState<Record<string, {
+    canAssign: boolean
+    candidates: Array<{ id: string; name: string; areaName: string | null }>
+    areaFiltro: { id: string; name: string } | null
+  }>>({})
+  const [respCarregando, setRespCarregando] = useState<string | null>(null)
+  const [respSalvando, setRespSalvando] = useState<string | null>(null)
+
+  async function carregarCandidatosResp(servicoId: string) {
+    if (respCandidatos[servicoId] || respCarregando === servicoId) return
+    setRespCarregando(servicoId)
+    try {
+      const r = await trpc.servico.listResponsaveisAtribuiveis.query({ servicoId })
+      setRespCandidatos(prev => ({
+        ...prev,
+        [servicoId]: {
+          canAssign: r.canAssign,
+          candidates: r.candidates.map(c => ({ id: c.id, name: c.name, areaName: c.areaName })),
+          areaFiltro: r.areaFiltro,
+        },
+      }))
+    } catch (e) {
+      alerts.error('Erro ao carregar responsáveis', (e as Error).message)
+    } finally {
+      setRespCarregando(null)
+    }
+  }
+
+  async function definirResponsavelItem(itemId: string, responsavelId: string | null) {
+    setRespSalvando(itemId)
+    try {
+      await trpc.orcamento.setResponsavelItem.mutate({ itemId, responsavelId })
+      alerts.success(responsavelId ? 'Responsável definido' : 'Responsável removido')
+      await fetchOrc(true)
+    } catch (e) {
+      // O backend aplica DOIS portões (a sub-permissão daqui e o critério do
+      // módulo Serviços). A mensagem dele diz qual recusou — repassar inteira
+      // é mais útil que um "sem permissão" genérico.
+      alerts.error('Não foi possível definir', (e as Error).message)
+    } finally {
+      setRespSalvando(null)
+    }
+  }
+
+  // Historico de orcamentos do cliente — paginado no SERVIDOR (#HLP0400).
+  //
+  // Antes vinha a lista inteira numa tirada só, com `take: 50` no service: um
+  // cliente com mais de 50 propostas simplesmente não via as mais antigas, e
+  // nada na tela dizia que faltava coisa. Paginação e busca no backend seguem
+  // a regra da casa (nunca paginar no cliente dado que vem do servidor).
+  const HISTORICO_LIMIT = 10
+  const [historicoPage, setHistoricoPage] = useState(1)
+  const [historicoBusca, setHistoricoBusca] = useState('')
+  const [historicoTotal, setHistoricoTotal] = useState(0)
+  const [historicoLoading, setHistoricoLoading] = useState(false)
+  /** Se o cliente tem ALGUM outro orçamento, ignorando a busca. A aba se
+   *  decide por isto: com `historicoTotal`, uma busca sem resultado faria a
+   *  aba sumir com o usuário dentro dela. */
+  const [historicoTemAlgum, setHistoricoTemAlgum] = useState(false)
   const [historicoCliente, setHistoricoCliente] = useState<Array<{
     id: string; numero: number; status: string; totalGeral: number | string;
     createdAt: string; arquivado: boolean; tipo: string | null;
@@ -569,8 +726,6 @@ export default function OrcamentoDetailPage() {
   const [itemDescValor, setItemDescValor] = useState('')
   const [itemCatalogoId, setItemCatalogoId] = useState<string>('')
   const [itemTextoId, setItemTextoId] = useState<string>('')
-  /** Subserviço escolhido dentro do serviço — opcional; o serviço pode ser vendido inteiro. */
-  const [itemSubservicoId, setItemSubservicoId] = useState<string>('')
   const [addingItem, setAddingItem] = useState(false)
 
   // Aplicar grupo de serviços (ServicoGrupo tipo=ORCAMENTO) em lote
@@ -581,7 +736,7 @@ export default function OrcamentoDetailPage() {
   const [aplicandoGrupoOrc, setAplicandoGrupoOrc] = useState(false)
 
   // Catalogo (servicos disponiveis para orcamento)
-  const [catalogo, setCatalogo] = useState<Array<{ id: string; nome: string; tipo: string; valorPadrao: number | string | null; textoPadrao: string | null; textos?: CatalogoTexto[]; subservicos?: Array<{ id: string; nome: string; valorPadrao: number | string | null; textoPadrao: string | null; textos?: CatalogoTexto[] }> }>>([])
+  const [catalogo, setCatalogo] = useState<Array<{ id: string; nome: string; tipo: string; valorPadrao: number | string | null; textoPadrao: string | null; textos?: CatalogoTexto[] }>>([])
 
   // Inline edit
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
@@ -593,7 +748,6 @@ export default function OrcamentoDetailPage() {
   const [editDescValor, setEditDescValor] = useState('')
   const [editCatalogoId, setEditCatalogoId] = useState<string>('')
   const [editTextoId, setEditTextoId] = useState<string>('')
-  const [editSubservicoId, setEditSubservicoId] = useState<string>('')
   // #HLP0302 — "Usar apenas desconto por item" (config). Marcada = geral bloqueado.
   const [apenasDescontoItem, setApenasDescontoItem] = useState(true)
 
@@ -781,21 +935,50 @@ export default function OrcamentoDetailPage() {
     })()
   }, [])
 
-  // Carregar historico de orcamentos do mesmo cliente
+  // Busca reinicia a paginação: ficar na página 3 de um resultado que agora
+  // tem uma página só mostraria uma lista vazia.
+  useEffect(() => { setHistoricoPage(1) }, [historicoBusca, orc?.cliente?.id])
+
+  // Carregar historico de orcamentos do mesmo cliente (página atual)
   useEffect(() => {
-    if (!orc?.cliente?.id) { setHistoricoCliente([]); setTemLegado(false); return }
-    (async () => {
+    const clienteId = orc?.cliente?.id
+    if (!clienteId) {
+      setHistoricoCliente([]); setHistoricoTotal(0); setHistoricoTemAlgum(false)
+      return
+    }
+    let vivo = true
+    setHistoricoLoading(true)
+    // Debounce só quando há termo: trocar de página deve responder na hora.
+    const t = setTimeout(async () => {
       try {
-        const data = await (trpc.orcamento as any).listOrcamentosDoCliente.query({ clienteId: orc.cliente!.id, excluirId: id })
-        setHistoricoCliente(data || [])
+        const data = await (trpc.orcamento as any).listOrcamentosDoClientePaginado.query({
+          clienteId,
+          page: historicoPage,
+          limit: HISTORICO_LIMIT,
+          search: historicoBusca.trim() || undefined,
+          excluirId: id,
+        })
+        if (!vivo) return
+        setHistoricoCliente(data?.rows || [])
+        setHistoricoTotal(data?.total || 0)
+        if (!historicoBusca.trim()) setHistoricoTemAlgum((data?.total || 0) > 0)
       } catch { /* silent */ }
-      // Histórico do legado (define se a aba aparece mesmo sem outros orçamentos atuais)
+      finally { if (vivo) setHistoricoLoading(false) }
+    }, historicoBusca.trim() ? 350 : 0)
+    return () => { vivo = false; clearTimeout(t) }
+  }, [orc?.cliente?.id, id, historicoPage, historicoBusca])
+
+  // Histórico do legado — consulta própria, sem paginação, e define junto com
+  // o histórico atual se a aba aparece.
+  useEffect(() => {
+    if (!orc?.cliente?.id) { setTemLegado(false); return }
+    (async () => {
       try {
         const leg = await (trpc.orcamento as any).legadoPorCliente.query({ clienteId: orc.cliente!.id })
         setTemLegado((leg || []).length > 0)
       } catch { /* silent */ }
     })()
-  }, [orc?.cliente?.id, id])
+  }, [orc?.cliente?.id])
 
   // Sugestoes de e-mail para o campo "Emails dos Contatos" — coleta cliente.email + contatos
   useEffect(() => {
@@ -816,7 +999,9 @@ export default function OrcamentoDetailPage() {
   useEffect(() => {
     ;(async () => {
       try {
-        const list = await (trpc.cliente as any).listForSelect.query()
+        // Ex-clientes também: sem eles, orçamento de cliente inativado ficava
+        // com o campo Cliente vazio (o cabeçalho mostrava, o campo não).
+        const list = await (trpc.cliente as any).listForSelect.query({ incluirInativos: true })
         setClientes(list)
       } catch { /* silent */ }
     })()
@@ -1253,6 +1438,34 @@ export default function OrcamentoDetailPage() {
 
   // ── Items ──
 
+  /**
+   * Acrescenta o texto padrão de um serviço ao "Texto para o Cliente".
+   *
+   * ACRESCENTA, não substitui: o campo já nasce com o texto padrão GLOBAL
+   * (Configurações → Orçamentos) e um orçamento tem vários serviços —
+   * sobrescrever faria o segundo item apagar o primeiro.
+   *
+   * Mora no FRONT, e não no `addItem` do backend, por causa de como esta tela
+   * salva: o refetch silencioso que segue cada auto-save NÃO repopula os
+   * RichEditors (repopular jogava o cursor pro fim e revertia o que estava
+   * sendo digitado). Um append feito no servidor ficaria invisível para o
+   * formulário, e o auto-save seguinte mandaria o valor antigo por cima — o
+   * texto apareceria e sumiria sozinho.
+   *
+   * O bloco sai no mesmo formato do botão "Copiar" do modal de texto padrão
+   * (`<h4>nome</h4>` + texto), para inserir à mão e automático darem no mesmo.
+   */
+  function anexarTextoPadraoCliente(nome: string, texto: string | null | undefined) {
+    const corpo = (texto ?? '').trim()
+    if (!corpo) return
+    setFormTextoCliente(prev => {
+      // Já presente — reincluir o mesmo serviço não duplica o parágrafo.
+      if (prev.includes(corpo)) return prev
+      const bloco = `<h4>${nome}</h4>${corpo}`
+      return prev.trim() ? `${prev}${bloco}` : bloco
+    })
+  }
+
   async function handleAddItem() {
     if (!itemTipo || !itemDescricao.trim()) return
     setAddingItem(true)
@@ -1266,9 +1479,18 @@ export default function OrcamentoDetailPage() {
         itemDescontoPct: itemTipo === 'SERVICO' ? (parseFloat(itemDescPct) || undefined) : undefined,
         itemDescontoValor: itemTipo === 'SERVICO' ? (parseFloat(itemDescValor) || undefined) : undefined,
         catalogoId: itemCatalogoId || undefined,
-        subservicoId: itemSubservicoId || undefined,
         catalogoTextoId: itemTextoId || undefined,
       })
+
+      // Texto padrão do serviço → "Texto para o Cliente". Com variação
+      // escolhida, o texto DELA já foi aplicado no `handleSelecionarTexto` e
+      // vence o padrão — a mesma precedência que o backend usa em
+      // `textosDosItens`.
+      if (itemTipo === 'SERVICO' && itemCatalogoId && !itemTextoId) {
+        const servico = catalogo.find(c => c.id === itemCatalogoId)
+        anexarTextoPadraoCliente(itemDescricao.trim() || servico?.nome || 'Serviço', servico?.textoPadrao)
+      }
+
       setItemTipo('')
       setItemDescricao('')
       setItemQtde('1')
@@ -1276,8 +1498,6 @@ export default function OrcamentoDetailPage() {
       setItemDescPct('')
       setItemDescValor('')
       setItemCatalogoId('')
-    setItemSubservicoId('')
-      setItemSubservicoId('')
       setItemTextoId('')
       fetchOrc(true)
     } catch (e) { alerts.error('Erro', (e as Error).message) }
@@ -1302,6 +1522,15 @@ export default function OrcamentoDetailPage() {
     setAplicandoGrupoOrc(true)
     try {
       const res = await (trpc.orcamento as any).aplicarGrupo.mutate({ orcamentoId: id, grupoId: grupoOrcSelecionado })
+
+      // O grupo entra com vários serviços de uma vez; cada texto padrão vira
+      // um bloco, na ordem em que os itens entraram. O backend devolve nome e
+      // texto porque só ele sabe quais do grupo foram de fato criados (pula os
+      // já presentes e os inaptos ao catálogo).
+      for (const t of ((res.textos ?? []) as Array<{ nome: string; texto: string | null }>)) {
+        anexarTextoPadraoCliente(t.nome, t.texto)
+      }
+
       await alerts.success(
         'Grupo aplicado',
         `${res.criadas} item(ns) adicionado(s)${res.pulados ? ` · ${res.pulados} pulado(s) (já presente ou indisponível)` : ''}.`,
@@ -1323,20 +1552,6 @@ export default function OrcamentoDetailPage() {
     setItemValor('')
   }
 
-  /**
-   * Falta escolher o subserviço obrigatório.
-   *
-   * A regra é a mesma do servidor — repetida aqui só para o botão explicar
-   * antes de o usuário clicar, em vez de devolver erro depois. Quem tem a
-   * permissão `item_sem_subservico` não é travado: pode vender o serviço como
-   * um todo. Quem decide de verdade é o backend; isto é conveniência de tela.
-   */
-  const faltaSubservico = (() => {
-    if (canItemSemSubservico) return false
-    const cat = catalogo.find(c => c.id === itemCatalogoId)
-    return !!cat?.subservicos?.length && !itemSubservicoId
-  })()
-
   // Helper de "captura de valor": o valor FIXO do serviço (valorPadrao) prevalece.
   // Só quando o serviço NÃO tem valor fixo (null/0) é que o valor do texto escolhido
   // é capturado para o valorUnitário do item.
@@ -1350,47 +1565,15 @@ export default function OrcamentoDetailPage() {
     if (!item) return
     setItemCatalogoId(catalogoId)
     setItemTextoId('')
-    setItemSubservicoId('')
     setItemDescricao(item.nome)
     if (item.valorPadrao != null) setItemValor(String(item.valorPadrao))
-  }
-
-  /**
-   * Escolha do subserviço.
-   *
-   * Quando há subserviço, é ELE que descreve e precifica o item — o serviço
-   * mãe vira só o agrupador. Por isso a descrição e o valor passam a vir do
-   * filho, e a variação recomeça: as variações são dele, não do pai.
-   */
-  function handleSelecionarSubservico(subId: string) {
-    setItemSubservicoId(subId)
-    setItemTextoId('')
-    const pai = catalogo.find(c => c.id === itemCatalogoId)
-    // "Sem subserviço": a descrição e o valor voltam a ser os do serviço todo,
-    // que é o que está sendo vendido. Sem isto, ficaria na tela o nome do
-    // filho que o usuário acabou de tirar.
-    if (!subId) {
-      if (pai) {
-        setItemDescricao(pai.nome)
-        if (pai.valorPadrao != null) setItemValor(String(pai.valorPadrao))
-      }
-      return
-    }
-    const sub = pai?.subservicos?.find(x => x.id === subId)
-    if (!sub) return
-    setItemDescricao(`${pai!.nome} — ${sub.nome}`)
-    if (sub.valorPadrao != null) setItemValor(String(sub.valorPadrao))
   }
 
   // Escolha do texto do registro (no formulário de inclusão). Captura o valor do
   // texto SOMENTE se o serviço não tem valor fixo (regra confirmada).
   function handleSelecionarTexto(textoId: string) {
     setItemTextoId(textoId)
-    const pai = catalogo.find(c => c.id === itemCatalogoId)
-    // Com subserviço escolhido, é ele quem manda no texto e no valor.
-    const item = itemSubservicoId
-      ? pai?.subservicos?.find(x => x.id === itemSubservicoId)
-      : pai
+    const item = catalogo.find(c => c.id === itemCatalogoId)
     const texto = item?.textos?.find(t => t.id === textoId)
     if (texto && !temValorFixo(item?.valorPadrao) && texto.valor != null) {
       setItemValor(String(texto.valor))
@@ -1408,7 +1591,6 @@ export default function OrcamentoDetailPage() {
     setEditDescPct(item.descontoPct != null && Number(item.descontoPct) > 0 ? String(item.descontoPct) : '')
     setEditDescValor(item.descontoValor != null && Number(item.descontoValor) > 0 ? String(item.descontoValor) : '')
     setEditCatalogoId(item.catalogoId ?? '')
-    setEditSubservicoId(item.subservicoId ?? '')
     setEditTextoId(item.catalogoTextoId ?? '')
   }
 
@@ -1419,37 +1601,14 @@ export default function OrcamentoDetailPage() {
     if (!item) return
     setEditCatalogoId(catalogoId)
     setEditTextoId('')
-    setEditSubservicoId('')
     setEditDescricao(item.nome)
     if (item.valorPadrao != null) setEditValor(String(item.valorPadrao))
-  }
-
-  /** Mesma regra da inclusão: com subserviço, é ele que descreve e precifica. */
-  function handleSelecionarSubservicoEdit(subId: string) {
-    setEditSubservicoId(subId)
-    setEditTextoId('')
-    const pai = catalogo.find(c => c.id === editCatalogoId)
-    // Igual à inclusão: tirar o subserviço devolve a descrição do serviço todo.
-    if (!subId) {
-      if (pai) {
-        setEditDescricao(pai.nome)
-        if (pai.valorPadrao != null) setEditValor(String(pai.valorPadrao))
-      }
-      return
-    }
-    const sub = pai?.subservicos?.find(x => x.id === subId)
-    if (!sub) return
-    setEditDescricao(`${pai!.nome} — ${sub.nome}`)
-    if (sub.valorPadrao != null) setEditValor(String(sub.valorPadrao))
   }
 
   // Escolha do texto na EDIÇÃO — mesma regra de captura de valor.
   function handleSelecionarTextoEdit(textoId: string) {
     setEditTextoId(textoId)
-    const pai = catalogo.find(c => c.id === editCatalogoId)
-    const item = editSubservicoId
-      ? pai?.subservicos?.find(x => x.id === editSubservicoId)
-      : pai
+    const item = catalogo.find(c => c.id === editCatalogoId)
     const texto = item?.textos?.find(t => t.id === textoId)
     if (texto && !temValorFixo(item?.valorPadrao) && texto.valor != null) {
       setEditValor(String(texto.valor))
@@ -1471,7 +1630,6 @@ export default function OrcamentoDetailPage() {
           itemDescontoPct: editTipo === 'SERVICO' ? (parseFloat(editDescPct) || null) : null,
           itemDescontoValor: editTipo === 'SERVICO' ? (parseFloat(editDescValor) || null) : null,
           catalogoId: editCatalogoId || null,
-          subservicoId: editSubservicoId || null,
           catalogoTextoId: editTextoId || null,
         },
       })
@@ -1623,9 +1781,56 @@ export default function OrcamentoDetailPage() {
   // no operador OR (precisa-se cair no descontoPct quando valorDeReais e 0).
   const descontoValorNum = Number(orc?.descontoValor ?? 0) || 0
   const descontoPctNum = Number(orc?.descontoPct ?? 0) || 0
-  const descontoAplicado = orc ? (descontoValorNum || (descontoPctNum > 0 ? subtotal * descontoPctNum / 100 : 0)) : 0
-  const totalGeral = subtotal - descontoAplicado
-  const descontoPercentCalc = descontoPctNum || (subtotal > 0 ? (descontoAplicado / subtotal) * 100 : 0)
+
+  // O desconto do resumo é o que o BACKEND gravou (`recalcularTotais`), e não
+  // uma segunda conta feita aqui.
+  //
+  // A conta local somava apenas o desconto GERAL do orçamento e ignorava o
+  // desconto POR ITEM: no #4747, um item com -100% (R$ 785) não aparecia, e o
+  // Total Geral exibia 10.755 enquanto o banco já guardava 9.970. É exatamente
+  // o drift que o PADRAO_ESTADOS_E_PERMISSOES manda evitar — valor derivado
+  // mora no backend, o front compõe.
+  //
+  // A conta local sobrou só como retaguarda para registro sem total gravado
+  // (importação antiga, orçamento que nunca passou pelo recalcularTotais) e
+  // agora inclui o desconto por item, com a mesma regra do backend: geral
+  // incide sobre SERVIÇOS, e o total nunca passa da base.
+  const descontoItensLocal = orc?.itens.reduce((acc, i) => acc + descontoDoItem(i), 0) ?? 0
+  const descontoGeralLocal = descontoValorNum || (descontoPctNum > 0 ? totalServicos * descontoPctNum / 100 : 0)
+  const descontoLocal = Math.min(totalServicos, descontoItensLocal + descontoGeralLocal)
+
+  const descontoAplicado = orc?.descontoAplicado != null ? Number(orc.descontoAplicado) : (orc ? descontoLocal : 0)
+
+  // As DUAS parcelas do desconto, separadas.
+  //
+  // O resumo mostrava só o total e o percentual efetivo: no #4630, "Desconto
+  // (40,0%) − R$ 2.880,00" com itens marcando −20% cada. Os 40% são reais (20%
+  // em cada item MAIS 20% de desconto geral, que somam por decisão do #HLP0302),
+  // mas a linha única não tinha como explicar isso — e quem olhava concluía que
+  // a conta estava errada.
+  //
+  // A parcela por item é somada aqui a partir dos próprios itens; o geral é o
+  // que sobra do valor GRAVADO, para os dois nunca desmentirem o Total Geral.
+  const descontoItensParte = Math.min(descontoItensLocal, descontoAplicado)
+  const descontoGeralParte = Math.max(0, descontoAplicado - descontoItensParte)
+  const temDuasParcelas = descontoItensParte > 0 && descontoGeralParte > 0
+
+  // Desconto é um OU outro: geral, ou item a item. Nunca os dois, porque
+  // somariam e o total deixaria de bater com o que as linhas mostram (#4630).
+  //
+  // O bloqueio só vale para valor NOVO. Campo que JÁ tem desconto continua
+  // editável — é por ele que se desfaz a combinação, e travá-lo deixaria o
+  // orçamento antigo sem saída. Mesma regra que o backend aplica na gravação;
+  // aqui é conveniência, o portão é lá.
+  const temDescontoEmItem = descontoItensLocal > 0
+  const temDescontoGeralAtivo = descontoPctNum > 0 || descontoValorNum > 0
+  const geralBloqueadoPorItem = temDescontoEmItem && !temDescontoGeralAtivo
+  const itemBloqueadoPorGeral = temDescontoGeralAtivo
+  const totalGeral = orc?.totalGeral != null ? Number(orc.totalGeral) : Math.max(0, subtotal - descontoLocal)
+  // Percentual EFETIVO sobre a base de serviços. Mostrar o `descontoPct`
+  // cadastrado escondia o desconto por item: no #4747 dizia "0,0%" com 785
+  // reais de desconto concedidos.
+  const descontoPercentCalc = totalServicos > 0 ? (descontoAplicado / totalServicos) * 100 : 0
 
   // ── Loading ──
 
@@ -2018,7 +2223,7 @@ export default function OrcamentoDetailPage() {
             { value: 'itens', icon: Package, label: 'Itens', badge: orc.itens.length },
             { value: 'mensagens', icon: MessageSquare, label: 'Mensagens', badge: orc.mensagens.length },
             { value: 'timeline', icon: History, label: 'Timeline' },
-            ...((historicoCliente.length > 0 || temLegado) ? [{ value: 'historico', icon: Files, label: 'Outros orçamentos' }] : []),
+            ...((historicoTemAlgum || temLegado) ? [{ value: 'historico', icon: Files, label: 'Outros orçamentos' }] : []),
           ] as Array<{ value: string; icon: typeof FileText; label: string; badge?: number }>).map(t => {
             const Icon = t.icon
             const ativa = activeTab === t.value
@@ -2072,6 +2277,25 @@ export default function OrcamentoDetailPage() {
         </Card>
       )}
 
+      {/* Serviço concluído com o orçamento ainda APROVADO: o colaborador
+          terminou o trabalho, falta o financeiro liberar. Ao liberar, o sistema
+          finaliza sozinho (antes, concluir o serviço pulava a liberação — #4803). */}
+      {orc.status === 'APROVADO' && orc.servicos?.todosConcluidos && (
+        <Card className={cn('p-3 mt-5', SURFACE.emerald)}>
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className={cn('h-5 w-5 shrink-0 mt-0.5', TEXT.emerald)} />
+            <div className="flex-1 min-w-0">
+              <p className={cn('text-sm font-semibold', TEXT.emerald)}>Serviço concluído — aguardando liberação do financeiro</p>
+              <p className={cn('text-xs mt-0.5', TEXT.emerald)}>
+                {orc.servicos.concluidos === 1 ? 'O serviço deste orçamento foi finalizado' : `Os ${orc.servicos.concluidos} serviços deste orçamento foram finalizados`}
+                {orc.servicos.concluidoEm ? ` em ${new Date(orc.servicos.concluidoEm).toLocaleDateString('pt-BR')}` : ''}.
+                {' '}Ao liberar, o orçamento será finalizado automaticamente.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Layout 2 colunas: principal + sidebar */}
       <div className="mt-6 grid items-start gap-6 lg:grid-cols-[1fr_20rem]">
         <div className="min-w-0">
@@ -2105,6 +2329,7 @@ export default function OrcamentoDetailPage() {
                             value={formClienteId}
                             onSelect={(id) => setFormClienteId(id)}
                             placeholder="Selecione um cliente"
+                            marcarExClientes
                             onCreate={async (nome) => {
                               try {
                                 const novo = await (trpc.orcamento as any).criarClienteRapido.mutate({ nome }) as { id: string; razaoSocial: string; documento?: string | null } | null
@@ -2159,6 +2384,12 @@ export default function OrcamentoDetailPage() {
                           />
                         </div>
 
+                        {/* O "Responsável pela execução" saiu daqui: virou card
+                            próprio logo abaixo (Responsáveis pela Execução).
+                            Quem executa não é dado cadastral do orçamento, e no
+                            formato de quadro com foto não cabia numa linha do
+                            grid de 12 colunas. */}
+
                       </div>
 
                     </div>
@@ -2211,39 +2442,7 @@ export default function OrcamentoDetailPage() {
                               <CatalogoCombobox catalogo={catalogo} tipo={itemTipo} selectedId={itemCatalogoId} onSelect={handleSelecionarDescricao} disabled={!itemTipo} />
                             </div>
                             {(() => {
-                              const cat = catalogo.find(c => c.id === itemCatalogoId)
-                              if (!cat?.subservicos?.length) return null
-                              return (
-                                <div className="space-y-1.5 min-w-[180px]">
-                                  {/* A opção de vender o serviço inteiro só aparece
-                                      para quem tem a permissão. Para os demais o
-                                      serviço foi decomposto justamente para não
-                                      entrar genérico no orçamento. */}
-                                  <Label className="text-[13px] font-semibold text-foreground">Subserviço</Label>
-                                  <Select
-                                    value={itemSubservicoId || (canItemSemSubservico ? '__todo__' : undefined)}
-                                    onValueChange={v => handleSelecionarSubservico(v === '__todo__' ? '' : v)}
-                                  >
-                                    <SelectTrigger className="h-9 w-[220px] text-sm"><SelectValue placeholder="Escolha o subserviço" /></SelectTrigger>
-                                    <SelectContent>
-                                      {canItemSemSubservico && (
-                                        <SelectItem value="__todo__">Sem subserviço — o serviço todo</SelectItem>
-                                      )}
-                                      {cat.subservicos.map(sub => (
-                                        <SelectItem key={sub.id} value={sub.id}>{sub.nome}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              )
-                            })()}
-                            {(() => {
-                              const cat = catalogo.find(c => c.id === itemCatalogoId)
-                              // Escolhido o subserviço, as variações são DELE — as do
-                              // pai descreveriam outro serviço.
-                              const dono = itemSubservicoId
-                                ? cat?.subservicos?.find(x => x.id === itemSubservicoId)
-                                : cat
+                              const dono = catalogo.find(c => c.id === itemCatalogoId)
                               if (!dono?.textos?.length) return null
                               return (
                                 <div className="space-y-1.5 min-w-[180px]">
@@ -2268,22 +2467,22 @@ export default function OrcamentoDetailPage() {
                               <Label className="text-[13px] font-semibold text-foreground">Valor R$</Label>
                               <Input type="number" value={itemValor} onChange={e => setItemValor(e.target.value)} className="h-9 w-[110px] text-sm" step="0.01" min="0" placeholder="0,00" />
                             </div>
-                            {/* Desconto por item — só serviço (#HLP0302) */}
+                            {/* Desconto por item — só serviço (#HLP0302), e só quando
+                                não há desconto geral: os dois somariam (#4630). */}
                             {itemTipo === 'SERVICO' && (
                               <>
                                 <div className="space-y-1.5">
                                   <Label className="text-[13px] font-semibold text-foreground">Desc %</Label>
-                                  <Input type="number" value={itemDescPct} onChange={e => setItemDescPct(e.target.value)} className="h-9 w-[80px] text-sm" step="0.01" min="0" max="100" placeholder="0" />
+                                  <Input type="number" value={itemDescPct} onChange={e => setItemDescPct(e.target.value)} disabled={itemBloqueadoPorGeral} title={itemBloqueadoPorGeral ? TRAVA_DESCONTO_ITEM : undefined} className="h-9 w-[80px] text-sm" step="0.01" min="0" max="100" placeholder="0" />
                                 </div>
                                 <div className="space-y-1.5">
                                   <Label className="text-[13px] font-semibold text-foreground">Desc R$</Label>
-                                  <Input type="number" value={itemDescValor} onChange={e => setItemDescValor(e.target.value)} className="h-9 w-[90px] text-sm" step="0.01" min="0" placeholder="0,00" />
+                                  <Input type="number" value={itemDescValor} onChange={e => setItemDescValor(e.target.value)} disabled={itemBloqueadoPorGeral} title={itemBloqueadoPorGeral ? TRAVA_DESCONTO_ITEM : undefined} className="h-9 w-[90px] text-sm" step="0.01" min="0" placeholder="0,00" />
                                 </div>
                               </>
                             )}
                             <Button variant="success" size="sm" onClick={handleAddItem}
-                              disabled={addingItem || !itemTipo || !itemDescricao.trim() || faltaSubservico}
-                              title={faltaSubservico ? 'Escolha o subserviço antes de incluir.' : undefined}
+                              disabled={addingItem || !itemTipo || !itemDescricao.trim()}
                               className="gap-1.5 h-9">
                               {addingItem ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                               Incluir Item
@@ -2314,119 +2513,137 @@ export default function OrcamentoDetailPage() {
                             </TableCell></TableRow>
                           ) : orc.itens.map((item, idx) => (
                             editingItemId === item.id ? (
-                              <TableRow key={item.id} className="bg-sky-50/50 dark:bg-sky-900/10">
-                                <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
-                                <TableCell>
-                                  <Select value={editTipo} onValueChange={v => { setEditTipo(v); setEditCatalogoId(''); setEditTextoId(''); setEditSubservicoId('') }}>
-                                    <SelectTrigger className="h-9 text-xs w-[100px]"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="SERVICO">Serviço</SelectItem>
-                                      <SelectItem value="TAXA">Taxa</SelectItem>
-                                      <SelectItem value="DESPESA">Despesa</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </TableCell>
-                                <TableCell>
-                                  {/* Tudo na mesma linha (pedido de 19/08): combobox ocupa o
-                                      espaço livre; subserviço/variação, quando existem, entram
-                                      ao lado com largura fixa. */}
-                                  <div className="flex items-center gap-1.5">
-                                    <div className="flex-1 min-w-[180px]">
-                                      {/* Busca no catálogo — mesma da inclusão (#HLP0088). currentLabel
-                                          preserva a descrição atual quando não há item de catálogo casado. */}
-                                      <CatalogoCombobox
-                                        catalogo={catalogo}
-                                        tipo={editTipo}
-                                        selectedId={editCatalogoId}
-                                        currentLabel={editDescricao}
-                                        onSelect={handleSelecionarDescricaoEdit}
-                                        disabled={!editTipo}
-                                      />
-                                    </div>
-                                    {(() => {
-                                      const cat = catalogo.find(c => c.id === editCatalogoId)
-                                      if (!cat?.subservicos?.length) return null
-                                      return (
-                                        <Select
-                                          value={editSubservicoId || (canItemSemSubservico ? '__todo__' : undefined)}
-                                          onValueChange={v => handleSelecionarSubservicoEdit(v === '__todo__' ? '' : v)}
-                                        >
-                                          {/* Sem asterisco: na edição o subserviço só é exigido se o
-                                              serviço estiver sendo trocado. */}
-                                          <SelectTrigger className="h-9 text-xs w-[150px] shrink-0"><SelectValue placeholder="Subserviço" /></SelectTrigger>
+                              <TableRow key={item.id} className="bg-muted/40 hover:bg-muted/40">
+                                {/*
+                                  A edição sai das colunas da tabela e vira um bloco
+                                  próprio, em duas faixas.
+
+                                  Antes, os sete campos da edição eram espremidos nas
+                                  colunas da EXIBIÇÃO — e a coluna "R$ Unit", de 165px,
+                                  tinha que acomodar valor unitário, desconto % e desconto
+                                  R$ lado a lado. O campo de desconto em reais ficava com
+                                  ~64px e cortava o número: "0,0(" no lugar de "0,00".
+
+                                  Faixa 1 = o que o item É (tipo, descrição, variação).
+                                  Faixa 2 = quanto ele VALE (quantidade, valor, descontos,
+                                  total). É a mesma leitura do formulário de inclusão,
+                                  logo acima.
+                                */}
+                                <TableCell colSpan={7} className="p-0">
+                                  <div
+                                    className="space-y-3 border-l-[3px] px-4 py-3"
+                                    style={{ borderLeftColor: PRIMARY }}
+                                  >
+                                    {/* ── Faixa 1: identificação ── */}
+                                    <div className="flex flex-wrap items-end gap-2">
+                                      <span className="pb-2 text-xs text-muted-foreground">{idx + 1}</span>
+                                      <div className="space-y-1">
+                                        <Label className="text-[11px] font-semibold text-muted-foreground">Tipo</Label>
+                                        <Select value={editTipo} onValueChange={v => { setEditTipo(v); setEditCatalogoId(''); setEditTextoId('') }}>
+                                          <SelectTrigger className="h-9 w-[110px] text-xs"><SelectValue /></SelectTrigger>
                                           <SelectContent>
-                                            {canItemSemSubservico && (
-                                              <SelectItem value="__todo__">Sem subserviço</SelectItem>
-                                            )}
-                                            {cat.subservicos.map(sub => (
-                                              <SelectItem key={sub.id} value={sub.id}>{sub.nome}</SelectItem>
-                                            ))}
+                                            <SelectItem value="SERVICO">Serviço</SelectItem>
+                                            <SelectItem value="TAXA">Taxa</SelectItem>
+                                            <SelectItem value="DESPESA">Despesa</SelectItem>
                                           </SelectContent>
                                         </Select>
-                                      )
-                                    })()}
-                                    {(() => {
-                                      const cat = catalogo.find(c => c.id === editCatalogoId)
-                                      const dono = editSubservicoId
-                                        ? cat?.subservicos?.find(x => x.id === editSubservicoId)
-                                        : cat
-                                      if (!dono?.textos?.length) return null
-                                      return (
-                                        <Select value={editTextoId || '__none__'} onValueChange={v => handleSelecionarTextoEdit(v === '__none__' ? '' : v)}>
-                                          <SelectTrigger className="h-9 text-xs w-[150px] shrink-0"><SelectValue placeholder="Variação" /></SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="__none__">Nenhuma variação</SelectItem>
-                                            {dono.textos.map(t => (
-                                              <SelectItem key={t.id} value={t.id}>{t.titulo}</SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      )
-                                    })()}
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <Input type="number" value={editQtde} onChange={e => setEditQtde(e.target.value)} className="h-9 w-[60px] text-xs text-center" min="1" />
-                                </TableCell>
-                                <TableCell>
-                                  {/* Uma linha só (pedido de 19/08): o prefixo identifica cada
-                                      campo — R$ = valor unitário; % e desc. R$ = descontos do
-                                      item (#HLP0302, só serviço). Rótulo dentro do campo não cabia. */}
-                                  <div className="flex items-center justify-end gap-1.5">
-                                    <div className="flex" title="Valor unitário">
-                                      <span className="inline-flex items-center px-1.5 h-9 border border-r-0 border-input bg-muted text-[10px] text-muted-foreground rounded-l-md">R$</span>
-                                      <Input type="number" value={editValor} onChange={e => setEditValor(e.target.value)}
-                                        className="h-9 w-[80px] text-xs text-right rounded-l-none" step="0.01" />
+                                      </div>
+                                      <div className="min-w-[240px] flex-1 space-y-1">
+                                        <Label className="text-[11px] font-semibold text-muted-foreground">Descrição</Label>
+                                        {/* Busca no catálogo — mesma da inclusão (#HLP0088). currentLabel
+                                            preserva a descrição atual quando não há item de catálogo casado. */}
+                                        <CatalogoCombobox
+                                          catalogo={catalogo}
+                                          tipo={editTipo}
+                                          selectedId={editCatalogoId}
+                                          currentLabel={editDescricao}
+                                          onSelect={handleSelecionarDescricaoEdit}
+                                          disabled={!editTipo}
+                                        />
+                                      </div>
+                                      {(() => {
+                                        const dono = catalogo.find(c => c.id === editCatalogoId)
+                                        if (!dono?.textos?.length) return null
+                                        return (
+                                          <div className="space-y-1">
+                                            <Label className="text-[11px] font-semibold text-muted-foreground">Variação</Label>
+                                            <Select value={editTextoId || '__none__'} onValueChange={v => handleSelecionarTextoEdit(v === '__none__' ? '' : v)}>
+                                              <SelectTrigger className="h-9 w-[170px] shrink-0 text-xs"><SelectValue placeholder="Variação" /></SelectTrigger>
+                                              <SelectContent>
+                                                <SelectItem value="__none__">Nenhuma variação</SelectItem>
+                                                {dono.textos.map(t => (
+                                                  <SelectItem key={t.id} value={t.id}>{t.titulo}</SelectItem>
+                                                ))}
+                                              </SelectContent>
+                                            </Select>
+                                          </div>
+                                        )
+                                      })()}
                                     </div>
-                                    {editTipo === 'SERVICO' && (
-                                      <>
-                                        <div className="flex" title="Desconto em percentual">
-                                          <span className="inline-flex items-center px-1.5 h-9 border border-r-0 border-input bg-muted text-[10px] text-muted-foreground rounded-l-md">-%</span>
-                                          <Input type="number" value={editDescPct} onChange={e => setEditDescPct(e.target.value)}
-                                            className="h-9 w-[52px] text-xs text-right rounded-l-none" step="0.01" min="0" max="100" placeholder="0" />
+
+                                    {/* ── Faixa 2: valores ── */}
+                                    {(() => {
+                                      const bruto = (parseFloat(editQtde) || 0) * (parseFloat(editValor) || 0)
+                                      const desc = editTipo === 'SERVICO'
+                                        ? Math.min(bruto, bruto * (parseFloat(editDescPct) || 0) / 100 + (parseFloat(editDescValor) || 0))
+                                        : 0
+                                      // Trava o desconto quando há desconto geral — exceto se ESTE
+                                      // item já tem desconto: é por aqui que se zera para desfazer a
+                                      // combinação de um orçamento anterior ao bloqueio.
+                                      const jaTem = (parseFloat(editDescPct) || 0) > 0 || (parseFloat(editDescValor) || 0) > 0
+                                      const travado = itemBloqueadoPorGeral && !jaTem
+                                      return (
+                                        <div className="flex flex-wrap items-end gap-2">
+                                          <div className="space-y-1">
+                                            <Label className="text-[11px] font-semibold text-muted-foreground">Qtde</Label>
+                                            <Input type="number" value={editQtde} onChange={e => setEditQtde(e.target.value)}
+                                              className="h-9 w-[80px] text-center text-xs" min="1" />
+                                          </div>
+                                          <div className="space-y-1">
+                                            <Label className="text-[11px] font-semibold text-muted-foreground">Valor unitário</Label>
+                                            <div className="flex">
+                                              <span className="inline-flex h-9 items-center rounded-l-md border border-r-0 border-input bg-muted px-2 text-[11px] text-muted-foreground">R$</span>
+                                              <Input type="number" value={editValor} onChange={e => setEditValor(e.target.value)}
+                                                className="h-9 w-[130px] rounded-l-none text-right text-xs" step="0.01" />
+                                            </div>
+                                          </div>
+                                          {editTipo === 'SERVICO' && (
+                                            <>
+                                              <div className="space-y-1">
+                                                <Label className="text-[11px] font-semibold text-muted-foreground">Desconto %</Label>
+                                                <div className="flex" title={travado ? TRAVA_DESCONTO_ITEM : undefined}>
+                                                  <span className="inline-flex h-9 items-center rounded-l-md border border-r-0 border-input bg-muted px-2 text-[11px] text-muted-foreground">%</span>
+                                                  <Input type="number" value={editDescPct} onChange={e => setEditDescPct(e.target.value)} disabled={travado}
+                                                    className="h-9 w-[90px] rounded-l-none text-right text-xs" step="0.01" min="0" max="100" placeholder="0" />
+                                                </div>
+                                              </div>
+                                              <div className="space-y-1">
+                                                <Label className="text-[11px] font-semibold text-muted-foreground">Desconto R$</Label>
+                                                <div className="flex" title={travado ? TRAVA_DESCONTO_ITEM : undefined}>
+                                                  <span className="inline-flex h-9 items-center rounded-l-md border border-r-0 border-input bg-muted px-2 text-[11px] text-muted-foreground">R$</span>
+                                                  <Input type="number" value={editDescValor} onChange={e => setEditDescValor(e.target.value)} disabled={travado}
+                                                    className="h-9 w-[120px] rounded-l-none text-right text-xs" step="0.01" min="0" placeholder="0,00" />
+                                                </div>
+                                              </div>
+                                            </>
+                                          )}
+                                          <div className="ml-auto flex items-end gap-3">
+                                            <div className="space-y-1 text-right">
+                                              <Label className="text-[11px] font-semibold text-muted-foreground">Total</Label>
+                                              <div className="flex h-9 items-center justify-end text-sm font-semibold tabular-nums">
+                                                {desc > 0 ? (
+                                                  <span className={TEXT.emerald} title={`Sem desconto: ${formatCurrency(bruto)}`}>{formatCurrency(bruto - desc)}</span>
+                                                ) : formatCurrency(bruto)}
+                                              </div>
+                                            </div>
+                                            <div className="flex h-9 items-center gap-1">
+                                              <Button variant="ghost" size="icon-sm" onClick={handleSaveItem} title="Salvar"><Check className={cn('h-4 w-4', TEXT.emerald)} /></Button>
+                                              <Button variant="ghost" size="icon-sm" onClick={() => setEditingItemId(null)} title="Cancelar"><X className="h-4 w-4 text-muted-foreground" /></Button>
+                                            </div>
+                                          </div>
                                         </div>
-                                        <div className="flex" title="Desconto em reais">
-                                          <span className="inline-flex items-center px-1.5 h-9 border border-r-0 border-input bg-muted text-[10px] text-muted-foreground rounded-l-md">-R$</span>
-                                          <Input type="number" value={editDescValor} onChange={e => setEditDescValor(e.target.value)}
-                                            className="h-9 w-[64px] text-xs text-right rounded-l-none" step="0.01" min="0" placeholder="0,00" />
-                                        </div>
-                                      </>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-right text-xs font-medium whitespace-nowrap">
-                                  {(() => {
-                                    const bruto = (parseFloat(editQtde) || 0) * (parseFloat(editValor) || 0)
-                                    const desc = editTipo === 'SERVICO' ? Math.min(bruto, bruto * (parseFloat(editDescPct) || 0) / 100 + (parseFloat(editDescValor) || 0)) : 0
-                                    return desc > 0 ? (
-                                      <span className={TEXT.emerald} title={`Sem desconto: ${formatCurrency(bruto)}`}>{formatCurrency(bruto - desc)}</span>
-                                    ) : formatCurrency(bruto)
-                                  })()}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <div className="flex justify-end gap-1">
-                                    <Button variant="ghost" size="icon-sm" onClick={handleSaveItem} title="Salvar"><Check className={cn('h-3.5 w-3.5', TEXT.emerald)} /></Button>
-                                    <Button variant="ghost" size="icon-sm" onClick={() => setEditingItemId(null)} title="Cancelar"><X className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                                      )
+                                    })()}
                                   </div>
                                 </TableCell>
                               </TableRow>
@@ -2436,17 +2653,12 @@ export default function OrcamentoDetailPage() {
                                 <TableCell className="whitespace-nowrap"><TipoBadge tipo={item.tipo} /></TableCell>
                                 <TableCell className="text-sm cursor-pointer" onClick={() => startEditItem(item)}>
                                   <div className="whitespace-nowrap">{item.descricao}</div>
-                                  {/* O que foi escolhido dentro do serviço. Em linha
-                                      própria, e não colado na descrição: a descrição é
+                                  {/* A variação escolhida dentro do serviço. Em linha
+                                      própria, e não colada na descrição: a descrição é
                                       editável à mão, e o vínculo continua valendo mesmo
                                       quando alguém reescreve o texto. */}
-                                  {(item.subservico?.nome || item.catalogoTexto?.titulo) && (
+                                  {item.catalogoTexto?.titulo && (
                                     <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                                      {item.subservico?.nome && (
-                                        <span className={cn('rounded px-1.5 py-0.5', BADGE.violet)}>
-                                          {item.subservico.nome}
-                                        </span>
-                                      )}
                                       {item.catalogoTexto?.titulo && (
                                         <span className={cn('rounded px-1.5 py-0.5', BADGE.amber)}>
                                           {item.catalogoTexto.titulo}
@@ -2488,60 +2700,278 @@ export default function OrcamentoDetailPage() {
                           ))}
                         </TableBody>
                       </Table>
-
-                      {/* Desconto e Pagamento — era uma pill própria; agora fecha a
-                          aba Itens, porque desconto e forma de pagamento são a
-                          continuação natural da lista de itens. */}
-                      <div className="px-5 py-3 border-y border-border mt-4">
-                        <h4 className="text-[13px] font-semibold text-foreground">Desconto e Pagamento</h4>
-                      </div>
-                      {apenasDescontoItem && (
-                        <div className={cn('mx-5 mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]', BADGE.amber)}>
-                          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                          <span>O desconto geral está desativado nas configurações (&ldquo;Usar apenas desconto por item&rdquo;). Aplique o desconto item a item na aba <strong>Itens</strong>.</span>
-                        </div>
-                      )}
-                      <div className="p-5 grid grid-cols-12 gap-3">
-                        <div className="col-span-12 sm:col-span-4 space-y-1.5">
-                          <Label className="text-[13px] font-semibold text-foreground">Desconto %</Label>
-                          <Input type="number" value={formDescontoPercent} onChange={e => setFormDescontoPercent(e.target.value)} disabled={apenasDescontoItem || (isLocked && !isMasterReal)} className="h-9 text-sm" step="0.01" min="0" max="100" placeholder="0" />
-                        </div>
-                        <div className="col-span-12 sm:col-span-4 space-y-1.5">
-                          <Label className="text-[13px] font-semibold text-foreground">Desconto R$</Label>
-                          <Input type="number" value={formDesconto} onChange={e => setFormDesconto(e.target.value)} disabled={apenasDescontoItem || (isLocked && !isMasterReal)} className="h-9 text-sm" step="0.01" min="0" placeholder="0,00" />
-                        </div>
-                        <div className="col-span-12 space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-[13px] font-semibold text-foreground">Forma de Pagamento</Label>
-                            {canManageCatalogo && (
-                              <button
-                                type="button"
-                                onClick={() => { setFormasModal(true); loadFormasPagamento() }}
-                                className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-                              >
-                                <Pencil className="h-3 w-3" /> Gerenciar
-                              </button>
-                            )}
-                          </div>
-                          <Select value={formPagamento || '__none__'} onValueChange={v => setFormPagamento(v === '__none__' ? '' : v)} disabled={isLocked && !isMasterReal}>
-                            <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione a forma de pagamento" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none__">— Não informada —</SelectItem>
-                              {/* Valor histórico fora da lista atual — preservado pra não perder dados legados */}
-                              {formPagamento && !formasPagamento.some(f => f.valor === formPagamento) && (
-                                <SelectItem value={formPagamento}>{formPagamento}</SelectItem>
-                              )}
-                              {formasPagamento.map(f => (
-                                <SelectItem key={f.id} value={f.valor}>{f.valor}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
                     </div>
                   )}
 
                 </div>
+              </div>
+            </SectionCard>
+          )}
+
+          {/* Desconto e Pagamento — card próprio, logo abaixo dos Itens.
+              Estava no rodapé da tabela, dentro do card de Itens: desconto geral
+              e forma de pagamento não são um item, são o fechamento comercial do
+              orçamento, e disputavam a atenção com a linha em edição logo acima.
+
+              `data-locked` repetido aqui porque o bloco saiu de dentro do
+              container que o aplicava — sem ele, orçamento congelado voltaria a
+              aceitar edição nestes campos. */}
+          {activeTab === 'itens' && (
+            <SectionCard
+              title="Desconto e Pagamento"
+              description="Desconto geral do orçamento e condição de pagamento."
+              icon={<Percent />}
+              className="mt-6"
+              bodyClassName="p-0"
+            >
+              <div data-locked={isLocked || undefined}>
+                {apenasDescontoItem && (
+                  <div className={cn('mx-5 mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]', BADGE.amber)}>
+                    <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>O desconto geral está desativado nas configurações (&ldquo;Usar apenas desconto por item&rdquo;). Aplique o desconto item a item na aba <strong>Itens</strong>.</span>
+                  </div>
+                )}
+                {/* O campo está travado porque já há desconto item a item —
+                    os dois somariam, e foi assim que o #4630 chegou a 40%
+                    com 20% na tela. */}
+                {!apenasDescontoItem && geralBloqueadoPorItem && (
+                  <div className={cn('mx-5 mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]', BADGE.amber)}>
+                    <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>
+                      Já há desconto nos itens ({formatCurrency(descontoItensParte)}). Zere o desconto dos itens para usar o desconto geral — os dois juntos somariam.
+                    </span>
+                  </div>
+                )}
+                {/* Orçamento anterior ao bloqueio, que ficou com os dois. */}
+                {!apenasDescontoItem && temDuasParcelas && (
+                  <div className={cn('mx-5 mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]', BADGE.amber)}>
+                    <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>
+                      Este orçamento tem desconto <strong>nos itens</strong> ({formatCurrency(descontoItensParte)}) <strong>e</strong> desconto geral ({formatCurrency(descontoGeralParte)}), e os dois somam: {descontoPercentCalc.toFixed(1)}% sobre os serviços. Zere um dos dois para valer só um.
+                    </span>
+                  </div>
+                )}
+                <div className="p-5 grid grid-cols-12 gap-3">
+                  <div className="col-span-12 sm:col-span-4 space-y-1.5">
+                    <Label className="text-[13px] font-semibold text-foreground">Desconto %</Label>
+                    <Input type="number" value={formDescontoPercent} onChange={e => setFormDescontoPercent(e.target.value)} disabled={apenasDescontoItem || geralBloqueadoPorItem || (isLocked && !isMasterReal)} className="h-9 text-sm" step="0.01" min="0" max="100" placeholder="0" />
+                  </div>
+                  <div className="col-span-12 sm:col-span-4 space-y-1.5">
+                    <Label className="text-[13px] font-semibold text-foreground">Desconto R$</Label>
+                    <Input type="number" value={formDesconto} onChange={e => setFormDesconto(e.target.value)} disabled={apenasDescontoItem || geralBloqueadoPorItem || (isLocked && !isMasterReal)} className="h-9 text-sm" step="0.01" min="0" placeholder="0,00" />
+                  </div>
+                  <div className="col-span-12 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[13px] font-semibold text-foreground">Forma de Pagamento</Label>
+                      {canManageCatalogo && (
+                        <button
+                          type="button"
+                          onClick={() => { setFormasModal(true); loadFormasPagamento() }}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                        >
+                          <Pencil className="h-3 w-3" /> Gerenciar
+                        </button>
+                      )}
+                    </div>
+                    <Select value={formPagamento || '__none__'} onValueChange={v => setFormPagamento(v === '__none__' ? '' : v)} disabled={isLocked && !isMasterReal}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione a forma de pagamento" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— Não informada —</SelectItem>
+                        {/* Valor histórico fora da lista atual — preservado pra não perder dados legados */}
+                        {formPagamento && !formasPagamento.some(f => f.valor === formPagamento) && (
+                          <SelectItem value={formPagamento}>{formPagamento}</SelectItem>
+                        )}
+                        {formasPagamento.map(f => (
+                          <SelectItem key={f.id} value={f.valor}>{f.valor}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            </SectionCard>
+          )}
+
+          {/* Responsáveis pela Execução — card próprio logo abaixo dos Detalhes.
+              Um QUADRO por serviço: foto em cima, quem executa embaixo.
+              Vem do backend já resolvido pelo MESMO motor que atribui de
+              verdade, para a tela não anunciar um nome e o sistema gravar outro.
+
+              Sem `data-locked` aqui, ao contrário dos outros cards desta tab:
+              definir quem executa é justamente o que se faz DEPOIS de aprovar,
+              e congelar o card mataria a única ação que ele oferece. A proteção
+              real são os dois portões do backend (a sub-permissão e o critério
+              do módulo Serviços), não o CSS. */}
+          {activeTab === 'detalhes' && (
+            <SectionCard
+              title="Responsáveis pela Execução"
+              description="Quem assume cada serviço quando o orçamento virar execução."
+              icon={<UserCheck />}
+              className="mt-6"
+              actions={orc.responsaveis?.length ? <Badge variant="secondary" className="text-[10px] mr-1">{orc.responsaveis.length}</Badge> : null}
+            >
+              <div className="space-y-3">
+                {(orc.responsaveis?.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground">Sem serviços no orçamento — nada a executar ainda.</p>
+                ) : (
+                  // Quadros lado a lado. Duas colunas já no celular (o quadro é
+                  // estreito por natureza — foto + nome) e mais conforme sobra
+                  // largura; a coluna principal divide espaço com a sidebar de
+                  // 20rem, então 4 colunas só no xl.
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                    {orc.responsaveis!.map(r => {
+                      const estado = estadoResponsavelExecucao(r)
+                      // Editável: há item onde gravar, o usuário tem a
+                      // sub-permissão, o serviço está numa área da alçada dele
+                      // (`podeDefinir`, calculado no backend), e ninguém foi
+                      // resolvido pelo template (ou a escolha atual foi manual,
+                      // que precisa ser corrigível).
+                      const podeEditar = !!r.itemId && canChangeResponsavel && r.podeDefinir
+                        && (!r.responsavelNome || r.responsavelManual)
+                      const listaResp = respCandidatos[r.servicoId]
+                      const salvando = respSalvando === r.itemId
+                      return (
+                        <div
+                          key={r.itemId ?? r.servicoId}
+                          className="flex flex-col items-center gap-2 rounded-lg border border-border bg-muted/40 p-3 text-center"
+                        >
+                          {/* Sem nome resolvido, o avatar vai SEM `user`: cai no
+                              ícone genérico. Passar "A definir" como nome viraria
+                              as iniciais "AD", que parecem gente. */}
+                          <UserAvatar
+                            user={r.responsavelNome ? { name: r.responsavelNome, image: r.responsavelImage } : null}
+                            className={cn('h-14 w-14 text-base', !r.responsavelNome && 'text-muted-foreground')}
+                            bg={r.responsavelNome ? undefined : 'bg-muted'}
+                            bgColor={r.responsavelNome ? PRIMARY : undefined}
+                            title={r.responsavelNome ?? estado.rotulo}
+                          />
+
+                          {/* O texto alterável. Quem não pode editar vê o mesmo
+                              texto sem afordância de clique — nada de botão que
+                              abre um menu só para dizer "não pode". */}
+                          {podeEditar ? (
+                            <DropdownMenu
+                              onOpenChange={(aberto) => { if (aberto) void carregarCandidatosResp(r.servicoId) }}
+                            >
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="inline-flex max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-[13px] font-semibold text-foreground underline decoration-dotted decoration-muted-foreground underline-offset-4 transition hover:bg-muted"
+                                  title="Definir quem executa este serviço"
+                                  disabled={salvando}
+                                >
+                                  {salvando && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
+                                  <span className="truncate">{estado.rotulo}</span>
+                                  <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="center" className="max-h-72 overflow-y-auto nice-scrollbar">
+                                {respCarregando === r.servicoId || !listaResp ? (
+                                  <div className="px-3 py-2 text-xs text-muted-foreground">Carregando…</div>
+                                ) : !listaResp.canAssign ? (
+                                  // Motivo explícito: lista vazia sem explicação
+                                  // pareceria defeito.
+                                  <div className="max-w-[240px] px-3 py-2 text-xs text-muted-foreground">
+                                    Você não pode atribuir responsáveis. É preciso liderar
+                                    a área do serviço.
+                                  </div>
+                                ) : listaResp.candidates.length === 0 ? (
+                                  <div className="max-w-[240px] px-3 py-2 text-xs text-muted-foreground">
+                                    {listaResp.areaFiltro
+                                      ? `Nenhum usuário ativo na área ${listaResp.areaFiltro.name}.`
+                                      : 'Nenhum usuário disponível para atribuição.'}
+                                  </div>
+                                ) : (
+                                  <>
+                                    {listaResp.areaFiltro && (
+                                      <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                                        {listaResp.areaFiltro.name}
+                                      </div>
+                                    )}
+                                    {listaResp.candidates.map(c => (
+                                      <DropdownMenuItem
+                                        key={c.id}
+                                        onClick={() => void definirResponsavelItem(r.itemId!, c.id)}
+                                      >
+                                        {c.name}
+                                      </DropdownMenuItem>
+                                    ))}
+                                    {r.responsavelManual && (
+                                      <DropdownMenuItem
+                                        className="text-muted-foreground"
+                                        onClick={() => void definirResponsavelItem(r.itemId!, null)}
+                                      >
+                                        Remover — voltar ao padrão do serviço
+                                      </DropdownMenuItem>
+                                    )}
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : (
+                            // O motivo entra no hover só para quem TEM a
+                            // sub-permissão: para quem não tem, explicar a
+                            // alçada de área responderia uma pergunta que ele
+                            // não fez e esconderia a razão verdadeira.
+                            <span
+                              className="max-w-full truncate px-1.5 py-0.5 text-[13px] font-semibold text-foreground"
+                              title={canChangeResponsavel && r.motivoBloqueio ? r.motivoBloqueio : estado.rotulo}
+                            >
+                              {estado.rotulo}
+                            </span>
+                          )}
+
+                          {/* A cor mora AQUI, e não no nome: o que tem estado é a
+                              origem da atribuição (resolvida / pendente / sem
+                              configuração), não a pessoa. */}
+                          <span className={cn('inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE[estado.tom])}>
+                            <span className="truncate">{estado.detalhe}</span>
+                          </span>
+
+                          {/* Situação da execução, depois da aprovação. O
+                              "Finalizado" é o que diz ao financeiro que o
+                              responsável já concluiu o serviço — o orçamento
+                              fica em Aprovado até a liberação (#4803). */}
+                          {r.execucao && (
+                            r.execucao.status === 'CONCLUIDO' ? (
+                              <span className={cn('inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold', STRONG.emerald)}
+                                title={r.execucao.concluidoEm ? `Serviço finalizado pelo responsável em ${fmtDataHora(r.execucao.concluidoEm)}` : 'Serviço finalizado pelo responsável'}>
+                                <CheckCircle2 className="h-3 w-3 shrink-0" />
+                                <span className="truncate">Finalizado{r.execucao.concluidoEm ? ` em ${new Date(r.execucao.concluidoEm).toLocaleDateString('pt-BR')}` : ''}</span>
+                              </span>
+                            ) : (
+                              <span className={cn('inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE[r.execucao.status === 'CANCELADO' || r.execucao.status === 'PULADO' ? 'slate' : 'sky'])}>
+                                <span className="truncate">{
+                                  r.execucao.status === 'EM_ANDAMENTO' ? 'Em execução'
+                                  : r.execucao.status === 'AGUARDANDO_INICIO' ? 'Aguardando início'
+                                  : r.execucao.status === 'CANCELADO' ? 'Execução cancelada'
+                                  : r.execucao.status === 'PULADO' ? 'Execução pulada'
+                                  : r.execucao.status
+                                }</span>
+                              </span>
+                            )
+                          )}
+
+                          <div className="w-full border-t border-hairline pt-2">
+                            {/* O nome do serviço só aparece quando há mais de um:
+                                com um serviço só (a maioria dos orçamentos) seria
+                                repetição da aba Itens. */}
+                            {orc.responsaveis!.length > 1 && (
+                              <p className="truncate text-[11px] font-medium text-foreground" title={r.servicoNome}>{r.servicoNome}</p>
+                            )}
+                            <p className="truncate text-[11px] text-muted-foreground" title={r.areaNome ?? undefined}>
+                              {r.areaNome ?? 'Sem área'}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                <p className="text-[11px] text-muted-foreground">
+                  O padrão vem da configuração do serviço. Quando ele não define uma pessoa,
+                  quem lidera a área daquele serviço pode escolher aqui — vale só para este orçamento.
+                </p>
               </div>
             </SectionCard>
           )}
@@ -2723,16 +3153,39 @@ export default function OrcamentoDetailPage() {
           <TabsContent value="historico" className="mt-0 space-y-5">
             {/* Histórico do sistema legado (só leitura) */}
             <OrcamentosLegadoSection clienteId={orc.cliente?.id} />
-            {historicoCliente.length > 0 && (
+            {historicoTemAlgum && (
               <SectionCard
                 title="Outros orçamentos do cliente"
                 description="Histórico de propostas deste cliente no sistema."
                 icon={<FileText />}
-                actions={<Badge variant="secondary" className="text-[10px] mr-1">{historicoCliente.length}</Badge>}
+                actions={<Badge variant="secondary" className="text-[10px] mr-1">{historicoTotal}</Badge>}
                 bodyClassName="p-0"
               >
                 <CardContent className="p-0">
+                  {/* Busca — por número do orçamento ou descrição do serviço,
+                      que é o que a linha mostra. Roda no servidor: a lista aqui
+                      é uma página, não o conjunto todo. */}
+                  <div className="flex items-center gap-2 border-b border-border/40 px-4 py-2.5">
+                    <div className="relative flex-1">
+                      <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={historicoBusca}
+                        onChange={e => setHistoricoBusca(e.target.value)}
+                        placeholder="Buscar por número ou serviço..."
+                        className="h-8 pl-8 text-xs"
+                      />
+                    </div>
+                    {historicoLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground shrink-0" />}
+                  </div>
+
                   <div className="max-h-[280px] overflow-y-auto nice-scrollbar">
+                    {historicoCliente.length === 0 && !historicoLoading && (
+                      <p className="px-4 py-6 text-center text-xs text-muted-foreground">
+                        {historicoBusca.trim()
+                          ? 'Nenhum orçamento encontrado para esta busca.'
+                          : 'Nenhum outro orçamento deste cliente.'}
+                      </p>
+                    )}
                     {historicoCliente.map(o => {
                       const tipoLabel = o.tipo === 'SERVICO_MENSAL' ? 'Serviço Mensal' : o.tipo === 'SERVICO_EXTRA' ? 'Serviço Extra' : null
                       const servicoDesc = o.itens?.[0]?.descricao ?? null
@@ -2759,6 +3212,37 @@ export default function OrcamentoDetailPage() {
                       )
                     })}
                   </div>
+
+                  {/* Rodapé — PADRAO_PAGINAS §1.4: contagem à esquerda, navegação
+                      à direita. Só aparece quando há mais de uma página. */}
+                  {historicoTotal > HISTORICO_LIMIT && (
+                    <div className="flex items-center justify-between gap-3 border-t border-border/40 bg-muted/20 px-4 py-2">
+                      <p className="text-[11px] text-muted-foreground">
+                        Mostrando <span className="font-medium">{(historicoPage - 1) * HISTORICO_LIMIT + 1}</span>
+                        {' '}a <span className="font-medium">{Math.min(historicoPage * HISTORICO_LIMIT, historicoTotal)}</span>
+                        {' '}de <span className="font-medium">{historicoTotal}</span>
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline" size="icon-xs"
+                          disabled={historicoPage === 1 || historicoLoading}
+                          onClick={() => setHistoricoPage(p => Math.max(1, p - 1))}
+                        >
+                          <ChevronLeft className="h-3.5 w-3.5" />
+                        </Button>
+                        <span className="px-1 text-[11px] tabular-nums text-muted-foreground">
+                          {historicoPage} / {Math.max(1, Math.ceil(historicoTotal / HISTORICO_LIMIT))}
+                        </span>
+                        <Button
+                          variant="outline" size="icon-xs"
+                          disabled={historicoPage >= Math.ceil(historicoTotal / HISTORICO_LIMIT) || historicoLoading}
+                          onClick={() => setHistoricoPage(p => p + 1)}
+                        >
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </SectionCard>
             )}
@@ -2806,10 +3290,29 @@ export default function OrcamentoDetailPage() {
                 <span className="text-muted-foreground">Subtotal</span>
                 <span className="font-medium">{formatCurrency(subtotal)}</span>
               </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Desconto ({descontoPercentCalc.toFixed(1)}%)</span>
-                <span className={cn('font-medium', TEXT.orange)}>- {formatCurrency(descontoAplicado)}</span>
-              </div>
+              {temDuasParcelas ? (
+                <>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Desconto nos itens</span>
+                    <span className={cn('font-medium', TEXT.orange)}>- {formatCurrency(descontoItensParte)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">
+                      Desconto geral{descontoPctNum > 0 ? ` (${descontoPctNum.toFixed(descontoPctNum % 1 === 0 ? 0 : 1)}%)` : ''}
+                    </span>
+                    <span className={cn('font-medium', TEXT.orange)}>- {formatCurrency(descontoGeralParte)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-muted-foreground">Desconto total ({descontoPercentCalc.toFixed(1)}%)</span>
+                    <span className={cn('font-semibold', TEXT.orange)}>- {formatCurrency(descontoAplicado)}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Desconto ({descontoPercentCalc.toFixed(1)}%)</span>
+                  <span className={cn('font-medium', TEXT.orange)}>- {formatCurrency(descontoAplicado)}</span>
+                </div>
+              )}
               <div className="border-t border-border/60 pt-2 mt-2 flex items-center justify-between">
                 <span className="text-sm font-semibold">Total Geral</span>
                 <span className="text-base font-bold" style={{ color: PRIMARY }}>{formatCurrency(totalGeral)}</span>

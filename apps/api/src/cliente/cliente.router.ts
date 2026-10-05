@@ -175,8 +175,15 @@ export function createClienteRouter(
     // contratos, sócios, etc.). Qualquer usuário logado pode consultar — retorna
     // só metadata mínima (id, razaoSocial, nomeFantasia, code, documento, situacao),
     // não dados sensíveis. Filtragem por empresa via ctx.empresaId é mantida.
+    // `incluirInativos`: ex-clientes também (marcados por `status`) — usado no
+    // novo orçamento, onde quem volta a pedir serviço precisa ser achado.
     listForSelect: protectedProcedure
-      .query(({ ctx }) => clienteService.listForSelect(ctx.isMaster, ctx.empresaId)),
+      .input(z.object({
+        incluirInativos: z.boolean().optional(),
+        /** Só clientes mensais (carteira) — ex.: reclamação de cliente. */
+        somenteMensais: z.boolean().optional(),
+      }).optional())
+      .query(({ input, ctx }) => clienteService.listForSelect(ctx.isMaster, ctx.empresaId, input?.incluirInativos ?? false, input?.somenteMensais ?? false)),
 
     // ── Opcoes editaveis (Atividade, Origem) ───────────────
     listOpcoes: readProcedure(MODULE)
@@ -769,7 +776,8 @@ export function createClienteRouter(
       .mutation(({ input }) => clienteService.biDeleteCategoria(input.clienteId, input.conta)),
 
     biListPlanoContasPadrao: readProcedure(MODULE)
-      .query(() => clienteService.biListPlanoContasPadrao()),
+      .input(z.object({ clienteId: z.string().optional() }).optional())
+      .query(({ input }) => clienteService.biListPlanoContasPadrao(input?.clienteId)),
 
     biListLinhas: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string(), periodo: z.string().optional() }))
@@ -1283,9 +1291,12 @@ export function createClienteRouter(
     // ── Resumo Legalização (para impressão) ─────────────
     resumoLegalizacao: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))
-      .query(async ({ input }) => {
-        const cli = await prisma.cliente.findUnique({
-          where: { id: input.clienteId },
+      .query(async ({ input, ctx }) => {
+        // Só cliente da empresa carregada: o resumo traz sócios, acessos e
+        // certidões — antes bastava saber o id de um cliente de outro tenant.
+        if (!ctx.empresaId) return null
+        const cli = await prisma.cliente.findFirst({
+          where: { id: input.clienteId, empresaId: ctx.empresaId },
           select: {
             razaoSocial: true, nomeFantasia: true, documento: true,
             inscricaoEstadual: true, inscricaoMunicipal: true,
@@ -1768,6 +1779,8 @@ export function createClienteRouter(
         podeVer: z.boolean().optional(),
         podeEditar: z.boolean().optional(),
         podeExcluir: z.boolean().optional(),
+        /** Dashboard Financeiro no portal — ver `ClienteUsuario.podeVerBi`. */
+        podeVerBi: z.boolean().optional(),
         telefone: z.string().nullish(),
         /**
          * Outras empresas do MESMO GRUPO que recebem o mesmo acesso.
@@ -1789,6 +1802,8 @@ export function createClienteRouter(
         podeVer: z.boolean().optional(),
         podeEditar: z.boolean().optional(),
         podeExcluir: z.boolean().optional(),
+        /** Dashboard Financeiro no portal — ver `ClienteUsuario.podeVerBi`. */
+        podeVerBi: z.boolean().optional(),
       }))
       .mutation(({ input }) => usuarios().atualizar(input)),
 

@@ -1,8 +1,13 @@
 import { Injectable, forwardRef, Inject } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import type { Prisma } from '@saas/db'
 import { BiCalculosService } from './bi-calculos.service'
 import { BiBalanceteService } from './bi-balancete.service'
 import { SciService } from '../cliente/sci.service'
+import { carregarDepara, sqlJoinsCategoria, sqlSomenteFolhas, sqlPeriodosEscolhidos, SQL_CATEGORIA, ehFolha } from './categoria-sql'
+import { nivel3De } from './depara-nivel3'
+import type { DeparaCliente } from './depara-nivel3'
+import { calcularDre, INDICE, MASCARA_DRE, type CategoriaDre } from './mascara-dre'
 
 // BI_CATEGORIAS — mapa de padrões de contas por tipo de KPI
 export const BI_CATEGORIAS: Record<string, { label: string; patterns: string[] }> = {
@@ -117,205 +122,267 @@ export class BiService {
   // ══════════════════════════════════════════════════════════════
   // Balancete — Matriz de Resultados
   // ══════════════════════════════════════════════════════════════
-  async balanceteMatriz(clienteId: string, ano: number, _useParent = false) {
+  /**
+   * A Matriz de Resultados — a DRE do Power BI, linha a linha.
+   *
+   * ## O que mudou, e por quê
+   *
+   * Esta função montava a matriz a partir de FÓRMULAS gravadas por cliente
+   * (`cliente_bi_categorias.formula`), portadas do SERPRO2. As fórmulas vieram
+   * literalmente certas; o significado do operador é que não veio junto. No v1,
+   * `subtracao` era "subtrai o MÓDULO":
+   *
+   *     if (op === 'subtracao') return acc - Math.abs(Number(v) || 0)
+   *
+   * No v2 virou subtração algébrica, aplicada a operandos que agora chegam com
+   * sinal natural (`creditos − debitos`). Com Deduções valendo −170.510,96:
+   *
+   *     865.407,06 − (−170.510,96) = 1.035.918,02   ← o que a tela mostrava
+   *     865.407,06 + (−170.510,96) =   694.896,10   ← o Power BI
+   *
+   * O erro subia por Margem Bruta e EBITDA. E `RESULTADO OPERACIONAL` somava um
+   * operando (`RES_OPERACIONAL`) que não existia como categoria: resolvia para
+   * zero e o Resultado Operacional virava cópia do EBITDA, sem o financeiro.
+   *
+   * ## Como é agora
+   *
+   * Não há mais fórmula por cliente, e portanto não há mais um segundo motor de
+   * cálculo. A matriz é a MÁSCARA (`mascara-dre.ts`), igual ao Power BI:
+   *
+   *  - as 9 linhas de dado somam as FOLHAS da categoria delas, e abrem na
+   *    hierarquia do próprio plano de contas do cliente;
+   *  - os 7 subtotais são o acumulado da máscara até o índice — sem fórmula,
+   *    porque o sinal natural já faz a subtração;
+   *  - `% A.V.` é sobre a Receita Bruta, como no painel de referência.
+   *
+   * Consequência direta: matriz e cartões passam a somar exatamente as mesmas
+   * contas, porque usam a mesma resolução de categoria. Eles não fechavam entre
+   * si desde sempre.
+   *
+   * O flag `ativo` ("No BI", na tela de categorias) NÃO filtra mais a matriz.
+   * Esconder uma conta que carrega valor enquanto o subtotal a inclui é um
+   * número que não se explica; quem precisa tirar uma conta da conta usa a
+   * exclusão de contas do KPI.
+   */
+  async balanceteMatriz(clienteId: string, ano: number) {
     const periodoInicio = `${ano}01`
     const periodoFim = `${ano}12`
 
-    // 1. Get ALL categories (including non-ativo for formula operands)
-    const categorias = await prisma.clienteBiCategoria.findMany({
-      where: { clienteId },
-    })
+    const [categorias, linhas, depara] = await Promise.all([
+      prisma.clienteBiCategoria.findMany({ where: { clienteId } }),
+      prisma.clienteBiLinha.findMany({
+        where: { clienteId, periodo: { gte: periodoInicio, lte: periodoFim } },
+        select: { conta: true, nomeConta: true, periodo: true, creditos: true, debitos: true, analitica: true },
+      }),
+      carregarDepara(clienteId),
+    ])
+
     const catMap = new Map(categorias.map(c => [c.conta, c]))
-    const contasAtivas = new Set(categorias.filter(c => c.ativo).map(c => c.conta))
+    const overrides = new Map(
+      categorias.filter(c => c.categoriaDre).map(c => [c.conta, c.categoriaDre as CategoriaDre]),
+    )
+    const categoriaPorNivel3 = new Map(depara.map(d => [d.conta3, d.categoria]))
 
-    // 2. Get all linhas for the year
-    const linhas = await prisma.clienteBiLinha.findMany({
-      where: { clienteId, periodo: { gte: periodoInicio, lte: periodoFim } },
-    })
+    /** Override do cliente primeiro, de-para da máscara depois. */
+    const categoriaDaConta = (conta: string): CategoriaDre | null => {
+      const ov = overrides.get(conta)
+      if (ov) return ov
+      const n3 = nivel3De(conta)
+      return (n3 && categoriaPorNivel3.get(n3)) || null
+    }
 
-    // 3. Build value map: conta → ref → movimento
-    const valueMap = new Map<string, Map<string, number>>()
+    // ── Valor por conta e período: `creditos − debitos`, o mesmo `Realizado
+    //    Base` dos cartões. Sinal natural: receita credora positiva, despesa
+    //    devedora negativa.
+    const valorPorConta = new Map<string, Map<string, number>>()
+    const analiticaPorConta = new Map<string, boolean | null>()
+    const nomePorConta = new Map<string, string>()
     const refs = new Set<string>()
     for (const l of linhas) {
       refs.add(l.periodo)
-      if (!valueMap.has(l.conta)) valueMap.set(l.conta, new Map())
-      const refMap = valueMap.get(l.conta)!
-      refMap.set(l.periodo, (refMap.get(l.periodo) || 0) + Number(l.movimento))
+      if (!valorPorConta.has(l.conta)) valorPorConta.set(l.conta, new Map())
+      const m = valorPorConta.get(l.conta)!
+      m.set(l.periodo, (m.get(l.periodo) ?? 0) + (Number(l.creditos) - Number(l.debitos)))
+      if (!analiticaPorConta.has(l.conta) || l.analitica !== null) analiticaPorConta.set(l.conta, l.analitica)
+      if (!nomePorConta.has(l.conta)) nomePorConta.set(l.conta, l.nomeConta)
     }
     const sortedRefs = Array.from(refs).sort()
+    const todasAsContas = new Set(valorPorConta.keys())
 
-    // 4. Build nodes for ALL categories (needed for formula resolution)
-    const nodesById = new Map<string, { valores: Map<string, number> }>()
-    for (const cat of categorias) {
-      const vals = valueMap.get(cat.conta) || new Map()
-      nodesById.set(cat.conta, { valores: vals })
-    }
-    // Also add contas from linhas not in categories
-    for (const [conta, vals] of valueMap) {
-      if (!nodesById.has(conta)) nodesById.set(conta, { valores: vals })
-    }
-
-    // 5. Process formulas (calculada categories)
-    const processadas = new Set<string>()
-    const calcCats = categorias.filter(c => (c.tipo === 'calculada' || c.tipo === 'C') && c.formula)
-
-    const aplicarOp = (acc: number, op: string, v: number): number => {
-      const o = (op || 'soma').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      if (o === 'subtracao' || o === 'subtração' || o === '-') return acc - Math.abs(v)
-      if (o === 'multiplicacao' || o === '*') return acc * v
-      if (o === 'divisao' || o === '/') return v !== 0 ? acc / v : acc
-      return acc + v // soma
+    // ── As folhas de cada categoria. Só folha: somar a sintética junto com as
+    //    filhas dela seria contar o mesmo valor duas vezes.
+    const folhasPorCategoria = new Map<CategoriaDre, string[]>()
+    for (const conta of todasAsContas) {
+      if (!ehFolha({ conta, analitica: analiticaPorConta.get(conta) ?? null }, todasAsContas)) continue
+      const cat = categoriaDaConta(conta)
+      if (!cat) continue
+      if (!folhasPorCategoria.has(cat)) folhasPorCategoria.set(cat, [])
+      folhasPorCategoria.get(cat)!.push(conta)
     }
 
-    const calcFormula = (formula: Record<string, unknown>, ref: string): number => {
-      const operandos = (formula.operandos as string[] || []).map(String).filter(Boolean)
-      const operadores = (formula.operadores as string[] || []).map(String)
-      const operacao = String(formula.operacao || 'soma')
+    const nomeDaConta = (conta: string) =>
+      catMap.get(conta)?.nomeExibicao || catMap.get(conta)?.nomeSci || nomePorConta.get(conta) || conta
 
-      if (operandos.length === 0) return 0
-      const vals = operandos.map(opId => nodesById.get(opId)?.valores.get(ref) ?? 0)
-
-      if (operacao === 'igualdade' || operandos.length === 1) return vals[0] ?? 0
-      if (operacao === 'cadeia' && operadores.length >= operandos.length - 1) {
-        let acc = vals[0] ?? 0
-        for (let i = 1; i < vals.length; i++) acc = aplicarOp(acc, operadores[i - 1] || 'soma', vals[i]!)
-        return acc
-      }
-      // Legacy: single operation between all operands
-      if (operacao === 'subtracao' && vals.length === 2) return (vals[0] ?? 0) - Math.abs(vals[1] ?? 0)
-      return vals.reduce((a, b) => a + b, 0)
-    }
-
-    const processarCalc = (cat: typeof calcCats[0]) => {
-      if (processadas.has(cat.conta)) return
-      const formula = cat.formula as Record<string, unknown>
-      const operandos = (formula?.operandos as string[] || []).map(String).filter(Boolean)
-      // Process dependencies first
-      for (const opId of operandos) {
-        const dep = calcCats.find(c => c.conta === opId)
-        if (dep && !processadas.has(opId)) processarCalc(dep)
-      }
-      const node = nodesById.get(cat.conta) || { valores: new Map() }
-      for (const ref of sortedRefs) {
-        node.valores.set(ref, calcFormula(formula, ref))
-      }
-      nodesById.set(cat.conta, node)
-      processadas.add(cat.conta)
-    }
-    for (const cat of calcCats) processarCalc(cat)
-
-    // 6. Process reference categories
-    for (const cat of categorias.filter(c => (c.tipo === 'referencia' || c.tipo === 'F') && c.formula)) {
-      const formula = cat.formula as Record<string, unknown>
-      const operandos = formula?.operandos as string[] | undefined
-      const refConta = String(formula?.conta || (operandos && operandos[0]) || '')
-      if (!refConta) continue
-      const srcNode = nodesById.get(refConta)
-      if (srcNode) nodesById.set(cat.conta, { valores: new Map(srcNode.valores) })
-    }
-
-    // 7. Find Receita Bruta for % A.V calculation
-    let receitaBrutaId: string | null = null
-    for (const cat of categorias) {
-      const nome = (cat.nomeExibicao || cat.nomeSci || '').toUpperCase()
-      if (nome.includes('RECEITA BRUTA') || nome.includes('RECEITA  BRUTA')) { receitaBrutaId = cat.conta; break }
-    }
-    if (!receitaBrutaId) {
-      // Fallback: try conta 03.1.1
-      if (nodesById.has('03.1.1')) receitaBrutaId = '03.1.1'
-      else if (nodesById.has('3.1.1')) receitaBrutaId = '3.1.1'
-    }
-    const receitaBrutaNode = receitaBrutaId ? nodesById.get(receitaBrutaId) : null
-
-    // 8. Detect expense/cost categories (displayed as negative)
-    const isDespesa = (nome: string) => /dedu[cç]|custo|despesa|imposto|abatimento/i.test(nome)
-
-    // 9. Build visible hierarchy (only ativo=true, skip invisible parents)
-    const visibleParent = new Map<string, string | null>()
-    for (const cat of categorias) {
-      if (!contasAtivas.has(cat.conta)) continue
-      let parent = cat.parentConta
-      // Walk up to find nearest visible ancestor
-      while (parent && !contasAtivas.has(parent)) {
-        const parentCat = catMap.get(parent)
-        parent = parentCat?.parentConta || null
-      }
-      visibleParent.set(cat.conta, parent || null)
-    }
-    const visibleChildren = new Map<string | null, string[]>()
-    for (const [conta, parent] of visibleParent) {
-      if (!visibleChildren.has(parent)) visibleChildren.set(parent, [])
-      visibleChildren.get(parent)!.push(conta)
-    }
-
-    // 10. Sort children by ordem, then conta
     const cmpConta = (a: string, b: string) => {
       const ap = a.split('.'), bp = b.split('.')
       for (let i = 0; i < Math.max(ap.length, bp.length); i++) {
-        const an = parseInt(ap[i] || '0'), bn = parseInt(bp[i] || '0')
+        const an = parseInt(ap[i] ?? '0', 10), bn = parseInt(bp[i] ?? '0', 10)
         if (an !== bn) return an - bn
       }
       return 0
     }
-    for (const [, children] of visibleChildren) {
-      children.sort((a, b) => {
-        const oa = catMap.get(a)?.ordem ?? 9999, ob = catMap.get(b)?.ordem ?? 9999
-        if (oa !== ob) return oa - ob
-        return cmpConta(a, b)
-      })
-    }
 
-    // 11. Flatten tree (DFS) in order
     type ResultRow = {
       id: string; conta: string; nomeConta: string
       level: number; parentId: string | null; hasChildren: boolean
       valores: Record<string, { realizado: number; pct_av: number }>
       total: { realizado: number; pct_av: number }
     }
-    const result: ResultRow[] = []
 
-    const walk = (parentKey: string | null, level: number) => {
-      for (const conta of visibleChildren.get(parentKey) ?? []) {
-        const cat = catMap.get(conta)
-        const node = nodesById.get(conta)
-        const nome = cat?.nomeExibicao || cat?.nomeSci || conta
-        const isDesp = isDespesa(nome)
-        const hasSub = (visibleChildren.get(conta)?.length ?? 0) > 0
+    // ── Receita Bruta primeiro: é o denominador do % A.V.
+    const somaDasFolhas = (contas: string[], ref: string) =>
+      contas.reduce((acc, c) => acc + (valorPorConta.get(c)?.get(ref) ?? 0), 0)
 
-        const valores: Record<string, { realizado: number; pct_av: number }> = {}
-        let totalReal = 0
+    const receitaBrutaPorRef = new Map<string, number>()
+    for (const ref of sortedRefs) {
+      receitaBrutaPorRef.set(ref, somaDasFolhas(folhasPorCategoria.get('RECEITA_BRUTA') ?? [], ref))
+    }
+    const receitaBrutaTotal = sortedRefs.reduce((s, ref) => s + (receitaBrutaPorRef.get(ref) ?? 0), 0)
 
-        for (const ref of sortedRefs) {
-          const v = node?.valores.get(ref) ?? 0
-          const realizado = isDesp ? -Math.abs(v) : v
-          totalReal += realizado
+    const duasCasas = (v: number) => Math.round(v * 100) / 100
+    const celula = (realizado: number, base: number) => ({
+      realizado: duasCasas(realizado),
+      // `Math.abs` espelha o `ABS(DIVIDE(...))` da medida "% do Faturamento" do
+      // painel de referência: o percentual mede tamanho, o sinal já está no valor.
+      pct_av: base !== 0 ? Math.round(Math.abs(realizado / base) * 10000) / 100 : 0,
+    })
 
-          const rb = receitaBrutaNode?.valores.get(ref) ?? 0
-          const pct_av = rb !== 0 ? Math.round((Math.abs(v) / Math.abs(rb)) * 100) : 0
+    const montarLinha = (
+      id: string, conta: string, nome: string, level: number, parentId: string | null,
+      hasChildren: boolean, porRef: (ref: string) => number,
+    ): ResultRow => {
+      const valores: Record<string, { realizado: number; pct_av: number }> = {}
+      let total = 0
+      for (const ref of sortedRefs) {
+        const v = porRef(ref)
+        total += v
+        valores[ref] = celula(v, receitaBrutaPorRef.get(ref) ?? 0)
+      }
+      return { id, conta, nomeConta: nome, level, parentId, hasChildren, valores, total: celula(total, receitaBrutaTotal) }
+    }
 
-          valores[ref] = { realizado, pct_av }
+    // ── O detalhe de uma linha de dado: as folhas dela, penduradas nos
+    //    ancestrais que existem entre o nível 3 e a própria folha. É o que o
+    //    Power BI abre quando se clica no ⊞ da categoria.
+    const detalhe = (folhas: string[], raizId: string): ResultRow[] => {
+      const nós = new Map<string, { pai: string | null; folhas: string[] }>()
+      for (const folha of folhas) {
+        const partes = folha.split('.')
+        let pai: string | null = null
+        // Ancestrais a partir do nível 4 — o nível 3 é a própria categoria.
+        for (let n = 4; n <= partes.length; n++) {
+          const conta = partes.slice(0, n).join('.')
+          if (!nós.has(conta)) nós.set(conta, { pai, folhas: [] })
+          nós.get(conta)!.folhas.push(folha)
+          pai = conta
         }
+        // Folha rasa (nível 3 ou menos) entra direto sob a categoria.
+        if (partes.length < 4 && !nós.has(folha)) nós.set(folha, { pai: null, folhas: [folha] })
+      }
 
-        const rbTotal = sortedRefs.reduce((s, ref) => s + (receitaBrutaNode?.valores.get(ref) ?? 0), 0)
-        const pctTotal = rbTotal !== 0 ? Math.round((Math.abs(totalReal) / Math.abs(rbTotal)) * 100) : 0
+      const filhosDe = new Map<string | null, string[]>()
+      for (const [conta, n] of nós) {
+        if (!filhosDe.has(n.pai)) filhosDe.set(n.pai, [])
+        filhosDe.get(n.pai)!.push(conta)
+      }
+      for (const [, lista] of filhosDe) lista.sort(cmpConta)
 
-        result.push({
-          id: conta,
-          conta,
-          nomeConta: nome,
-          level,
-          parentId: parentKey,
-          hasChildren: hasSub,
-          valores,
-          total: { realizado: totalReal, pct_av: pctTotal },
-        })
+      const out: ResultRow[] = []
+      const descer = (pai: string | null, level: number) => {
+        for (const conta of filhosDe.get(pai) ?? []) {
+          const n = nós.get(conta)!
+          const temFilhos = (filhosDe.get(conta)?.length ?? 0) > 0
+          out.push(montarLinha(
+            `${raizId}::${conta}`, conta, nomeDaConta(conta), level,
+            pai === null ? raizId : `${raizId}::${pai}`, temFilhos,
+            ref => somaDasFolhas(n.folhas, ref),
+          ))
+          descer(conta, level + 1)
+        }
+      }
+      descer(null, 1)
+      return out
+    }
 
-        walk(conta, level + 1)
+    // ── A máscara, em ordem. Linha de dado soma as folhas da categoria;
+    //    subtotal é o acumulado até o índice dele.
+    const acumulado = new Map<string, number>()
+    const rows: ResultRow[] = []
+    for (const linha of MASCARA_DRE) {
+      const id = `MASCARA_${linha.indice}`
+      if (linha.subnivel === 0) {
+        const folhas = (linha.categoria && folhasPorCategoria.get(linha.categoria)) || []
+        for (const ref of sortedRefs) {
+          acumulado.set(ref, (acumulado.get(ref) ?? 0) + somaDasFolhas(folhas, ref))
+        }
+        rows.push(montarLinha(id, linha.categoria ?? id, linha.rotulo, 0, null, folhas.length > 0,
+          ref => somaDasFolhas(folhas, ref)))
+        rows.push(...detalhe(folhas, id))
+      } else {
+        rows.push(montarLinha(id, id, linha.rotulo, 0, null, false, ref => acumulado.get(ref) ?? 0))
       }
     }
-    walk(null, 0)
 
-    return { ano, refs: sortedRefs, rows: result }
+    return { ano, refs: sortedRefs, rows }
+  }
+
+  /**
+   * Somas ALGÉBRICAS por categoria da DRE, quebradas por período.
+   *
+   * É a entrada da máscara para quem precisa da DRE mês a mês — a análise
+   * horizontal e a matriz. Uma consulta só, com a mesma resolução de categoria
+   * e o mesmo filtro de folha dos cartões.
+   */
+  private async somasMensaisPorCategoria(
+    clienteId: string,
+    depara: DeparaCliente,
+    periodoInicio: string,
+    periodoFim: string,
+  ): Promise<Map<string, Partial<Record<CategoriaDre, number>>>> {
+    const rows = await prisma.$queryRawUnsafe<Array<{ periodo: string; categoria: string; valor: number }>>(
+      `SELECT l.periodo, ${SQL_CATEGORIA} AS categoria,
+              SUM(l.creditos - l.debitos)::float AS valor
+       FROM cliente_bi_linhas l
+       ${this.sqlCategoriaFolha(depara, null)}
+       GROUP BY l.periodo, ${SQL_CATEGORIA}`,
+      clienteId, periodoInicio, periodoFim,
+    )
+    const out = new Map<string, Partial<Record<CategoriaDre, number>>>()
+    for (const r of rows) {
+      if (!out.has(r.periodo)) out.set(r.periodo, {})
+      out.get(r.periodo)![r.categoria as CategoriaDre] = Number(r.valor)
+    }
+    return out
+  }
+
+  /** Consolida as somas mensais de uma faixa de períodos numa soma só. */
+  private somarTotais(
+    somasMensais: Map<string, Partial<Record<CategoriaDre, number>>>,
+    periodoInicio: string,
+    periodoFim: string,
+    periodosEscolhidos?: string[],
+  ): Partial<Record<CategoriaDre, number>> {
+    const escolhidos = periodosEscolhidos && periodosEscolhidos.length > 0 ? new Set(periodosEscolhidos) : null
+    const total: Partial<Record<CategoriaDre, number>> = {}
+    for (const [periodo, somas] of somasMensais) {
+      if (periodo < periodoInicio || periodo > periodoFim) continue
+      if (escolhidos && !escolhidos.has(periodo)) continue
+      for (const [cat, valor] of Object.entries(somas)) {
+        const k = cat as CategoriaDre
+        total[k] = (total[k] ?? 0) + (valor ?? 0)
+      }
+    }
+    return total
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -338,24 +405,29 @@ export class BiService {
 
     const [kpis, fontesReceita, fontesDespesas, mesesCustosDespesas] = await Promise.all([
       this.calculos.calcularKpisCompleto(clienteId, periodoInicio, periodoFim, periodosSelecionados),
-      this.buscarFontesReceita(clienteId, periodoInicio, periodoFim),
-      this.buscarFontesDespesas(clienteId, periodoInicio, periodoFim),
-      this.buscarMesesCustosDespesas(clienteId, periodoInicio, periodoFim),
+      // Os meses escolhidos valem para TUDO que a aba mostra. Só o
+      // `calcularKpisCompleto` recebia o recorte: os cartões acompanhavam o
+      // filtro enquanto "Principais Fontes de Receita" ao lado continuava
+      // somando o ano inteiro — com Ago desmarcado, o cartão dizia 16,8 mi e a
+      // fonte logo abaixo dizia 20,1 mi.
+      this.buscarFontesReceita(clienteId, periodoInicio, periodoFim, periodosSelecionados),
+      this.buscarFontesDespesas(clienteId, periodoInicio, periodoFim, periodosSelecionados),
+      this.buscarMesesCustosDespesas(clienteId, periodoInicio, periodoFim, periodosSelecionados),
     ])
 
     // Override KPIs with custom account selections if defined
     const overrides: Record<string, number> = {}
     if (inclReceita.length > 0) {
-      overrides.receitaBruta = await this.somarContasSelecionadas(clienteId, periodoInicio, periodoFim, inclReceita)
+      overrides.receitaBruta = await this.somarContasSelecionadas(clienteId, periodoInicio, periodoFim, inclReceita, periodosSelecionados)
     }
     if (inclCustos.length > 0) {
-      overrides.custosFixos = await this.somarContasSelecionadas(clienteId, periodoInicio, periodoFim, inclCustos)
+      overrides.custosFixos = await this.somarContasSelecionadas(clienteId, periodoInicio, periodoFim, inclCustos, periodosSelecionados)
     }
     if (inclDespesas.length > 0) {
-      overrides.despesasOperacionais = await this.somarContasSelecionadas(clienteId, periodoInicio, periodoFim, inclDespesas)
+      overrides.despesasOperacionais = await this.somarContasSelecionadas(clienteId, periodoInicio, periodoFim, inclDespesas, periodosSelecionados)
     }
     if (inclLucro.length > 0) {
-      overrides.lucroLiquido = await this.somarContasSelecionadas(clienteId, periodoInicio, periodoFim, inclLucro)
+      overrides.lucroLiquido = await this.somarContasSelecionadas(clienteId, periodoInicio, periodoFim, inclLucro, periodosSelecionados)
     }
 
     const finalKpis = { ...kpis, ...overrides }
@@ -384,108 +456,115 @@ export class BiService {
     return { ...finalKpis, fontesReceita, fontesDespesas, mesesCustosDespesas }
   }
 
-  /** Soma contas selecionadas pelo usuário */
-  /** Soma contas selecionadas com inversão de sinal para 04 (custos/despesas = negativo) */
-  private async somarContasSelecionadas(clienteId: string, periodoInicio: string, periodoFim: string, contas: string[]) {
+  /**
+   * Fragmento SQL: junta a linha do balancete a sua CATEGORIA DRE e restringe
+   * as folhas. E o mesmo criterio do motor de KPI (bi-calculos), escrito uma
+   * vez para as consultas de apoio deste arquivo pararem de classificar conta
+   * por PREFIXO.
+   *
+   * O prefixo era o vicio comum das quatro: "03.%" para receita, "04.2.1.%"
+   * para despesa, e cinco contas 04.1.1.01.* cravadas para custo fixo. Plano de
+   * contas de outro cliente zera o grafico enquanto o cartao mostra valor.
+   */
+  private sqlCategoriaFolha(depara: DeparaCliente, categoria: string | null, periodos?: string[]): string {
+    return `
+      ${sqlJoinsCategoria(depara)}
+      WHERE l.cliente_id = $1 AND l.periodo BETWEEN $2 AND $3
+        ${sqlPeriodosEscolhidos(periodos)}
+        AND ${SQL_CATEGORIA} ${categoria ? `= '${categoria}'` : 'IS NOT NULL'}
+        AND ${sqlSomenteFolhas()}`
+  }
+
+  /**
+   * Soma as contas que o usuario escolheu para compor um KPI.
+   *
+   * Sem o `CASE WHEN conta LIKE '04%' THEN -ABS(movimento)` que existia aqui:
+   * ele decidia o sinal pelo PREFIXO da conta, ignorando a categoria, e o
+   * `-ABS` invertia estorno igual ao regex da matriz. `creditos - debitos` ja
+   * traz o sinal contabil.
+   */
+  private async somarContasSelecionadas(clienteId: string, periodoInicio: string, periodoFim: string, contas: string[], periodos?: string[]) {
     if (contas.length === 0) return 0
     const placeholders = contas.map((_, i) => `$${i + 4}`).join(', ')
-    // Soma cada conta com sinal: 04* = -ABS(movimento), demais = movimento
     const rows = await prisma.$queryRawUnsafe<Array<{ total: number }>>(
-      `SELECT SUM(
-        CASE WHEN conta LIKE '04%' OR conta LIKE '4%'
-             THEN -ABS(movimento)
-             ELSE movimento
-        END
-      )::float AS total
-      FROM cliente_bi_linhas
-      WHERE cliente_id = $1 AND periodo BETWEEN $2 AND $3 AND conta IN (${placeholders})`,
+      `SELECT COALESCE(SUM(l.creditos - l.debitos), 0)::float AS total
+       FROM cliente_bi_linhas l
+       WHERE l.cliente_id = $1 AND l.periodo BETWEEN $2 AND $3
+         ${sqlPeriodosEscolhidos(periodos)}
+         AND l.conta IN (${placeholders})`,
       clienteId, periodoInicio, periodoFim, ...contas,
     )
     return Number(rows[0]?.total ?? 0)
   }
 
-  /** Top fontes de receita (contas 03 leaf, agrupadas, top 5) */
-  private async buscarFontesReceita(clienteId: string, periodoInicio: string, periodoFim: string) {
+  /** Top 5 fontes de receita — contas da categoria RECEITA_BRUTA, folhas. */
+  private async buscarFontesReceita(clienteId: string, periodoInicio: string, periodoFim: string, periodos?: string[]) {
+    const depara = await carregarDepara(clienteId)
     const rows = await prisma.$queryRawUnsafe<Array<{ conta: string; nome_conta: string; total: number }>>(
-      `SELECT conta, nome_conta, ABS(SUM(movimento))::float AS total
-       FROM cliente_bi_linhas
-       WHERE cliente_id = $1 AND periodo BETWEEN $2 AND $3
-         AND (conta LIKE '03.%' OR conta LIKE '3.%')
-         AND NOT EXISTS (
-           SELECT 1 FROM cliente_bi_linhas b2
-           WHERE b2.cliente_id = cliente_bi_linhas.cliente_id
-             AND b2.periodo = cliente_bi_linhas.periodo
-             AND b2.conta LIKE cliente_bi_linhas.conta || '.%'
-             AND LENGTH(b2.conta) > LENGTH(cliente_bi_linhas.conta)
-         )
-       GROUP BY conta, nome_conta
-       HAVING ABS(SUM(movimento)) > 0.01
-       ORDER BY ABS(SUM(movimento)) DESC
+      `SELECT l.conta, l.nome_conta, SUM(l.creditos - l.debitos)::float AS total
+       FROM cliente_bi_linhas l
+       ${this.sqlCategoriaFolha(depara, 'RECEITA_BRUTA', periodos)}
+       GROUP BY l.conta, l.nome_conta
+       HAVING ABS(SUM(l.creditos - l.debitos)) > 0.01
+       ORDER BY SUM(l.creditos - l.debitos) DESC
        LIMIT 5`,
       clienteId, periodoInicio, periodoFim,
     )
     return rows.map(r => ({ contaLonga: r.conta, nomeConta: r.nome_conta, valor: r.total }))
   }
 
-  /** Top fontes de despesas (contas 04.2 leaf, top 5) */
-  /** Top fontes de despesas (contas 04.2.1 + 04.2.2 leaf, SEM 04.2.3 financeiras, top 5) */
-  private async buscarFontesDespesas(clienteId: string, periodoInicio: string, periodoFim: string) {
+  /** Top 5 fontes de despesa — categoria DESPESAS_OPERACIONAIS, folhas. */
+  private async buscarFontesDespesas(clienteId: string, periodoInicio: string, periodoFim: string, periodos?: string[]) {
+    const depara = await carregarDepara(clienteId)
     const rows = await prisma.$queryRawUnsafe<Array<{ conta: string; nome_conta: string; total: number }>>(
-      `SELECT conta, nome_conta, ABS(SUM(movimento))::float AS total
-       FROM cliente_bi_linhas
-       WHERE cliente_id = $1 AND periodo BETWEEN $2 AND $3
-         AND (conta LIKE '04.2.1.%' OR conta LIKE '04.2.2.%')
-         AND NOT EXISTS (
-           SELECT 1 FROM cliente_bi_linhas b2
-           WHERE b2.cliente_id = cliente_bi_linhas.cliente_id
-             AND b2.periodo = cliente_bi_linhas.periodo
-             AND b2.conta LIKE cliente_bi_linhas.conta || '.%'
-             AND LENGTH(b2.conta) > LENGTH(cliente_bi_linhas.conta)
-         )
-       GROUP BY conta, nome_conta
-       HAVING ABS(SUM(movimento)) > 0.01
-       ORDER BY ABS(SUM(movimento)) DESC
+      `SELECT l.conta, l.nome_conta, ABS(SUM(l.creditos - l.debitos))::float AS total
+       FROM cliente_bi_linhas l
+       ${this.sqlCategoriaFolha(depara, 'DESPESAS_OPERACIONAIS', periodos)}
+       GROUP BY l.conta, l.nome_conta
+       HAVING ABS(SUM(l.creditos - l.debitos)) > 0.01
+       ORDER BY ABS(SUM(l.creditos - l.debitos)) DESC
        LIMIT 5`,
       clienteId, periodoInicio, periodoFim,
     )
     return rows.map(r => ({ contaLonga: r.conta, nomeConta: r.nome_conta, valor: r.total }))
   }
 
-  /** Dados mensais de custos x despesas para gráfico */
-  private async buscarMesesCustosDespesas(clienteId: string, periodoInicio: string, periodoFim: string) {
-    // Custos Fixos (5 contas específicas, SUM com sinal) por mês — padrão SERPRO2
-    const custos = await prisma.$queryRawUnsafe<Array<{ periodo: string; total: number }>>(
-      `SELECT periodo, SUM(movimento)::float AS total
-       FROM cliente_bi_linhas
-       WHERE cliente_id = $1 AND periodo BETWEEN $2 AND $3
-         AND conta IN ('04.1.1.01.001','04.1.1.01.032','04.1.1.01.033','04.1.1.01.035','04.1.1.01.036')
-       GROUP BY periodo ORDER BY periodo`,
-      clienteId, periodoInicio, periodoFim,
-    )
+  /**
+   * Serie mensal de Custos Fixos x Despesas Operacionais para o grafico.
+   *
+   * Aqui estava o pior dos prefixos cravados: cinco contas
+   * ('04.1.1.01.001','...032','...033','...035','...036') escolhidas a dedo do
+   * plano de contas da SERRAFER, com o proprio comentario admitindo "padrao
+   * SERPRO2". Para qualquer outro cliente o grafico de Custos Fixos ficava
+   * ZERADO enquanto o cartao ao lado mostrava valor — e o texto do modal
+   * explicava as cinco contas, descrevendo o grafico e nao o cartao.
+   *
+   * Agora as duas series saem das MESMAS categorias que os cartoes usam:
+   * CUSTO_DAS_VENDAS e DESPESAS_OPERACIONAIS. Grafico e cartao passam a falar
+   * da mesma coisa, em qualquer plano de contas.
+   */
+  private async buscarMesesCustosDespesas(clienteId: string, periodoInicio: string, periodoFim: string, periodos?: string[]) {
+    const depara = await carregarDepara(clienteId)
+    const serie = (categoria: string) =>
+      prisma.$queryRawUnsafe<Array<{ periodo: string; total: number }>>(
+        `SELECT l.periodo, ABS(SUM(l.creditos - l.debitos))::float AS total
+         FROM cliente_bi_linhas l
+         ${this.sqlCategoriaFolha(depara, categoria, periodos)}
+         GROUP BY l.periodo ORDER BY l.periodo`,
+        clienteId, periodoInicio, periodoFim,
+      )
 
-    // Despesas Operacionais sem financeiras (04.2.1 + 04.2.2, leaf nodes) por mês
-    const despesas = await prisma.$queryRawUnsafe<Array<{ periodo: string; total: number }>>(
-      `SELECT periodo, SUM(ABS(movimento))::float AS total
-       FROM cliente_bi_linhas
-       WHERE cliente_id = $1 AND periodo BETWEEN $2 AND $3
-         AND (conta LIKE '04.2.1.%' OR conta LIKE '04.2.2.%')
-         AND NOT EXISTS (
-           SELECT 1 FROM cliente_bi_linhas b2
-           WHERE b2.cliente_id = cliente_bi_linhas.cliente_id
-             AND b2.periodo = cliente_bi_linhas.periodo
-             AND b2.conta LIKE cliente_bi_linhas.conta || '.%'
-             AND LENGTH(b2.conta) > LENGTH(cliente_bi_linhas.conta)
-         )
-       GROUP BY periodo ORDER BY periodo`,
-      clienteId, periodoInicio, periodoFim,
-    )
+    const [custos, despesas] = await Promise.all([
+      serie('CUSTO_DAS_VENDAS'),
+      serie('DESPESAS_OPERACIONAIS'),
+    ])
 
     const custosMap = new Map(custos.map(r => [r.periodo, r.total]))
     const despesasMap = new Map(despesas.map(r => [r.periodo, r.total]))
 
-    // Unir os períodos
-    const periodos = new Set([...custosMap.keys(), ...despesasMap.keys()])
-    return Array.from(periodos).sort().map(p => ({
+    // Unir os períodos que vieram das duas séries
+    const refs = new Set([...custosMap.keys(), ...despesasMap.keys()])
+    return Array.from(refs).sort().map(p => ({
       mes: Number(p.slice(4)),
       custosFixos: custosMap.get(p) ?? 0,
       despesas: despesasMap.get(p) ?? 0,
@@ -495,12 +574,28 @@ export class BiService {
   // ══════════════════════════════════════════════════════════════
   // Balancete — Análise Vertical e Horizontal
   // ══════════════════════════════════════════════════════════════
-  async balanceteAnalise(clienteId: string, ano: number, _meses?: string) {
+  async balanceteAnalise(clienteId: string, ano: number, meses?: string) {
+    // O `meses` chegava aqui e era descartado (`_meses`). A série mensal
+    // continua vindo inteira — o gráfico precisa dela para desenhar a variação
+    // contra o mês anterior —, mas o que é TOTAL do período passa a respeitar
+    // o recorte: a análise vertical e o "Resultado por natureza".
+    const periodosSelecionados = meses
+      ? meses.split(',').map(m => `${ano}${m.padStart(2, '0')}`)
+      : undefined
     const periodoInicio = `${ano}01`
     const periodoFim = `${ano}12`
     // Inclui dezembro do ano anterior pra calcular a variação% de janeiro
     // (replica DAX PREVIOUSMONTH do PowerBI ref).
     const periodoInicioExt = `${ano - 1}12`
+
+    const deparaAnalise = await carregarDepara(clienteId)
+    // Somas ALGÉBRICAS por categoria e por mês. É a base da máscara: com ela,
+    // cada indicador composto sai de `calcularDre` em vez de ser rederivado à
+    // mão aqui embaixo — que era como o EBITDA desta tela acabou incluindo
+    // resultado financeiro e discordando do cartão ao lado.
+    const somasMensais = await this.somasMensaisPorCategoria(clienteId, deparaAnalise, periodoInicioExt, periodoFim)
+    const dreDoMes = (periodo: string) => calcularDre(somasMensais.get(periodo) ?? {})
+    const somaDoMes = (periodo: string, cat: CategoriaDre) => somasMensais.get(periodo)?.[cat] ?? 0
 
     // Get monthly data for key metrics (estendido c/ dez do ano anterior)
     const tipos = ['receita_bruta', 'deducoes', 'custo_das_vendas', 'despesas_operacionais', 'receitas_financeiras', 'despesas_financeiras']
@@ -563,32 +658,26 @@ export class BiService {
       valor: getVal('despesas_operacionais', p),
     }))
 
-    // EBITDA Técnico = Receita Bruta - Deduções + Receitas Financeiras - Custos - Despesas Op
+    // EBITDA, Lucro Líquido e Margem de Contribuição saem da MÁSCARA, mês a
+    // mês — são os índices 9, 16 e 7. O EBITDA daqui somava receitas
+    // financeiras (EBITDA, por definição, não inclui resultado financeiro) e
+    // por isso divergia do cartão da Visão Geral, que já usa a máscara.
+    //
+    // `ebitda_simplificado` vira o mesmo número: a diferença entre os dois era
+    // exatamente o resultado financeiro indevido. Fica como apelido para não
+    // quebrar payload antigo, mas a opção sumiu dos seletores.
     indicadoresHorizontais.ebitda = periodos.map(p => ({
       mes: Number(p.slice(4)),
-      valor: getVal('receita_bruta', p) - getVal('deducoes', p) + getVal('receitas_financeiras', p)
-        - Math.abs(getVal('custo_das_vendas', p)) - getVal('despesas_operacionais', p),
+      valor: dreDoMes(p).get(INDICE.EBITDA) ?? 0,
     }))
-
-    // EBITDA Simplificado = Receita Bruta - Deduções - Custos - Despesas Op
-    indicadoresHorizontais.ebitda_simplificado = periodos.map(p => ({
-      mes: Number(p.slice(4)),
-      valor: getVal('receita_bruta', p) - getVal('deducoes', p)
-        - Math.abs(getVal('custo_das_vendas', p)) - getVal('despesas_operacionais', p),
-    }))
-
-    // Lucro Líquido = Receita Bruta - Deduções - Custos - Despesas Op - Despesas Fin + Receitas Fin
+    indicadoresHorizontais.ebitda_simplificado = indicadoresHorizontais.ebitda
     indicadoresHorizontais.lucro_liquido = periodos.map(p => ({
       mes: Number(p.slice(4)),
-      valor: getVal('receita_bruta', p) - getVal('deducoes', p)
-        - Math.abs(getVal('custo_das_vendas', p)) - getVal('despesas_operacionais', p)
-        - getVal('despesas_financeiras', p) + getVal('receitas_financeiras', p),
+      valor: dreDoMes(p).get(INDICE.RESULTADO_LIQUIDO) ?? 0,
     }))
-
-    // Margem de Contribuição = Receita Bruta - Deduções - Custos
     indicadoresHorizontais.margem_contribuicao = periodos.map(p => ({
       mes: Number(p.slice(4)),
-      valor: getVal('receita_bruta', p) - getVal('deducoes', p) - Math.abs(getVal('custo_das_vendas', p)),
+      valor: dreDoMes(p).get(INDICE.MARGEM_CONTRIBUICAO) ?? 0,
     }))
 
     // ── Resultado por Natureza ──
@@ -596,16 +685,12 @@ export class BiService {
     // Replica o "Resultado por natureza" do PowerBI ref (bar chart horizontal).
     const resultadoPorNatureza = await prisma.$queryRawUnsafe<Array<{ conta: string; nome: string; valor: number; categoria: string }>>(
       `SELECT l.conta,
-              COALESCE(pccp.nivel5, l.nome_conta) AS nome,
+              l.nome_conta AS nome,
               SUM(l.creditos - l.debitos)::float AS valor,
-              COALESCE(cbc.categoria_dre, pccp.categoria_dre) AS categoria
+              ${SQL_CATEGORIA} AS categoria
        FROM cliente_bi_linhas l
-       LEFT JOIN cliente_bi_categorias cbc ON cbc.cliente_id = l.cliente_id AND cbc.conta = l.conta AND cbc.categoria_dre IS NOT NULL
-       LEFT JOIN plano_contas_categoria_padrao pccp ON pccp.classificacao = l.conta
-       WHERE l.cliente_id = $1
-         AND l.periodo BETWEEN $2 AND $3
-         AND COALESCE(cbc.categoria_dre, pccp.categoria_dre) IS NOT NULL
-       GROUP BY l.conta, l.nome_conta, pccp.nivel5, cbc.categoria_dre, pccp.categoria_dre
+       ${this.sqlCategoriaFolha(deparaAnalise, null, periodosSelecionados)}
+       GROUP BY l.conta, l.nome_conta, ${SQL_CATEGORIA}
        HAVING ABS(SUM(l.creditos - l.debitos)) > 0.01
        ORDER BY ABS(SUM(l.creditos - l.debitos)) DESC
        LIMIT 10`,
@@ -615,42 +700,45 @@ export class BiService {
     // ── Análise Vertical (DRE) ──
     // Linhas da Demonstração de Resultado com seus % sobre Receita Líquida.
     // Replica o painel "Análise Vertical" do PowerBI ref.
-    const kpis = await this.calculos.calcularKpisCompleto(clienteId, periodoInicio, periodoFim)
-    const rl = kpis.receitaLiquida
+    // Os sete subtotais vêm da máscara, pelo índice. Antes, dois deles eram
+    // cópia de outra linha:
+    //
+    //   const resultadoOperacional = kpis.ebitda - 0
+    //   const resultadoAntesParticipacoes = kpis.lucroLiquido
+    //
+    // — o Resultado Operacional nunca somava o resultado financeiro, e o
+    // "Antes de Participações" repetia o Lucro Líquido. O painel mostrava o
+    // mesmo número duas vezes, em duas duplas.
+    const dreTotal = calcularDre(this.somarTotais(somasMensais, periodoInicio, periodoFim, periodosSelecionados))
+    const noIndice = (i: number) => dreTotal.get(i) ?? 0
+    const rl = noIndice(INDICE.RECEITA_LIQUIDA)
     const pct = (v: number) => rl !== 0 ? Math.round((v / rl) * 10000) / 100 : 0
-    const margemContrib = kpis.receitaLiquida - kpis.custoDasVendas
-    const resultadoOperacional = kpis.ebitda - 0 // futuro: descontar depreciação se separado
-    const resultadoAntesParticipacoes = kpis.lucroLiquido
-    const analiseVerticalDre = [
-      { label: 'RECEITA LÍQUIDA',                       valor: kpis.receitaLiquida,         percentual: 100,                       destaque: 'principal' },
-      { label: 'MARGEM BRUTA',                          valor: kpis.lucroBruto,             percentual: pct(kpis.lucroBruto) },
-      { label: 'MARGEM DE CONTRIBUIÇÃO',                valor: margemContrib,               percentual: pct(margemContrib) },
-      { label: 'EBITDA',                                valor: kpis.ebitda,                 percentual: pct(kpis.ebitda) },
-      { label: 'RESULTADO OPERACIONAL',                 valor: resultadoOperacional,        percentual: pct(resultadoOperacional) },
-      { label: 'RESULTADO LÍQUIDO ANTES DE PARTICIPAÇÕES', valor: resultadoAntesParticipacoes, percentual: pct(resultadoAntesParticipacoes) },
-      { label: 'RESULTADO LÍQUIDO',                     valor: kpis.lucroLiquido,           percentual: pct(kpis.lucroLiquido) },
-    ]
+    const analiseVerticalDre = MASCARA_DRE
+      .filter(l => l.subnivel === 1)
+      .map(l => ({
+        label: l.rotulo,
+        valor: noIndice(l.indice),
+        percentual: l.indice === INDICE.RECEITA_LIQUIDA ? 100 : pct(noIndice(l.indice)),
+        ...(l.indice === INDICE.RECEITA_LIQUIDA ? { destaque: 'principal' } : {}),
+      }))
 
     // ── Análise Horizontal (variação mensal por indicador) ──
     // Acrescenta variacao% em relação ao mês anterior pra cada indicador.
     // Janeiro compara com dezembro do ano anterior (PREVIOUSMONTH do DAX).
     const periodoAnteriorAno = `${ano - 1}12`
-    const getValExt = (tipo: string, periodo: string) =>
-      (resultExtended[tipo] || []).find(d => d.periodo === periodo)?.valor ?? 0
 
-    // Helper: calcula valor de cada indicador composto para um período qualquer
+    // Mesmo cálculo do bloco acima, para um mês qualquer (inclusive dezembro do
+    // ano anterior, que é a base da variação de janeiro). Uma função só para os
+    // dois usos — antes eram duas listas de fórmulas escritas à mão, e elas já
+    // tinham divergido entre si.
     const calcIndicador = (key: string, p: string): number => {
       switch (key) {
-        case 'faturamento':           return getValExt('receita_bruta', p)  // RB direto (alinhado com DAX do PBI)
-        case 'despesas_operacionais': return getValExt('despesas_operacionais', p)
-        case 'ebitda':                return getValExt('receita_bruta', p) - getValExt('deducoes', p) + getValExt('receitas_financeiras', p)
-                                            - Math.abs(getValExt('custo_das_vendas', p)) - getValExt('despesas_operacionais', p)
-        case 'ebitda_simplificado':   return getValExt('receita_bruta', p) - getValExt('deducoes', p)
-                                            - Math.abs(getValExt('custo_das_vendas', p)) - getValExt('despesas_operacionais', p)
-        case 'lucro_liquido':         return getValExt('receita_bruta', p) - getValExt('deducoes', p)
-                                            - Math.abs(getValExt('custo_das_vendas', p)) - getValExt('despesas_operacionais', p)
-                                            - getValExt('despesas_financeiras', p) + getValExt('receitas_financeiras', p)
-        case 'margem_contribuicao':   return getValExt('receita_bruta', p) - getValExt('deducoes', p) - Math.abs(getValExt('custo_das_vendas', p))
+        case 'faturamento':           return somaDoMes(p, 'RECEITA_BRUTA')
+        case 'despesas_operacionais': return Math.abs(somaDoMes(p, 'DESPESAS_OPERACIONAIS'))
+        case 'ebitda':
+        case 'ebitda_simplificado':   return dreDoMes(p).get(INDICE.EBITDA) ?? 0
+        case 'lucro_liquido':         return dreDoMes(p).get(INDICE.RESULTADO_LIQUIDO) ?? 0
+        case 'margem_contribuicao':   return dreDoMes(p).get(INDICE.MARGEM_CONTRIBUICAO) ?? 0
         default: return 0
       }
     }
@@ -792,13 +880,31 @@ export class BiService {
   // ══════════════════════════════════════════════════════════════
   // Copiar categorias entre clientes
   // ══════════════════════════════════════════════════════════════
-  async categoriasCopiar(documentoOrigem: string, documentoDestino: string) {
+  /**
+   * Copia a configuração de categorias de um cliente para outro.
+   *
+   * O parâmetro de entrada é o DOCUMENTO (CNPJ), que é público e adivinhável —
+   * por isso os dois lados passam pelo recorte da empresa ativa do chamador.
+   * Sem isso, mandar um CNPJ qualquer sobrescreveria a configuração de um
+   * cliente de outro tenant. Master sem empresa ativa segue sem recorte.
+   */
+  async categoriasCopiar(
+    documentoOrigem: string,
+    documentoDestino: string,
+    caller: { isMaster?: boolean; empresaId?: string } = {},
+  ) {
+    const doTenant: Prisma.ClienteWhereInput = caller.empresaId
+      ? { empresaId: caller.empresaId }
+      : caller.isMaster
+        ? {}
+        : { empresaId: '__none__' }
+
     const origem = await prisma.cliente.findFirst({
-      where: { documento: documentoOrigem, status: 'ATIVO' },
+      where: { documento: documentoOrigem, status: 'ATIVO', ...doTenant },
       select: { id: true },
     })
     const destino = await prisma.cliente.findFirst({
-      where: { documento: documentoDestino, status: 'ATIVO' },
+      where: { documento: documentoDestino, status: 'ATIVO', ...doTenant },
       select: { id: true },
     })
     if (!origem) throw new Error('Cliente de origem não encontrado.')
@@ -877,35 +983,39 @@ export class BiService {
   // KPI — Contas incluídas (seleção do usuário para cada card)
   // ══════════════════════════════════════════════════════════════
 
-  /** Padrões SQL por tipo de KPI para listar contas disponíveis */
-  private kpiContaPatterns: Record<string, { sql: string; maxDots: number }> = {
-    receita: { sql: "(conta LIKE '03.%' OR conta LIKE '3.%')", maxDots: 2 },
-    custos_fixos: { sql: "(conta LIKE '04.%')", maxDots: 1 },
-    despesas: { sql: "(conta LIKE '04.%')", maxDots: 3 },
-    lucro_liquido: { sql: "(conta LIKE '03.%' OR conta LIKE '04.%')", maxDots: 1 },
+  /**
+   * Categoria DRE por tipo de KPI. Substitui o mapa de PREFIXOS que existia
+   * aqui (`conta LIKE '04.%'` + `maxDots`), que tinha dois problemas:
+   *
+   *  - classificava por codigo de conta, quebrando em plano de contas diferente;
+   *  - `maxDots: 1` OFERECIA SINTETICAS (ate nivel 2). Marcar `04.1` junto das
+   *    filhas somava o mesmo valor duas vezes no KPI, sem aviso.
+   *
+   * Agora o seletor mostra exatamente as folhas da MESMA categoria que o cartao
+   * soma. `null` = qualquer conta categorizada (o caso do lucro liquido).
+   */
+  private kpiCategoriaPorTipo: Record<string, string | null> = {
+    receita: 'RECEITA_BRUTA',
+    custos_fixos: 'CUSTO_DAS_VENDAS',
+    despesas: 'DESPESAS_OPERACIONAIS',
+    lucro_liquido: null,
   }
 
   async kpiListarContasDisponiveis(clienteId: string, tipoKpi: string, ano: number) {
-    const config = this.kpiContaPatterns[tipoKpi]
-    if (!config) return []
+    if (!(tipoKpi in this.kpiCategoriaPorTipo)) return []
+    const categoria = this.kpiCategoriaPorTipo[tipoKpi] ?? null
 
     const periodoInicio = `${ano}01`
     const periodoFim = `${ano}12`
+    const depara = await carregarDepara(clienteId)
 
-    // Contas 04 (custos/despesas): inverter sinal para exibir como negativo
     const rows = await prisma.$queryRawUnsafe<Array<{ conta: string; nome_conta: string; total: number }>>(
-      `SELECT conta, nome_conta,
-              CASE WHEN conta LIKE '04%' OR conta LIKE '4%'
-                   THEN -ABS(SUM(movimento))
-                   ELSE SUM(movimento)
-              END::float AS total
-       FROM cliente_bi_linhas
-       WHERE cliente_id = $1 AND periodo BETWEEN $2 AND $3
-         AND ${config.sql}
-         AND LENGTH(conta) - LENGTH(REPLACE(conta, '.', '')) <= ${config.maxDots}
-       GROUP BY conta, nome_conta
-       HAVING ABS(SUM(movimento)) > 0.01
-       ORDER BY conta`,
+      `SELECT l.conta, l.nome_conta, SUM(l.creditos - l.debitos)::float AS total
+       FROM cliente_bi_linhas l
+       ${this.sqlCategoriaFolha(depara, categoria)}
+       GROUP BY l.conta, l.nome_conta
+       HAVING ABS(SUM(l.creditos - l.debitos)) > 0.01
+       ORDER BY l.conta`,
       clienteId, periodoInicio, periodoFim,
     )
     return rows.map(r => ({ conta: r.conta, nomeConta: r.nome_conta, valor: r.total }))

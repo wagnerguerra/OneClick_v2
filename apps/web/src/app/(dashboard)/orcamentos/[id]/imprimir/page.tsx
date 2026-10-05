@@ -17,7 +17,6 @@ interface Item {
   descontoPct?: number | string | null
   descontoValor?: number | string | null
   /** Escolhas feitas dentro do serviço — precisam aparecer na proposta. */
-  subservico?: { id: string; nome: string } | null
   catalogoTexto?: { id: string; titulo: string } | null
 }
 
@@ -144,15 +143,38 @@ export default function ImprimirOrcamentoPage() {
   const totalDespesas = Number(orc.totalDespesas) || 0
   const descontoPct = Number(orc.descontoPct) || 0
   const descontoValor = Number(orc.descontoValor) || 0
-  const descontoCalculado = descontoValor || (descontoPct > 0 ? totalServicos * descontoPct / 100 : 0)
-  const totalOrcamento = Number(orc.totalGeral) || (totalServicos - descontoCalculado + totalTaxas + totalDespesas)
-  const temDesconto = descontoCalculado > 0
 
   const todosItens = [
     ...itensServico.map(i => ({ ...i, tipoLabel: 'Serviço' })),
     ...itensTaxa.map(i => ({ ...i, tipoLabel: 'Taxa' })),
     ...itensDespesa.map(i => ({ ...i, tipoLabel: 'Despesa' })),
   ]
+
+  // O desconto impresso é o GRAVADO (`descontoAplicado`), que soma o desconto
+  // por item ao desconto geral.
+  //
+  // Antes só o desconto GERAL contava aqui. No #4747 isso deixava a proposta
+  // sem fechar na frente do cliente: as linhas mostravam um item com -100%,
+  // o Total vinha do `totalGeral` gravado (9.970), e entre eles aparecia
+  // "Subtotal Serviços 10.755" sem nenhuma linha de desconto explicando os
+  // 785 de diferença.
+  //
+  // A conta local é retaguarda para registro sem total gravado, e inclui o
+  // desconto por item — os mesmos valores que as linhas acima já exibem.
+  const descontoItens = todosItens.reduce((acc, item) => {
+    if (item.tipo !== 'SERVICO') return acc
+    const b = Number(item.valorUnitario) * Number(item.quantidade)
+    return acc + Math.min(b, Math.max(0, b * (Number(item.descontoPct) || 0) / 100 + (Number(item.descontoValor) || 0)))
+  }, 0)
+  const descontoGeral = descontoValor || (descontoPct > 0 ? totalServicos * descontoPct / 100 : 0)
+  const descontoLocal = Math.min(totalServicos, descontoItens + descontoGeral)
+
+  const descontoCalculado = orc.descontoAplicado != null ? Number(orc.descontoAplicado) : descontoLocal
+  const totalOrcamento = orc.totalGeral != null
+    ? Number(orc.totalGeral)
+    : Math.max(0, totalServicos - descontoLocal + totalTaxas + totalDespesas)
+  const temDesconto = descontoCalculado > 0
+  const descontoPercentEfetivo = totalServicos > 0 ? (descontoCalculado / totalServicos) * 100 : 0
 
   // HTML "Descrição" — strip pra detectar conteudo real (RichEditor as vezes salva <p></p>)
   const descricaoHtml = orc.textoCorpoCliente || ''
@@ -371,6 +393,29 @@ export default function ImprimirOrcamentoPage() {
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
         }
+        /* Tabela (#HLP0404) — o texto da proposta passou a poder conter tabela.
+           Sem estas regras ela sai sem grade, com as células coladas. */
+        .quote-doc .descricao-content table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 10px 0;
+          font-size: 12px;
+        }
+        .quote-doc .descricao-content th,
+        .quote-doc .descricao-content td {
+          border: 1px solid #d1d5db;
+          padding: 6px 8px;
+          vertical-align: top;
+          text-align: left;
+        }
+        .quote-doc .descricao-content th {
+          background: #f3f4f6;
+          font-weight: 600;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .quote-doc .descricao-content th > p,
+        .quote-doc .descricao-content td > p { margin: 0; }
         .quote-doc .descricao-vazia {
           font-style: italic;
           color: #9ca3af;
@@ -486,6 +531,7 @@ export default function ImprimirOrcamentoPage() {
             orphans: 3;
             widows: 3;
           }
+          .quote-doc .descricao-content tr,
           .quote-doc .items tr {
             break-inside: avoid;
             page-break-inside: avoid;
@@ -634,14 +680,12 @@ export default function ImprimirOrcamentoPage() {
                       <td className="tipo">{item.tipoLabel}</td>
                       <td>
                         {item.descricao}
-                        {/* Subserviço e variação em linha própria: quem lê a
-                            proposta precisa saber exatamente o que foi
-                            contratado, e não só o nome do serviço guarda-chuva. */}
-                        {(item.subservico?.nome || item.catalogoTexto?.titulo) && (
+                        {/* A variação em linha própria: quem lê a proposta
+                            precisa saber exatamente o que foi contratado, e não
+                            só o nome do serviço. */}
+                        {item.catalogoTexto?.titulo && (
                           <div style={{ marginTop: 2, fontSize: 10.5, color: '#64748b' }}>
-                            {item.subservico?.nome && <span>{item.subservico.nome}</span>}
-                            {item.subservico?.nome && item.catalogoTexto?.titulo && <span> · </span>}
-                            {item.catalogoTexto?.titulo && <span>{item.catalogoTexto.titulo}</span>}
+                            {item.catalogoTexto.titulo}
                           </div>
                         )}
                         {desc > 0 && (
@@ -678,7 +722,11 @@ export default function ImprimirOrcamentoPage() {
             {temDesconto && (
               <div className="totals-row discount">
                 <span className="lbl">
-                  Desconto{descontoPct > 0 ? ` (${descontoPct.toFixed(descontoPct % 1 === 0 ? 0 : 1)}%)` : ''}
+                  {/* Percentual EFETIVO sobre a base de serviços. Rotular com o
+                      `descontoPct` do cabeçalho mentia quando havia desconto por
+                      item: no #4630 dizia "(20%)" ao lado de R$ 2.880,00, que é
+                      40% dos serviços. */}
+                  Desconto{descontoPercentEfetivo > 0 ? ` (${descontoPercentEfetivo.toFixed(descontoPercentEfetivo % 1 === 0 ? 0 : 1)}%)` : ''}
                 </span>
                 <span className="val">− {formatCurrency(descontoCalculado)}</span>
               </div>

@@ -43,7 +43,7 @@ export function createBiRouter(biService: BiService) {
 
     balanceteMatriz: protectedProcedure
       .input(biBalanceteMatrizSchema)
-      .query(({ input }) => biService.balanceteMatriz(input.clienteId, input.ano, input.useParent)),
+      .query(({ input }) => biService.balanceteMatriz(input.clienteId, input.ano)),
 
     balanceteKpis: protectedProcedure
       .input(biBalanceteKpisSchema)
@@ -122,7 +122,11 @@ export function createBiRouter(biService: BiService) {
     // ── Categorias — Copiar / Backup / Restaurar / Limpar ──
     categoriasCopiar: protectedProcedure
       .input(biCategoriasCopiarSchema)
-      .mutation(({ input }) => biService.categoriasCopiar(input.documentoOrigem, input.documentoDestino)),
+      .mutation(({ input, ctx }) => biService.categoriasCopiar(
+        input.documentoOrigem,
+        input.documentoDestino,
+        { isMaster: ctx.isMaster, empresaId: ctx.empresaId },
+      )),
 
     categoriasBackup: protectedProcedure
       .input(biBackupSchema)
@@ -229,10 +233,10 @@ export function createBiPublicRouter(biService: BiService) {
       }),
 
     balanceteMatriz: publicProcedure
-      .input(biPublicTokenSchema.merge(z.object({ ano: z.coerce.number(), useParent: z.coerce.boolean().default(false) })))
+      .input(biPublicTokenSchema.merge(z.object({ ano: z.coerce.number() })))
       .query(async ({ input }) => {
         const cliente = await biService.resolverToken(input.token)
-        return biService.balanceteMatriz(cliente.id, input.ano, input.useParent)
+        return biService.balanceteMatriz(cliente.id, input.ano)
       }),
 
     balanceteKpis: publicProcedure

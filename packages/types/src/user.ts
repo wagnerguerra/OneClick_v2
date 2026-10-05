@@ -109,7 +109,7 @@ export const MODULE_LABELS: Record<string, string> = {
   empresas: 'Empresas', fornecedores: 'Fornecedores', 'grupos-empresariais': 'Grupos Empresariais',
   obrigacoes: 'Obrigações Acessórias',
   'obrigacoes-fixas': 'Obrigações Fixas', 'obrigacoes-demanda': 'Obrigações Sob Demanda',
-  servicos: 'Serviços e Obrigações', socios: 'Sócios', usuarios: 'Usuários',
+  servicos: 'Serviços', socios: 'Sócios', usuarios: 'Usuários',
   // Comercial
   crm: 'CRM', whatsapp: 'WhatsApp',
   clausulas: 'Cláusulas', comercial: 'Comercial', contratos: 'Contratos',
@@ -454,6 +454,18 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'manage_protocolos', label: 'Emitir e gerenciar protocolos de documentos', group: 'Protocolos' },
     { key: 'manage_client_users', label: 'Gerenciar aba usuários do cliente', group: 'Usuários do Cliente' },
   ],
+  // Catálogo de serviços: recorte por área (05/10/2026). Marcado, o usuário
+  // lista e edita só os serviços da área dele (User.areaId) — ver
+  // apps/api/src/servico/servico-area.ts. Master/dono da empresa não recortam.
+  servicos: [
+    {
+      key: 'somente_minha_area',
+      label: 'Listar e editar apenas os serviços da minha área',
+      group: 'Escopo',
+      observacao: 'Vale para o catálogo (serviço, etapas, passos, modelos de e-mail, lembretes). '
+        + 'O usuário precisa ter a área definida no cadastro; sem área, não vê nenhum serviço.',
+    },
+  ],
   orcamentos: [
     // Cadastro — espelha legado orc_cadastro
     { key: 'cadastro_completo', label: 'Cadastrar com formulário completo (tipo, validade, desconto, etc.)', group: 'Cadastro' },
@@ -470,6 +482,14 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
       default: ORCAMENTO_SCOPE_DEFAULT,
       observacao: 'Define quais orçamentos o usuário pode visualizar.',
     },
+    // Ao clicar num orçamento (card do quadro ou linha da lista): marcado vai
+    // direto para a página de detalhes; desmarcado abre o preview lateral.
+    {
+      key: 'abrir_detalhes_direto',
+      label: 'Abrir direto os detalhes do orçamento ao clicar (sem o preview)',
+      group: 'Visualização',
+      observacao: 'Desmarcado, o clique no card ou na linha abre o preview; os detalhes ficam a um clique, no próprio preview.',
+    },
     // Painéis — espelha legado painel_indicadores / painel_consultas
     { key: 'panel_indicadores', label: 'Acesso ao painel de indicadores', group: 'Painéis' },
     {
@@ -480,13 +500,6 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     },
     // Permissões gerais
     { key: 'manage_itens', label: 'Incluir/editar itens nos orçamentos', group: 'Ações' },
-    {
-      key: 'item_sem_subservico',
-      label: 'Incluir serviço sem escolher o subserviço',
-      group: 'Ações',
-      observacao: 'Um serviço decomposto em subserviços normalmente exige dizer qual. '
-        + 'Com isto, o usuário pode vendê-lo como um todo.',
-    },
     { key: 'edit_timeline_dates', label: 'Alterar datas da timeline', group: 'Ações' },
     { key: 'mover_kanban', label: 'Mover cards no kanban (alterar status arrastando)', group: 'Ações' },
     { key: 'acao_enviar', label: 'Enviar orçamentos', group: 'Ações' },
@@ -522,21 +535,30 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'registrar', label: 'Registrar elogios', group: 'Rotina' },
     { key: 'ver_todos', label: 'Ver os elogios de todos', group: 'Rotina', observacao: 'Sem isto, vê apenas os que registrou.' },
     { key: 'tratar', label: 'Responder e encerrar', group: 'Qualidade' },
-    { key: 'excluir', label: 'Excluir elogios', group: 'Qualidade', observacao: 'No sistema antigo, exclusivo do nível de administração.' },
+    { key: 'excluir', label: 'Excluir elogios (enviar para os inativos)', group: 'Qualidade', observacao: 'Não apaga: o registro vai para os inativos e pode ser restaurado.' },
+    { key: 'restaurar', label: 'Ver os inativos e restaurar', group: 'Qualidade', observacao: 'Acesso à lista de elogios excluídas e ao botão de restaurar.' },
   ],
   reclamacoes: [
     { key: 'registrar', label: 'Registrar reclamações', group: 'Rotina' },
     { key: 'ver_todos', label: 'Ver as reclamações de todos', group: 'Rotina', observacao: 'Sem isto, vê apenas as que registrou.' },
     { key: 'tratar', label: 'Dar retorno, analisar procedência e encerrar', group: 'Qualidade' },
     { key: 'indicadores', label: 'Acessar os indicadores', group: 'Qualidade' },
-    { key: 'excluir', label: 'Excluir reclamações', group: 'Qualidade', observacao: 'No sistema antigo, exclusivo do nível de administração.' },
+    { key: 'excluir', label: 'Excluir reclamações (enviar para os inativos)', group: 'Qualidade', observacao: 'Não apaga: o registro vai para os inativos e pode ser restaurado.' },
+    { key: 'restaurar', label: 'Ver os inativos e restaurar', group: 'Qualidade', observacao: 'Acesso à lista de reclamações excluídas e ao botão de restaurar.' },
+    {
+      key: 'configurar',
+      label: 'Acessar as configurações (quem recebe as notificações)',
+      group: 'Configurações',
+      observacao: 'Escolhe quem é avisado — no sino e/ou por e-mail — de cada evento: registro, edição, retorno, análise, finalização e mensagens.',
+    },
   ],
   sugestoes: [
     { key: 'registrar', label: 'Registrar sugestões', group: 'Rotina' },
     { key: 'ver_todos', label: 'Ver as sugestões de todos', group: 'Rotina', observacao: 'Sem isto, vê as próprias e as publicadas no mural.' },
     { key: 'tratar', label: 'Responder e encerrar', group: 'Qualidade' },
     { key: 'publicar', label: 'Publicar no mural', group: 'Qualidade' },
-    { key: 'excluir', label: 'Excluir sugestões', group: 'Qualidade', observacao: 'No sistema antigo, exclusivo do nível de administração.' },
+    { key: 'excluir', label: 'Excluir sugestões (enviar para os inativos)', group: 'Qualidade', observacao: 'Não apaga: o registro vai para os inativos e pode ser restaurado.' },
+    { key: 'restaurar', label: 'Ver os inativos e restaurar', group: 'Qualidade', observacao: 'Acesso à lista de sugestões excluídas e ao botão de restaurar.' },
   ],
   // O v1 não tinha níveis aqui: quem abria o módulo fazia tudo. O corte que faz
   // sentido é entre quem REGISTRA a ata e quem só precisa acompanhar as ações

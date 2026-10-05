@@ -175,6 +175,7 @@ import { createProjetoRouter } from '../projeto/projeto.router'
 import { RelatorioTiService } from '../relatorio-ti/relatorio-ti.service'
 import { createRelatorioTiRouter } from '../relatorio-ti/relatorio-ti.router'
 import { ManifestacaoService } from '../manifestacao/manifestacao.service'
+import { ManifestacaoNotificacaoService } from '../manifestacao/manifestacao-notificacao.service'
 import { ReuniaoService } from '../reuniao/reuniao.service'
 import { createReuniaoRouter } from '../reuniao/reuniao.router'
 import { DocumentoInternoService } from '../documento-interno/documento-interno.service'
@@ -933,6 +934,7 @@ export class TrpcService {
     @Inject(AtivoService) private readonly ativoService: AtivoService,
     @Inject(RelatorioTiService) private readonly relatorioTiService: RelatorioTiService,
     @Inject(ManifestacaoService) private readonly manifestacaoService: ManifestacaoService,
+    @Inject(ManifestacaoNotificacaoService) private readonly manifestacaoNotificacaoService: ManifestacaoNotificacaoService,
     @Inject(ReuniaoService) private readonly reuniaoService: ReuniaoService,
     @Inject(DocumentoInternoService) private readonly documentoInternoService: DocumentoInternoService,
     @Inject(CapacitacaoService) private readonly capacitacaoService: CapacitacaoService,
@@ -1014,7 +1016,7 @@ export class TrpcService {
       folhaBi: createFolhaBiRouter(this.folhaBiService),
       agenda: createAgendaRouter(this.agendaService, this.agendaGoogleService, this.agendaConfigService, this.agendaSalaService, this.agendaDisparoService, this.agendaLembreteService, this.agendaTarefaService),
       dte: createDteRouter(this.dteService),
-      crm: createCrmRouter(this.crmService, this.importComercialService),
+      crm: createCrmRouter(this.crmService, this.agendaTarefaService, this.importComercialService),
       orcamento: createOrcamentoRouter(this.orcamentoService),
       beneficioFiscal: createBeneficioFiscalRouter(this.beneficioFiscalService),
       reformaTributaria: createReformaTributariaRouter(this.reformaTributariaService),
@@ -1023,7 +1025,7 @@ export class TrpcService {
       sqlConsole: createSqlConsoleRouter(this.sqlConsoleService),
       nota: createNotaRouter(this.notaService),
       whatsapp: createWhatsappRouter(this.whatsappService, this.whatsappCloudService),
-      portal: createPortalRouter(this.portalConviteService, this.portalArquivosService, this.gestaoArquivosDriveService, this.portalObrigacoesService, this.portalContatoService),
+      portal: createPortalRouter(this.portalConviteService, this.portalArquivosService, this.gestaoArquivosDriveService, this.portalObrigacoesService, this.portalContatoService, this.biService),
       gestaoArquivos: createGestaoArquivosRouter(this.gestaoArquivosService, this.gestaoArquivosNotificacaoService, this.gestaoArquivosDriveService),
       faq: createFaqRouter(this.faqService),
       servico: createServicoRouter(this.servicoService),
@@ -1051,9 +1053,9 @@ export class TrpcService {
       relatorioTi: createRelatorioTiRouter(this.relatorioTiService),
       // Um router por módulo sobre a mesma engrenagem — o tipo é fixado aqui,
       // e não vem do cliente.
-      elogio: createManifestacaoRouter(this.manifestacaoService, 'ELOGIO', 'elogios'),
-      reclamacao: createManifestacaoRouter(this.manifestacaoService, 'RECLAMACAO', 'reclamacoes'),
-      sugestao: createManifestacaoRouter(this.manifestacaoService, 'SUGESTAO', 'sugestoes'),
+      elogio: createManifestacaoRouter(this.manifestacaoService, 'ELOGIO', 'elogios', this.manifestacaoNotificacaoService),
+      reclamacao: createManifestacaoRouter(this.manifestacaoService, 'RECLAMACAO', 'reclamacoes', this.manifestacaoNotificacaoService),
+      sugestao: createManifestacaoRouter(this.manifestacaoService, 'SUGESTAO', 'sugestoes', this.manifestacaoNotificacaoService),
       reuniao: createReuniaoRouter(this.reuniaoService),
       documentoInterno: createDocumentoInternoRouter(this.documentoInternoService),
       capacitacao: createCapacitacaoRouter(this.capacitacaoService),

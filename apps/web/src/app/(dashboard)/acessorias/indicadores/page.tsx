@@ -3,10 +3,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import {
-  BarChart3, Loader2, RefreshCw, Users, Link2Off, AlertTriangle, X,
+  BarChart3, Loader2, RefreshCw, Users, Link2Off, AlertTriangle, X, Maximize2, Minimize2, ExternalLink,
 } from 'lucide-react'
 import {
-  Button, Card, cn, Switch,
+  Button, Card, cn, Switch, Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import {
@@ -18,6 +18,10 @@ import { trpc } from '@/lib/trpc'
 import { PERIODOS, filtroDe, rotuloCompetencia, competenciasDisponiveis, type Recorte } from '../_components/periodos'
 import { AbasAcessorias } from '../_components/abas-acessorias'
 import { BadgeEntrega } from '../_components/badge-entrega'
+import {
+  PainelLeituraEntrega, linkNoAcessorias, aplicarReclassificacao, VencimentoGuiaCelula,
+  VisualizadorGuia, useGuiaAberta, type LinhaEntrega,
+} from '../_components/painel-leitura-entrega'
 import { BADGE, TEXT } from '@/lib/color-styles'
 
 /** Preferência de régua, por navegador — mesmo padrão da agenda e da caixa postal. */
@@ -35,6 +39,7 @@ interface Cartao {
   entregueNoPrazo: number
   entregueComAtraso: number
   entregueComMulta: number
+  entregueNaoLidaComMulta: number
 }
 interface Pendente {
   id: string
@@ -61,21 +66,6 @@ interface Retorno {
    *  contra o e-mail semanal do Acessórias, que conta a carteira inteira. */
   foraPorRegra?: { nomes: string[]; ocorrencias: number }
 }
-interface LinhaDetalhe {
-  id: string
-  obrigacao: string
-  competencia: string | null
-  prazo: string | null
-  vencimento: string | null
-  dtEntrega: string | null
-  status: string | null
-  multa: boolean
-  dpto: string | null
-  responsavel: string | null
-  clienteId: string
-  clienteCode: number
-  clienteNome: string
-}
 type Medida = (typeof MEDIDAS)[number]['campo']
 
 /**
@@ -100,7 +90,15 @@ const MEDIDAS = [
     cor: TEXT.violet,  bg: 'bg-violet-100 dark:bg-violet-900/30', hex: '#7c3aed' },
   { campo: 'entregueComMulta',  label: 'Entregues com multa',  ajuda: 'Das entregues com atraso, as que geram multa.',
     cor: 'text-rose-700 dark:text-rose-300',      bg: 'bg-rose-100 dark:bg-rose-900/30',     hex: '#be123c' },
+  // Recorte das entregues (no prazo ou não): fica FORA da rosca e do total,
+  // senão a mesma entrega contaria duas vezes.
+  { campo: 'entregueNaoLidaComMulta', label: 'Entregues, não abertas e passíveis de multa',
+    ajuda: 'Guias entregues que o cliente ainda não abriu, em obrigação sujeita a multa. Cobre a leitura: se não pagar, a multa vem.',
+    cor: TEXT.orange, bg: 'bg-orange-100 dark:bg-orange-900/30', hex: '#ea580c', recorte: true },
 ] as const
+
+/** As medidas que particionam o período — as que entram na rosca e no total. */
+const MEDIDAS_ROSCA = MEDIDAS.filter((m) => !('recorte' in m))
 
 const TITULO_ESCOPO: Record<Retorno['escopo'], { titulo: string; nota: string }> = {
   PROPRIO:       { titulo: 'Minhas obrigações',   nota: 'o que está sob a sua responsabilidade' },
@@ -205,20 +203,22 @@ export default function IndicadoresPage() {
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}Atualizar
           </Button>
       </>}>
-        <h1 className="truncate">{cab.titulo}</h1>
+        <h1 className="truncate">Acessórias</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
           <span className="text-muted-foreground/50">›</span>
           <span>Administrativo</span>
           <span className="text-muted-foreground/50">›</span>
           <span>Acessórias</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Indicadores</span>
+          <span
+            className="ml-1.5 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-foreground/70"
+            title={`Indicadores das obrigações — ${cab.nota}`}
+          >
+            {cab.titulo}{dados?.escopo === 'COLABORADORES' && dados.areaNome ? ` · ${dados.areaNome}` : ''}
+          </span>
         </p>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            <p className="text-sm text-muted-foreground">
-              Indicadores das obrigações — {cab.nota}
-              {dados?.escopo === 'COLABORADORES' && dados.areaNome ? ` · ${dados.areaNome}` : ''}
-            </p>
-        </div>
       </PageHeaderBar>
 
       <AbasAcessorias />
@@ -287,6 +287,7 @@ export default function IndicadoresPage() {
           tipo={tipoGrupo}
           recorte={recorte}
           regua={regua}
+          onMultaAlterada={carregar}
           onClose={() => setDetalhe(null)}
         />
       )}
@@ -311,10 +312,10 @@ function RoscaSituacao({ cartao, tamanho = 96, destaque }: {
   const espessuraMax = espessura + 6
   const raio = (tamanho - espessuraMax) / 2
   const circunferencia = 2 * Math.PI * raio
-  const total = MEDIDAS.reduce((soma, m) => soma + cartao[m.campo], 0)
+  const total = MEDIDAS_ROSCA.reduce((soma, m) => soma + cartao[m.campo], 0)
 
   let percorrido = 0
-  const fatias = total === 0 ? [] : MEDIDAS.flatMap((m) => {
+  const fatias = total === 0 ? [] : MEDIDAS_ROSCA.flatMap((m) => {
     const valor = cartao[m.campo]
     if (valor === 0) return []
     const comprimento = (valor / total) * circunferencia
@@ -421,7 +422,7 @@ function AvisoCobertura({ dados, recorte }: { dados: Retorno | null; recorte: Re
 function CartaoIndicador({ cartao, destaque, onAbrir }: {
   cartao: Cartao; destaque?: boolean; onAbrir?: (medida: Medida) => void
 }) {
-  const total = MEDIDAS.reduce((soma, m) => soma + cartao[m.campo], 0)
+  const total = MEDIDAS_ROSCA.reduce((soma, m) => soma + cartao[m.campo], 0)
   const [emFoco, setEmFoco] = useState<Medida | null>(null)
   return (
     <Card className={cn('overflow-hidden', destaque && 'border-primary')}>
@@ -443,9 +444,9 @@ function CartaoIndicador({ cartao, destaque, onAbrir }: {
               type="button"
               disabled={!clicavel}
               onClick={clicavel ? () => onAbrir?.(m.campo) : undefined}
-              onMouseEnter={() => valor > 0 && setEmFoco(m.campo)}
+              onMouseEnter={() => valor > 0 && !('recorte' in m) && setEmFoco(m.campo)}
               onMouseLeave={() => setEmFoco(null)}
-              onFocus={() => valor > 0 && setEmFoco(m.campo)}
+              onFocus={() => valor > 0 && !('recorte' in m) && setEmFoco(m.campo)}
               onBlur={() => setEmFoco(null)}
               title={clicavel ? `${m.ajuda} Clique para ver a lista.` : m.ajuda}
               className={cn(
@@ -485,22 +486,44 @@ function FiltroColuna({ valor, onChange }: { valor: string; onChange: (v: string
 }
 
 /** A lista por trás de um número do cartão. */
-function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onClose }: {
+function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onMultaAlterada, onClose }: {
   cartao: Cartao; medida: Medida; tipo: 'pessoa' | 'area'; recorte: Recorte
-  regua: 'legal' | 'tecnico'; onClose: () => void
+  regua: 'legal' | 'tecnico'
+  /** Recarrega os cartões — chamado ao fechar, se alguma multa mudou. */
+  onMultaAlterada: () => void
+  onClose: () => void
 }) {
-  const [linhas, setLinhas] = useState<LinhaDetalhe[]>([])
+  const [linhas, setLinhas] = useState<LinhaEntrega[]>([])
   const [carregando, setCarregando] = useState(true)
   // Filtro por coluna. A lista inteira já está aqui, então filtrar é imediato —
   // não vale ida ao servidor para uma tabela que cabe na memória.
   const [filtros, setFiltros] = useState({ obrigacao: '', cliente: '', responsavel: '', competencia: '' })
+  // Painel de leitura: a obrigação clicada abre ao lado, sem fechar a lista.
+  const [selecionadaId, setSelecionadaId] = useState<string | null>(null)
+  const [expandido, setExpandido] = useState(false)
+  // Flags do backend: quem pode reclassificar e o atalho para o Acessórias.
+  const [podeReclassificar, setPodeReclassificar] = useState(false)
+  const [urlTemplate, setUrlTemplate] = useState<string | null>(null)
+  const [multaAlterada, setMultaAlterada] = useState(false)
   const info = MEDIDAS.find((m) => m.campo === medida)!
+
+  const fechar = () => {
+    if (multaAlterada) onMultaAlterada()
+    onClose()
+  }
 
   useEffect(() => {
     setCarregando(true)
     ;(trpc.acessorias as any).indicadoresDetalhe
       .query({ ...filtroDe(recorte), regua, grupo: cartao.titulo, tipo, medida })
-      .then((d: LinhaDetalhe[]) => setLinhas(d || []))
+      .then((d: { linhas: LinhaEntrega[]; podeReclassificarMulta: boolean; urlEntregaTemplate: string | null }) => {
+        const ls = d?.linhas || []
+        setLinhas(ls)
+        setPodeReclassificar(!!d?.podeReclassificarMulta)
+        setUrlTemplate(d?.urlEntregaTemplate ?? null)
+        // Abre já com a primeira selecionada: o painel nunca começa vazio.
+        setSelecionadaId(ls[0]?.id ?? null)
+      })
       .catch(() => setLinhas([]))
       .finally(() => setCarregando(false))
   }, [cartao.titulo, medida, tipo, recorte, regua])
@@ -514,12 +537,55 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onClose }: {
     && casa(l.responsavel, filtros.responsavel)
     && casa(fmtComp(l.competencia), filtros.competencia))
 
+  // O painel só mostra o que está na lista: se o filtro esconder a selecionada,
+  // a seleção passa para a primeira visível. Sem isso o painel ficava com a
+  // obrigação de outro cliente enquanto a lista mostrava só a filtrada.
+  const selecionada = visiveis.find((l) => l.id === selecionadaId) ?? visiveis[0] ?? null
+  // Guia exibida no painel à direita do de leitura (fecha ao trocar de obrigação).
+  const [guiaAberta, setGuiaAberta] = useGuiaAberta(selecionada?.id)
+  const href = selecionada ? linkNoAcessorias(selecionada, urlTemplate) : null
+
   const limpar = () => setFiltros({ obrigacao: '', cliente: '', responsavel: '', competencia: '' })
   const filtrando = Object.values(filtros).some((v) => v.trim())
 
+  // Com o painel de leitura ao lado a tabela perde ~400px: no tamanho normal
+  // ficam as colunas que identificam a linha e o prazo da régua ativa;
+  // expandido, volta tudo.
+  const colResponsavel = tipo === 'area' && expandido
+  const colCompetencia = expandido
+  const colTecnico = expandido || regua === 'tecnico'
+  const colLegal = expandido || regua === 'legal'
+
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-6xl">
+    <TooltipProvider delayDuration={200}>
+    <Dialog open onOpenChange={(o) => !o && fechar()}>
+      <DialogContent
+        className={cn(
+          'outline-none transition-[max-width,height] duration-200',
+          expandido ? 'flex h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] flex-col' : 'max-w-6xl',
+        )}
+        // Por padrão o Radix foca o primeiro botão ao abrir — o Expandir, que
+        // vem antes do X — e o Tooltip dele abre com o foco. O foco vai para o
+        // próprio diálogo (tabIndex -1): continua preso nele, sem acender nada.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault()
+          ;(e.currentTarget as HTMLElement | null)?.focus()
+        }}
+      >
+        {/* Expandir/contrair — ao lado do X do Dialog, no mesmo estilo. */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => setExpandido((v) => !v)}
+              aria-label={expandido ? 'Contrair' : 'Expandir'}
+              className="absolute right-11 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-md opacity-60 transition-all duration-200 hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
+            >
+              {expandido ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{expandido ? 'Contrair' : 'Expandir'}</TooltipContent>
+        </Tooltip>
         <DialogHeaderIcon icon={BarChart3} color="sky">
           <DialogTitle>{info.label}</DialogTitle>
           <DialogDescription>
@@ -529,7 +595,9 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onClose }: {
             )}
           </DialogDescription>
         </DialogHeaderIcon>
-        <DialogBody className="max-h-[65vh] p-0">
+        <DialogBody className={cn('p-0', expandido && 'min-h-0 flex-1')}>
+          <div className={cn('flex flex-col md:flex-row', expandido ? 'h-full' : 'max-h-[65vh]')}>
+          <div className="nice-scrollbar min-w-0 flex-1 overflow-y-auto">
           {carregando ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -551,22 +619,27 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onClose }: {
                     <AlertTriangle className="mx-auto h-3.5 w-3.5" />
                   </th>
                   <th className="px-3 py-2 text-left">Obrigação</th>
-                  <th className="hidden w-[22%] px-3 py-2 text-left md:table-cell">Cliente</th>
+                  <th className="hidden w-[30%] px-3 py-2 text-left md:table-cell">Cliente</th>
                   {/* Só na visão por área: agrupado por pessoa, o responsável já
                       é o próprio cartão e a coluna repetiria o cabeçalho. */}
-                  {tipo === 'area' && (
+                  {colResponsavel && (
                     <th className="hidden w-[170px] px-3 py-2 text-left lg:table-cell">Responsável</th>
                   )}
-                  <th className="hidden w-[100px] px-3 py-2 text-left xl:table-cell">Competência</th>
+                  {colCompetencia && <th className="hidden w-[100px] px-3 py-2 text-left xl:table-cell">Competência</th>}
                   {/* Os dois prazos lado a lado. O da régua ativa vai em
                       destaque: é ele que classificou a linha, e sem a marca as
                       duas colunas pareceriam igualmente decisivas. */}
-                  <th className={cn('w-[104px] px-3 py-2 text-left', regua === 'tecnico' && 'text-foreground')}>
-                    Prazo técnico
-                  </th>
-                  <th className={cn('w-[104px] px-3 py-2 text-left', regua === 'legal' && 'text-foreground')}>
-                    Prazo legal
-                  </th>
+                  {colTecnico && (
+                    <th className={cn('w-[104px] px-3 py-2 text-left', regua === 'tecnico' && 'text-foreground')}>
+                      Prazo técnico
+                    </th>
+                  )}
+                  {colLegal && (
+                    <th className={cn('w-[104px] px-3 py-2 text-left', regua === 'legal' && 'text-foreground')}>
+                      Prazo legal
+                    </th>
+                  )}
+                  <th className="w-[110px] px-3 py-2 text-left">Venc. guia</th>
                   <th className="hidden w-[112px] px-3 py-2 text-left sm:table-cell">Entrega</th>
                 </tr>
                 <tr className="border-b border-border">
@@ -584,65 +657,126 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onClose }: {
                   <th className="hidden px-2 py-1.5 md:table-cell">
                     <FiltroColuna valor={filtros.cliente} onChange={(v) => setFiltros((f) => ({ ...f, cliente: v }))} />
                   </th>
-                  {tipo === 'area' && (
+                  {colResponsavel && (
                     <th className="hidden px-2 py-1.5 lg:table-cell">
                       <FiltroColuna valor={filtros.responsavel} onChange={(v) => setFiltros((f) => ({ ...f, responsavel: v }))} />
                     </th>
                   )}
-                  <th className="hidden px-2 py-1.5 xl:table-cell">
-                    <FiltroColuna valor={filtros.competencia} onChange={(v) => setFiltros((f) => ({ ...f, competencia: v }))} />
-                  </th>
-                  <th className="px-2 py-1.5" />
+                  {colCompetencia && (
+                    <th className="hidden px-2 py-1.5 xl:table-cell">
+                      <FiltroColuna valor={filtros.competencia} onChange={(v) => setFiltros((f) => ({ ...f, competencia: v }))} />
+                    </th>
+                  )}
+                  {colTecnico && <th className="px-2 py-1.5" />}
+                  {colLegal && <th className="px-2 py-1.5" />}
                   <th className="px-2 py-1.5" />
                   <th className="hidden px-2 py-1.5 sm:table-cell" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {visiveis.map((l) => (
-                  <tr key={l.id} className="hover:bg-muted/30">
-                    <td className="px-2 py-2 text-center">
-                      {l.multa && (
-                        <span title="Passível de multa" className="inline-flex">
-                          <AlertTriangle className="h-4 w-4 text-rose-500 dark:text-rose-400" />
-                        </span>
+                {visiveis.map((l) => {
+                  const ativa = l.id === selecionada?.id
+                  return (
+                    <tr
+                      key={l.id}
+                      onClick={() => setSelecionadaId(l.id)}
+                      aria-selected={ativa}
+                      className={cn(
+                        'cursor-pointer transition-colors',
+                        // Selecionada: fundo suave e filete à esquerda, como item ativo de lista.
+                        ativa ? 'bg-muted/60 shadow-[inset_3px_0_0_var(--mod-administrativo,#0ea5e9)]' : 'hover:bg-muted/30',
                       )}
-                    </td>
-                    <td className="truncate px-3 py-2 font-medium" title={l.obrigacao}>{l.obrigacao}</td>
-                    <td className="hidden px-3 py-2 md:table-cell">
-                      <Link href={`/clientes/${l.clienteId}`} target="_blank"
-                        className="block truncate text-[12px] text-muted-foreground hover:underline">
-                        #{l.clienteCode} — {l.clienteNome}
-                      </Link>
-                    </td>
-                    {tipo === 'area' && (
-                      <td className="hidden truncate px-3 py-2 text-[12px] text-muted-foreground lg:table-cell"
-                        title={l.responsavel ?? ''}>
-                        {l.responsavel || '—'}
+                    >
+                      <td className="px-2 py-2 text-center">
+                        {l.multa && (
+                          <span title="Passível de multa" className="inline-flex">
+                            <AlertTriangle className="h-4 w-4 text-rose-500 dark:text-rose-400" />
+                          </span>
+                        )}
                       </td>
-                    )}
-                    <td className="hidden whitespace-nowrap px-3 py-2 text-[12px] text-muted-foreground xl:table-cell">{fmtComp(l.competencia)}</td>
-                    <td className={cn('whitespace-nowrap px-3 py-2 text-[12px] tabular-nums',
-                      regua === 'tecnico' ? 'font-medium' : 'text-muted-foreground')}>
-                      {fmtData(l.prazo)}
-                    </td>
-                    <td className={cn('whitespace-nowrap px-3 py-2 text-[12px] tabular-nums',
-                      regua === 'legal' ? 'font-medium' : 'text-muted-foreground')}>
-                      {fmtData(l.vencimento)}
-                    </td>
-                    <td className="hidden whitespace-nowrap px-3 py-2 text-[12px] sm:table-cell">
-                      <BadgeEntrega entrega={l.dtEntrega} vencimento={regua === 'tecnico' ? l.prazo : l.vencimento} />
-                    </td>
-                  </tr>
-                ))}
+                      <td className="truncate px-3 py-2 font-medium" title={l.obrigacao}>{l.obrigacao}</td>
+                      <td className="hidden px-3 py-2 md:table-cell">
+                        <Link href={`/clientes/${l.clienteId}`} target="_blank"
+                          onClick={(e) => e.stopPropagation()}
+                          className="block truncate text-[12px] text-muted-foreground hover:underline">
+                          #{l.clienteCode} — {l.clienteNome}
+                        </Link>
+                      </td>
+                      {colResponsavel && (
+                        <td className="hidden truncate px-3 py-2 text-[12px] text-muted-foreground lg:table-cell"
+                          title={l.responsavel ?? ''}>
+                          {l.responsavel || '—'}
+                        </td>
+                      )}
+                      {colCompetencia && (
+                        <td className="hidden whitespace-nowrap px-3 py-2 text-[12px] text-muted-foreground xl:table-cell">{fmtComp(l.competencia)}</td>
+                      )}
+                      {colTecnico && (
+                        <td className={cn('whitespace-nowrap px-3 py-2 text-[12px] tabular-nums',
+                          regua === 'tecnico' ? 'font-medium' : 'text-muted-foreground')}>
+                          {fmtData(l.prazo)}
+                        </td>
+                      )}
+                      {colLegal && (
+                        <td className={cn('whitespace-nowrap px-3 py-2 text-[12px] tabular-nums',
+                          regua === 'legal' ? 'font-medium' : 'text-muted-foreground')}>
+                          {fmtData(l.vencimento)}
+                        </td>
+                      )}
+                      <td className="whitespace-nowrap px-3 py-2 text-[12px]"><VencimentoGuiaCelula linha={l} /></td>
+                      <td className="hidden whitespace-nowrap px-3 py-2 text-[12px] sm:table-cell">
+                        <BadgeEntrega entrega={l.dtEntrega} vencimento={regua === 'tecnico' ? l.prazo : l.vencimento} />
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           )}
+          </div>
+
+          {/* Painel de leitura — detalhes da obrigação selecionada */}
+          <aside className="nice-scrollbar w-full shrink-0 overflow-y-auto border-t border-border bg-muted/10 md:w-[400px] md:border-l md:border-t-0">
+            {selecionada ? (
+              <PainelLeituraEntrega
+                linha={selecionada}
+                mostrarCliente
+                podeReclassificar={podeReclassificar}
+                onReclassificada={(r) => {
+                  setLinhas((ls) => aplicarReclassificacao(ls, r))
+                  setMultaAlterada(true)
+                }}
+                guiaAberta={guiaAberta}
+                onVerGuia={(g) => {
+                  setGuiaAberta(g)
+                  // Três colunas não cabem no tamanho normal: a guia expande o modal.
+                  if (g) setExpandido(true)
+                }}
+              />
+            ) : (
+              <p className="p-8 text-center text-sm text-muted-foreground">
+                {carregando ? '' : 'Selecione uma obrigação para ver os detalhes.'}
+              </p>
+            )}
+          </aside>
+
+          {/* Guia — só existe enquanto uma está aberta */}
+          {guiaAberta && <VisualizadorGuia guia={guiaAberta} onFechar={() => setGuiaAberta(null)} />}
+          </div>
         </DialogBody>
         <DialogFooter>
-          <Button size="sm" onClick={onClose}>Fechar</Button>
+          {href && (
+            <Button variant="outline" size="sm" asChild>
+              <a href={href} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />Abrir no Acessórias
+              </a>
+            </Button>
+          )}
+          <Button size="sm" onClick={fechar}>Fechar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </TooltipProvider>
   )
 }
 

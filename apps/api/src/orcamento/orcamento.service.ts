@@ -1,11 +1,18 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma, Prisma } from '@saas/db'
+import {
+  decidirDesconto, intensidadeDesconto,
+  MOTIVO_GERAL_BLOQUEADO, MOTIVO_ITEM_BLOQUEADO,
+} from './desconto-exclusivo'
 import { idsDeEmpresasInativas, semEmpresaInativa } from '../common/empresa-inativa'
+import { filtroDeData, filtroDeDiasOuJanela, mesBr, mesesDaJanela, type Janela } from '../common/periodo-br'
+import { contratosDeOrcamento } from './contratos-de-orcamento'
+import { acaoAposServicos, situacaoDosServicos, type SituacaoServicos } from './servicos-do-orcamento'
+import { carteiraRecorrente } from '../contrato/carteira-gestao'
 import type { CreateOrcamentoInput, UpdateOrcamentoInput, ListOrcamentoInput, CreateOrcamentoItemInput, UpdateOrcamentoItemInput } from '@saas/types'
 import { filtroDeBusca, escopoDeEmpresa, consolidar } from './orcamento-busca-cliente'
 import { ORCAMENTO_ALLOWED_TRANSITIONS, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_ORDER, isOrcamentoTransitionAllowed, limparCnpj, resolveOrcamentoScope } from '@saas/types'
 import * as XLSX from 'xlsx'
-import { hasSubPermission } from '../trpc/trpc.service'
 import { EmailService } from '../common/email.service'
 import { PesquisaService } from '../pesquisa/pesquisa.service'
 import { ServicoService } from '../servico/servico.service'
@@ -36,9 +43,6 @@ const STATUS_DATE_FIELD: Record<string, string> = {
   FINALIZADO: 'dtFinalizado',
   ENCERRADO: 'dtEncerrado',
 }
-
-/** O mínimo que a checagem de permissão precisa saber sobre quem chamou. */
-type CtxPermissao = { userId?: string | null; isMaster?: boolean; isEmpresaMaster?: boolean; empresaId?: string | null }
 
 @Injectable()
 export class OrcamentoService {
@@ -304,6 +308,7 @@ export class OrcamentoService {
     const userIds = [...new Set([
       ...data.map(o => o.responsavelId),
       ...data.map(o => o.solicitanteId),
+      ...data.map(o => o.destacadoPor),
     ].filter(Boolean))] as string[]
     const users = userIds.length > 0
       ? await prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true, image: true } }).catch(() => [])
@@ -357,10 +362,31 @@ export class OrcamentoService {
       } catch { oportIds.forEach(id => oportMap.set(id, null)) }
     }
 
+    // Aprovados com o serviço já concluído — o card avisa o financeiro que é
+    // só liberar (o sistema finaliza na liberação).
+    const aprovadosIds = data.filter(o => o.status === 'APROVADO').map(o => o.id)
+    const servicosConcluidos = new Set<string>()
+    if (aprovadosIds.length) {
+      const execs = await prisma.servicoExecucao.findMany({
+        where: { orcamentoId: { in: aprovadosIds } },
+        select: { orcamentoId: true, status: true, concluidoEm: true },
+      }).catch(() => [] as Array<{ orcamentoId: string | null; status: string; concluidoEm: Date | null }>)
+      const porOrc = new Map<string, Array<{ status: string; concluidoEm: Date | null }>>()
+      for (const e of execs) {
+        if (!e.orcamentoId) continue
+        const l = porOrc.get(e.orcamentoId) ?? []
+        l.push(e)
+        porOrc.set(e.orcamentoId, l)
+      }
+      for (const [oid, l] of porOrc) if (situacaoDosServicos(l).todosConcluidos) servicosConcluidos.add(oid)
+    }
+
     const enriched = data.map(o => ({
       ...o,
+      servicosConcluidos: servicosConcluidos.has(o.id),
       responsavel: o.responsavelId ? userMap.get(o.responsavelId) || null : null,
       solicitante: o.solicitanteId ? userMap.get(o.solicitanteId) || null : null,
+      destacadoPorUser: o.destacadoPor ? userMap.get(o.destacadoPor) || null : null,
       pesquisaRespondida: respSet.has(o.id),
       areas: areasPorOrcamento.get(o.id) ?? [],
       // Descrições de todos os itens, na ordem de inclusão — a tabela mostra a
@@ -377,12 +403,11 @@ export class OrcamentoService {
     const orc = await prisma.orcamento.findUnique({
       where: { id },
       include: {
-        // Subserviço e variação vêm com nome: a tela e a proposta precisam
-        // MOSTRAR o que foi escolhido, e o item guarda só os ids.
+        // A variação vem com nome: a tela e a proposta precisam MOSTRAR o
+        // que foi escolhido, e o item guarda só o id.
         itens: {
           orderBy: { createdAt: 'asc' },
           include: {
-            subservico: { select: { id: true, nome: true } },
             catalogoTexto: { select: { id: true, titulo: true } },
           },
         },
@@ -473,14 +498,70 @@ export class OrcamentoService {
       select: { id: true, enviadaEm: true, respondidaEm: true, nota: true, respondenteNome: true },
     }).catch(() => null)
 
+    // Quem responde pela EXECUÇÃO de cada serviço do orçamento. Vem do mesmo
+    // `resolverCandidatos` que o createExecucao usa, para a tela não anunciar
+    // um responsável diferente do que o sistema vai atribuir. Falha aqui não
+    // pode derrubar o detalhe — o campo simplesmente não aparece.
+    const responsaveis = await this.servicoService
+      .resolverResponsaveisOrcamento(id, ctx?.userId)
+      .catch((e: Error) => {
+        console.warn('[Orcamento] Responsáveis da execução não resolvidos:', e.message)
+        return [] as Awaited<ReturnType<typeof this.servicoService.resolverResponsaveisOrcamento>>
+      })
+
+    // Serviços concluídos aguardando a liberação do financeiro (ver
+    // servicos-do-orcamento.ts) — a tela avisa em vez de o sistema pular etapa.
+    const servicos = await this.situacaoServicos(id).catch(() => null)
+
     return {
       ...orc, arquivos, mensagens, eventos, cliente, empresa, solicitante, responsavel,
       areas,
+      responsaveis,
+      servicos,
       oportunidade: oportunidade ? { id: oportunidade.id, numero: oportunidade.numero, titulo: oportunidade.titulo, etapa: oportunidade.etapa?.nome ?? null } : null,
       podeVincularCrm,
       pesquisa,
       decisaoCnpjFaturamento: fat[0]?.decisaoCnpjFaturamento ?? null,
       decisaoEmailFinanceiro: fat[0]?.decisaoEmailFinanceiro ?? null,
+    }
+  }
+
+  /** Situação das execuções de serviço do orçamento (servicos-do-orcamento.ts). */
+  async situacaoServicos(orcamentoId: string): Promise<SituacaoServicos> {
+    const execs = await prisma.servicoExecucao.findMany({
+      where: { orcamentoId },
+      select: { status: true, concluidoEm: true },
+    })
+    return situacaoDosServicos(execs)
+  }
+
+  /**
+   * Chamado quando uma execução de serviço do orçamento é concluída. NÃO mexe
+   * no fluxo do financeiro: com o orçamento APROVADO, só registra na timeline
+   * que o serviço acabou e aguarda a liberação; já LIBERADO, finaliza.
+   */
+  async aoConcluirServico(orcamentoId: string, userId?: string) {
+    const orc = await prisma.orcamento.findUnique({ where: { id: orcamentoId }, select: { status: true, numero: true } })
+    if (!orc) return
+    const sit = await this.situacaoServicos(orcamentoId)
+    const acao = acaoAposServicos(orc.status, sit.todosConcluidos)
+    if (acao === 'FINALIZAR') {
+      await this.changeStatus(orcamentoId, 'FINALIZADO', userId)
+    } else if (acao === 'AGUARDAR_LIBERACAO') {
+      // Uma vez só: rechamadas (conclusão idempotente) não repetem o registro.
+      const jaAvisado = await prisma.orcamentoEvento.findFirst({ where: { orcamentoId, tipo: 'servicos_concluidos' }, select: { id: true } })
+      if (!jaAvisado) {
+        await this.addEvento(orcamentoId, userId, 'servicos_concluidos', null, null,
+          'Serviço concluído — aguardando a liberação do financeiro. Ao liberar, o orçamento será finalizado automaticamente.')
+      }
+    }
+  }
+
+  /** Depois da liberação: finaliza se os serviços já estiverem concluídos. */
+  private async finalizarSeServicosConcluidos(orcamentoId: string, userId?: string) {
+    const sit = await this.situacaoServicos(orcamentoId)
+    if (acaoAposServicos('LIBERADO', sit.todosConcluidos) === 'FINALIZAR') {
+      await this.changeStatus(orcamentoId, 'FINALIZADO', userId)
     }
   }
 
@@ -927,7 +1008,6 @@ export class OrcamentoService {
         itens: {
           orderBy: { createdAt: 'asc' },
           include: {
-            subservico: { select: { id: true, nome: true } },
             catalogoTexto: { select: { id: true, titulo: true } },
           },
         },
@@ -1506,6 +1586,19 @@ export class OrcamentoService {
       )
     }
 
+    // Desconto geral novo (ou aumentado) só passa se nenhum item tiver desconto.
+    const inp = input as { descontoPct?: number | null; descontoValor?: number | null }
+    const geralPedido = intensidadeDesconto(inp.descontoPct, inp.descontoValor)
+    if (geralPedido > 0) {
+      const decisao = decidirDesconto(
+        geralPedido,
+        intensidadeDesconto(atual.descontoPct as number | null, atual.descontoValor as number | null),
+        await this.temDescontoEmItem(id),
+        MOTIVO_GERAL_BLOQUEADO,
+      )
+      if (!decisao.permitido) throw new Error(decisao.motivo as string)
+    }
+
     // Congelado + master → monta o diff de auditoria ANTES de gravar.
     const mudancas = congelado && isMaster ? this.diffOrcamentoCongelado(atual, input) : []
 
@@ -1523,6 +1616,39 @@ export class OrcamentoService {
 
     this.emitEvent('dados-gerais', { orcamentoId: id, empresaId: orc.empresaId, actorUserId: userId })
     return orc
+  }
+
+  // ── Desconto: um OU outro, nunca os dois ─────────────────
+  //
+  // Os dois somavam em silêncio. No #4630, 20% em cada item mais 20% de
+  // desconto geral viraram 40% no resumo, e quem olhou concluiu que a conta
+  // estava errada — ela não estava, mas ninguém tinha como saber que havia
+  // dois descontos.
+  //
+  // A regra agora é excludente por orçamento. Vale na GRAVAÇÃO, não só na tela:
+  // o campo desabilitado no front é conveniência, o portão é aqui.
+  //
+  // Orçamento que JÁ tem os dois continua como está — a guarda só barra o
+  // valor NOVO. Bloquear o que já foi gravado impediria até de arrumar: toda
+  // edição de outro campo passa pelo mesmo `update` (auto-save), e o
+  // orçamento ficaria impossível de salvar.
+
+  /** Há desconto em algum item de serviço? */
+  private async temDescontoEmItem(orcamentoId: string): Promise<boolean> {
+    const itens = await prisma.orcamentoItem.findMany({
+      where: { orcamentoId, tipo: 'SERVICO' },
+      select: { descontoPct: true, descontoValor: true },
+    })
+    return itens.some(i => Number(i.descontoPct ?? 0) > 0 || Number(i.descontoValor ?? 0) > 0)
+  }
+
+  /** O orçamento tem desconto geral gravado? */
+  private async temDescontoGeral(orcamentoId: string): Promise<boolean> {
+    const o = await prisma.orcamento.findUnique({
+      where: { id: orcamentoId },
+      select: { descontoPct: true, descontoValor: true },
+    })
+    return Number(o?.descontoPct ?? 0) > 0 || Number(o?.descontoValor ?? 0) > 0
   }
 
   /** Diff legível dos campos mais relevantes de um orçamento congelado editado pelo master. */
@@ -1652,6 +1778,22 @@ export class OrcamentoService {
         })),
       })
       await this.recalcularTotais(novo.id)
+
+      // Evento "Serviço incluído ao orçamento" também na duplicação: para a
+      // área, um serviço entrou num orçamento novo, independente de ter vindo
+      // de uma cópia. Um aviso por serviço — orçamento com muitos serviços
+      // gera muitos e-mails, e é por isso que a regra é cadastrada serviço a
+      // serviço, e não uma vez para todos.
+      //
+      // O `createMany` não devolve ids; relemos os itens novos para ter o id de
+      // cada um, que é a chave de idempotência do log.
+      const itensNovos = await prisma.orcamentoItem.findMany({
+        where: { orcamentoId: novo.id, tipo: 'SERVICO', catalogoId: { not: null } },
+        select: { id: true },
+      }).catch(() => [] as Array<{ id: string }>)
+      for (const it of itensNovos) {
+        void this.servicoService.notificarServicoIncluidoOrcamento(it.id)
+      }
     }
 
     await this.addEvento(novo.id, userId, 'created', null, null, `Duplicado do orçamento #${original.numero}`)
@@ -1984,7 +2126,7 @@ export class OrcamentoService {
     }
 
     // Ao ENCERRAR (cancelar) um orçamento, cancela em cascata os serviços/processos
-    // ainda abertos que foram disparados na aprovação. Sem efeito se nunca foi aprovado
+    // ainda abertos que foram disparados na liberação (ou na aprovação, antes de 29/09/2026). Sem efeito se nunca foi aprovado
     // (nenhum processo vinculado) ou se já finalizou (processos concluídos são preservados).
     if (novoStatus === 'ENCERRADO') {
       await this.cancelarServicosDoOrcamento(id, `Orçamento #${orc.numero} encerrado`, userId)
@@ -2027,14 +2169,6 @@ export class OrcamentoService {
     // (A pesquisa de satisfação agora é enviada MANUALMENTE pelo comercial —
     //  sem disparo automático no FINALIZADO.)
 
-    // Trigger: ao APROVAR pela primeira vez, cria o Processo + a ServicoExecucao
-    // de cada item de tipo SERVICO. A rotina mora num método próprio porque a
-    // aprovação também chega pelo link público (`registrarDecisao`), que não
-    // passa por aqui — era assim que o serviço deixava de nascer.
-    if (novoStatus === 'APROVADO' && isFirstTransition) {
-      await this.dispararServicosDaAprovacao(id, userId)
-    }
-
     // Notificações: somente na primeira ocorrência da transição (idempotente).
     // Repor status após Reabrir não dispara email novo a menos que o Reabrir
     // tenha limpado a data dedicada (cenário legítimo de reprocessamento).
@@ -2046,6 +2180,27 @@ export class OrcamentoService {
       })
     }
 
+    // Trigger: ao LIBERAR pela primeira vez, cria o Processo + a ServicoExecucao
+    // de cada item de tipo SERVICO. Até 29/09/2026 era na APROVAÇÃO; passou para
+    // a liberação do financeiro: o trabalho só começa (e a área só é avisada)
+    // depois que o financeiro libera. A aprovação agora só avisa comercial e
+    // financeiro. A FSM não deixa pular: de APROVADO só se vai a LIBERADO ou
+    // ENCERRADO. Idempotente por item, então orçamentos que já tinham serviço
+    // (criados na aprovação, antes da mudança) não duplicam.
+    if (novoStatus === 'LIBERADO' && isFirstTransition) {
+      await this.dispararServicosDaLiberacao(id, userId)
+    }
+
+    // Liberação pelo financeiro com os serviços já concluídos → finaliza agora.
+    // É a outra metade da regra de servicos-do-orcamento.ts: o colaborador
+    // conclui o serviço, o orçamento espera o financeiro, e a liberação fecha.
+    // (Com os serviços nascendo na liberação, isso só acontece com orçamento
+    // antigo, cujos serviços nasceram na aprovação.)
+    if (novoStatus === 'LIBERADO') {
+      await this.finalizarSeServicosConcluidos(id, userId)
+        .catch(e => console.warn('[Orcamento] Falha ao finalizar após a liberação:', (e as Error).message))
+    }
+
     // Trigger ao ENCERRAR como cancelamento (recusa direta antes de aprovação) —
     // grava data de cancelamento se aplicável e ainda não definida.
     if (novoStatus === 'ENCERRADO' && (statusAtual === 'NOVO' || statusAtual === 'A_ENVIAR' || statusAtual === 'ENVIADO')) {
@@ -2055,24 +2210,27 @@ export class OrcamentoService {
     }
 
     this.emitEvent('kanban', { orcamentoId: id, empresaId: updated.empresaId, actorUserId: userId })
+    // A liberação pode ter finalizado logo em seguida: devolve o estado atual.
+    if (novoStatus === 'LIBERADO') {
+      return (await prisma.orcamento.findUnique({ where: { id } })) ?? updated
+    }
     return updated
   }
 
   /**
    * Cria o Processo + a ServicoExecucao de cada item de tipo SERVICO do
-   * orçamento aprovado.
+   * orçamento liberado pelo financeiro.
    *
-   * Vive fora do `changeStatus` porque a aprovação tem DUAS portas: o comercial
-   * mudando o status por dentro e o cliente decidindo pelo link público
-   * (`registrarDecisao`). A segunda gravava o status direto no banco e nunca
-   * chamava este gatilho — o serviço simplesmente não nascia, e o orçamento
-   * seguia para LIBERADO sem ninguém notar a falta.
+   * Até 29/09/2026 rodava na aprovação — e por isso vive fora do `changeStatus`:
+   * a aprovação tem duas portas (status interno e link público do cliente). A
+   * liberação só tem uma (o `changeStatus`), mas o método próprio continua
+   * servindo ao reprocessamento em lote.
    *
    * É idempotente **por item**: um item que já tem execução deste orçamento é
    * pulado. Isso permite reprocessar um orçamento sem duplicar o que já existe
    * e cobre o caso do orçamento com dois serviços em que só um vingou.
    */
-  private async dispararServicosDaAprovacao(
+  private async dispararServicosDaLiberacao(
     orcamentoId: string,
     userId?: string,
     opts?: { silencioso?: boolean },
@@ -2089,7 +2247,11 @@ export class OrcamentoService {
       // Itens de tipo SERVICO com catalogoId preenchido
       const itensServico = await prisma.orcamentoItem.findMany({
         where: { orcamentoId, tipo: 'SERVICO', catalogoId: { not: null } },
-        select: { id: true, catalogoId: true, descricao: true },
+        // `responsavelId` PRECISA estar aqui: o createExecucao abaixo o
+        // consome. Campo fora do select chega `undefined`, e a escolha manual
+        // de responsável seria ignorada em silêncio — a execução nasceria sem
+        // dono como se ninguém tivesse escolhido.
+        select: { id: true, catalogoId: true, descricao: true, responsavelId: true },
       })
       if (itensServico.length === 0) return vazio
 
@@ -2143,17 +2305,25 @@ export class OrcamentoService {
           // Cria a execução-raiz vinculada ao processo. Sem predecessor —
           // por isso é ela quem finaliza o orçamento ao concluir (decisão 1a).
           //
-          // IMPORTANTE: NÃO passar `responsavelId` aqui. A regra de atribuição
-          // é configurada na pill "Identificação" do serviço-template
-          // (Colaboradores / Setores / Resp. do orçamento / Resp. cliente na
-          // área). `createExecucao` chama `resolverCandidatos` que consulta
-          // essas 4 fontes. Forçar o responsável do orçamento aqui ignora a
-          // configuração — mesmo bug que vimos no fluxo Constituição de Empresa.
+          // IMPORTANTE: continua PROIBIDO passar `orc.responsavelId` aqui. A
+          // regra de atribuição é configurada na pill "Identificação" do
+          // serviço-template (Colaboradores / Setores / Resp. do orçamento /
+          // Resp. cliente na área); `createExecucao` chama `resolverCandidatos`
+          // e consulta essas fontes. Forçar o responsável COMERCIAL do
+          // orçamento sobre todo serviço ignora a configuração — foi o bug do
+          // fluxo Constituição de Empresa.
+          //
+          // O que passa aqui é OUTRA coisa: `item.responsavelId`, a escolha
+          // MANUAL feita naquele item por quem tem permissão, justamente
+          // quando o template não resolve uma pessoa (setor = claim-first). Só
+          // existe se alguém decidiu explicitamente; nulo mantém o
+          // comportamento anterior, com o template decidindo.
           await this.servicoService.createExecucao(
             {
               servicoId: item.catalogoId,
               clienteId: orc.clienteId,
               orcamentoId: orc.id,
+              ...(item.responsavelId ? { responsavelId: item.responsavelId } : {}),
             },
             orc.empresaId || undefined,
             { processoId: proc.id, statusInicial: 'EM_ANDAMENTO' },
@@ -2211,16 +2381,17 @@ export class OrcamentoService {
    * se curam sozinhos: o `dtAprovado` já está gravado, então uma nova passagem
    * pelo `changeStatus` enxerga a transição como repetida e não dispara nada.
    *
-   * Recorte: só **trabalho vivo** (APROVADO ou LIBERADO). Um orçamento
-   * FINALIZADO teve seu ciclo encerrado e um ENCERRADO foi recusado/cancelado —
-   * abrir execução neles agora empurraria trabalho vencido para o painel de
-   * alguém. Eles saem no relatório como `ignorados`, para decisão caso a caso.
+   * Recorte: só **trabalho liberado** (LIBERADO). Desde 29/09/2026 o serviço
+   * nasce na liberação do financeiro, então um APROVADO sem serviço é o normal
+   * (aguarda a liberação), não um órfão. FINALIZADO teve o ciclo encerrado e
+   * ENCERRADO foi recusado/cancelado — abrir execução neles empurraria trabalho
+   * vencido para o painel de alguém. Todos saem como `ignorados`, com o motivo.
    *
    * `dryRun` (padrão) só relata; nada é criado.
    */
   async reprocessarServicosAprovados(opts?: { dryRun?: boolean; empresaId?: string }) {
     const dryRun = opts?.dryRun !== false
-    const STATUS_VIVOS = ['APROVADO', 'LIBERADO']
+    const STATUS_VIVOS = ['LIBERADO']
 
     // "Foi aprovado" tem três provas, e nenhuma sozinha cobre tudo: a data do
     // marco, a decisão registrada pelo link, e o próprio status vivo (APROVADO
@@ -2231,7 +2402,7 @@ export class OrcamentoService {
         OR: [
           { dtAprovado: { not: null } },
           { decisaoTipo: 'APROVADO' },
-          { status: { in: STATUS_VIVOS as any } },
+          { status: { in: ['APROVADO', 'LIBERADO'] as any } },
         ],
         ...(opts?.empresaId ? { empresaId: opts.empresaId } : {}),
         itens: { some: { tipo: 'SERVICO', catalogoId: { not: null } } },
@@ -2276,7 +2447,11 @@ export class OrcamentoService {
       if (faltando.length === 0) continue
       const linha = { numero: o.numero, status: o.status as string, cliente: (o.clienteId && nomeCliente.get(o.clienteId)) || '—' }
       if (!STATUS_VIVOS.includes(o.status as string)) {
-        ignorados.push({ ...linha, motivo: o.status === 'ENCERRADO' ? 'orçamento encerrado' : 'ciclo já finalizado' })
+        ignorados.push({
+          ...linha,
+          motivo: o.status === 'APROVADO' ? 'aguarda a liberação do financeiro (o serviço nasce nela)'
+            : o.status === 'ENCERRADO' ? 'orçamento encerrado' : 'ciclo já finalizado',
+        })
         continue
       }
       pendentes.push({ id: o.id, ...linha, faltando })
@@ -2291,7 +2466,7 @@ export class OrcamentoService {
     for (const o of pendentes) {
       // `silencioso`: não dispara o sino do responsável. São aprovações de até
       // dois meses atrás — o aviso chegaria como novidade de algo antigo.
-      const r = await this.dispararServicosDaAprovacao(o.id, undefined, { silencioso: true })
+      const r = await this.dispararServicosDaLiberacao(o.id, undefined, { silencioso: true })
       criadas += r.criadas
       resultado.push({ numero: o.numero, criadas: r.criadas, nomes: r.nomes })
     }
@@ -2710,11 +2885,43 @@ export class OrcamentoService {
    * Histórico paginado de orçamentos do cliente — TODOS os status. Sem cap: o
    * cliente pode ter mais de 50 orçamentos e todos devem ser navegáveis.
    */
-  async listOrcamentosDoClientePaginado(clienteId: string, page: number, limit: number) {
+  async listOrcamentosDoClientePaginado(
+    clienteId: string,
+    page: number,
+    limit: number,
+    opts?: { search?: string; excluirId?: string },
+  ) {
     const skip = (Math.max(1, page) - 1) * limit
+    const termo = (opts?.search ?? '').trim()
+
+    // Busca pelo que a LINHA mostra: o número e a descrição do serviço.
+    // Status ficou de fora de propósito — é enum no banco, não texto, então
+    // `contains` nem se aplica, e ele já é um selo visível na linha.
+    //
+    // O número só entra quando o termo é só dígitos e cabe num Int: `numero`
+    // é Int no schema, e mandar um valor fora da faixa faz o Postgres recusar
+    // a consulta inteira — a busca quebraria em vez de não achar nada.
+    const buscaPorNumero = /^\d{1,9}$/.test(termo)
+    const filtroBusca = termo
+      ? {
+          OR: [
+            ...(buscaPorNumero ? [{ numero: Number(termo) }] : []),
+            { itens: { some: { descricao: { contains: termo, mode: 'insensitive' as const } } } },
+          ],
+        }
+      : {}
+
+    // `excluirId` tira o próprio orçamento aberto da lista, como já fazia a
+    // versão não paginada. Sem isso ele apareceria entre os "outros".
+    const where = {
+      clienteId,
+      ...(opts?.excluirId ? { id: { not: opts.excluirId } } : {}),
+      ...filtroBusca,
+    }
+
     const [rows, total] = await Promise.all([
       prisma.orcamento.findMany({
-        where: { clienteId },
+        where,
         select: {
           id: true, numero: true, status: true, totalGeral: true, createdAt: true,
           arquivado: true, tipo: true,
@@ -2724,7 +2931,7 @@ export class OrcamentoService {
         skip,
         take: limit,
       }),
-      prisma.orcamento.count({ where: { clienteId } }),
+      prisma.orcamento.count({ where }),
     ])
     return { rows, total, page: Math.max(1, page), limit }
   }
@@ -2755,6 +2962,119 @@ export class OrcamentoService {
     await this.addEvento(id, userId, 'edicao', null, null, `Solicitante alterado para "${nomeNovo}"`)
     this.emitEvent('dados-gerais', { orcamentoId: id, empresaId: updated.empresaId, actorUserId: userId })
     return updated
+  }
+
+  /**
+   * Define quem executa UM serviço deste orçamento (item), à mão.
+   *
+   * Complementa o padrão do template em vez de substituí-lo: quando a
+   * atribuição do serviço é por SETOR — claim-first, o caso de 150 dos 242
+   * orçamentos com serviço — a execução nasceria sem dono e ninguém sabe de
+   * quem é o trabalho até alguém assumir. Aqui a pessoa é escolhida, e a
+   * escolha vale para a execução FUTURA (o `createExecucao` da aprovação
+   * recebe `item.responsavelId`) e para a que JÁ existe.
+   *
+   * Três portões, nesta ordem:
+   *  1. `change_responsavel`, aplicado no router (writeSubProcedure). Diz se a
+   *     pessoa pode mexer em responsável; não diz em QUAL serviço.
+   *  2. a ÁREA do serviço deste item: quem não é master/diretoria/coordenação
+   *     só define responsável de serviço de área que lidera. Roda SEMPRE —
+   *     antes, o critério de área só era aplicado quando já existia execução,
+   *     e antes da aprovação (o estado em que a maioria dos orçamentos está ao
+   *     definir isto) não havia checagem de área nenhuma.
+   *  3. quando a execução já existe, o `setResponsavelExecucao` — que valida de
+   *     novo e grava o evento na timeline DELA. Roda ANTES do update do item:
+   *     se recusar, nada é gravado, porque item com um responsável que a
+   *     execução rejeitou faria a tela afirmar o que o sistema não cumpre.
+   */
+  async setResponsavelItem(itemId: string, responsavelId: string | null, userId?: string) {
+    const item = await prisma.orcamentoItem.findUnique({
+      where: { id: itemId },
+      select: { id: true, orcamentoId: true, catalogoId: true, descricao: true, responsavelId: true },
+    })
+    if (!item) throw new Error('Item do orcamento nao encontrado')
+    if (item.responsavelId === responsavelId) return { ok: true, unchanged: true }
+
+    const orc = await prisma.orcamento.findUnique({
+      where: { id: item.orcamentoId },
+      select: { id: true, numero: true, empresaId: true },
+    })
+    if (!orc) throw new Error('Orcamento nao encontrado')
+
+    // Portão de ÁREA — antes de qualquer escrita. O `userId` vem do contexto
+    // tRPC e o router é o único caminho até aqui, então na prática ele sempre
+    // existe; o `if` só evita inventar uma falha nova para uma chamada interna
+    // que hoje não existe.
+    if (userId) {
+      await this.servicoService.assertPodeDefinirResponsavelDoServico(userId, item.catalogoId)
+    }
+
+    // Execução já criada para este serviço. O par (orcamento, serviço) é
+    // suficiente porque a aprovação é idempotente POR SERVIÇO — ela pula o
+    // item cujo serviço já tem execução —, então nunca há duas.
+    const execucao = item.catalogoId
+      ? await prisma.servicoExecucao.findFirst({
+          where: { orcamentoId: item.orcamentoId, servicoId: item.catalogoId },
+          select: { id: true },
+          orderBy: { createdAt: 'desc' },
+        }).catch(() => null)
+      : null
+
+    // Antes de gravar: o setResponsavelExecucao valida o caller e o candidato,
+    // grava o evento na timeline DA EXECUÇÃO e notifica quem assumiu. São duas
+    // timelines distintas — quem lê a execução precisa da informação lá, e não
+    // só no log do orçamento abaixo.
+    if (execucao && userId) {
+      await this.servicoService.setResponsavelExecucao(execucao.id, responsavelId, userId)
+    }
+
+    await prisma.orcamentoItem.update({ where: { id: itemId }, data: { responsavelId } })
+
+    let nome = 'Sem responsavel'
+    if (responsavelId) {
+      const u = await prisma.user.findUnique({ where: { id: responsavelId }, select: { name: true } }).catch(() => null)
+      nome = u?.name || responsavelId
+    }
+    await this.addEvento(
+      item.orcamentoId, userId, 'edicao', null, null,
+      `Responsavel da execucao de "${item.descricao}" definido como "${nome}"`,
+    )
+
+    // Avisa quem foi escolhido — independente do status do orçamento.
+    //
+    // A condição é exatamente "o `setResponsavelExecucao` não rodou": quando
+    // ele roda, já notifica — com link direto para o checklist —, e duas
+    // notificações pela mesma escolha seriam ruído.
+    //
+    // Sem `link` de propósito: antes da aprovação não existe execução para
+    // apontar, e mandar a pessoa ao orçamento é apostar que ela tem leitura no
+    // módulo Comercial — a mesma razão pela qual a notificação da execução usa
+    // /meus-servicos em vez do módulo Serviços. O texto diz onde o trabalho vai
+    // aparecer, que é o que ela precisa saber agora.
+    //
+    // Não notifica quem escolheu a si mesmo, nem a REMOÇÃO do responsável: o
+    // pedido é avisar quem foi definido.
+    if (!(execucao && userId) && responsavelId && responsavelId !== userId) {
+      try {
+        const quem = userId
+          ? (await prisma.user.findUnique({ where: { id: userId }, select: { name: true } }).catch(() => null))?.name
+          : null
+        await this.notificationService.criar({
+          userId: responsavelId,
+          titulo: `Você vai executar: ${item.descricao}`,
+          mensagem: `${quem ?? 'Um gestor'} definiu você como responsável no orçamento #${orc.numero}. `
+            + 'A execução aparece no seu Meus Serviços quando o financeiro liberar o orçamento.',
+          tipo: 'info',
+          origem: 'orcamentos',
+          empresaId: orc.empresaId,
+        })
+      } catch (e) {
+        // Falha de notificação não desfaz a atribuição, que já está gravada.
+        console.warn('[Orcamento] Falha ao notificar responsavel do item:', (e as Error).message)
+      }
+    }
+    this.emitEvent('dados-gerais', { orcamentoId: item.orcamentoId, empresaId: orc.empresaId, actorUserId: userId })
+    return { ok: true, execucaoAtualizada: !!execucao }
   }
 
   async editarData(id: string, campo: string, valor: string | null, userId?: string) {
@@ -2924,8 +3244,25 @@ export class OrcamentoService {
     </table>`
   }
 
-  /** Bloco de totais — quebrado por categoria + desconto + total geral em destaque verde. */
+  /**
+   * Bloco de totais — por categoria + desconto + total geral em destaque.
+   *
+   * O desconto sai de `descontoAplicado`, que é o que o `recalcularTotais`
+   * gravou. Antes era recalculado aqui:
+   *
+   *     const desc = num(orc.descontoValor)
+   *       || (num(orc.descontoPct) > 0 ? (tServ + tTax + tDesp) * num(orc.descontoPct) / 100 : 0)
+   *
+   * Essa conta ignorava o desconto POR ITEM e aplicava o percentual geral sobre
+   * serviços + taxas + despesas (o backend aplica só sobre serviços). No #4630
+   * o documento que vai ao cliente mostrava Serviços 7.200,00, Desconto
+   * −1.440,00 e Total geral 4.320,00 — uma tabela onde a subtração não fecha.
+   *
+   * Mesmo defeito do #4747 e do resumo da tela: valor derivado é do backend, e
+   * quem exibe compõe. Ver `docs/PADRAO_ESTADOS_E_PERMISSOES.md`.
+   */
   private buildTotaisBlock(orc: {
+    descontoAplicado?: number | string | null | { toNumber: () => number }
     descontoPct?: number | string | null | { toNumber: () => number }
     descontoValor?: number | string | null | { toNumber: () => number }
     totalServicos: number | string | { toNumber: () => number }
@@ -2941,8 +3278,12 @@ export class OrcamentoService {
     const tServ = num(orc.totalServicos)
     const tTax = num(orc.totalTaxas)
     const tDesp = num(orc.totalDespesas)
-    const desc = num(orc.descontoValor) || (num(orc.descontoPct) > 0 ? (tServ + tTax + tDesp) * num(orc.descontoPct) / 100 : 0)
     const total = num(orc.totalGeral)
+    // Retaguarda só para registro antigo, anterior ao `descontoAplicado`: o que
+    // sobra entre o bruto e o total gravado É o desconto concedido.
+    const desc = orc.descontoAplicado != null
+      ? num(orc.descontoAplicado)
+      : Math.max(0, tServ + tTax + tDesp - total)
 
     const linha = (label: string, valor: number, color = '#374151') => `
       <tr>
@@ -3037,6 +3378,7 @@ export class OrcamentoService {
       descontoValor: i.descontoValor as unknown as { toNumber: () => number } | null,
     })))
     const totaisBlock = this.buildTotaisBlock({
+      descontoAplicado: orc.descontoAplicado as unknown as { toNumber: () => number } | null,
       descontoPct: orc.descontoPct as unknown as { toNumber: () => number } | null,
       descontoValor: orc.descontoValor as unknown as { toNumber: () => number } | null,
       totalServicos: orc.totalServicos as unknown as { toNumber: () => number },
@@ -3171,7 +3513,7 @@ export class OrcamentoService {
         heroSubtitle: `${numero} · ${clienteNome}`,
         bodyHtml: `
           <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:16px 20px;margin:0 0 18px;">
-            <p style="margin:0;color:#065f46;font-weight:600;font-size:14px;">🎉 O cliente aprovou a proposta. Próximo passo: liberar para execução.</p>
+            <p style="margin:0;color:#065f46;font-weight:600;font-size:14px;">🎉 O cliente aprovou a proposta. Próximo passo: o financeiro liberar para execução — os serviços só começam depois da liberação.</p>
           </div>
           <p>O orçamento <strong>${numero}</strong> para <strong>${clienteNome}</strong> foi aprovado.</p>
           ${summaryTable}
@@ -3351,6 +3693,7 @@ export class OrcamentoService {
       descontoValor: i.descontoValor as unknown as { toNumber: () => number } | null,
     })))
     const totaisBlock = this.buildTotaisBlock({
+      descontoAplicado: orc.descontoAplicado as unknown as { toNumber: () => number } | null,
       descontoPct: orc.descontoPct as unknown as { toNumber: () => number } | null,
       descontoValor: orc.descontoValor as unknown as { toNumber: () => number } | null,
       totalServicos: orc.totalServicos as unknown as { toNumber: () => number },
@@ -3504,17 +3847,9 @@ export class OrcamentoService {
         : isRevisao ? `Cliente (${decisao.nome}) solicitou revisão da proposta`
         : `Decisão do cliente (${decisao.nome}): Recusado`,
     )
-    // Aprovou pelo link → o serviço tem que nascer igual ao caminho interno.
-    // Este gatilho vivia dentro do `changeStatus`, por onde a decisão do cliente
-    // não passa: o orçamento ficava APROVADO e o serviço nunca aparecia em
-    // /meus-servicos. Como aqui o `dtAprovado` já é gravado acima, uma passagem
-    // posterior pelo `changeStatus` também não recuperaria (a transição deixa de
-    // ser a primeira). Best-effort: falhar em criar o serviço não pode derrubar
-    // a decisão do cliente, que é o ato importante desta chamada.
-    if (isAprovado) {
-      await this.dispararServicosDaAprovacao(orc.id, undefined)
-        .catch(e => console.warn('[Orcamento] Falha ao criar serviços da aprovação pelo link:', (e as Error).message))
-    }
+    // Aprovou pelo link → NÃO cria serviço: desde 29/09/2026 os serviços nascem
+    // na liberação do financeiro (`changeStatus` → LIBERADO), como no caminho
+    // interno. A aprovação só avisa comercial e financeiro (abaixo).
     // Dispara as notificações internas (comercial/financeiro + aprovações) — antes
     // o fluxo do link público não notificava ninguém, só o de status direto. Agora
     // aprovação/recusa pelo link avisa os mesmos destinatários. Best-effort.
@@ -3527,76 +3862,20 @@ export class OrcamentoService {
 
   // ── Itens ─────────────────────────────────────────────────
 
-  /**
-   * Confere a escolha do subserviço.
-   *
-   * A regra é do negócio: um serviço que foi decomposto em subserviços não
-   * deve entrar genérico num orçamento — se "Extra Legalização" virou COMPETE,
-   * INVEST e Renovação, cobrar "Extra Legalização" sem dizer qual não informa
-   * o cliente nem a execução.
-   *
-   * MAS há quem precise vender o serviço como um todo, e isso é decisão de
-   * quem vende, não de quem programa. Então a exigência virou permissão:
-   * `item_sem_subservico` libera o usuário a incluir sem detalhar. Sem ela, a
-   * escolha continua obrigatória.
-   *
-   * A checagem é na ESCRITA, nunca na leitura: item antigo, gravado quando a
-   * regra era outra, continua válido — reprovar o que já está no orçamento
-   * quebraria orçamento fechado.
-   */
-  private async validarSubservico(
-    catalogoId?: string | null,
-    subservicoId?: string | null,
-    ctx?: CtxPermissao,
-  ) {
-    if (!catalogoId) return
-
-    const filhos = await prisma.servicoSubservico.findMany({
-      where: { paiId: catalogoId },
-      select: { filhoId: true, pai: { select: { nome: true } } },
-    }).catch(() => [])
-
-    // Sem filhos, um subserviço pendurado só pode ter sobrado da escolha
-    // anterior na tela. Ignorar é melhor que recusar: o vínculo some sozinho e
-    // ninguém fica travado por um resíduo.
-    if (filhos.length === 0) return
-
-    if (!subservicoId) {
-      // `ctx` ausente = chamada interna (duplicação, importação, migração), que
-      // não tem usuário para consultar. Aí a regra não se aplica: ela existe
-      // para orientar quem monta o orçamento na tela.
-      if (!ctx?.userId) return
-
-      // #HLP0374 — a exigência pode ser desligada nas configurações de
-      // orçamentos. A leitura fica AQUI, e não no topo do método, para não
-      // custar uma consulta em todo item incluído: só quem chegaria a ser
-      // barrado paga por ela.
-      const cfg = await this.getConfig(ctx.empresaId ?? undefined).catch(() => null)
-      if (cfg && !cfg.exigirSubservico) return
-
-      const liberado = ctx.isMaster || ctx.isEmpresaMaster
-        || await hasSubPermission(ctx.userId, 'orcamentos', 'item_sem_subservico')
-      if (liberado) return
-
-      const nome = filhos[0]?.pai?.nome ?? 'Este serviço'
-      throw new Error(
-        `"${nome}" tem subserviços — escolha qual está sendo orçado. `
-        + 'Para incluí-lo sem detalhar, é preciso a permissão "Incluir serviço sem escolher o subserviço".',
-      )
-    }
-
-    if (!filhos.some(f => f.filhoId === subservicoId)) {
-      throw new Error('O subserviço escolhido não pertence a este serviço.')
-    }
-  }
-
-  async addItem(input: CreateOrcamentoItemInput, ctx?: CtxPermissao) {
+  async addItem(input: CreateOrcamentoItemInput) {
     await this.assertEditable(input.orcamentoId)
-    await this.validarSubservico(input.catalogoId, input.subservicoId, ctx)
     // Desconto por item só vale para serviço (#HLP0302, decisão de negócio):
     // TAXA/DESPESA nunca recebem desconto, então zeramos por segurança mesmo que
     // o cliente mande algo.
     const ehServico = input.tipo === 'SERVICO'
+    const descontoPedido = ehServico
+      ? intensidadeDesconto(input.itemDescontoPct, input.itemDescontoValor)
+      : 0
+    if (descontoPedido > 0) {
+      // Item novo não tem desconto anterior — o `atual` é sempre 0 aqui.
+      const decisao = decidirDesconto(descontoPedido, 0, await this.temDescontoGeral(input.orcamentoId), MOTIVO_ITEM_BLOQUEADO)
+      if (!decisao.permitido) throw new Error(decisao.motivo as string)
+    }
     const item = await prisma.orcamentoItem.create({
       data: {
         orcamentoId: input.orcamentoId,
@@ -3607,13 +3886,20 @@ export class OrcamentoService {
         descontoPct: ehServico ? (input.itemDescontoPct ?? null) : null,
         descontoValor: ehServico ? (input.itemDescontoValor ?? null) : null,
         catalogoId: input.catalogoId || null,
-        subservicoId: input.subservicoId || null,
         catalogoTextoId: input.catalogoTextoId || null,
         situacao: input.situacao || 'A_FAZER',
       },
     })
     await this.recalcularTotais(input.orcamentoId)
     await this.emitItemEvent(input.orcamentoId)
+
+    // Evento "Serviço incluído ao orçamento". `void` de propósito: avisar é
+    // consequência da inclusão, não condição dela — e-mail lento ou SMTP fora
+    // não podem segurar a resposta de quem está montando a proposta.
+    // Só serviço do catálogo dispara; taxa e despesa não são executadas.
+    if (ehServico && item.catalogoId) {
+      void this.servicoService.notificarServicoIncluidoOrcamento(item.id)
+    }
     return item
   }
 
@@ -3673,31 +3959,38 @@ export class OrcamentoService {
       criadas: novos.length,
       // itens do grupo que não entraram: já presentes + inelegíveis (inativo/indisponível/interno)
       pulados: grupo.itens.length - novos.length,
+      // Textos padrão dos serviços que REALMENTE entraram — a tela acrescenta
+      // cada um ao "Texto para o Cliente". Só aqui se sabe quais foram criados
+      // (os já presentes e os inaptos ficam de fora), e o `textoPadrao` já vinha
+      // no select desta consulta sem ter uso nenhum até agora.
+      textos: novos
+        .filter(s => (s.textoPadrao ?? '').trim())
+        .map(s => ({ nome: s.nome, texto: s.textoPadrao })),
     }
   }
 
-  async updateItem(id: string, data: UpdateOrcamentoItemInput, ctx?: CtxPermissao) {
+  async updateItem(id: string, data: UpdateOrcamentoItemInput) {
     const item = await prisma.orcamentoItem.findUnique({
       where: { id },
-      select: { orcamentoId: true, tipo: true, catalogoId: true, subservicoId: true },
+      select: { orcamentoId: true, tipo: true, catalogoId: true, descontoPct: true, descontoValor: true },
     })
     if (!item) throw new Error('Item não encontrado')
     await this.assertEditable(item.orcamentoId)
 
-    // A exigência do subserviço vale na ESCOLHA do serviço, não em toda edição.
-    //
-    // Um item lançado antes de o serviço ganhar subserviços carrega o serviço
-    // mãe e nenhum filho. Como a tela reenvia o serviço junto de qualquer
-    // alteração, conferir sempre bloqueava mexer na quantidade, no valor ou no
-    // desconto de itens antigos — e o desconto é do item, nada tem a ver com
-    // qual subserviço foi escolhido.
-    //
-    // Só confere quando o serviço está de fato TROCANDO. Aí a escolha volta a
-    // fazer sentido, e o campo está na tela para ser preenchido.
-    const trocouServico = data.catalogoId !== undefined && data.catalogoId !== item.catalogoId
-    if (trocouServico) {
-      await this.validarSubservico(data.catalogoId, data.subservicoId ?? null, ctx)
+    // Desconto de item novo (ou aumentado) só passa se não houver desconto
+    // geral no orçamento. Só o valor NOVO é barrado — quem já tem os dois
+    // continua podendo editar quantidade, valor e, principalmente, ZERAR.
+    const descontoPedido = intensidadeDesconto(data.itemDescontoPct, data.itemDescontoValor)
+    if (descontoPedido > 0) {
+      const decisao = decidirDesconto(
+        descontoPedido,
+        intensidadeDesconto(item.descontoPct as number | null, item.descontoValor as number | null),
+        await this.temDescontoGeral(item.orcamentoId),
+        MOTIVO_ITEM_BLOQUEADO,
+      )
+      if (!decisao.permitido) throw new Error(decisao.motivo as string)
     }
+
     // Mapeia os nomes da API (itemDesconto*) para as colunas do item (desconto*),
     // separando-os dos campos genéricos. Desconto só entra em serviço.
     const { itemDescontoPct, itemDescontoValor, ...rest } = data
@@ -4124,21 +4417,7 @@ export class OrcamentoService {
     const items = [...servicosAsCatalogo, ...catalogosNormalizados]
     const ids = items.map(i => i.id)
 
-    // Subserviços de cada serviço — é o que permite a tela oferecer
-    // "Extra Legalização → COMPETE" sem uma segunda ida ao servidor a cada
-    // serviço escolhido.
-    const vinculos = ids.length > 0
-      ? await prisma.servicoSubservico.findMany({
-          where: { paiId: { in: ids }, filho: { ativo: true, ehServicoInterno: false } },
-          orderBy: { ordem: 'asc' },
-          select: { paiId: true, filho: { select: { id: true, nome: true, valorPadrao: true, textoPadrao: true } } },
-        }).catch(() => [])
-      : []
-
-    // O subserviço pode estar fora da lista principal (marcado como não
-    // disponível para orçamento avulso, por exemplo) e ainda assim precisa das
-    // próprias variações quando escolhido sob o pai.
-    const idsComTextos = [...new Set([...ids, ...vinculos.map(v => v.filho.id)])]
+    const idsComTextos = ids
 
     // Textos do registro de TODOS os itens (Serviço/Taxa/Despesa) — referência
     // "soft" por catalogoId (sem FK); valem para qualquer tipo.
@@ -4166,22 +4445,9 @@ export class OrcamentoService {
       usoMap = new Map(usos.map(u => [u.catalogoId!, u._count]))
     }
 
-    const subsMap = new Map<string, Array<{ id: string; nome: string; valorPadrao: unknown; textoPadrao: string | null }>>()
-    for (const v of vinculos) {
-      const arr = subsMap.get(v.paiId) ?? []
-      arr.push(v.filho)
-      subsMap.set(v.paiId, arr)
-    }
-
     return items.map(i => ({
       ...i,
       textos: textosMap.get(i.id) ?? [],
-      // As variações do subserviço vêm juntas: quem escolhe COMPETE precisa
-      // ver as variações DE COMPETE, não as do serviço mãe.
-      subservicos: (subsMap.get(i.id) ?? []).map(sub => ({
-        ...sub,
-        textos: textosMap.get(sub.id) ?? [],
-      })),
       usoCount: usoMap.get(i.id) || 0,
     }))
   }
@@ -4384,9 +4650,12 @@ export class OrcamentoService {
 
   // ── Estatisticas ──────────────────────────────────────────
 
-  async getStats(empresaId?: string) {
+  async getStats(empresaId?: string, janela?: Janela) {
     const where: any = { arquivado: false }
     if (empresaId) where.empresaId = empresaId
+    // /comercial: orçamentos CRIADOS no período, pela situação atual.
+    const criadoEm = janela ? filtroDeData(janela) : undefined
+    if (criadoEm) where.createdAt = criadoEm
 
     const [total, porStatus, valorTotal] = await Promise.all([
       prisma.orcamento.count({ where }),
@@ -4403,7 +4672,7 @@ export class OrcamentoService {
    * (gestor+) — se o user não for privilegiado, retorna { permitido: false }
    * e o widget mostra empty state com mensagem.
    */
-  async getDashboardStats(userId: string, empresaId?: string) {
+  async getDashboardStats(userId: string, empresaId?: string, janela?: Janela) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { role: true, profile: true, isMaster: true, isEmpresaMaster: true },
@@ -4427,6 +4696,9 @@ export class OrcamentoService {
 
     const baseWhere: any = { arquivado: false }
     if (empresaId) baseWhere.empresaId = empresaId
+    // /comercial: só os orçamentos CRIADOS no período (sem período, todos).
+    const criadoEm = janela ? filtroDeData(janela) : undefined
+    if (criadoEm) baseWhere.createdAt = criadoEm
 
     const [
       aguardandoEnvio,
@@ -4637,17 +4909,20 @@ export class OrcamentoService {
    * conversão entre estágios consecutivos. Filtra por createdAt nos últimos
    * `dias` (ou todo o período se não informado).
    */
-  async reportFunilComercial(empresaId?: string, dias?: number) {
-    const cutoff = dias ? new Date(Date.now() - dias * 86400000) : undefined
+  async reportFunilComercial(empresaId?: string, dias?: number | Janela) {
+    // Janela explícita (data inicial/final do /comercial) ou os últimos N dias.
+    const quando = filtroDeDiasOuJanela(dias)
     const emp: Prisma.OrcamentoWhereInput = empresaId ? { empresaId } : {}
-    const desdeCreated = cutoff ? { createdAt: { gte: cutoff } } : {}
+    const desdeCreated = quando ? { createdAt: quando } : {}
 
     const [leads, oportunidades, orcEnviados, orcAprovados, contratos] = await Promise.all([
       prisma.leadSessao.count({ where: { ...(empresaId ? { empresaId } : {}), ...desdeCreated } }),
       prisma.oportunidade.count({ where: { ...(empresaId ? { empresaId } : {}), ...desdeCreated } }),
-      prisma.orcamento.count({ where: { ...emp, arquivado: false, dtEnviado: cutoff ? { gte: cutoff } : { not: null } } }),
-      prisma.orcamento.count({ where: { ...emp, arquivado: false, dtAprovado: cutoff ? { gte: cutoff } : { not: null } } }),
-      prisma.contrato.count({ where: { ...(empresaId ? { empresaId } : {}), ...desdeCreated, status: { not: 'RASCUNHO' } } }),
+      prisma.orcamento.count({ where: { ...emp, arquivado: false, status: { not: 'CANCELADO' }, dtEnviado: quando ?? { not: null } } }),
+      prisma.orcamento.count({ where: { ...emp, arquivado: false, status: { not: 'CANCELADO' }, dtAprovado: quando ?? { not: null } } }),
+      // Contrato = orçamento que virou contrato (fonte única, a mesma do funil
+      // do painel). A tabela `contratos` não é alimentada pelo comercial.
+      contratosDeOrcamento(empresaId, quando).then(c => c.length),
     ])
 
     const stage = (label: string, count: number, prev: number | null) => ({
@@ -4660,7 +4935,7 @@ export class OrcamentoService {
       stage('Orçamentos aprovados', orcAprovados, orcEnviados),
       stage('Contratos efetivados', contratos, orcAprovados),
     ]
-    return { funil, dias: dias ?? null }
+    return { funil, dias: typeof dias === 'number' ? dias : null }
   }
 
   /**
@@ -4673,9 +4948,62 @@ export class OrcamentoService {
    * Classificação pela natureza do SERVIÇO (recorrenteMensal), não pelo campo
    * `tipo` estático — mesma regra do reportIndicadores.
    */
-  async reportMrrAvulso(empresaId?: string, dias?: number) {
+  /**
+   * Marca (ou desfaz) o orçamento como contrato fechado. A data é o dia
+   * informado, ao meio-dia de Brasília — longe da virada, para o dia não
+   * escorregar em nenhum fuso. Registra no histórico do orçamento.
+   */
+  async marcarContratoFechado(id: string, fechadoEm: string | null, userId: string, empresaId?: string) {
+    const orc = await prisma.orcamento.findUnique({ where: { id }, select: { id: true, empresaId: true, numero: true } })
+    if (!orc || (empresaId && orc.empresaId !== empresaId)) return null
+    const data = fechadoEm ? new Date(`${fechadoEm}T12:00:00.000-03:00`) : null
+    const r = await prisma.orcamento.update({
+      where: { id },
+      data: { contratoFechadoEm: data, contratoFechadoPor: data ? userId : null },
+      select: { id: true, contratoFechadoEm: true },
+    })
+    await prisma.orcamentoEvento.create({
+      data: {
+        orcamentoId: id,
+        userId,
+        tipo: 'contrato_fechado',
+        descricao: data
+          ? `Contrato fechado em ${fechadoEm!.split('-').reverse().join('/')} (informado no Painel Comercial)`
+          : 'Marca de contrato fechado desfeita (Painel Comercial)',
+      },
+    }).catch(() => null)
+    return r
+  }
+
+  /**
+   * Destaca (ou tira o destaque de) um card do quadro. Vale para toda a equipe:
+   * o card ganha borda âmbar e sobe para o topo da coluna. Registra no
+   * histórico quem destacou.
+   */
+  async destacar(id: string, destacar: boolean, userId: string, empresaId?: string, cor: string = 'amber') {
+    const orc = await prisma.orcamento.findUnique({ where: { id }, select: { id: true, empresaId: true } })
+    if (!orc || (empresaId && orc.empresaId !== empresaId)) return null
+    const r = await prisma.orcamento.update({
+      where: { id },
+      data: {
+        destacadoEm: destacar ? new Date() : null,
+        destacadoPor: destacar ? userId : null,
+        destacadoCor: destacar ? cor : null,
+      },
+      select: { id: true, destacadoEm: true, destacadoPor: true, destacadoCor: true },
+    })
+    await prisma.orcamentoEvento.create({
+      data: { orcamentoId: id, userId, tipo: 'destaque', descricao: destacar ? 'Card destacado no quadro' : 'Destaque do card removido' },
+    }).catch(() => null)
+    return r
+  }
+
+  async reportMrrAvulso(empresaId?: string, dias?: number | Janela) {
     const emp: Prisma.OrcamentoWhereInput = empresaId ? { empresaId } : {}
-    const cutoff = dias ? new Date(Date.now() - dias * 86400000) : undefined
+    // Janela explícita (data inicial/final do /comercial) ou os últimos N dias.
+    const aprovadoEm = typeof dias === 'object'
+      ? filtroDeData(dias)
+      : dias ? { gte: new Date(Date.now() - dias * 86400000) } : undefined
 
     const recorrentes = await prisma.servico.findMany({
       where: { recorrenteMensal: true, ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}) },
@@ -4688,31 +5016,32 @@ export class OrcamentoService {
       return servicos.some(it => recorrenteSet.has(it.catalogoId!))
     }
 
-    // Série dos últimos 12 meses por dtAprovado (independe do período dos cards)
-    const desde = new Date()
-    desde.setMonth(desde.getMonth() - 11)
-    desde.setDate(1)
-    desde.setHours(0, 0, 0, 0)
+    // Série mensal por dtAprovado: os meses do período (/comercial) ou, sem
+    // período com datas, os últimos 12.
+    const janela = typeof dias === 'object' ? dias : undefined
+    const meses = mesesDaJanela(janela ?? {}, new Date(), 12, 24)
+    const desde = new Date(`${meses[0]!.chave}-01T00:00:00.000-03:00`)
+    // MRR na data final do período (a carteira daquele dia, honorário de hoje).
+    const agora = new Date()
+    const refCarteira = janela?.lte && janela.lte < agora ? janela.lte : undefined
 
     const orcSelect = { totalGeral: true, tipo: true, dtAprovado: true, itens: { select: { tipo: true, catalogoId: true } } } as const
     const [mrrAgg, aprovados, ult12] = await Promise.all([
-      prisma.contrato.aggregate({
-        where: { ...(empresaId ? { empresaId } : {}), status: { in: ['VIGENTE', 'ASSINADO'] } },
-        _sum: { honorarioMensal: true },
-        _count: { _all: true },
-      }),
+      // MRR = carteira da Gestão de Contratos (a tabela `contratos` não é
+      // alimentada — ver contrato/carteira-gestao.ts).
+      carteiraRecorrente(empresaId, refCarteira),
       prisma.orcamento.findMany({
-        where: { ...emp, arquivado: false, dtAprovado: cutoff ? { gte: cutoff } : { not: null } },
+        where: { ...emp, arquivado: false, status: { not: 'CANCELADO' }, dtAprovado: aprovadoEm ?? { not: null } },
         select: orcSelect,
       }),
       prisma.orcamento.findMany({
-        where: { ...emp, arquivado: false, dtAprovado: { gte: desde } },
+        where: { ...emp, arquivado: false, status: { not: 'CANCELADO' }, dtAprovado: { gte: desde, ...(janela?.lte ? { lte: janela.lte } : {}) } },
         select: orcSelect,
       }),
     ])
 
-    const mrrAtual = Number(mrrAgg._sum.honorarioMensal ?? 0)
-    const contratosRecorrentes = mrrAgg._count._all
+    const mrrAtual = Math.round(mrrAgg.reduce((t, c) => t + c.honorario, 0) * 100) / 100
+    const contratosRecorrentes = mrrAgg.length
 
     // Vendas aprovadas no período → recorrente vs. avulso
     const rec = { count: 0, valor: 0 }, av = { count: 0, valor: 0 }
@@ -4729,18 +5058,12 @@ export class OrcamentoService {
       pctAvulso: totalValor > 0 ? Math.round((av.valor / totalValor) * 100) : 0,
     }
 
-    // Série 12 meses (valor aprovado por mês)
-    const buckets: { mes: string; recorrente: number; avulso: number }[] = []
-    for (let i = 0; i < 12; i++) {
-      const d = new Date(desde)
-      d.setMonth(desde.getMonth() + i)
-      buckets.push({ mes: `${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`, recorrente: 0, avulso: 0 })
-    }
-    const idxMes = new Map(buckets.map((b, i) => [b.mes, i]))
+    // Série mensal (valor aprovado por mês de Brasília)
+    const buckets: { mes: string; recorrente: number; avulso: number }[] = meses.map(m => ({ mes: m.rotulo, recorrente: 0, avulso: 0 }))
+    const idxMes = new Map(meses.map((m, i) => [m.chave, i]))
     for (const o of ult12) {
       if (!o.dtAprovado) continue
-      const key = `${String(o.dtAprovado.getMonth() + 1).padStart(2, '0')}-${o.dtAprovado.getFullYear()}`
-      const i = idxMes.get(key)
+      const i = idxMes.get(mesBr(o.dtAprovado))
       if (i === undefined) continue
       const v = Number(o.totalGeral)
       if (ehMensal(o.itens, o.tipo)) buckets[i]!.recorrente += v
@@ -4754,7 +5077,7 @@ export class OrcamentoService {
       ticketMedioMrr: contratosRecorrentes > 0 ? mrrAtual / contratosRecorrentes : 0,
       periodo,
       serie12m: buckets,
-      dias: dias ?? null,
+      dias: typeof dias === 'number' ? dias : null,
     }
   }
 
@@ -4765,28 +5088,30 @@ export class OrcamentoService {
    * taxa de aprovação, contratos efetivados e MRR gerado. Ordenado por valor
    * aprovado. Sem responsável agregado em "Sem responsável".
    */
-  async reportRankingVendedores(empresaId?: string, dias?: number) {
+  async reportRankingVendedores(empresaId?: string, dias?: number | Janela) {
     const emp: Prisma.OrcamentoWhereInput = empresaId ? { empresaId } : {}
-    const cutoff = dias ? new Date(Date.now() - dias * 86400000) : undefined
+    // Janela explícita (data inicial/final do /comercial) ou os últimos N dias.
+    const quando = filtroDeDiasOuJanela(dias)
 
-    const [enviadosGrp, aprovadosGrp, contratosGrp] = await Promise.all([
+    const [enviadosGrp, aprovadosGrp, contratosGrp, contratosOrc] = await Promise.all([
       prisma.orcamento.groupBy({
         by: ['responsavelId'],
-        where: { ...emp, arquivado: false, dtEnviado: cutoff ? { gte: cutoff } : { not: null } },
+        where: { ...emp, arquivado: false, status: { not: 'CANCELADO' }, dtEnviado: quando ?? { not: null } },
         _count: { _all: true },
       }),
       prisma.orcamento.groupBy({
         by: ['responsavelId'],
-        where: { ...emp, arquivado: false, dtAprovado: cutoff ? { gte: cutoff } : { not: null } },
+        where: { ...emp, arquivado: false, status: { not: 'CANCELADO' }, dtAprovado: quando ?? { not: null } },
         _count: { _all: true },
         _sum: { totalGeral: true },
       }),
       prisma.contrato.groupBy({
         by: ['responsavelId'],
-        where: { ...(empresaId ? { empresaId } : {}), status: { notIn: ['RASCUNHO', 'CANCELADO'] }, ...(cutoff ? { createdAt: { gte: cutoff } } : {}) },
+        where: { ...(empresaId ? { empresaId } : {}), status: { notIn: ['RASCUNHO', 'CANCELADO'] }, ...(quando ? { createdAt: quando } : {}) },
         _count: { _all: true },
         _sum: { honorarioMensal: true },
       }),
+      contratosDeOrcamento(empresaId, quando),
     ])
 
     type Acc = { enviados: number; aprovados: number; valorAprovado: number; contratos: number; mrr: number }
@@ -4802,11 +5127,10 @@ export class OrcamentoService {
       a.aprovados += g._count._all
       a.valorAprovado += Number(g._sum.totalGeral ?? 0)
     }
-    for (const g of contratosGrp) {
-      const a = get(g.responsavelId)
-      a.contratos += g._count._all
-      a.mrr += Number(g._sum.honorarioMensal ?? 0)
-    }
+    // Contratos: os que vieram de orçamento (fonte única do painel). O MRR
+    // continua lendo o honorário da tabela `contratos`.
+    for (const c of contratosOrc) get(c.responsavelId).contratos++
+    for (const g of contratosGrp) get(g.responsavelId).mrr += Number(g._sum.honorarioMensal ?? 0)
 
     // Resolve nomes dos responsáveis
     const ids = [...mapa.keys()].filter((k): k is string => !!k)
@@ -4839,7 +5163,7 @@ export class OrcamentoService {
       mrr: t.mrr + r.mrr,
     }), { enviados: 0, aprovados: 0, valorAprovado: 0, contratos: 0, mrr: 0 })
 
-    return { ranking, totais, dias: dias ?? null }
+    return { ranking, totais, dias: typeof dias === 'number' ? dias : null }
   }
 
   /**
@@ -4850,12 +5174,13 @@ export class OrcamentoService {
    *   repasses (taxas+despesas) → margem de serviço %.
    * - Top maiores descontos e desconto médio por vendedor.
    */
-  async reportDescontosMargem(empresaId?: string, dias?: number) {
+  async reportDescontosMargem(empresaId?: string, dias?: number | Janela) {
     const emp: Prisma.OrcamentoWhereInput = empresaId ? { empresaId } : {}
-    const cutoff = dias ? new Date(Date.now() - dias * 86400000) : undefined
+    // Janela explícita (data inicial/final do /comercial) ou os últimos N dias.
+    const quando = filtroDeDiasOuJanela(dias)
 
     const rows = await prisma.orcamento.findMany({
-      where: { ...emp, arquivado: false, dtAprovado: cutoff ? { gte: cutoff } : { not: null } },
+      where: { ...emp, arquivado: false, status: { not: 'CANCELADO' }, dtAprovado: quando ?? { not: null } },
       select: {
         id: true, numero: true, clienteId: true, responsavelId: true,
         totalServicos: true, totalTaxas: true, totalDespesas: true,
@@ -4952,7 +5277,7 @@ export class OrcamentoService {
       faixas,
       topDescontos,
       porVendedor,
-      dias: dias ?? null,
+      dias: typeof dias === 'number' ? dias : null,
     }
   }
 
@@ -5152,12 +5477,21 @@ export class OrcamentoService {
       // geral fica bloqueado e só o por-item vale. Desmarcada = os dois somam.
       // Default '1' (travado por padrão, conforme decisão do Wagner).
       apenasDescontoItem: (config.apenas_desconto_item ?? '1') === '1',
-      // #HLP0374 — "Exigir subserviço ao incluir item". Marcada (padrão) = quem
-      // não tem a permissão de exceção precisa escolher o subserviço. Desmarcada
-      // = a exigência não vale para ninguém. Default '1' preserva o que existe
-      // hoje, para nenhuma empresa mudar de comportamento no deploy.
-      exigirSubservico: (config.exigir_subservico ?? '1') === '1',
+      // #HLP0411 — roteiro que abre no Detalhamento ao pedir orçamento. null =
+      // nunca configurado (a tela usa o roteiro padrão); '' = configurado vazio
+      // (sem roteiro, de propósito).
+      roteiroSolicitacao: 'roteiro_solicitacao' in config ? config.roteiro_solicitacao! : null,
     }
+  }
+
+  /**
+   * O roteiro da solicitação para os formulários (balão do botão + e Novo
+   * Orçamento). Separado do getConfig porque o balão é usado por quem nem tem
+   * acesso ao módulo — e não precisa ver o resto da configuração.
+   */
+  async getRoteiroSolicitacao(empresaId?: string): Promise<string | null> {
+    const cfg = await this.getConfig(empresaId).catch(() => null)
+    return cfg?.roteiroSolicitacao ?? null
   }
 
   /** #HLP0302 — o desconto GERAL só entra quando "apenas por item" está DESmarcado. */

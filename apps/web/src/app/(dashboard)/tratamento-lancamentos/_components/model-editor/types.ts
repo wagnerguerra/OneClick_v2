@@ -46,6 +46,7 @@ export const MODE_ACCENT = {
   // pendência do editor (âmbar = pendência de arquivo, vermelho/rose = de modelo).
   orange: { border: 'border-orange-500', ring: 'ring-orange-500/25', bg: 'bg-orange-500/5', dot: 'bg-orange-500', text: 'text-orange-700 dark:text-orange-300' },
   fuchsia: { border: 'border-fuchsia-500', ring: 'ring-fuchsia-500/25', bg: 'bg-fuchsia-500/5', dot: 'bg-fuchsia-500', text: 'text-fuchsia-700 dark:text-fuchsia-300' },
+  indigo: { border: 'border-indigo-500', ring: 'ring-indigo-500/25', bg: 'bg-indigo-500/5', dot: 'bg-indigo-500', text: 'text-indigo-700 dark:text-indigo-300' },
 } as const
 
 export type SetDef = Dispatch<SetStateAction<TreatmentDefinition>>

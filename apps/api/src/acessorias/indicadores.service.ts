@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common'
 import { prisma, Prisma } from '@saas/db'
 import { VinculosAcessoriasService } from './vinculos.service'
+import { daCarteira } from './recorte-carteira'
+import { paraLinhasPainel, podeReclassificarMulta, urlEntregaTemplate } from './painel-entregas.service'
 
 /**
  * Painel de indicadores das obrigações — seis números por cartão.
@@ -35,6 +37,12 @@ export interface Indicadores {
   entregueNoPrazo: number
   entregueComAtraso: number
   entregueComMulta: number
+  /**
+   * Entregues, sujeitas a multa, cuja guia o cliente ainda não abriu. É um
+   * recorte das entregues (atravessa "no prazo" e "com atraso"), não um balde
+   * a mais — a tela não o soma no total nem na rosca.
+   */
+  entregueNaoLidaComMulta: number
 }
 
 export interface CartaoIndicadores extends Indicadores {
@@ -50,6 +58,7 @@ export interface CartaoIndicadores extends Indicadores {
 const zerado = (): Indicadores => ({
   pendenteNoPrazo: 0, pendenteAtrasado: 0, pendenteComMulta: 0,
   entregueNoPrazo: 0, entregueComAtraso: 0, entregueComMulta: 0,
+  entregueNaoLidaComMulta: 0,
 })
 
 const STATUS_ENTREGUE = ['ent. antecipada', 'ent. pztéc', 'ent. pztec', 'ent. atrasada', 'entregue']
@@ -65,6 +74,8 @@ interface LinhaCrua {
   dtAtraso: Date | null
   dtEntrega: Date | null
   multa: boolean
+  /** true = lida, false = não lida, null = sem guia para abrir. */
+  lida: boolean | null
   respPrazo: string | null
   respEntrega: string | null
   dpto: string | null
@@ -102,6 +113,10 @@ export class IndicadoresAcessoriasService {
 
     const entregue = l.dtEntrega !== null || STATUS_ENTREGUE.some((x) => s.startsWith(norm(x)))
     if (entregue) {
+      // Guia entregue que o cliente não abriu, em obrigação sujeita a multa: o
+      // escritório cumpriu, mas se o cliente não pagar a multa vem do mesmo
+      // jeito. Independe de ter sido no prazo — por isso conta antes da régua.
+      if (l.multa && l.lida === false) acc.entregueNaoLidaComMulta++
       // Comparar a data de entrega com o limite responde às duas réguas com a
       // mesma conta. Pela legal, o "Ent. PzTéc" cai como em dia (foi entregue
       // antes do prazo do órgão); pela técnica, cai como atraso — que é
@@ -166,8 +181,10 @@ export class IndicadoresAcessoriasService {
     const hoje = new Date()
     hoje.setHours(0, 0, 0, 0)
 
-    const escopoEmpresa: Prisma.AcessoriasEntregaWhereInput =
-      !ctx.isMaster && empresaId ? { empresaId } : {}
+    // Empresa carregada — também para o master: a tela mostra a carteira da
+    // empresa em que ele está, como o painel de entregas. E só cliente mensal
+    // ativo (ver recorte-carteira.ts).
+    const escopoEmpresa: Prisma.AcessoriasEntregaWhereInput = daCarteira(empresaId)
 
     // Competência e período são excludentes: quem escolheu a competência quer o
     // fechamento daquele mês inteiro, independentemente de quando vence.
@@ -222,7 +239,7 @@ export class IndicadoresAcessoriasService {
     const linhas = await prisma.acessoriasEntrega.findMany({
       where,
       select: {
-        status: true, prazo: true, dtAtraso: true, dtEntrega: true, multa: true,
+        status: true, prazo: true, dtAtraso: true, dtEntrega: true, multa: true, lida: true,
         respPrazo: true, respEntrega: true, dpto: true, nome: true, clienteId: true,
       },
     })
@@ -310,6 +327,7 @@ export class IndicadoresAcessoriasService {
       total.entregueNoPrazo += c.entregueNoPrazo
       total.entregueComAtraso += c.entregueComAtraso
       total.entregueComMulta += c.entregueComMulta
+      total.entregueNaoLidaComMulta += c.entregueNaoLidaComMulta
     }
 
     return {
@@ -321,7 +339,7 @@ export class IndicadoresAcessoriasService {
       areaNome: user?.area?.name ?? null,
       ocultosInativos,
       cobertura,
-      foraPorRegra: await this.foraPorRegra(),
+      foraPorRegra: await this.foraPorRegra(empresaId),
     }
   }
 
@@ -336,9 +354,10 @@ export class IndicadoresAcessoriasService {
    * Sem isso alguém compara com o e-mail, acha 51 entregas de diferença e
    * desconfia do sistema — foi exatamente o que aconteceu em 10/08.
    */
-  private async foraPorRegra() {
+  private async foraPorRegra(empresaId?: string | null) {
+    // Regras e contagem da empresa carregada (antes somava todas as empresas).
     const regras = await prisma.acessoriasRegraObrigacao.findMany({
-      where: { considerar: false },
+      where: { considerar: false, ...(empresaId ? { empresaId } : {}) },
       select: { nome: true, clienteId: true },
     }).catch(() => [])
     if (regras.length === 0) return { nomes: [] as string[], ocorrencias: 0 }
@@ -351,6 +370,7 @@ export class IndicadoresAcessoriasService {
       SELECT coalesce(sum(ocorrencias), 0)::bigint AS n
       FROM acessorias_obrigacoes_observadas
       WHERE lower(btrim(nome)) = ANY(${nomes.map(n => n.toLowerCase())}::text[])
+        AND (${empresaId ?? null}::text IS NULL OR empresa_id = ${empresaId ?? null})
     `.catch(() => [{ n: BigInt(0) }])
 
     return { nomes, ocorrencias: Number(observadas[0]?.n ?? 0) }
@@ -376,7 +396,7 @@ export class IndicadoresAcessoriasService {
     hoje.setHours(0, 0, 0, 0)
 
     const filtros: Prisma.AcessoriasEntregaWhereInput[] = [
-      ...(!ctx.isMaster && empresaId ? [{ empresaId }] : []),
+      daCarteira(empresaId),
       ...(input.competencia ? [{ competencia: this.mesDaCompetencia(input.competencia) }] : []),
       ...(input.competencia || !input.de ? [] : [this.limiteNoPeriodo(regua, 'gte', input.de)]),
       ...(input.competencia || !input.ate ? [] : [this.limiteNoPeriodo(regua, 'lte', input.ate)]),
@@ -401,11 +421,7 @@ export class IndicadoresAcessoriasService {
     const rows = await prisma.acessoriasEntrega.findMany({
       where: { AND: filtros },
       orderBy: [{ dtAtraso: 'asc' }, { prazo: 'asc' }],
-      select: {
-        id: true, nome: true, competencia: true, prazo: true, dtAtraso: true, dtEntrega: true,
-        status: true, multa: true, dpto: true, respPrazo: true, respEntrega: true, clienteId: true,
-        cliente: { select: { id: true, code: true, razaoSocial: true } },
-      },
+      include: { cliente: { select: { id: true, code: true, razaoSocial: true, documento: true } } },
     })
 
     // Fica com as linhas que caem na medida pedida — mesma classificação de
@@ -416,21 +432,17 @@ export class IndicadoresAcessoriasService {
       return acc[input.medida] > 0
     })
 
-    return linhas.map((r) => ({
-      id: r.id,
-      obrigacao: r.nome,
-      competencia: r.competencia,
-      prazo: r.prazo,
-      vencimento: r.dtAtraso ?? r.prazo,
-      dtEntrega: r.dtEntrega,
-      status: r.status,
-      multa: r.multa,
-      dpto: r.dpto,
-      responsavel: r.respEntrega ?? r.respPrazo,
-      clienteId: r.cliente.id,
-      clienteCode: r.cliente.code,
-      clienteNome: r.cliente.razaoSocial,
-    }))
+    // A linha completa (a mesma do painel de entregas): o modal tem painel de
+    // leitura, e ele mostra tudo que o Acessórias devolveu.
+    const [completas, pode] = await Promise.all([
+      paraLinhasPainel(linhas, ctx.empresaId),
+      podeReclassificarMulta(ctx),
+    ])
+    return {
+      linhas: completas,
+      podeReclassificarMulta: pode,
+      urlEntregaTemplate: urlEntregaTemplate(),
+    }
   }
 
   /** As obrigações ainda em aberto, para a lista do colaborador. */

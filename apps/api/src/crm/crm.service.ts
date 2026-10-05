@@ -5,7 +5,11 @@ import { OrcamentoService } from '../orcamento/orcamento.service'
 import { CrmEventsService } from './crm-events.service'
 import { NotificationService } from '../notification/notification.service'
 import { CnpjService } from '../cnpj/cnpj.service'
-import { dataBrKey } from '../agenda/data-br.util'
+import { dataBrKey, horaBrKey } from '../agenda/data-br.util'
+import { descricaoDaInteracao, ROTULO_INTERACAO, type TipoInteracao } from './crm-acao'
+import { filtroDeData, janelaDoPeriodo, type Janela, type Periodo } from '../common/periodo-br'
+import { acumular, campoDaSituacao, ehTipoDeReuniao, reuniaoJaAconteceu, situacaoDosLeads, type CampoIndicador, type OcorrenciaDoFunil } from './indicadores-comerciais'
+import { contratosDeOrcamento, servicosDeEntrada, temServicoDeEntrada } from '../orcamento/contratos-de-orcamento'
 
 const DEFAULT_ETAPAS = [
   { nome: 'Deal Aberto', ordem: 1, cor: '#818cf8', probabilidade: 10, ehGanho: false, ehPerda: false },
@@ -338,9 +342,21 @@ export class CrmService {
         } catch { /* coluna pode não existir ainda */ }
       }
 
+      // Cliente vinculado (razão social, fantasia e logo) — o card do quadro
+      // mostra a logo e o nome curto, no mesmo desenho do quadro de orçamentos.
+      const clienteIds = [...new Set(ops.map(o => o.clienteId).filter(Boolean))] as string[]
+      const clientes = clienteIds.length > 0
+        ? await prisma.cliente.findMany({
+            where: { id: { in: clienteIds } },
+            select: { id: true, razaoSocial: true, nomeFantasia: true, logoUrl: true, documento: true, tipoDocumento: true },
+          }).catch(() => [])
+        : []
+      const clienteMap = new Map(clientes.map(c => [c.id, c]))
+
       let result = ops.map(o => ({
         ...o,
         numero: numeroMap.get(o.id) ?? null,
+        cliente: o.clienteId ? clienteMap.get(o.clienteId) ?? null : null,
         responsavel: o.responsavelId ? userMap.get(o.responsavelId) || null : null,
         orcamento: orcamentoMap.get(o.id) || null,
         campanha: campanhaMap.get(o.id) || null,
@@ -357,6 +373,7 @@ export class CrmService {
         etapa: true,
         tags: { include: { tag: true } },
         mensagens: { orderBy: { createdAt: 'desc' } },
+        interacoes: { orderBy: { dataHora: 'desc' } },
         arquivos: { orderBy: { createdAt: 'desc' } },
         eventos: { orderBy: { createdAt: 'desc' }, take: 50 },
         // Eventos da agenda vinculados a esta oportunidade (vínculo bidirecional)
@@ -381,6 +398,7 @@ export class CrmService {
           op.responsavelId,
           ...op.eventos.map(e => e.userId),
           ...op.mensagens.map(m => m.userId),
+          ...op.interacoes.map(i => i.userId),
         ].filter(Boolean)),
       ] as string[]
       const users = userIds.length > 0
@@ -407,6 +425,7 @@ export class CrmService {
         responsavel: op.responsavelId ? userMap.get(op.responsavelId) || null : null,
         eventos: op.eventos.map(e => ({ ...e, user: e.userId ? userMap.get(e.userId) || null : null })),
         mensagens: op.mensagens.map(m => ({ ...m, user: m.userId ? userMap.get(m.userId) || null : null })),
+        interacoes: op.interacoes.map(i => ({ ...i, user: i.userId ? userMap.get(i.userId) || null : null })),
       }
     })
   }
@@ -517,6 +536,7 @@ export class CrmService {
       data: {
         titulo: input.titulo,
         descricao: input.descricao || null,
+        doresOportunidades: input.doresOportunidades || null,
         valor: input.valor ?? null,
         etapaId: input.etapaId,
         clienteId,
@@ -587,6 +607,7 @@ export class CrmService {
     const data: any = {}
     if (input.titulo !== undefined) data.titulo = input.titulo
     if (input.descricao !== undefined) data.descricao = input.descricao
+    if (input.doresOportunidades !== undefined) data.doresOportunidades = input.doresOportunidades || null
     if (input.valor !== undefined) data.valor = input.valor
     if (input.etapaId !== undefined) data.etapaId = input.etapaId
     if (input.clienteId !== undefined) data.clienteId = input.clienteId
@@ -828,6 +849,68 @@ export class CrmService {
     return result
   }
 
+  // ── Escopo ────────────────────────────────────────────────
+
+  /**
+   * A oportunidade, se for da empresa ativa. As rotas de Ações e Interações
+   * recebem ids soltos; sem isto, quem tem o módulo numa empresa escreveria
+   * no card de outra. Master sem empresa selecionada vê todas.
+   */
+  async oportunidadeNoEscopo(id: string, empresaId?: string | null) {
+    const op = await prisma.oportunidade.findUnique({ where: { id }, select: { id: true, titulo: true, empresaId: true } })
+    if (!op) return null
+    if (empresaId && op.empresaId !== empresaId) return null
+    return op
+  }
+
+  /** A AgendaTarefa por trás de uma Ação, se o card dela estiver no escopo. */
+  async acaoNoEscopo(tarefaId: string, empresaId?: string | null) {
+    const t = await prisma.agendaTarefa.findUnique({ where: { id: tarefaId }, select: { id: true, titulo: true, oportunidadeId: true, criadorId: true } })
+    if (!t?.oportunidadeId) return null
+    const op = await this.oportunidadeNoEscopo(t.oportunidadeId, empresaId)
+    return op ? { ...t, oportunidadeId: t.oportunidadeId } : null
+  }
+
+  // ── Interações ────────────────────────────────────────────
+
+  async addInteracao(oportunidadeId: string, userId: string, data: { tipo: TipoInteracao; resultado: string; dataHora: Date; contato?: string | null; resumo: string }) {
+    const result = await prisma.oportunidadeInteracao.create({
+      data: {
+        oportunidadeId,
+        userId: userId || null,
+        tipo: data.tipo,
+        resultado: data.resultado,
+        dataHora: data.dataHora,
+        contato: data.contato?.trim() || null,
+        resumo: data.resumo,
+      },
+    })
+    await this.addEvento(oportunidadeId, userId, 'interacao', `Interação registrada: ${descricaoDaInteracao(data.tipo, data.contato)}`)
+    return result
+  }
+
+  /** A interação, se o card dela estiver no escopo. */
+  async interacaoNoEscopo(id: string, empresaId?: string | null) {
+    const i = await prisma.oportunidadeInteracao.findUnique({ where: { id }, select: { id: true, oportunidadeId: true, tipo: true, contato: true } })
+    if (!i) return null
+    return (await this.oportunidadeNoEscopo(i.oportunidadeId, empresaId)) ? i : null
+  }
+
+  async updateInteracao(id: string, userId: string, data: { tipo: TipoInteracao; resultado: string; dataHora: Date; contato?: string | null; resumo: string }) {
+    const result = await prisma.oportunidadeInteracao.update({
+      where: { id },
+      data: { tipo: data.tipo, resultado: data.resultado, dataHora: data.dataHora, contato: data.contato?.trim() || null, resumo: data.resumo },
+    })
+    await this.addEvento(result.oportunidadeId, userId, 'interacao', `Interação editada: ${descricaoDaInteracao(data.tipo, data.contato)}`)
+    return result
+  }
+
+  async deleteInteracao(id: string, userId: string) {
+    const result = await prisma.oportunidadeInteracao.delete({ where: { id } })
+    await this.addEvento(result.oportunidadeId, userId, 'interacao', `Interação excluída: ${descricaoDaInteracao(result.tipo as TipoInteracao, result.contato)}`)
+    return { id }
+  }
+
   // ── Arquivos ──────────────────────────────────────────────
 
   async addArquivo(oportunidadeId: string, data: { fileName: string; fileUrl: string; fileSize?: number; mimeType?: string }, userId?: string) {
@@ -970,10 +1053,17 @@ export class CrmService {
 
   // ── Relatorios ─────────────────────────────────────────────
 
-  async reportFunil(empresaId?: string, dias?: number, fimRef?: Date) {
+  async reportFunil(empresaId?: string, dias?: number | Janela, fimRef?: Date, opcoes?: { apenasAtivos?: boolean }) {
     const where: any = {}
     if (empresaId) where.empresaId = empresaId
-    if (dias) {
+    // Pipeline ATUAL (cartões do /comercial): só os cards no funil — os
+    // arquivados saíram dele.
+    if (opcoes?.apenasAtivos) where.isActive = true
+    if (typeof dias === 'object') {
+      // Período com data inicial e final (painel /comercial).
+      const f = filtroDeData(dias)
+      if (f) where.createdAt = f
+    } else if (dias) {
       // Janela: [fimRef - dias, fimRef]. Sem fimRef o limite superior é "agora"
       // (comportamento original). fimRef habilita comparar períodos anteriores.
       const fim = fimRef ?? new Date()
@@ -993,6 +1083,15 @@ export class CrmService {
     })
 
     const groupMap = new Map(grouped.map(g => [g.etapaId, g]))
+
+    // Ganho = card numa etapa de ganho OU card cujo orçamento virou contrato
+    // (decisão de 25/09/2026: o funil da Central não tem etapa de ganho, e a
+    // taxa ficava sempre em 0%).
+    const [comContrato, cards] = await Promise.all([
+      this.cardsComContrato(empresaId),
+      prisma.oportunidade.findMany({ where, select: { id: true, etapa: { select: { ehGanho: true } } } }),
+    ])
+    const ganhosTotal = cards.filter(c => c.etapa.ehGanho || comContrato.has(c.id)).length
 
     const funilData = etapas.map(e => {
       const g = groupMap.get(e.id)
@@ -1021,25 +1120,32 @@ export class CrmService {
 
     const totalOportunidades = funilData.reduce((s, e) => s + e.count, 0)
     const valorTotal = funilData.reduce((s, e) => s + e.valor, 0)
-    const ganhos = funilData.find(e => e.ehGanho)
-    const taxaGeral = totalOportunidades > 0 ? Math.round(((ganhos?.count ?? 0) / totalOportunidades) * 100) : 0
+    const taxaGeral = totalOportunidades > 0 ? Math.round((ganhosTotal / totalOportunidades) * 100) : 0
 
-    return { etapas: funilData, conversoes, totalOportunidades, valorTotal, taxaGeral }
+    return { etapas: funilData, conversoes, totalOportunidades, valorTotal, taxaGeral, ganhos: ganhosTotal }
   }
 
-  async reportDesempenho(empresaId?: string, dias?: number) {
+  async reportDesempenho(empresaId?: string, dias?: number | Janela) {
     const where: any = {}
     if (empresaId) where.empresaId = empresaId
-    if (dias) where.createdAt = { gte: new Date(Date.now() - dias * 86400000) }
+    if (typeof dias === 'object') {
+      const f = filtroDeData(dias)
+      if (f) where.createdAt = f
+    } else if (dias) where.createdAt = { gte: new Date(Date.now() - dias * 86400000) }
 
-    const oportunidades = await prisma.oportunidade.findMany({
-      where,
-      select: {
-        responsavelId: true,
-        valor: true,
-        etapa: { select: { ehGanho: true, ehPerda: true } },
-      },
-    })
+    const [oportunidades, comContrato] = await Promise.all([
+      prisma.oportunidade.findMany({
+        where,
+        select: {
+          id: true,
+          responsavelId: true,
+          valor: true,
+          isActive: true,
+          etapa: { select: { ehGanho: true, ehPerda: true, nome: true } },
+        },
+      }),
+      this.cardsComContrato(empresaId),
+    ])
 
     // Agrupar por responsavel
     const byResp = new Map<string, { total: number; ganhos: number; perdidos: number; valor: number; valorGanho: number }>()
@@ -1050,8 +1156,12 @@ export class CrmService {
       const entry = byResp.get(rid)!
       entry.total++
       entry.valor += Number(op.valor ?? 0)
-      if (op.etapa.ehGanho) { entry.ganhos++; entry.valorGanho += Number(op.valor ?? 0) }
-      if (op.etapa.ehPerda) entry.perdidos++
+      // Ganho = etapa de ganho ou card com contrato; perdido = etapa de perda,
+      // Declínio (pelo nome, a regra do CRM) ou card arquivado — o que não é
+      // ganho nem perdido segue em andamento.
+      const ganho = op.etapa.ehGanho || comContrato.has(op.id)
+      if (ganho) { entry.ganhos++; entry.valorGanho += Number(op.valor ?? 0) }
+      else if (op.etapa.ehPerda || /decl/i.test(op.etapa.nome) || !op.isActive) entry.perdidos++
     }
 
     // Buscar nomes dos usuarios
@@ -1070,6 +1180,201 @@ export class CrmService {
     })).sort((a, b) => b.valorGanho - a.valorGanho)
 
     return resultado
+  }
+
+  /** Cards do CRM cujo orçamento virou contrato (a qualquer tempo). */
+  private async cardsComContrato(empresaId?: string): Promise<Set<string>> {
+    const contratos = await contratosDeOrcamento(empresaId, undefined)
+    return new Set(contratos.map(c => c.oportunidadeId).filter((x): x is string => !!x))
+  }
+
+  /**
+   * Indicadores do funil comercial para o /comercial — Qualificação e
+   * Fechamento, no total e por pessoa. As regras (o que conta, de onde vem, a
+   * quem se atribui) estão em indicadores-comerciais.ts.
+   *
+   * Atribuição por pessoa:
+   *  - leads recebidos → responsável do card;
+   *  - qualificação → quem registrou a interação decisiva;
+   *  - reunião agendada → quem criou o evento;
+   *  - reunião realizada → responsável do card (quem conduz o fechamento),
+   *    ou quem criou o evento, se o card não tem responsável;
+   *  - propostas e contratos → responsável do orçamento.
+   */
+  async indicadoresComerciais(empresaId: string | undefined, periodo: Periodo) {
+    const { ocorrencias, diaDe, diaAte, servicosDeEntrada } = await this.ocorrenciasDoFunil(empresaId, periodo)
+    const { total, porPessoa } = acumular(ocorrencias)
+    const ids = [...porPessoa.keys()].filter(Boolean)
+    const usuarios = ids.length
+      ? await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, image: true } })
+      : []
+    const nome = new Map(usuarios.map(u => [u.id, u]))
+    const pessoas = [...porPessoa.entries()]
+      .map(([userId, t]) => ({
+        userId: userId || null,
+        nome: userId ? (nome.get(userId)?.name ?? 'Usuário removido') : 'Sem responsável',
+        image: userId ? (nome.get(userId)?.image ?? null) : null,
+        ...t,
+      }))
+      // "Sem responsável" por último; o resto em ordem alfabética.
+      .sort((a, b) => (a.userId ? 0 : 1) - (b.userId ? 0 : 1) || a.nome.localeCompare(b.nome, 'pt-BR'))
+
+    return {
+      periodo: { de: diaDe, ate: diaAte },
+      total,
+      pessoas,
+      /** Para o painel avisar quando nenhum serviço está marcado como de entrada. */
+      servicosDeEntrada,
+    }
+  }
+
+  /**
+   * O que está por trás de um número do funil — a lista que abre ao clicar no
+   * total (ou na célula de uma pessoa, com `userId`; '' = sem responsável).
+   * Sai da MESMA apuração do `indicadoresComerciais`, para a lista nunca
+   * divergir do número clicado.
+   */
+  async detalheIndicador(empresaId: string | undefined, periodo: Periodo, campo: CampoIndicador, userId?: string) {
+    const { ocorrencias } = await this.ocorrenciasDoFunil(empresaId, periodo)
+    const itens = ocorrencias
+      .filter(o => o.campo === campo && (userId === undefined || (o.userId ?? '') === userId))
+      .sort((a, b) => b.quando.getTime() - a.quando.getTime())
+
+    const opIds = [...new Set(itens.map(o => o.oportunidadeId).filter((x): x is string => !!x))]
+    const orcIds = [...new Set(itens.map(o => o.orcamentoId).filter((x): x is string => !!x))]
+    const [ops, orcs] = await Promise.all([
+      opIds.length
+        ? prisma.oportunidade.findMany({
+            where: { id: { in: opIds } },
+            select: { id: true, numero: true, titulo: true, razaoSocial: true, contatoNome: true, etapa: { select: { nome: true, cor: true } } },
+          })
+        : [],
+      orcIds.length
+        ? prisma.orcamento.findMany({
+            where: { id: { in: orcIds } },
+            select: { id: true, numero: true, clienteId: true, totalGeral: true, status: true, contratoFechadoEm: true },
+          })
+        : [],
+    ])
+    const clienteIds = [...new Set(orcs.map(o => o.clienteId).filter((x): x is string => !!x))]
+    const userIds = [...new Set(itens.map(o => o.userId).filter((x): x is string => !!x))]
+    const [clientes, usuarios] = await Promise.all([
+      clienteIds.length ? prisma.cliente.findMany({ where: { id: { in: clienteIds } }, select: { id: true, razaoSocial: true } }) : [],
+      userIds.length ? prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } }) : [],
+    ])
+    const opMap = new Map(ops.map(o => [o.id, o]))
+    const orcMap = new Map(orcs.map(o => [o.id, o]))
+    const cliMap = new Map(clientes.map(c => [c.id, c.razaoSocial]))
+    const userMap = new Map(usuarios.map(u => [u.id, u.name]))
+
+    return itens.map((o, idx) => {
+      const op = o.oportunidadeId ? opMap.get(o.oportunidadeId) : undefined
+      const orc = o.orcamentoId ? orcMap.get(o.orcamentoId) : undefined
+      return {
+        chave: `${idx}-${o.oportunidadeId ?? ''}-${o.orcamentoId ?? ''}`,
+        oportunidadeId: op?.id ?? null,
+        numero: op?.numero ?? null,
+        // Orçamento de serviço de entrada nem sempre nasceu de um card: aí o
+        // "lead" é o cliente do orçamento.
+        nome: op ? (op.razaoSocial || op.titulo) : (orc?.clienteId ? cliMap.get(orc.clienteId) ?? null : null) ?? 'Sem cliente',
+        contato: op?.contatoNome ?? null,
+        etapa: op?.etapa ?? null,
+        orcamentoId: orc?.id ?? null,
+        orcamentoNumero: orc?.numero ?? null,
+        valor: orc ? Number(orc.totalGeral) : null,
+        orcamentoStatus: orc?.status ?? null,
+        contratoFechadoEm: orc?.contratoFechadoEm ?? null,
+        quando: o.quando,
+        detalhe: o.detalhe ?? null,
+        responsavel: o.userId ? userMap.get(o.userId) ?? null : null,
+      }
+    })
+  }
+
+  /** Apuração do funil: uma ocorrência por número contado, com a origem dele. */
+  private async ocorrenciasDoFunil(empresaId: string | undefined, periodo: Periodo) {
+    const janela = janelaDoPeriodo(periodo)
+    const quando = filtroDeData(janela)
+    const emp = empresaId ? { empresaId } : {}
+    // Dias-calendário do período, para a data (sem hora) do evento da agenda.
+    const diaDe = janela.gte ? dataBrKey(janela.gte) : null
+    const diaAte = janela.lte ? dataBrKey(janela.lte) : null
+    const agora = new Date()
+    const hoje = dataBrKey(agora)
+    const agoraHora = horaBrKey(agora)
+
+    // Evento vinculado a um card DA EMPRESA. O recorte vai pelo card, não pelo
+    // evento: evento antigo pode ter `empresaId` nulo e sumiria do número.
+    const eventoDoCrm = empresaId
+      ? { OR: [{ oportunidade: { empresaId } }, { oportunidadesVinc: { some: { oportunidade: { empresaId } } } }] }
+      : { OR: [{ oportunidadeId: { not: null } }, { oportunidadesVinc: { some: {} } }] }
+    const diaDoEvento = diaDe || diaAte
+      ? { data: { ...(diaDe ? { gte: new Date(`${diaDe}T00:00:00.000Z`) } : {}), ...(diaAte ? { lte: new Date(`${diaAte}T00:00:00.000Z`) } : {}) } }
+      : {}
+
+    const entrada = await servicosDeEntrada(empresaId)
+    const [leads, interacoes, eventos, enviados, contratos] = await Promise.all([
+      prisma.oportunidade.findMany({
+        where: { ...emp, ...(quando ? { createdAt: quando } : {}) },
+        select: { id: true, responsavelId: true, createdAt: true },
+      }),
+      prisma.oportunidadeInteracao.findMany({
+        where: { ...(quando ? { dataHora: quando } : {}), oportunidade: emp },
+        select: { oportunidadeId: true, tipo: true, resultado: true, dataHora: true, userId: true },
+      }),
+      prisma.agendaEvento.findMany({
+        where: {
+          isActive: true,
+          AND: [eventoDoCrm, { OR: [quando ? { createdAt: quando } : {}, diaDoEvento] }],
+        },
+        select: {
+          titulo: true, tipo: { select: { nome: true } }, createdAt: true, data: true, horaInicio: true, horaFim: true, criadorId: true, oportunidadeId: true,
+          oportunidade: { select: { responsavelId: true } },
+          oportunidadesVinc: { select: { oportunidadeId: true, oportunidade: { select: { responsavelId: true } } }, orderBy: { ordem: 'asc' }, take: 1 },
+        },
+      }),
+      prisma.orcamento.findMany({
+        where: { ...emp, status: { not: 'CANCELADO' }, dtEnviado: quando ?? { not: null } },
+        select: { id: true, dtEnviado: true, responsavelId: true, oportunidadeId: true, servicoId: true, itens: { select: { catalogoId: true } } },
+      }),
+      // Fonte única de contrato (a mesma do Funil unificado e do Ranking).
+      contratosDeOrcamento(empresaId, quando, entrada),
+    ])
+    const temEntrada = (o: { servicoId: string | null; itens: Array<{ catalogoId: string | null }> }) => temServicoDeEntrada(o, entrada)
+
+    const ocorrencias: OcorrenciaDoFunil[] = []
+    for (const l of leads) ocorrencias.push({ campo: 'leadsRecebidos', userId: l.responsavelId, oportunidadeId: l.id, quando: l.createdAt })
+    for (const [opId, s] of situacaoDosLeads(interacoes)) {
+      ocorrencias.push({ campo: campoDaSituacao(s), userId: s.userId, oportunidadeId: opId, quando: s.dataHora, detalhe: ROTULO_INTERACAO[s.canal as TipoInteracao] ?? s.canal })
+    }
+    for (const e of eventos) {
+      if (!ehTipoDeReuniao(e.tipo?.nome)) continue
+      const opId = e.oportunidadeId ?? e.oportunidadesVinc[0]?.oportunidadeId ?? null
+      const criadoNoPeriodo = (!janela.gte || e.createdAt >= janela.gte) && (!janela.lte || e.createdAt <= janela.lte)
+      // O tipo do evento vai no detalhe: a lista do clique mostra o que está
+      // sendo contado como reunião.
+      const detalhe = e.tipo?.nome ? `${e.tipo.nome} · ${e.titulo}` : e.titulo
+      if (criadoNoPeriodo) ocorrencias.push({ campo: 'reunioesAgendadas', userId: e.criadorId, oportunidadeId: opId, quando: e.createdAt, detalhe })
+      const dia = e.data.toISOString().slice(0, 10)
+      const noPeriodo = (!diaDe || dia >= diaDe) && (!diaAte || dia <= diaAte)
+      if (noPeriodo && reuniaoJaAconteceu(dia, e.horaFim, e.horaInicio, hoje, agoraHora)) {
+        const responsavel = e.oportunidade?.responsavelId ?? e.oportunidadesVinc[0]?.oportunidade.responsavelId ?? null
+        ocorrencias.push({
+          campo: 'reunioesRealizadas', userId: responsavel ?? e.criadorId, oportunidadeId: opId,
+          quando: new Date(`${dia}T${e.horaInicio || '12:00'}:00-03:00`), detalhe,
+        })
+      }
+    }
+    for (const o of enviados) {
+      if (o.oportunidadeId || temEntrada(o)) {
+        ocorrencias.push({ campo: 'propostasEnviadas', userId: o.responsavelId, oportunidadeId: o.oportunidadeId, orcamentoId: o.id, quando: o.dtEnviado! })
+      }
+    }
+    for (const c of contratos) {
+      ocorrencias.push({ campo: 'contratosAssinados', userId: c.responsavelId, oportunidadeId: c.oportunidadeId, orcamentoId: c.orcamentoId, quando: c.em })
+    }
+
+    return { ocorrencias, diaDe, diaAte, servicosDeEntrada: entrada.size }
   }
 
   async reportOrigem(empresaId?: string, dias?: number) {

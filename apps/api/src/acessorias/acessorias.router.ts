@@ -114,7 +114,7 @@ export function createAcessoriasRouter(
      */
     cancelarSync: integracaoProc()
       .input(z.object({ logId: z.string().min(1) }))
-      .mutation(({ input }) => svc.cancelarSync(input.logId)),
+      .mutation(({ input, ctx }) => svc.cancelarSync(input.logId, ctx.empresaId ?? null)),
 
     // Varre a carteira no Acessórias e GRAVA o resultado — ação sob demanda.
     listObligationsObserved: integracaoProc()
@@ -141,11 +141,11 @@ export function createAcessoriasRouter(
 
     removeObligationServico: integracaoProc()
       .input(z.object({ mapId: z.string() }))
-      .mutation(({ input }) => svc.removeObligationServico(input.mapId)),
+      .mutation(({ input, ctx }) => svc.removeObligationServico(input.mapId, ctx.empresaId ?? null)),
 
     setObligationServicoActive: integracaoProc()
       .input(z.object({ mapId: z.string(), ativo: z.boolean() }))
-      .mutation(({ input }) => svc.setObligationServicoActive(input.mapId, input.ativo)),
+      .mutation(({ input, ctx }) => svc.setObligationServicoActive(input.mapId, input.ativo, ctx.empresaId ?? null)),
 
     setObligationIgnored: integracaoProc()
       .input(z.object({ nome: z.string(), ignored: z.boolean() }))
@@ -179,7 +179,7 @@ export function createAcessoriasRouter(
         de: z.string().optional(),
         ate: z.string().optional(),
       }))
-      .query(({ input }) => svc.entregasDoCliente(input)),
+      .query(({ input, ctx }) => svc.entregasDoCliente(input, ctx.empresaId ?? null)),
 
     empresasDaUltimaSync: integracaoProc()
       .input(z.object({ situacao: z.enum(['casada', 'atualizada', 'ignorada', 'inativa']) }))
@@ -191,7 +191,7 @@ export function createAcessoriasRouter(
         idAcessorias: z.coerce.number().int().positive(),
         cnpjAcessorias: z.string().optional(),
       }))
-      .mutation(({ input }) => svc.vincularEmpresaCliente(input)),
+      .mutation(({ input, ctx }) => svc.vincularEmpresaCliente(input, ctx.empresaId ?? null)),
 
     resumoVinculos: integracaoProc()
       .query(({ ctx }) => svc.resumoVinculos(ctx.empresaId ?? null)),
@@ -209,7 +209,7 @@ export function createAcessoriasRouter(
 
     listSyncLogs: integracaoProc()
       .input(z.object({ limit: z.coerce.number().int().min(1).max(200).optional() }).optional())
-      .query(({ input }) => svc.listSyncLogs(input?.limit)),
+      .query(({ input, ctx }) => svc.listSyncLogs(input?.limit, ctx.empresaId ?? null)),
 
     /** Cadastra (ou atualiza) o Cliente no Acessórias via POST /companies.
      *  Lê Cliente local, mapeia tributacao→regime, dispara request e grava
@@ -219,6 +219,7 @@ export function createAcessoriasRouter(
       .mutation(({ input, ctx }) =>
         svc.createCompanyInAcessorias(input.clienteId, {
           triggeredBy: ctx.userId ?? undefined,
+          empresaId: ctx.empresaId ?? null,
         }),
       ),
 
@@ -251,6 +252,28 @@ export function createAcessoriasRouter(
         if (!painelSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
         return painelSvc.listar(input ?? {}, { userId: ctx.userId, isMaster: ctx.isMaster ?? false, isEmpresaMaster: ctx.isEmpresaMaster ?? false, empresaId: ctx.empresaId })
       }),
+    /** Links frescos das guias anexadas (valem 60 min) — pedidos no clique. */
+    guiasDaEntrega: painelProc()
+      .input(z.object({ entregaId: z.string().min(1) }))
+      .query(({ input, ctx }) => svc.guiasDaEntrega(input.entregaId, ctx.empresaId ?? null)),
+
+    /** PDF da guia em base64, para exibir no painel ao lado do de leitura. */
+    guiaPdf: painelProc()
+      .input(z.object({ entregaId: z.string().min(1), anexoId: z.string().min(1) }))
+      .query(({ input, ctx }) => svc.guiaPdf(input.entregaId, input.anexoId, ctx.empresaId ?? null)),
+
+    /** Contatos do cliente no Acessórias — "quem pode ter recebido" no rastreio. */
+    contatosDoCliente: painelProc()
+      .input(z.object({ clienteId: z.string().min(1) }))
+      .query(({ input, ctx }) => svc.contatosDoCliente(input.clienteId, ctx.empresaId ?? null)),
+
+    /** Reclassifica a multa da obrigação no cliente (admin/diretoria — checado no serviço). */
+    reclassificarMulta: painelProc()
+      .input(z.object({ entregaId: z.string().min(1), multa: z.boolean() }))
+      .mutation(({ input, ctx }) => {
+        if (!painelSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return painelSvc.reclassificarMulta(input.entregaId, input.multa, { userId: ctx.userId, isMaster: ctx.isMaster ?? false, isEmpresaMaster: ctx.isEmpresaMaster ?? false, empresaId: ctx.empresaId })
+      }),
     painelEntregasPorCliente: painelProc()
       .input(painelFiltroSchema)
       .query(({ input, ctx }) => {
@@ -277,9 +300,9 @@ export function createAcessoriasRouter(
 
     removerRegraObrigacao: integracaoProc()
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => {
+      .mutation(({ input, ctx }) => {
         if (!regrasSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
-        return regrasSvc.remover(input.id)
+        return regrasSvc.remover(input.id, ctx.empresaId ?? null)
       }),
 
     // Recebe o filtro atual: cada campo passa a oferecer só o que ainda produz
@@ -316,7 +339,7 @@ export function createAcessoriasRouter(
         tipo: z.enum(['pessoa', 'area']),
         medida: z.enum([
           'pendenteNoPrazo', 'pendenteAtrasado', 'pendenteComMulta',
-          'entregueNoPrazo', 'entregueComAtraso', 'entregueComMulta',
+          'entregueNoPrazo', 'entregueComAtraso', 'entregueComMulta', 'entregueNaoLidaComMulta',
         ]),
       }))
       .query(({ input, ctx }) => {
@@ -341,16 +364,16 @@ export function createAcessoriasRouter(
 
     vincularColaborador: integracaoProc()
       .input(z.object({ id: z.string(), userId: z.string().nullable() }))
-      .mutation(({ input }) => {
+      .mutation(({ input, ctx }) => {
         if (!vinculosSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
-        return vinculosSvc.vincularColaborador(input.id, input.userId)
+        return vinculosSvc.vincularColaborador(input.id, input.userId, ctx.empresaId ?? null)
       }),
 
     vincularDepartamento: integracaoProc()
       .input(z.object({ id: z.string(), areaId: z.string().nullable() }))
-      .mutation(({ input }) => {
+      .mutation(({ input, ctx }) => {
         if (!vinculosSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
-        return vinculosSvc.vincularDepartamento(input.id, input.areaId)
+        return vinculosSvc.vincularDepartamento(input.id, input.areaId, ctx.empresaId ?? null)
       }),
 
     painelEntregasOpcoes: painelProc()
