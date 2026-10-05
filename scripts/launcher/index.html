@@ -5234,9 +5234,13 @@
     }
 
     function deployProjectQueue(project) {
+      // Mais novo primeiro: os ainda não enviados (pendingPush) estão à frente dos
+      // já no GitHub aguardando deploy (pendingDeploy). Na ordem inversa, um deploy
+      // que falhou e voltou à fila virava o "alvo" — mais antigo que o origin — e o
+      // push acusava "remoto à frente" sem PR nenhum.
       return [
-        ...[...(project.pendingDeploy || [])].reverse(),
         ...[...(project.pendingPush || [])].reverse(),
+        ...[...(project.pendingDeploy || [])].reverse(),
       ].map(c => ({
         ...c,
         projectId: project.id || 'core',

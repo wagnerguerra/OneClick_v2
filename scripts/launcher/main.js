@@ -2555,7 +2555,8 @@ function registerIpcHandlers() {
         })
         .filter(c => c.sha)
     } else {
-      pendingPush = gitOutput(['log', hasRemoteBranch ? `origin/${deployBranch}..HEAD` : 'HEAD', '--format=%H%x09%h%x09%s'], cwd)
+      // --reverse: mais antigo primeiro, como o `git cherry` acima — a tela inverte.
+      pendingPush = gitOutput(['log', '--reverse', hasRemoteBranch ? `origin/${deployBranch}..HEAD` : 'HEAD', '--format=%H%x09%h%x09%s'], cwd)
         .split('\n').filter(Boolean)
         .map(l => {
           const [sha, short, ...msgParts] = l.split('\t')
@@ -2593,7 +2594,10 @@ function registerIpcHandlers() {
         const naVpsSemSubir = baseFila !== vpsSha
           ? new Set(gitOutput(['rev-list', `${baseFila}..${vpsSha}`], cwd).split('\n').filter(Boolean))
           : new Set()
-        pendingDeploy = gitOutput(['log', `${baseFila}..${remoteSha}`, '--format=%H%x09%h%x09%s'], cwd)
+        // --reverse: mais antigo primeiro, igual ao pendingPush. A tela inverte as
+        // duas e escolhe como alvo o primeiro selecionado (o mais novo); com a
+        // ordem trocada, o alvo virava o commit MAIS ANTIGO da fila.
+        pendingDeploy = gitOutput(['log', '--reverse', `${baseFila}..${remoteSha}`, '--format=%H%x09%h%x09%s'], cwd)
           .split('\n').filter(Boolean)
           .map(l => {
             const [sha, short, ...msgParts] = l.split('\t')
