@@ -3146,10 +3146,18 @@ function registerIpcHandlers() {
 
   /** O Docker desta maquina ja tem login no ghcr? (sem ele o push e recusado) */
   function dockerLogadoNoGhcr() {
+    const ehGhcr = (k) => /(^|\/\/)ghcr\.io/.test(k)
     try {
       const c = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.docker', 'config.json'), 'utf8'))
-      return !!(c.auths && Object.keys(c.auths).some(k => /(^|\/\/)ghcr\.io/.test(k)))
-    } catch { return false }
+      if (c.auths && Object.keys(c.auths).some(ehGhcr)) return true
+      // Docker Desktop pode guardar a credencial SO no cofre do Windows, sem
+      // deixar a entrada em `auths` — pergunta direto ao ajudante de credencial.
+      if (c.credsStore) {
+        const r = spawnSync(`docker-credential-${c.credsStore}`, ['list'], { encoding: 'utf8', timeout: 15000, windowsHide: true })
+        if (r.status === 0 && r.stdout) return Object.keys(JSON.parse(r.stdout)).some(ehGhcr)
+      }
+    } catch { /* sem config ou ajudante: trata como sem login */ }
+    return false
   }
 
   /** Variavel do repositorio (vars.X do workflow); .deploy.local tem precedencia. */
