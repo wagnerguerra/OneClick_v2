@@ -1995,7 +1995,7 @@ export default function CertidoesCndPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <button type="button" onClick={() => { setMunFiltroStatus(null); setMunPage(1) }}
               className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                !munFiltroStatus ? 'bg-primary/15 border-primary text-primary ring-1 ring-primary/30' : 'bg-primary/10 border-primary/30 text-primary')}>
+                !munFiltroStatus ? 'bg-primary/15 border-primary text-primary-on-surface ring-1 ring-primary/30' : 'bg-primary/10 border-primary/30 text-primary-on-surface')}>
               <Shield className="h-3 w-3" />{munTotais.total} Total
             </button>
             <button type="button" onClick={() => { setMunFiltroStatus(munFiltroStatus === 'negativa' ? null : 'negativa'); setMunPage(1) }}
@@ -2785,7 +2785,7 @@ export default function CertidoesCndPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <button type="button" onClick={() => { setTrbFiltroStatus(null); setTrbPage(1) }}
               className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                !trbFiltroStatus ? 'bg-primary/15 border-primary text-primary ring-1 ring-primary/30' : 'bg-primary/10 border-primary/30 text-primary')}>
+                !trbFiltroStatus ? 'bg-primary/15 border-primary text-primary-on-surface ring-1 ring-primary/30' : 'bg-primary/10 border-primary/30 text-primary-on-surface')}>
               <Shield className="h-3 w-3" />{trbTotais.total} Total
             </button>
             <button type="button" onClick={() => { setTrbFiltroStatus(trbFiltroStatus === 'negativa' ? null : 'negativa'); setTrbPage(1) }}
@@ -3088,7 +3088,7 @@ export default function CertidoesCndPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <button type="button" onClick={() => { setFgtsFiltroStatus(null); setFgtsPage(1) }}
               className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                !fgtsFiltroStatus ? 'bg-primary/15 border-primary text-primary ring-1 ring-primary/30' : 'bg-primary/10 border-primary/30 text-primary')}>
+                !fgtsFiltroStatus ? 'bg-primary/15 border-primary text-primary-on-surface ring-1 ring-primary/30' : 'bg-primary/10 border-primary/30 text-primary-on-surface')}>
               <Shield className="h-3 w-3" />{fgtsTotais.total} Total
             </button>
             <button type="button" onClick={() => { setFgtsFiltroStatus(fgtsFiltroStatus === 'regular' ? null : 'regular'); setFgtsPage(1) }}
@@ -3396,7 +3396,7 @@ export default function CertidoesCndPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <button type="button" onClick={() => { setCguFiltroStatus(null); setCguPage(1) }}
               className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                !cguFiltroStatus ? 'bg-primary/15 border-primary text-primary ring-1 ring-primary/30' : 'bg-primary/10 border-primary/30 text-primary')}>
+                !cguFiltroStatus ? 'bg-primary/15 border-primary text-primary-on-surface ring-1 ring-primary/30' : 'bg-primary/10 border-primary/30 text-primary-on-surface')}>
               <Shield className="h-3 w-3" />{cguTotais.total} Total
             </button>
             <button type="button" onClick={() => { setCguFiltroStatus(cguFiltroStatus === 'nada_consta' ? null : 'nada_consta'); setCguPage(1) }}
