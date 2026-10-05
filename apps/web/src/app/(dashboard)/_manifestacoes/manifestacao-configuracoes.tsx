@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Bell, Check, Loader2, Mail, Plus, Search, Settings2, X } from 'lucide-react'
-import { Button, Card, Checkbox, Input, cn } from '@saas/ui'
+import { Button, Card, Checkbox, Input, Switch, cn } from '@saas/ui'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { BackButton } from '@/components/ui/back-button'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -43,6 +43,26 @@ export function ManifestacaoConfiguracoes({ config }: { config: Config }) {
   const [carregando, setCarregando] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [sujo, setSujo] = useState(false)
+  const [param, setParam] = useState<{ permitirInternas: boolean; podeAlterarInternas: boolean } | null>(null)
+  const [salvandoParam, setSalvandoParam] = useState(false)
+
+  useEffect(() => {
+    if (!pode && !isMaster) return
+    api.parametros.query().then(setParam).catch(() => setParam(null))
+  }, [api, pode, isMaster])
+
+  async function alternarInternas(permitir: boolean) {
+    setSalvandoParam(true)
+    try {
+      await api.definirPermiteInterna.mutate({ permitir })
+      setParam(p => (p ? { ...p, permitirInternas: permitir } : p))
+      alerts.toast(permitir ? 'Registro interno liberado' : 'Registro interno restrito — só reclamações de clientes')
+    } catch (e) {
+      alerts.error('Não foi possível alterar', (e as Error).message)
+    } finally {
+      setSalvandoParam(false)
+    }
+  }
 
   useEffect(() => {
     if (!pode) { setCarregando(false); return }
@@ -99,6 +119,22 @@ export function ManifestacaoConfiguracoes({ config }: { config: Config }) {
           <span className="text-muted-foreground/50">›</span><span>Configurações</span>
         </p>
       </PageHeaderBar>
+
+      {/* Só o master: liberar ou restringir o registro "de dentro de casa". */}
+      {param?.podeAlterarInternas && (
+        <Card className="flex items-center justify-between gap-4 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-[13px] font-semibold">Permitir reclamações internas</p>
+            <p className="text-[11.5px] text-muted-foreground">
+              Desmarcado, o formulário aceita só reclamações de clientes — a opção “De dentro de casa” some e o
+              sistema recusa o registro interno. As internas já registradas continuam como estão.
+              <span className="ml-1 font-medium">Somente o master altera.</span>
+            </p>
+          </div>
+          <Switch checked={param.permitirInternas} disabled={salvandoParam}
+            onCheckedChange={(v: boolean) => alternarInternas(v)} aria-label="Permitir reclamações internas" />
+        </Card>
+      )}
 
       {!pode ? (
         <Card className="py-12 text-center text-sm text-muted-foreground">

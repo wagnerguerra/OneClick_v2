@@ -100,6 +100,22 @@ export function createManifestacaoRouter(
         return service.atualizar({ ...input, tipo }, tipo, ctx.empresaId, ctx.userId)
       }),
 
+    /** Parâmetros que a tela precisa (flag do servidor, não regra no front). */
+    parametros: readProcedure(MODULE)
+      .query(async ({ ctx }) => ({
+        permitirInternas: await service.permiteInterna(tipo, ctx.empresaId),
+        // Só o master global altera a trava (pedido da diretoria).
+        podeAlterarInternas: tipo === 'RECLAMACAO' && !!ctx.isMaster,
+      })),
+    definirPermiteInterna: writeProcedure(MODULE)
+      .input(z.object({ permitir: z.boolean() }))
+      .mutation(({ input, ctx }) => {
+        if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Só o master altera esta opção.' })
+        if (tipo !== 'RECLAMACAO') throw new TRPCError({ code: 'BAD_REQUEST', message: 'Opção exclusiva de Reclamações.' })
+        if (!ctx.empresaId) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Selecione a empresa.' })
+        return service.definirPermiteInterna(tipo, ctx.empresaId, input.permitir)
+      }),
+
     // ── Configurações: quem recebe os avisos de cada evento ──
     // Sub-permissão própria (`configurar`): decidir quem é avisado de uma
     // reclamação é decisão de gestão, não de quem registra ou trata.

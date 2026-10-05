@@ -9031,6 +9031,23 @@ model ManifestacaoNotificacaoConfig {
   @@map("manifestacao_notificacao_config")
 }
 
+/// Parâmetros de um tipo de manifestação por empresa (05/10/2026).
+///
+/// `permitirInternas`: a diretoria pediu que Reclamações aceitasse só o que
+/// vem de cliente. Desligado (o padrão), o registro "de dentro de casa" some do
+/// formulário e o servidor o recusa. Só o MASTER altera. Registros internos já
+/// existentes continuam como estão.
+model ManifestacaoParametro {
+  id               String   @id @default(cuid())
+  empresaId        String   @map("empresa_id")
+  tipo             String
+  permitirInternas Boolean  @default(false) @map("permitir_internas")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@unique([empresaId, tipo])
+  @@map("manifestacao_parametros")
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // REUNIÕES — port do módulo `sgq_reunioes` do OneClick v1 (tabelas sgq_reu*).
 // Ver docs/migracao-reunioes-v1.md para o levantamento do legado.

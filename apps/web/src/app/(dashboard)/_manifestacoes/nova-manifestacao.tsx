@@ -82,6 +82,19 @@ export function NovaManifestacaoModal({ config, onClose, onCriado, editar, onSal
   const [canal, setCanal] = useState(e?.canal ?? '')
   const [elogiadosIds, setElogiadosIds] = useState<string[]>(e?.elogiadosIds ?? [])
   const [publica, setPublica] = useState(e?.publica ?? false)
+  // Registro "de dentro de casa" liberado? (Reclamações nasce travada, por
+  // decisão da diretoria — o master libera nas configurações.)
+  const [permiteInterna, setPermiteInterna] = useState(true)
+  useEffect(() => {
+    api.parametros.query()
+      .then((p: { permitirInternas: boolean }) => {
+        setPermiteInterna(p.permitirInternas)
+        if (!p.permitirInternas && !e) setOrigem('CLIENTE')
+      })
+      .catch(() => {})
+  }, [api, e])
+  // Editando um interno antigo, a opção dele continua à vista.
+  const mostraInterna = permiteInterna || e?.origem === 'INTERNA'
   const [salvando, setSalvando] = useState(false)
 
   const [areas, setAreas] = useState<Array<{ id: string; name: string }>>([])
@@ -179,11 +192,11 @@ export function NovaManifestacaoModal({ config, onClose, onCriado, editar, onSal
         <DialogBody className="space-y-4">
           {/* Origem — a novidade em relação ao legado, onde cada tipo tinha um
               lado só e não havia como registrar o contrário. */}
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className={cn('grid gap-2', mostraInterna && 'sm:grid-cols-2')}>
             {([
               { v: 'INTERNA' as const, t: 'De dentro de casa', d: 'Parte de um colaborador.', icone: UserIcon },
               { v: 'CLIENTE' as const, t: 'De um cliente', d: 'Chegou pelo atendimento.', icone: Building2 },
-            ]).map(o => {
+            ]).filter(o => o.v === 'CLIENTE' || mostraInterna).map(o => {
               const Ico = o.icone
               return (
                 <button key={o.v} type="button" onClick={() => setOrigem(o.v)}

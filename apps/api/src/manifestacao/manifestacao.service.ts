@@ -41,6 +41,35 @@ export class ManifestacaoService {
   /** Avisos dos eventos (opcional: os testes instanciam o service sem Nest). */
   constructor(@Optional() private readonly avisos?: ManifestacaoNotificacaoService) {}
 
+  /**
+   * Registro interno ("de dentro de casa") liberado? Só Reclamações tem a
+   * trava, a pedido da diretoria — e nasce travada. Elogio e sugestão seguem
+   * aceitando os dois.
+   */
+  async permiteInterna(tipo: ManifestacaoTipo, empresaId?: string | null): Promise<boolean> {
+    if (tipo !== 'RECLAMACAO') return true
+    if (!empresaId) return false
+    const p = await prisma.manifestacaoParametro.findUnique({
+      where: { empresaId_tipo: { empresaId, tipo } }, select: { permitirInternas: true },
+    })
+    return p?.permitirInternas ?? false
+  }
+
+  async definirPermiteInterna(tipo: ManifestacaoTipo, empresaId: string, permitir: boolean) {
+    await prisma.manifestacaoParametro.upsert({
+      where: { empresaId_tipo: { empresaId, tipo } },
+      create: { empresaId, tipo, permitirInternas: permitir },
+      update: { permitirInternas: permitir },
+    })
+    return { permitirInternas: permitir }
+  }
+
+  private async exigirOrigemPermitida(tipo: ManifestacaoTipo, origem: string | undefined, empresaId?: string | null) {
+    if (origem === 'INTERNA' && !(await this.permiteInterna(tipo, empresaId))) {
+      throw new Error('O registro de reclamações internas está desativado. Registre apenas reclamações de clientes.')
+    }
+  }
+
   /** Dispara o aviso sem segurar a resposta — e sem deixar falha derrubar a ação. */
   private avisar(id: string, evento: EventoManifestacao, quem?: string | null, detalhe?: string) {
     void this.avisos?.notificar(id, evento, quem, detalhe)
@@ -241,6 +270,7 @@ export class ManifestacaoService {
 
   async criar(input: CriarManifestacaoInput, autorId: string | null, empresaId?: string | null) {
     const tipo = input.tipo
+    await this.exigirOrigemPermitida(tipo, input.origem, empresaId)
     // Cliente de outra empresa não entra: a lista da tela já é recortada, isto
     // fecha a chamada direta à API.
     if (input.origem === 'CLIENTE' && input.clienteId && empresaId) {
@@ -291,6 +321,13 @@ export class ManifestacaoService {
     // sem dono — e ele não existe para ser recuperado. Status e prazo também
     // não passam por aqui: andam pelo fluxo (darRetorno, analisar, finalizar).
     const { id, tipo: _t, anonima: _a, ...resto } = input
+
+    // Passar um registro PARA interno também respeita a trava (um interno
+    // antigo pode ser editado sem mudar a origem).
+    if (resto.origem === 'INTERNA') {
+      const antes = await prisma.manifestacao.findUnique({ where: { id: atual.id }, select: { origem: true } })
+      if (antes?.origem !== 'INTERNA') await this.exigirOrigemPermitida(tipo, 'INTERNA', empresaId)
+    }
 
     // Cliente de outra empresa não entra (mesma trava do criar).
     if (resto.clienteId && empresaId) {
