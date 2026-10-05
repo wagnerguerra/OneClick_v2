@@ -5808,6 +5808,7 @@
           ...(options.targetShas ? { targetShas: options.targetShas } : {}),
           ...(options.prTargets ? { prTargets: options.prTargets } : {}),
           ...(options.targets ? { targets: options.targets } : {}),
+          ...(options.buildLocal ? { buildLocal: true } : {}),
         }
         const r = await window.api.deployExecute(payload)
         if (r.ok) {
@@ -5836,8 +5837,35 @@
           if (deployState._currentStep) {
             deployStepSetState(deployState._currentStep, 'err', r.error?.slice(0, 50) || 'falhou')
           }
-          document.getElementById('deployActionHint').textContent = `✗ ${r.error}`
-          document.getElementById('deployActionHint').style.color = '#dc2626'
+          const hint = document.getElementById('deployActionHint')
+          hint.textContent = `✗ ${r.error}`
+          hint.style.color = '#dc2626'
+          // Plano B só quando o problema é do GitHub Actions (parado/cancelado),
+          // nunca num build quebrado de verdade — e sempre por escolha explícita.
+          if (r.actionsFora && !options.buildLocal) {
+            const btn = document.createElement('button')
+            btn.type = 'button'
+            btn.textContent = 'Gerar as imagens nesta máquina e continuar'
+            btn.style.cssText = 'margin-left:10px;padding:4px 10px;border-radius:6px;border:1px solid #f59e0b;background:rgba(245,158,11,0.12);color:#f59e0b;font-weight:600;cursor:pointer;'
+            btn.addEventListener('click', async () => {
+              const ok = window.confirm(
+                'Plano B: as imagens da API e do Web serão geradas NESTA máquina e enviadas ao ghcr; o resto do deploy segue igual.
+
+'
+                + '• O gate do GitHub (tipos, testes e prose) NÃO roda neste modo.
+'
+                + '• Usa o código exato do commit publicado, não os arquivos modificados da pasta.
+'
+                + '• Leva alguns minutos e precisa do Docker Desktop aberto e com login no ghcr.
+
+Continuar?'
+              )
+              if (!ok) return
+              btn.remove()
+              await deployRunPipeline(commitMessage, { ...options, buildLocal: true })
+            })
+            hint.appendChild(btn)
+          }
         }
       } catch (e) {
         if (deployState._currentStep) {
