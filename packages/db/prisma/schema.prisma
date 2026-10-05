@@ -10395,3 +10395,216 @@ model ClienteDossieAcesso {
   @@index([usuarioId])
   @@map("cliente_dossie_acessos")
 }
+
+// ============================================================
+// Certidões e Alvarás (/certidoes-cnd) — 05/10/2026.
+//
+// As rotinas (apps/api/src/cnd) gravam e leem estas tabelas por SQL direto,
+// mas elas nunca tinham entrado no schema nem em SQL de deploy: existiam só
+// num banco antigo de desenvolvimento. Em produção não existiam e todo uso do
+// módulo falhava com relation "certidoes_cnd" does not exist. Declaradas
+// aqui, fiéis às colunas que o código usa, o db push do deploy as cria.
+// O id é gerado pelo banco (os INSERTs não o enviam).
+// ============================================================
+
+model CertidaoCnd {
+  id               String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  documento        String
+  tipoDocumento    Int       @default(2) @map("tipo_documento")
+  razaoSocial      String?   @map("razao_social")
+  etapa            String    @default("pendente")
+  tipoCertidao     String?   @map("tipo_certidao")
+  codigoControle   String?   @map("codigo_controle")
+  dataEmissao      DateTime? @map("data_emissao") @db.Timestamptz(6)
+  dataValidade     DateTime? @map("data_validade") @db.Timestamptz(6)
+  pdfBase64        String?   @map("pdf_base64")
+  statusApi        Int?      @map("status_api")
+  mensagemApi      String?   @map("mensagem_api")
+  respostaCompleta Json?     @map("resposta_completa")
+  sucesso          Boolean   @default(false)
+  erro             String?
+  clienteId        String?   @map("cliente_id")
+  empresaId        String?   @map("empresa_id")
+  userId           String?   @map("user_id")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  @@index([clienteId], map: "idx_cnd_cliente_id")
+  @@index([createdAt(sort: Desc)], map: "idx_cnd_created")
+  @@index([documento], map: "idx_cnd_documento")
+  @@map("certidoes_cnd")
+}
+
+model CertidaoCndEstadual {
+  id          String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  documento   String
+  razaoSocial String?  @map("razao_social")
+  uf          String   @default("ES")
+  sucesso     Boolean  @default(false)
+  mensagem    String?
+  pdfBase64   String?  @map("pdf_base64")
+  clienteId   String?  @map("cliente_id")
+  empresaId   String?  @map("empresa_id")
+  userId      String?  @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@index([createdAt(sort: Desc)], map: "idx_cnd_est_created")
+  @@index([documento], map: "idx_cnd_est_documento")
+  @@map("certidoes_cnd_estadual")
+}
+
+model CertidaoCndMunicipal {
+  id           String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  documento    String
+  razaoSocial  String?   @map("razao_social")
+  municipio    String
+  sucesso      Boolean   @default(false)
+  tipoCertidao String?   @map("tipo_certidao")
+  mensagem     String?
+  conteudoHtml String?   @map("conteudo_html")
+  /// Tenant (05/10/2026): toda leitura e gravação recorta por ele.
+  empresaId    String?   @map("empresa_id")
+  clienteId    String?   @map("cliente_id")
+  userId       String?   @map("user_id")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  debitos      Json?     @default("[]")
+  pdfBase64    String?   @map("pdf_base64")
+  dataValidade DateTime? @map("data_validade") @db.Date
+
+  @@index([documento], map: "idx_cnd_mun_doc")
+  @@index([municipio], map: "idx_cnd_mun_mun")
+  @@index([empresaId], map: "idx_certidaocndmunicipal_empresa")
+  @@map("certidoes_cnd_municipal")
+}
+
+model CertidaoCndt {
+  id             String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  documento      String
+  razaoSocial    String?   @map("razao_social")
+  sucesso        Boolean   @default(false)
+  tipoCertidao   String?   @map("tipo_certidao")
+  mensagem       String?
+  numeroCertidao String?   @map("numero_certidao")
+  dataValidade   DateTime? @map("data_validade") @db.Date
+  pdfBase64      String?   @map("pdf_base64")
+  /// Tenant (05/10/2026): toda leitura e gravação recorta por ele.
+  empresaId    String?   @map("empresa_id")
+  clienteId      String?   @map("cliente_id")
+  userId         String?   @map("user_id")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([documento], map: "idx_cndt_doc")
+  @@index([empresaId], map: "idx_certidaocndt_empresa")
+  @@map("certidoes_cndt")
+}
+
+model CertidaoCrfFgts {
+  id                String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  documento         String
+  razaoSocial       String?   @map("razao_social")
+  sucesso           Boolean   @default(false)
+  tipoCertidao      String?   @map("tipo_certidao")
+  mensagem          String?
+  numeroCertificado String?   @map("numero_certificado")
+  dataValidade      DateTime? @map("data_validade") @db.Date
+  pdfBase64         String?   @map("pdf_base64")
+  /// Tenant (05/10/2026): toda leitura e gravação recorta por ele.
+  empresaId    String?   @map("empresa_id")
+  clienteId         String?   @map("cliente_id")
+  userId            String?   @map("user_id")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([documento], map: "idx_crf_doc")
+  @@index([empresaId], map: "idx_certidaocrffgts_empresa")
+  @@map("certidoes_crf_fgts")
+}
+
+model CertidaoCgu {
+  id           String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  documento    String
+  razaoSocial  String?   @map("razao_social")
+  sucesso      Boolean   @default(false)
+  tipoCertidao String?   @map("tipo_certidao")
+  mensagem     String?
+  situacao     String?
+  dataConsulta DateTime? @map("data_consulta") @db.Timestamptz(6)
+  pdfBase64    String?   @map("pdf_base64")
+  /// Tenant (05/10/2026): toda leitura e gravação recorta por ele.
+  empresaId    String?   @map("empresa_id")
+  clienteId    String?   @map("cliente_id")
+  userId       String?   @map("user_id")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([documento], map: "idx_cgu_doc")
+  @@index([empresaId], map: "idx_certidaocgu_empresa")
+  @@map("certidoes_cgu")
+}
+
+model AlvaraBombeiros {
+  id                 String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  alvaraId           Int?     @map("alvara_id")
+  documento          String?
+  razaoSocial        String?  @map("razao_social")
+  nomeFantasia       String?  @map("nome_fantasia")
+  endereco           String?
+  municipio          String?
+  bairro             String?
+  status             String?
+  codigoValidacao    String?  @map("codigo_validacao")
+  dataInicioValidade String?  @map("data_inicio_validade")
+  dataFimValidade    String?  @map("data_fim_validade")
+  ocupacao           String?
+  /// Tenant (05/10/2026): toda leitura e gravação recorta por ele.
+  empresaId    String?   @map("empresa_id")
+  clienteId          String?  @map("cliente_id")
+  userId             String?  @map("user_id")
+  pdfBase64          String?  @map("pdf_base64")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([clienteId], map: "idx_alv_cliente")
+  @@index([documento], map: "idx_alv_documento")
+  @@index([empresaId], map: "idx_alvarabombeiros_empresa")
+  @@map("alvaras_bombeiros")
+}
+
+model AlvaraFuncionamento {
+  id          String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  documento   String
+  razaoSocial String?  @map("razao_social")
+  municipio   String
+  sucesso     Boolean  @default(false)
+  mensagem    String?
+  pdfBase64   String?  @map("pdf_base64")
+  /// Tenant (05/10/2026): toda leitura e gravação recorta por ele.
+  empresaId    String?   @map("empresa_id")
+  clienteId   String?  @map("cliente_id")
+  userId      String?  @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([documento], map: "idx_alv_func_doc")
+  @@index([municipio], map: "idx_alv_func_mun")
+  @@index([empresaId], map: "idx_alvarafuncionamento_empresa")
+  @@map("alvaras_funcionamento")
+}
+
+model CndExecLog {
+  id           String    @id
+  /// Tenant (05/10/2026).
+  empresaId    String?   @map("empresa_id")
+  tipo         String    @default("manual")
+  iniciadoPor  String?   @map("iniciado_por")
+  nomeUsuario  String?   @map("nome_usuario")
+  iniciadoEm   DateTime  @default(now()) @map("iniciado_em") @db.Timestamptz(6)
+  finalizadoEm DateTime? @map("finalizado_em") @db.Timestamptz(6)
+  total        Int       @default(0)
+  sucesso      Int       @default(0)
+  falhas       Int       @default(0)
+  status       String    @default("running")
+  itens        Json      @default("[]")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([empresaId], map: "idx_cndexeclog_empresa")
+  @@map("cnd_exec_log")
+}
