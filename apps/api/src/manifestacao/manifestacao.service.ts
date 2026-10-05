@@ -77,29 +77,38 @@ export class ManifestacaoService {
         ],
       }
 
+    // Escopo e busca são dois OR: vão em AND. Espalhados no mesmo objeto, o
+    // `OR` da busca sobrescrevia o do escopo — quem não tinha `ver_todos` via a
+    // lista de todos assim que digitava algo na busca (corrigido em 05/10/2026).
     const where = {
       tipo,
       empresaId: ctx.empresaId ?? null,
-      ...escopo,
       ...(input.status ? { status: input.status } : {}),
       ...(input.origem ? { origem: input.origem } : {}),
       ...(input.areaId ? { areaId: input.areaId } : {}),
       ...(input.clienteId ? { clienteId: input.clienteId } : {}),
-      ...(search
-        ? {
-          OR: [
-            { titulo: { contains: search, mode: 'insensitive' as const } },
-            { descricao: { contains: search, mode: 'insensitive' as const } },
-            { protocolo: { contains: search.toUpperCase() } },
-          ],
-        }
-        : {}),
+      AND: [
+        escopo,
+        ...(search
+          ? [{
+            OR: [
+              { titulo: { contains: search, mode: 'insensitive' as const } },
+              { descricao: { contains: search, mode: 'insensitive' as const } },
+              { protocolo: { contains: search.toUpperCase() } },
+              { cliente: { is: { razaoSocial: { contains: search, mode: 'insensitive' as const } } } },
+            ],
+          }]
+          : []),
+      ],
     }
+    // Ordenação só por coluna conhecida — `sortBy` vem da tela.
+    const ORDENAVEIS = new Set(['protocolo', 'criadoEm', 'status', 'titulo', 'prazoRetorno'])
+    const ordem = sortBy && ORDENAVEIS.has(sortBy) ? { [sortBy]: sortDir } : { criadoEm: 'desc' as const }
 
     const [linhas, total] = await Promise.all([
       prisma.manifestacao.findMany({
         where,
-        orderBy: sortBy ? { [sortBy]: sortDir } : { criadoEm: 'desc' },
+        orderBy: ordem,
         skip,
         take,
         include: {
@@ -223,6 +232,12 @@ export class ManifestacaoService {
 
   async criar(input: CriarManifestacaoInput, autorId: string | null, empresaId?: string | null) {
     const tipo = input.tipo
+    // Cliente de outra empresa não entra: a lista da tela já é recortada, isto
+    // fecha a chamada direta à API.
+    if (input.origem === 'CLIENTE' && input.clienteId && empresaId) {
+      const ok = await prisma.cliente.count({ where: { id: input.clienteId, empresaId } })
+      if (!ok) throw new Error('Cliente não encontrado nesta empresa.')
+    }
     const protocolo = await this.gerarProtocolo(tipo)
 
     const criado = await prisma.manifestacao.create({

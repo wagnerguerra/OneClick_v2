@@ -178,8 +178,12 @@ export function createClienteRouter(
     // `incluirInativos`: ex-clientes também (marcados por `status`) — usado no
     // novo orçamento, onde quem volta a pedir serviço precisa ser achado.
     listForSelect: protectedProcedure
-      .input(z.object({ incluirInativos: z.boolean().optional() }).optional())
-      .query(({ input, ctx }) => clienteService.listForSelect(ctx.isMaster, ctx.empresaId, input?.incluirInativos ?? false)),
+      .input(z.object({
+        incluirInativos: z.boolean().optional(),
+        /** Só clientes mensais (carteira) — ex.: reclamação de cliente. */
+        somenteMensais: z.boolean().optional(),
+      }).optional())
+      .query(({ input, ctx }) => clienteService.listForSelect(ctx.isMaster, ctx.empresaId, input?.incluirInativos ?? false, input?.somenteMensais ?? false)),
 
     // ── Opcoes editaveis (Atividade, Origem) ───────────────
     listOpcoes: readProcedure(MODULE)

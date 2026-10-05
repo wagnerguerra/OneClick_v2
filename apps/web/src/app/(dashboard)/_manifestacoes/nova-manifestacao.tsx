@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Loader2, EyeOff, Building2, User as UserIcon } from 'lucide-react'
+import { Plus, Loader2, EyeOff, Building2, User as UserIcon, X } from 'lucide-react'
+import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
 import {
   Button, Input, Label, Checkbox, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
@@ -59,7 +60,7 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
   const [salvando, setSalvando] = useState(false)
 
   const [areas, setAreas] = useState<Array<{ id: string; name: string }>>([])
-  const [clientes, setClientes] = useState<Array<{ id: string; razaoSocial: string }>>([])
+  const [clientes, setClientes] = useState<Array<{ id: string; razaoSocial: string; documento?: string | null }>>([])
   const [pessoas, setPessoas] = useState<Array<{ id: string; name: string }>>([])
   const [buscaPessoa, setBuscaPessoa] = useState('')
 
@@ -72,7 +73,10 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
 
   useEffect(() => {
     if (origem !== 'CLIENTE' || clientes.length > 0) return
-    ;(trpc.orcamento as any).buscarClientes.query({ search: '' })
+    // Clientes mensais ativos da empresa carregada — a carteira. A busca do
+    // orçamento (usada antes) cortava em 60 por ordem alfabética: a lista parava
+    // no "AC RAUP".
+    ;(trpc.cliente as any).listForSelect.query({ somenteMensais: true })
       .then((r: never[]) => setClientes(r ?? []))
       .catch(() => setClientes([]))
   }, [origem, clientes.length])
@@ -147,14 +151,22 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
             <div className="grid grid-cols-12 gap-3 rounded-lg border border-border bg-muted/20 p-3">
               <div className="col-span-12 space-y-1.5 sm:col-span-7">
                 <Label className="text-[13px] font-semibold">Cliente</Label>
-                <Select value={clienteId || '__none__'}
-                  onValueChange={v => setClienteId(v === '__none__' ? '' : v)}>
-                  <SelectTrigger className="h-9 w-full text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">— não identificado —</SelectItem>
-                    {clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.razaoSocial}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-1.5">
+                  <div className="min-w-0 flex-1">
+                    <ClienteCombobox
+                      clientes={clientes}
+                      value={clienteId}
+                      onSelect={setClienteId}
+                      placeholder="— não identificado —"
+                    />
+                  </div>
+                  {clienteId && (
+                    <button type="button" onClick={() => setClienteId('')} title="Limpar (cliente não identificado)"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="col-span-12 space-y-1.5 sm:col-span-5">
                 <Label className="text-[13px] font-semibold">Canal</Label>
