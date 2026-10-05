@@ -1062,7 +1062,7 @@ function MappingPanel() {
               {sugSelected.size} selecionada(s) · {suggestions.filter(s => s.suggestedServicoId && !s.alreadyMapped).length} sugestões aplicáveis
             </div>
             <Button variant="outline" onClick={() => setSugOpen(false)} disabled={sugApplying}>Cancelar</Button>
-            <Button onClick={aplicarSugestoes} disabled={sugApplying || sugSelected.size === 0} className="gap-1.5">
+            <Button variant="success" onClick={aplicarSugestoes} disabled={sugApplying || sugSelected.size === 0} className="gap-1.5">
               {sugApplying ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
               Aplicar selecionados
             </Button>

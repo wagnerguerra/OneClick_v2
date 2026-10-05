@@ -132,7 +132,7 @@ export function FolhaImportTab({ clienteId }: { clienteId: string }) {
                 <FileText className="h-3.5 w-3.5" />
                 {arquivo ? arquivo.name : 'Selecionar arquivo...'}
               </Button>
-              <Button size="sm" onClick={handleImportar} disabled={importing || !arquivo || !competencia} className="gap-1.5 h-9 text-xs">
+              <Button variant="success" size="sm" onClick={handleImportar} disabled={importing || !arquivo || !competencia} className="gap-1.5 h-9 text-xs">
                 {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                 Importar
               </Button>

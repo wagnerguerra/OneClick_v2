@@ -539,7 +539,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
           {/* ── Barra de página (padrão LuminAux): título + trilha; ações à direita ── */}
           <PageHeaderBar className="mb-0 sm:mb-0"
             actions={<>
-              {canEditDetails && <Button size="sm" type="submit" disabled={saving} className="gap-1.5"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar'}</Button>}
+              {canEditDetails && <Button size="sm" type="submit" variant="success" disabled={saving} className="gap-1.5"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar'}</Button>}
               <BackButton href="/clientes" />
             </>}
           >
@@ -2533,10 +2533,10 @@ function AcessoriasIntegracao({ clienteId }: { clienteId: string | null }) {
         <Input value={idAtual != null ? String(idAtual) : ''} readOnly placeholder="—" className="flex-1 min-w-0" />
         <Button
           type="button"
+          variant="success"
           onClick={handleCadastrar}
           disabled={loading || !clienteId}
           className="gap-2 shrink-0"
-          style={{ backgroundColor: '#0ea5e9', color: '#fff' }}
         >
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
           {idAtual ? 'Sincronizar no Acessórias' : 'Cadastrar no Acessórias'}
@@ -3338,7 +3338,7 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setModal(null)}>Cancelar</Button>
-            <Button type="button" variant={modal?.id ? 'info' : 'success'} onClick={handleSave} disabled={saving || !modal?.valor.trim()}>
+            <Button type="button" variant="success" onClick={handleSave} disabled={saving || !modal?.valor.trim()}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
             </Button>
           </DialogFooter>
@@ -3383,7 +3383,7 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setModalBenef(null)}>Cancelar</Button>
-            <Button type="button" variant={modalBenef?.id ? 'info' : 'success'} onClick={handleSaveBenef} disabled={savingBenef || !modalBenef?.catalogoId}>
+            <Button type="button" variant="success" onClick={handleSaveBenef} disabled={savingBenef || !modalBenef?.catalogoId}>
               {savingBenef ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
             </Button>
           </DialogFooter>
@@ -3743,7 +3743,7 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
-            <Button type="button" variant="info" onClick={handleSaveEdit} disabled={savingEdit || !editing?.fileName.trim()}>
+            <Button type="button" variant="success" onClick={handleSaveEdit} disabled={savingEdit || !editing?.fileName.trim()}>
               {savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
             </Button>
           </DialogFooter>
@@ -3778,7 +3778,7 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setEditingCert(null)}>Cancelar</Button>
-            <Button type="button" variant="info" onClick={handleSaveCert} disabled={savingCert}>
+            <Button type="button" variant="success" onClick={handleSaveCert} disabled={savingCert}>
               {savingCert ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
             </Button>
           </DialogFooter>
@@ -4025,7 +4025,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
               </div>
             </div>
             <div className="flex gap-2 mt-3">
-              <Button type="button" variant="info" size="sm" onClick={handleUpdate} disabled={!fNome.trim()}>
+              <Button type="button" variant="success" size="sm" onClick={handleUpdate} disabled={!fNome.trim()}>
                 <Save className="h-4 w-4" /> Salvar
               </Button>
               <Button type="button" variant="ghost" size="sm" onClick={cancelEdit}>Cancelar</Button>

@@ -411,7 +411,7 @@ export function EmpresaForm({ mode, empresaId, title, defaultValues, resumo }: E
         {/* Barra da página — PADRAO_PAGINAS §3.1. `mb-0`: o espaço até o hero
             é o `mt-6` dele, e a margem própria da barra somaria à dele. */}
         <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
-            <Button size="sm" type="submit" disabled={saving} className="gap-1.5">
+            <Button variant="success" size="sm" type="submit" disabled={saving} className="gap-1.5">
               <Save className="h-4 w-4" />
               {saving ? 'Salvando...' : 'Salvar'}
             </Button>

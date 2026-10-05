@@ -279,7 +279,7 @@ export function CamposClienteCapturaModal({ execPassoId, onConfirmar, onCancelar
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={onCancelar} disabled={submitting}>Cancelar</Button>
-          <Button onClick={handleConfirmar} disabled={submitting || loading || obrigatoriosFaltando.length > 0 || revisaoFaltando.length > 0} variant="info">
+          <Button onClick={handleConfirmar} disabled={submitting || loading || obrigatoriosFaltando.length > 0 || revisaoFaltando.length > 0} variant="success">
             {submitting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
             Concluir passo e salvar
           </Button>

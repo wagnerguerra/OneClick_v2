@@ -536,6 +536,7 @@ function ConfigPanel({ status, onChange }: { status: SchedulerStatus; onChange: 
             </div>
           )}
           <Button
+            variant="success"
             size="sm"
             onClick={salvarHorario}
             disabled={salvando}

@@ -580,7 +580,7 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
                                 />
                                 Impediu a rodada
                               </label>
-                              <Button size="sm" className="gap-1.5" disabled={!draft.texto.trim()} onClick={() => void adicionarApontamento(r.id)}>
+                              <Button size="sm" variant="success" className="gap-1.5" disabled={!draft.texto.trim()} onClick={() => void adicionarApontamento(r.id)}>
                                 <MessageSquarePlus className="h-4 w-4" /> Registrar
                               </Button>
                             </div>

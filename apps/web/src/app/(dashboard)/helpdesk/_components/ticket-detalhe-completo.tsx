@@ -1128,10 +1128,11 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                     className="w-full rounded-md px-3 py-2 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   />
                   <Button
+                    variant="success"
                     size="sm"
                     onClick={enviarCsat}
                     disabled={csatEnviando || csatNota < 1}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+                    className="gap-1.5"
                   >
                     {csatEnviando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Star className="h-3.5 w-3.5" />}
                     Enviar avaliação
@@ -1281,10 +1282,11 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                         Reprocessar
                       </Button>
                       <Button
+                        variant="success"
                         size="sm"
                         onClick={handleAprovarPlano}
                         disabled={processandoPlano || forcandoIa}
-                        className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white"
+                        className="gap-1.5"
                       >
                         {processandoPlano ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ThumbsUp className="h-3.5 w-3.5" />}
                         Aprovar plano
@@ -1985,7 +1987,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
             <Button
               onClick={salvarEdicaoMensagem}
               disabled={savingEdit || !editingConteudo.replace(/<[^>]+>/g, '').trim()}
-              variant="info"
+              variant="success"
               className="gap-1.5"
             >
               {savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -2032,7 +2034,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
             <Button
               onClick={salvarEdicaoDescricao}
               disabled={savingDescricao || !editTitulo.trim() || !editDescricaoConteudo.replace(/<[^>]+>/g, '').trim()}
-              variant="info"
+              variant="success"
               className="gap-1.5"
             >
               {savingDescricao ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}

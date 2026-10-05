@@ -167,7 +167,7 @@ export default function OrcamentosConfiguracoesPage() {
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
           {activeTab !== 'areas' && activeTab !== 'modelos' && activeTab !== 'pesquisa' && activeTab !== 'ia' && (
-            <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={handleSave} disabled={saving}>
+            <Button size="sm" variant="success" className="gap-1.5" onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar
             </Button>
@@ -581,7 +581,7 @@ function AreasConfigTab() {
       </div>
 
       <div className="flex justify-end pt-2">
-        <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={salvar} disabled={saving}>
+        <Button size="sm" variant="success" className="gap-1.5" onClick={salvar} disabled={saving}>
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar áreas
         </Button>
       </div>
@@ -710,7 +710,7 @@ function ModelosPropostaTab() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEdit(null)}>Cancelar</Button>
-            <Button onClick={salvar} disabled={saving} variant={edit?._new ? 'success' : 'info'} className="gap-1.5">
+            <Button onClick={salvar} disabled={saving} variant="success" className="gap-1.5">
               {saving && <Loader2 className="h-4 w-4 animate-spin" />} Salvar
             </Button>
           </DialogFooter>
@@ -790,7 +790,7 @@ function IaSugestoesTab() {
       </div>
 
       <div className="flex justify-end">
-        <Button onClick={salvar} disabled={saving} style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5">
+        <Button onClick={salvar} disabled={saving} variant="success" className="gap-1.5">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar sugestões
         </Button>
       </div>
@@ -912,7 +912,7 @@ function PesquisaConfigTab() {
       </div>
 
       <div className="flex justify-end">
-        <Button size="sm" onClick={salvar} disabled={saving} style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5">
+        <Button size="sm" onClick={salvar} disabled={saving} variant="success" className="gap-1.5">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} {temRespostas ? 'Salvar (nova versão)' : 'Salvar'}
         </Button>
       </div>

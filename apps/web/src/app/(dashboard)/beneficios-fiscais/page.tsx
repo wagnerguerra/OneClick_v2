@@ -599,7 +599,7 @@ export default function BeneficiosFiscaisPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setVincModal(null)}>Cancelar</Button>
-            <Button variant={vincModal?._new ? 'success' : 'info'} onClick={salvarVinculo} disabled={vincSaving}>
+            <Button variant="success" onClick={salvarVinculo} disabled={vincSaving}>
               {vincSaving && <Loader2 className="h-4 w-4 animate-spin" />} Salvar
             </Button>
           </DialogFooter>
@@ -739,7 +739,7 @@ function CatalogoModal({ open, onClose, catalogo, servicos, onChanged }: {
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" size="sm" onClick={() => setEdit(null)}>Cancelar</Button>
-                <Button size="sm" onClick={salvar} disabled={saving}>
+                <Button size="sm" variant="success" onClick={salvar} disabled={saving}>
                   {saving && <Loader2 className="h-4 w-4 animate-spin" />} Salvar
                 </Button>
               </div>

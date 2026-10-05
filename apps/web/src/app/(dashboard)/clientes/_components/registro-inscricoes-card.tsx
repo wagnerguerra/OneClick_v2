@@ -386,7 +386,7 @@ export function RegistroInscricoesCard({ clienteId }: { clienteId: string }) {
             <Input value={novo.observacoes} onChange={e => setNovo(s => ({ ...s, observacoes: e.target.value }))} placeholder="Opcional" className="h-9 text-sm"
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void handleAdd() } }} />
           </div>
-          <Button type="button" size="sm" onClick={handleAdd} disabled={saving}>
+          <Button type="button" size="sm" variant="success" onClick={handleAdd} disabled={saving}>
             <Plus className="h-4 w-4" /> Adicionar
           </Button>
         </div>

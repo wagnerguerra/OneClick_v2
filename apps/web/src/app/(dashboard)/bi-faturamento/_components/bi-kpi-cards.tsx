@@ -344,7 +344,7 @@ function KpiDetailModal({ type, data, clienteId, ano, onClose, onKpisChanged }: 
                     <p className="text-[11px] text-muted-foreground">
                       {contasSelecionadas.size === 0 ? 'Nenhuma seleção = cálculo padrão do sistema' : `${contasSelecionadas.size} conta(s) selecionada(s) serão usadas no cálculo`}
                     </p>
-                    <Button size="sm" onClick={handleSaveContas} disabled={savingContas} className="gap-1.5">
+                    <Button size="sm" variant="success" onClick={handleSaveContas} disabled={savingContas} className="gap-1.5">
                       {savingContas ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                       Salvar seleção
                     </Button>

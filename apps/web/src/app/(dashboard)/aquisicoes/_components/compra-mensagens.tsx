@@ -165,7 +165,7 @@ function MensagemItem({ msg, currentUserId, respostas = [], onExcluir, onEditar,
                   <Button type="button" size="sm" variant="outline" onClick={() => { setTexto(msg.texto); setEditando(false) }} disabled={salvando}>
                     Cancelar
                   </Button>
-                  <Button type="button" size="sm" className="gap-1.5" onClick={salvar} disabled={salvando || richVazio(texto)}>
+                  <Button type="button" size="sm" variant="success" className="gap-1.5" onClick={salvar} disabled={salvando || richVazio(texto)}>
                     {salvando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Salvar
                   </Button>
                 </div>
@@ -318,7 +318,7 @@ export function MensagensTab({ compraId, currentUserId }: { compraId: string; cu
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="outline" size="sm" onClick={() => setNovaAberta(false)} disabled={enviando}>Cancelar</Button>
-            <Button type="button" size="sm" className="gap-1.5" onClick={adicionar} disabled={enviando || richVazio(nova)}>
+            <Button type="button" size="sm" variant="success" className="gap-1.5" onClick={adicionar} disabled={enviando || richVazio(nova)}>
               {enviando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} Salvar mensagem
             </Button>
           </DialogFooter>

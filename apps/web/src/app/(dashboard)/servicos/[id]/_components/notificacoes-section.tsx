@@ -888,7 +888,7 @@ export function NotificacoesSection({
                 {testandoEnvio ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
                 Enviar teste
               </Button>
-              <Button size="sm" variant={editingId ? 'info' : 'success'} onClick={salvarRegra} disabled={savingRegra} className="gap-1.5">
+              <Button size="sm" variant="success" onClick={salvarRegra} disabled={savingRegra} className="gap-1.5">
                 {savingRegra ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                 {editingId ? 'Atualizar regra' : 'Criar regra'}
               </Button>

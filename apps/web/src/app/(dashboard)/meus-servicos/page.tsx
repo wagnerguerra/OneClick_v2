@@ -1148,11 +1148,11 @@ export default function MeusServicosPage() {
                     </div>
                     <div className="flex justify-end pl-11">
                       <Button
+                        variant="success"
                         size="sm"
                         onClick={() => responderPergunta(exec.id)}
                         disabled={respondendoId === exec.id || escolhidas.length === 0}
                         className="gap-1.5"
-                        style={{ backgroundColor: '#f59e0b', color: '#fff' }}
                       >
                         {respondendoId === exec.id
                           ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1462,6 +1462,7 @@ export default function MeusServicosPage() {
               Cancelar
             </Button>
             <Button
+              variant="success"
               size="sm"
               onClick={handleSalvarConfig}
               disabled={configSalvando}

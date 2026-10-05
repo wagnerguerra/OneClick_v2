@@ -135,7 +135,7 @@ function FiliaisSection({ clienteId, filiais, onReload }: { clienteId: string; f
             <div className="space-y-1"><label className="text-[10px] font-semibold uppercase text-muted-foreground">Conta Líquido</label><Input type="number" value={form.contaLiquido} onChange={e => setForm({ ...form, contaLiquido: Number(e.target.value) })} className="h-8 text-xs" /></div>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleAddFilial} className="gap-1 text-xs"><Save className="h-3.5 w-3.5" /><span>Salvar</span></Button>
+            <Button variant="success" size="sm" onClick={handleAddFilial} className="gap-1 text-xs"><Save className="h-3.5 w-3.5" /><span>Salvar</span></Button>
             <Button size="sm" variant="outline" onClick={() => setAdding(false)} className="text-xs">Cancelar</Button>
           </div>
         </Card>
@@ -170,7 +170,7 @@ function FiliaisSection({ clienteId, filiais, onReload }: { clienteId: string; f
                     <SelectItem value="CUSTO" className="text-xs">CUSTO</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button size="sm" onClick={handleAddSetor} className="h-7 text-[10px] px-2">OK</Button>
+                <Button variant="success" size="sm" onClick={handleAddSetor} className="h-7 text-[10px] px-2">OK</Button>
                 <Button size="sm" variant="ghost" onClick={() => setNovoSetor(null)} className="h-7 text-[10px] px-2">X</Button>
               </div>
             ) : (

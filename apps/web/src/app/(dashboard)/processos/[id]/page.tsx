@@ -503,9 +503,10 @@ export default function ProcessoDetalhePage() {
                           <div className="flex justify-end">
                             <Button
                               size="sm"
+                              variant="success"
                               onClick={() => handleResponderPergunta(exec.id)}
                               disabled={respondendoId === exec.id || escolhidas.length === 0}
-                              className="gap-1.5 bg-amber-500 hover:bg-amber-600 text-white"
+                              className="gap-1.5"
                             >
                               {respondendoId === exec.id
                                 ? <Loader2 className="h-3.5 w-3.5 animate-spin" />

@@ -287,7 +287,7 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved, oportunidadeI
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
-          <Button variant={isEdit ? 'info' : 'success'} onClick={handleSave} disabled={saving} className="gap-1.5">
+          <Button variant="success" onClick={handleSave} disabled={saving} className="gap-1.5">
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckSquare className="h-3.5 w-3.5" />}
             {isEdit ? 'Salvar' : 'Criar tarefa'}
           </Button>

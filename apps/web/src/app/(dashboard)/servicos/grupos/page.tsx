@@ -548,7 +548,7 @@ export default function GruposPage() {
           </DialogBody>
           <DialogFooter className="px-6 py-3 shrink-0 border-t border-border/40">
             <Button variant="outline" onClick={() => setModalOpen(false)} disabled={saving}>Cancelar</Button>
-            <Button variant={editing ? 'info' : 'success'} onClick={handleSave} disabled={saving} className="gap-1.5">
+            <Button variant="success" onClick={handleSave} disabled={saving} className="gap-1.5">
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               {editing ? 'Salvar' : 'Criar'}
             </Button>

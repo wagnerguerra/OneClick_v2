@@ -225,7 +225,7 @@ export default function PainelEditorPage() {
         </div>
         <div className="flex items-center justify-between mt-3">
           <label className="flex items-center gap-2 text-sm cursor-pointer"><Checkbox checked={meta.ativo} onCheckedChange={(v) => setMeta({ ...meta, ativo: v === true })} /> Painel ativo</label>
-          <Button size="sm" onClick={salvarMeta} disabled={savingMeta} style={{ backgroundColor: accent }} className="text-white">{savingMeta ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4 mr-1.5" /> Salvar dados</>}</Button>
+          <Button size="sm" variant="success" onClick={salvarMeta} disabled={savingMeta}>{savingMeta ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4 mr-1.5" /> Salvar dados</>}</Button>
         </div>
       </Card>
 
@@ -487,7 +487,7 @@ export default function PainelEditorPage() {
             </div>
             <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border">
               <Button variant="outline" onClick={() => setBlocoModal({ open: false })}>Cancelar</Button>
-              <Button onClick={salvarBloco} style={{ backgroundColor: accent }} className="text-white">{blocoModal.editId ? 'Salvar' : 'Adicionar'}</Button>
+              <Button variant="success" onClick={salvarBloco}>{blocoModal.editId ? 'Salvar' : 'Adicionar'}</Button>
             </div>
           </div>
         </div>

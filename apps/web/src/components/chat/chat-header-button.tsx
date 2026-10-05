@@ -1929,8 +1929,7 @@ function NovoGrupoView({ meuId, onlineUsers, onCancel, onCreated, presencaPorUsu
       </div>
       <div className="px-3 py-2.5 border-t border-border flex justify-end gap-2">
         <Button variant="outline" size="sm" onClick={onCancel}>Cancelar</Button>
-        <Button size="sm" onClick={criar} disabled={saving || !nome.trim() || selecionados.length === 0}
-          className="bg-sky-500 hover:bg-sky-600 text-white">
+        <Button size="sm" variant="success" onClick={criar} disabled={saving || !nome.trim() || selecionados.length === 0}>
           {saving && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}Criar grupo
         </Button>
       </div>

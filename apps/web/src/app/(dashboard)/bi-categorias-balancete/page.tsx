@@ -269,7 +269,7 @@ function FormulaModal({ conta, nome, categorias, currentFormula, onSave, onClose
           <DialogClose asChild>
             <Button type="button" variant="outline" size="sm">Fechar</Button>
           </DialogClose>
-          <Button type="button" variant="info" size="sm" onClick={handleSave}>Salvar</Button>
+          <Button type="button" variant="success" size="sm" onClick={handleSave}>Salvar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1177,6 +1177,7 @@ export default function BiCategoriasBalancetePage() {
             </DropdownMenu>
             <Button
               size="sm"
+              variant="success"
               disabled={!clienteId || !dirty || saving}
               onClick={handleSave}
               className="gap-1.5 h-[32px] text-xs"
@@ -1657,6 +1658,7 @@ export default function BiCategoriasBalancetePage() {
             </DialogClose>
             <Button
               size="sm"
+              variant="success"
               onClick={confirmarCopiar}
               disabled={!copiarSel || copiando}
               className="gap-1.5"

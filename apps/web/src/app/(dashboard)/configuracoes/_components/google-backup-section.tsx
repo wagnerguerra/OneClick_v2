@@ -262,7 +262,7 @@ export function GoogleBackupSection() {
         </div>
 
         <div className="flex gap-2 pt-1">
-          <Button size="sm" onClick={salvar} disabled={saving} className="gap-1.5">
+          <Button variant="success" size="sm" onClick={salvar} disabled={saving} className="gap-1.5">
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
             Salvar
           </Button>

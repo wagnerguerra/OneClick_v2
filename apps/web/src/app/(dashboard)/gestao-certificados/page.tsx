@@ -1081,6 +1081,7 @@ function RenovarCertificadoModal({ target, onClose, onRenovado }: {
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={salvando}>Cancelar</Button>
           <Button
+            variant="success"
             onClick={handleSalvar}
             disabled={salvando || !arquivo || !senha || senha !== confirmaSenha}
             className="gap-1.5"

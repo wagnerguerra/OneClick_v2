@@ -690,8 +690,8 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
             <Button
               type="button"
               onClick={aplicarGrupo}
+              variant="success"
               disabled={!grupoSelecionado || aplicando}
-              style={{ backgroundColor: '#f97316', color: 'white' }}
             >
               {aplicando ? <Loader2 className="h-4 w-4 animate-spin" /> : <ListPlus className="h-4 w-4" />}
               Aplicar grupo

@@ -1367,7 +1367,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     <Button variant="outline" onClick={() => setCertEdit(null)} disabled={certSalvando} type="button">
                       Cancelar
                     </Button>
-                    <Button variant="info" onClick={salvarCertificado} disabled={certSalvando} type="button">
+                    <Button variant="success" onClick={salvarCertificado} disabled={certSalvando} type="button">
                       {certSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}
                     </Button>
                   </DialogFooter>
@@ -1476,7 +1476,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="outline" size="sm" onClick={() => setAceModalOpen(false)}>Fechar</Button>
-          <Button type="button" variant={aceEditId ? 'info' : 'success'} size="sm" onClick={saveAcesso} disabled={!aceForm.portal}>Salvar</Button>
+          <Button type="button" variant="success" size="sm" onClick={saveAcesso} disabled={!aceForm.portal}>Salvar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1494,7 +1494,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="outline" size="sm" onClick={() => setVncModalOpen(false)}>Fechar</Button>
-          <Button type="button" variant={vncEditId ? 'info' : 'success'} size="sm" onClick={saveVencimento} disabled={!vncForm.descricao}>Salvar</Button>
+          <Button type="button" variant="success" size="sm" onClick={saveVencimento} disabled={!vncForm.descricao}>Salvar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1520,7 +1520,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="outline" size="sm" onClick={() => setAndModalOpen(false)}>Fechar</Button>
-          <Button type="button" variant={andEditId ? 'info' : 'success'} size="sm" onClick={saveAndamento} disabled={!andForm.tipo}>Salvar</Button>
+          <Button type="button" variant="success" size="sm" onClick={saveAndamento} disabled={!andForm.tipo}>Salvar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1979,7 +1979,7 @@ function EditSocioModal(props: {
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" size="sm" type="button" onClick={onClose} disabled={saving}>Cancelar</Button>
-          <Button variant="default" size="sm" type="button" onClick={salvar} disabled={saving || loading || !socio}>
+          <Button variant="success" size="sm" type="button" onClick={salvar} disabled={saving || loading || !socio}>
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
             Salvar
           </Button>

@@ -249,7 +249,7 @@ export function ParametrosContratoModal({ clienteId, open, onOpenChange, subtitu
           </Button>
           <div className="flex gap-2">
             <DialogClose asChild><Button type="button" variant="outline" size="sm">Fechar</Button></DialogClose>
-            <Button type="button" variant="info" size="sm" onClick={salvar} disabled={saving || loading}>
+            <Button type="button" variant="success" size="sm" onClick={salvar} disabled={saving || loading}>
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
               {saving ? 'Salvando...' : 'Salvar'}
             </Button>

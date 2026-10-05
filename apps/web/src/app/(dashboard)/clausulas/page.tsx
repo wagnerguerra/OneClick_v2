@@ -471,7 +471,7 @@ export default function ClausulasPage() {
               size="sm"
               onClick={handleSalvar}
               disabled={salvando}
-              variant={editing ? 'info' : 'success'}
+              variant="success"
               className="gap-1.5"
             >
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileCheck2 className="h-4 w-4" />}

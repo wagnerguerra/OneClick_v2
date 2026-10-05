@@ -2423,7 +2423,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                       <Button variant="outline" size="sm" onClick={() => { setRotuloDialog(null); setRotuloLivreText('') }}>
                         Cancelar
                       </Button>
-                      <Button size="sm" variant="info" onClick={() => aplicarRotulo(rotuloLivreText)}>
+                      <Button size="sm" variant="success" onClick={() => aplicarRotulo(rotuloLivreText)}>
                         Salvar
                       </Button>
                     </div>
@@ -3308,6 +3308,7 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
             {podeEditar && (
               <Button
                 size="sm"
+                variant="success"
                 onClick={handleSalvarPergunta}
                 disabled={pergSalvando}
                 className="h-7 text-[11px] gap-1.5"

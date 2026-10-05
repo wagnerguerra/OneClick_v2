@@ -3433,7 +3433,7 @@ export default function OrcamentoDetailPage() {
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddForma() } }}
                 className="h-9 text-sm flex-1"
               />
-              <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white" onClick={handleAddForma} disabled={!novaForma.trim()}>
+              <Button size="sm" variant="success" onClick={handleAddForma} disabled={!novaForma.trim()}>
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
@@ -3908,8 +3908,8 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
                   </Button>
                   <Button
                     size="sm"
-                    className="gap-1.5 text-white"
-                    style={{ backgroundColor: PRIMARY }}
+                    variant="success"
+                    className="gap-1.5"
                     onClick={salvarEdicao}
                     disabled={salvando || textoVazio}
                   >
@@ -4217,8 +4217,8 @@ function MensagensCard({ orcamentoId, mensagens, usuarios = [], onChange, bare =
             </Button>
             <Button
               size="sm"
-              className="gap-1.5 text-white"
-              style={{ backgroundColor: PRIMARY }}
+              variant="success"
+              className="gap-1.5"
               onClick={handleAdicionar}
               disabled={enviando || mensagemVazia}
             >

@@ -253,7 +253,7 @@ function ConfigView({ empresaId }: { empresaId: string }) {
           )}
         </div>
 
-        <Button size="sm" className="gap-1.5" onClick={salvarCfg} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar</Button>
+        <Button size="sm" variant="success" className="gap-1.5" onClick={salvarCfg} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar</Button>
       </Card>
 
       <Card className="p-0 overflow-hidden">
@@ -303,7 +303,7 @@ function ConfigView({ empresaId }: { empresaId: string }) {
           <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">VA</Label><Input type="number" step="0.01" className="h-9 text-sm" value={novoCartao.valorVA} onChange={e => setNovoCartao(c => ({ ...c, valorVA: +e.target.value }))} /></div>
           <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">VT</Label><Input type="number" step="0.01" className="h-9 text-sm" value={novoCartao.valorVT} onChange={e => setNovoCartao(c => ({ ...c, valorVT: +e.target.value }))} /></div>
           <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">Mobilidade</Label><Input type="number" step="0.01" className="h-9 text-sm" value={novoCartao.valorMobilidade} onChange={e => setNovoCartao(c => ({ ...c, valorMobilidade: +e.target.value }))} /></div>
-          <div className="col-span-12 sm:col-span-2"><Button size="sm" className="w-full gap-1.5" onClick={addCartao}><Plus className="h-4 w-4" /> Adicionar</Button></div>
+          <div className="col-span-12 sm:col-span-2"><Button size="sm" variant="success" className="w-full gap-1.5" onClick={addCartao}><Plus className="h-4 w-4" /> Adicionar</Button></div>
         </div>
       </Card>
     </div>

@@ -80,7 +80,7 @@ export function FormasPagamentoModal({ open, onOpenChange }: { open: boolean; on
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void add() } }}
               className="h-9 text-sm flex-1"
             />
-            <Button size="sm" onClick={() => void add()} disabled={!nova.trim()}>
+            <Button size="sm" variant="success" onClick={() => void add()} disabled={!nova.trim()}>
               <Plus className="h-4 w-4" />
             </Button>
           </div>

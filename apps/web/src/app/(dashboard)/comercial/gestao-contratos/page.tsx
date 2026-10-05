@@ -724,7 +724,7 @@ export default function GestaoContratosPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setEditandoEntrada(null)}>Cancelar</Button>
-            <Button variant="info" size="sm" onClick={salvarDataEntrada} disabled={salvandoEntrada || !editandoEntrada?.valor}>
+            <Button variant="success" size="sm" onClick={salvarDataEntrada} disabled={salvandoEntrada || !editandoEntrada?.valor}>
               {salvandoEntrada ? 'Salvando…' : 'Salvar'}
             </Button>
           </DialogFooter>

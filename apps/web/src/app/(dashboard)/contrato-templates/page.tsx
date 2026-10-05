@@ -390,7 +390,7 @@ export default function ContratoTemplatesPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditorOpen(false)} disabled={salvando}>Cancelar</Button>
-            <Button size="sm" onClick={handleSalvar} disabled={salvando} variant={editing ? 'info' : 'success'} className="gap-1.5">
+            <Button size="sm" onClick={handleSalvar} disabled={salvando} variant="success" className="gap-1.5">
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {editing ? 'Salvar' : 'Criar'}
             </Button>
@@ -470,7 +470,7 @@ export default function ContratoTemplatesPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOrgOpen(false)} disabled={orgSavingClausulas}>Cancelar</Button>
-            <Button size="sm" onClick={salvarOrganizacao} disabled={orgSavingClausulas} style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5">
+            <Button size="sm" onClick={salvarOrganizacao} disabled={orgSavingClausulas} variant="success" className="gap-1.5">
               {orgSavingClausulas ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Salvar organização
             </Button>

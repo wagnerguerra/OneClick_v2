@@ -479,7 +479,7 @@ export default function AgendaPage() {
           className="text-sm min-h-[96px] resize-y"
         />
         <div className="flex justify-end">
-          <Button size="sm" className="gap-1.5" onClick={addAnotacaoEvento} disabled={!novaAnotacao.trim()}>
+          <Button size="sm" variant="success" className="gap-1.5" onClick={addAnotacaoEvento} disabled={!novaAnotacao.trim()}>
             <Send className="h-4 w-4" /> Adicionar
           </Button>
         </div>
@@ -522,7 +522,7 @@ export default function AgendaPage() {
                   />
                   <div className="flex justify-end gap-1.5">
                     <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setEditandoAnotacaoId(null); setEditandoAnotacaoTexto('') }}>Cancelar</Button>
-                    <Button size="sm" className="h-7 text-xs" onClick={salvarEdicaoAnotacao} disabled={!editandoAnotacaoTexto.trim()}>Salvar</Button>
+                    <Button size="sm" variant="success" className="h-7 text-xs" onClick={salvarEdicaoAnotacao} disabled={!editandoAnotacaoTexto.trim()}>Salvar</Button>
                   </div>
                 </div>
               ) : (
@@ -3598,7 +3598,7 @@ export default function AgendaPage() {
 
           {(modalMode === 'create' || modalMode === 'edit') && (
             <DialogFooter>
-              <Button variant={modalMode === 'create' ? 'success' : 'info'} size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
+              <Button variant="success" size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
                 {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Calendar className="h-3.5 w-3.5" />}
                 {modalMode === 'create' ? 'Criar Evento' : 'Salvar'}
               </Button>

@@ -1328,7 +1328,7 @@ export default function AgendaConfiguracoesPage() {
                     </div>
 
                     <div className="flex items-center gap-2 pt-1">
-                      <Button onClick={() => salvarModelo()} disabled={savingTpl} className="gap-1.5">{savingTpl ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Salvar</Button>
+                      <Button variant="success" onClick={() => salvarModelo()} disabled={savingTpl} className="gap-1.5">{savingTpl ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Salvar</Button>
                       <Button variant="outline" onClick={enviarTesteModelo} disabled={enviandoTesteModelo} className="gap-1.5">{enviandoTesteModelo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Enviar teste pra mim</Button>
                     </div>
                   </div>
@@ -1412,7 +1412,7 @@ export default function AgendaConfiguracoesPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setSalaModalOpen(false)}>Cancelar</Button>
-            <Button variant={salaForm.id ? 'info' : 'success'} size="sm" onClick={saveSala} disabled={savingSala} className="gap-1.5">
+            <Button variant="success" size="sm" onClick={saveSala} disabled={savingSala} className="gap-1.5">
               {savingSala && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               Salvar
             </Button>

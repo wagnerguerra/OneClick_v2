@@ -1490,7 +1490,7 @@ export default function CertidoesCndPage() {
             <Button variant="outline" size="sm" onClick={handleRunNow} disabled={scheduleProgress?.status === 'running'} className="gap-1.5">
               <Play className="h-3.5 w-3.5" />Executar Agora
             </Button>
-            <Button size="sm" onClick={handleSaveSchedule} disabled={scheduleSaving} className="gap-1.5 bg-primary hover:bg-primary text-primary-foreground">
+            <Button size="sm" variant="success" onClick={handleSaveSchedule} disabled={scheduleSaving} className="gap-1.5">
               {scheduleSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
               Salvar
             </Button>

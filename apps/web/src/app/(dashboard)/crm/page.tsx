@@ -1682,7 +1682,7 @@ export default function CrmPage() {
                         }}
                       />
                       <div className="flex justify-end">
-                        <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white" onClick={addMensagem} disabled={saving || !novaMensagemPura}>
+                        <Button variant="success" size="sm" onClick={addMensagem} disabled={saving || !novaMensagemPura}>
                           <Send className="h-4 w-4 mr-1.5" />
                           Registrar anotação
                         </Button>
@@ -1850,7 +1850,7 @@ export default function CrmPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setConfigModal(false)}>Cancelar</Button>
-            <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white" onClick={async () => {
+            <Button variant="success" size="sm" onClick={async () => {
               try {
                 await (trpc.crm as any).saveConfig.mutate({ key: 'declinio_dias', value: String(declinioDias) })
                 alerts.success('Salvo', 'Configuração atualizada')

@@ -2863,7 +2863,7 @@ export default function ServicoDetailPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEncModalOpen(false)} disabled={encSaving}>Cancelar</Button>
-            <Button onClick={salvarEncadeamento} disabled={encSaving} className="gap-1.5" variant={editingEnc ? 'info' : 'success'}>
+            <Button onClick={salvarEncadeamento} disabled={encSaving} className="gap-1.5" variant="success">
               {encSaving && <Loader2 className="h-4 w-4 animate-spin" />}
               {editingEnc ? 'Salvar' : 'Adicionar'}
             </Button>
@@ -2909,7 +2909,7 @@ export default function ServicoDetailPage() {
             <Button variant="outline" size="sm" onClick={() => setVarModalOpen(false)} disabled={varSalvando}>
               Cancelar
             </Button>
-            <Button variant={varEditando ? 'info' : 'success'} onClick={salvarVariacao} disabled={varSalvando} size="sm" className="gap-1.5">
+            <Button variant="success" onClick={salvarVariacao} disabled={varSalvando} size="sm" className="gap-1.5">
               {varSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar
             </Button>

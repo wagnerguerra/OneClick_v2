@@ -1251,19 +1251,21 @@ import { Database } from 'lucide-react'
 
       <SubTitle>Quando usar cada cor (guideline)</SubTitle>
       <Note>
-        Guideline, não regra absoluta — fuja dela quando a intenção pedir. A ação principal do modal sugere a cor,
-        e o ícone e o botão de confirmação dessa ação seguem juntos. Prefira a <code className="text-[11px]">variant</code> do
+        Guideline, não regra absoluta — fuja dela quando a intenção pedir. A ação principal do modal sugere a cor do
+        <strong> ícone</strong>. O <strong>botão de confirmação</strong> segue o verde semântico: se ele salva/cria/adiciona/atualiza/
+        importa/conclui, é <code className="text-[11px]">variant=&quot;success&quot;</code> — mesmo que o ícone seja de outra cor
+        (ex.: modal de editar com ícone sky e &quot;Salvar&quot; verde). Prefira a <code className="text-[11px]">variant</code> do
         Button a <code className="text-[11px]">style</code>/<code className="text-[11px]">bg-*</code> manual; só a ação principal leva
-        cor (Cancelar/Fechar ficam <code className="text-[11px]">outline</code>). Modal único de criar/editar alterna os dois juntos:
-        {' '}<code className="text-[11px]">color={'{'}editando ? &apos;sky&apos; : &apos;emerald&apos;{'}'}</code> +{' '}
-        <code className="text-[11px]">variant={'{'}editando ? &apos;info&apos; : &apos;success&apos;{'}'}</code>.
+        cor (Cancelar/Fechar ficam <code className="text-[11px]">outline</code>). Modal único de criar/editar alterna só o ícone:
+        {' '}<code className="text-[11px]">color={'{'}editando ? &apos;sky&apos; : &apos;emerald&apos;{'}'}</code> + botão sempre{' '}
+        <code className="text-[11px]">variant=&quot;success&quot;</code>.
       </Note>
       <Card className="p-4 space-y-2">
         <ContextRow color="emerald" icon={Plus}          button='variant="success"'     when="Criar / Novo / Adicionar / Cadastrar" />
-        <ContextRow color="sky"     icon={Edit}          button='variant="info"'        when="Editar / Alterar" />
+        <ContextRow color="sky"     icon={Edit}          button='variant="success" (Salvar)' when="Editar / Alterar" />
         <ContextRow color="rose"    icon={Trash2}        button='variant="destructive"' when="Excluir / Remover" />
         <ContextRow color="amber"   icon={AlertTriangle} button='variant="warning"'     when="Aviso / confirmação arriscada" />
-        <ContextRow color="slate"   icon={Settings}      button="default (sem sólido slate)" when="Configurações / parâmetros" />
+        <ContextRow color="slate"   icon={Settings}      button='variant="success" (Salvar)' when="Configurações / parâmetros" />
         <ContextRow color="emerald" icon={Database}      button='variant="success"'     when="Importar / Exportar / Upload / Download" />
         <ContextRow color="primary" icon={Eye}           button="default"               when="Visualizar / detalhes / progresso (omitir color)" />
       </Card>
@@ -1303,7 +1305,8 @@ async function handleDelete(id: string) {
         <h4 className="text-[12px] font-bold">Regras (obrigatórias)</h4>
         <Rule><strong>Header:</strong> SEMPRE usar <code className="text-[11px]">{`<DialogHeaderIcon icon={X} color="Y">`}</code> — NUNCA <code className="text-[11px]">{`<DialogHeader>`}</code> cru</Rule>
         <Rule><strong>Ícone à esquerda:</strong> ocupa a altura de título + descrição (box <code className="text-[11px]">h-12 w-12 rounded-lg</code>)</Rule>
-        <Rule><strong>Cor:</strong> casa com a ação (verde=criar, rose=deletar, sky=editar/info, amber=aviso)</Rule>
+        <Rule><strong>Cor do ícone:</strong> casa com a ação (verde=criar, rose=deletar, sky=editar/info, amber=aviso)</Rule>
+        <Rule><strong>Botão de confirmação:</strong> salvar/criar/atualizar/importar/concluir → <code className="text-[11px]">variant=&quot;success&quot;</code>, independente da cor do ícone; excluir → <code className="text-[11px]">destructive</code></Rule>
         <Rule><code className="text-[11px]">{`<DialogContent>`}</code>: <code className="text-[11px]">max-w-lg</code> (default), <code className="text-[11px]">max-w-2xl</code>/<code className="text-[11px]">4xl</code> conforme conteúdo</Rule>
         <Rule><code className="text-[11px]">{`<DialogBody>`}</code>: campos com padrão de form (h-9 text-sm, space-y-1.5)</Rule>
         <Rule><code className="text-[11px]">{`<DialogFooter>`}</code>: Cancelar (outline) à esquerda, Salvar/Confirmar à direita</Rule>

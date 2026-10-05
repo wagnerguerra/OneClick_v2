@@ -311,6 +311,7 @@ export function TarefaDetalheModal({ open, onOpenChange, projetoId, tarefaId, on
                   onClick={handleAddComentario}
                   disabled={sendingComment || !comentario.trim()}
                   size="sm"
+                  variant="success"
                   className="h-9"
                 >
                   {sendingComment ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><Send className="h-3.5 w-3.5 mr-1" /> Registrar</>}
@@ -369,7 +370,7 @@ export function TarefaDetalheModal({ open, onOpenChange, projetoId, tarefaId, on
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancelar
           </Button>
-          <Button onClick={handleSave} disabled={saving} variant={isEdit ? 'info' : 'success'}>
+          <Button onClick={handleSave} disabled={saving} variant="success">
             {saving ? (
               <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Salvando...</>
             ) : isEdit ? 'Atualizar' : 'Criar tarefa'}

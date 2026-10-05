@@ -179,6 +179,7 @@ export function CopyPermissionsModal({ open, onClose, onSuccess }: CopyPermissio
             <>
               <Button
                 size="sm"
+                variant="success"
                 type="button"
                 disabled={targetIds.size === 0 || copying}
                 onClick={handleCopy}

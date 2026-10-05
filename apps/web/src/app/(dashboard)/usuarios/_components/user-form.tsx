@@ -896,7 +896,7 @@ function SubPermissionsModal({ slug, permissionsMap, setPermissionsMap, onClose,
 
         {/* Footer */}
         <DialogFooter>
-          <Button variant="info" size="sm" type="button" onClick={onClose}>Salvar</Button>
+          <Button variant="success" size="sm" type="button" onClick={onClose}>Salvar</Button>
           <DialogClose asChild>
             <Button variant="outline" size="sm" type="button">Fechar</Button>
           </DialogClose>
