@@ -13,7 +13,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
-import { TEXT, BADGE, SURFACE } from '@/lib/color-styles'
+import { TEXT, BADGE } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
@@ -151,7 +151,7 @@ export default function AtivosPage() {
     <div className="space-y-4">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-          <Button onClick={() => setCreateOpen(true)} className="gap-1.5 bg-sky-600 hover:bg-sky-700 text-white">
+          <Button onClick={() => setCreateOpen(true)} className="gap-1.5">
             <Plus className="h-4 w-4" /> Novo ativo
           </Button>
       </>}>
@@ -168,7 +168,7 @@ export default function AtivosPage() {
       {/* KPIs — vêm do getEstatisticas (consolidado backend, ignora filtros/paginação) */}
       <Card className="p-3">
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-          <KpiCard icon={Database}      label="Total"             value={(stats?.total ?? 0).toString()} color="sky" />
+          <KpiCard icon={Database}      label="Total"             value={(stats?.total ?? 0).toString()} color="primary" />
           <KpiCard icon={Coins}         label="Valor patrimonial" value={fmtBRL(stats?.valorPatrimonial ?? 0)} color="emerald" />
           <KpiCard icon={Laptop}        label="Em uso"            value={(stats?.porStatus.ativos ?? 0).toString()} color="emerald" />
           <KpiCard icon={Wrench}        label="Manutenção"        value={(stats?.porStatus.manutencao ?? 0).toString()} color="amber" />
@@ -216,8 +216,8 @@ export default function AtivosPage() {
 
         {/* Barra de ações em massa — só aparece com seleção ativa */}
         {selectedIds.size > 0 && (
-          <div className={cn('flex items-center gap-3 border-b px-4 py-2', SURFACE.sky)}>
-            <span className={cn('text-[12px] font-semibold', TEXT.sky)}>
+          <div className="flex items-center gap-3 border-b border-primary/20 bg-primary/10 px-4 py-2">
+            <span className="text-[12px] font-semibold text-primary-on-surface">
               {selectedIds.size} ativo{selectedIds.size === 1 ? '' : 's'} selecionado{selectedIds.size === 1 ? '' : 's'}
             </span>
             <div className="flex items-center gap-2 ml-auto">
@@ -321,7 +321,7 @@ export default function AtivosPage() {
                     />
                   </TableCell>
                   <TableCell>
-                    <Link href={`/ativos/${a.id}`} className={cn('font-mono text-[11px] font-semibold hover:underline', TEXT.sky)}>
+                    <Link href={`/ativos/${a.id}`} className="font-mono text-[11px] font-semibold hover:underline text-primary-on-surface">
                       {a.tag}
                     </Link>
                   </TableCell>
@@ -345,7 +345,7 @@ export default function AtivosPage() {
                     {a.responsavel ? (
                       <div className="text-[12px] font-medium truncate" title={a.responsavel.name}>{a.responsavel.name}</div>
                     ) : a.cliente ? (
-                      <div className={cn('text-[12px] truncate', TEXT.sky)} title={a.cliente.razaoSocial}>
+                      <div className="text-[12px] truncate text-primary-on-surface" title={a.cliente.razaoSocial}>
                         🤝 {a.cliente.nomeFantasia ?? a.cliente.razaoSocial}
                       </div>
                     ) : a.area ? (
@@ -419,14 +419,16 @@ function KpiCard({ icon: Icon, label, value, color }: {
   icon: typeof Database
   label: string
   value: string
-  color: 'sky' | 'emerald' | 'amber' | 'slate' | 'rose'
+  /** `primary` = identidade (o total); as demais são semânticas de status. */
+  color: 'primary' | 'emerald' | 'amber' | 'slate' | 'rose'
 }) {
   // Cor do box do ícone deriva da fonte única (BADGE). O box não tem `border`
   // (largura), então a cor de borda que vem no BADGE é inerte aqui — fica só o
   // bg+texto, igual ao map literal de antes, mas single-source.
   return (
     <div className="flex items-center gap-2 rounded-md border bg-card p-2.5">
-      <div className={cn('h-9 w-9 rounded-md flex items-center justify-center', BADGE[color])}>
+      <div className={cn('h-9 w-9 rounded-md flex items-center justify-center',
+        color === 'primary' ? 'bg-primary/10 text-primary-on-surface' : BADGE[color])}>
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">

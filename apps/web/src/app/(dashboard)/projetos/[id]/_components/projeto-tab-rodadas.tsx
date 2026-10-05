@@ -27,7 +27,7 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription, Label,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { TEXT, STRONG, SURFACE } from '@/lib/color-styles'
+import { FILL, TEXT, STRONG, SURFACE } from '@/lib/color-styles'
 import { AnexosDropzone, type AnexoStaged } from '../../../helpdesk/_components/anexos-dropzone'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -377,8 +377,8 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full rounded-full transition-[width] duration-300"
-                style={{ width: `${execucaoAtual.progresso}%`, backgroundColor: corProjeto }}
+                className={cn('h-full rounded-full transition-[width] duration-300', FILL.emerald)}
+                style={{ width: `${execucaoAtual.progresso}%` }}
               />
             </div>
           </div>
@@ -712,8 +712,7 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
                 type="range" min={0} max={100} step={5}
                 value={formProgresso}
                 onChange={e => setFormProgresso(Number(e.target.value))}
-                className="h-2 flex-1 cursor-pointer accent-current"
-                style={{ color: corProjeto }}
+                className="h-2 flex-1 cursor-pointer accent-emerald-500"
               />
               <div className="flex items-center gap-1">
                 <Input
@@ -724,9 +723,6 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
                 />
                 <span className="text-sm font-semibold text-muted-foreground">%</span>
               </div>
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full" style={{ width: `${formProgresso}%`, backgroundColor: corProjeto }} />
             </div>
           </DialogBody>
           <DialogFooter>

@@ -284,11 +284,16 @@ function AvaliacoesCompletasCard({ responsaveis, inicio, fim }: {
   const [carregando, setCarregando] = useState(false)
 
   // UX: ao selecionar um filtro, traz o cabeçalho da seção para logo abaixo do
-  // header fixo (scroll-mt-[var(--app-header-offset)] no wrapper). Pula o primeiro render.
+  // header fixo (scroll-mt-[var(--app-header-offset)] no wrapper). Só rola quando
+  // um filtro MUDA de fato — compara com o valor anterior em vez de "pular o
+  // primeiro render": no StrictMode o efeito roda 2x na montagem, a 1ª consumia
+  // o pulo e a 2ª rolava a página até o fim a cada acesso.
   const cardRef = useRef<HTMLDivElement>(null)
-  const primeiraRender = useRef(true)
+  const filtrosAnteriores = useRef({ respId, notaFiltro })
   useEffect(() => {
-    if (primeiraRender.current) { primeiraRender.current = false; return }
+    const ant = filtrosAnteriores.current
+    if (ant.respId === respId && ant.notaFiltro === notaFiltro) return
+    filtrosAnteriores.current = { respId, notaFiltro }
     cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [respId, notaFiltro])
 
@@ -829,7 +834,7 @@ function Kpi({ label, value, sub, icon: Icon, tone }: {
   tone: KpiTone
 }) {
   const styles: Record<KpiTone, string> = {
-    primary: 'bg-primary/10 border-primary/30 text-primary',
+    primary: 'bg-primary/10 border-primary/20 dark:border-primary/50 text-primary-on-surface',
     rose: 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-300',
     emerald: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-300',
     violet: 'bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800 text-violet-600 dark:text-violet-300',

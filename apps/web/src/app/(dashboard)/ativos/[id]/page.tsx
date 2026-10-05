@@ -9,12 +9,12 @@ import {
   AlertCircle, Printer,
 } from 'lucide-react'
 import {
-  Button, Input, Card, cn, Label, Badge,
+  Button, buttonVariants, Input, Card, cn, Label, Badge,
   Tabs, TabsContent, SlidingTabsList, TabsTrigger,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
-import { TEXT, BADGE, BORDER, SURFACE } from '@/lib/color-styles'
+import { TEXT, BADGE, BORDER } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -238,9 +238,6 @@ export default function AtivoDetalhePage() {
         value={activeTab}
         onValueChange={setActiveTab}
         className="space-y-0"
-        // Cor da aba ativa = cor primária do sistema (adapta ao tema/skin). A
-        // classe arbitrária só referencia a var.
-        style={{ ['--mod-accent']: 'var(--color-primary)' } as React.CSSProperties}
       >
 
       {/* Topo — PADRAO_PAGINAS §1.1 */}
@@ -258,7 +255,7 @@ export default function AtivoDetalhePage() {
           <Button size="sm" variant="outline" onClick={handleDelete} className={cn('gap-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/30', TEXT.rose, BORDER.rose)}>
             <Trash2 className="h-3.5 w-3.5" /> Baixar
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
+          <Button size="sm" variant="success" onClick={handleSave} disabled={saving} className="gap-1.5">
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
             Salvar
           </Button>
@@ -300,27 +297,27 @@ export default function AtivoDetalhePage() {
             Classes !-prefixadas vencem as regras globais de [role="tablist"]. */}
         <div className="relative z-10 px-4 sm:px-6 py-2 overflow-x-auto nice-scrollbar flex justify-center">
           <SlidingTabsList activeValue={activeTab} className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit">
-            <TabsTrigger value="identificacao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
+            <TabsTrigger value="identificacao" variant="sliding">
               <FileText className="h-3.5 w-3.5" /> Identificação
             </TabsTrigger>
-            <TabsTrigger value="aquisicao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
+            <TabsTrigger value="aquisicao" variant="sliding">
               <Coins className="h-3.5 w-3.5" /> Aquisição
             </TabsTrigger>
-            <TabsTrigger value="atribuicao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
+            <TabsTrigger value="atribuicao" variant="sliding">
               <Shield className="h-3.5 w-3.5" /> Atribuição
             </TabsTrigger>
-            <TabsTrigger value="manutencoes" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
+            <TabsTrigger value="manutencoes" variant="sliding">
               <Wrench className="h-3.5 w-3.5" /> Manutenções
               {(ativo.manutencoes?.length ?? 0) > 0 && <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{ativo.manutencoes.length}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="anexos" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
+            <TabsTrigger value="anexos" variant="sliding">
               <Paperclip className="h-3.5 w-3.5" /> Anexos
               {(ativo.anexos?.length ?? 0) > 0 && <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{ativo.anexos.length}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="tickets" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
+            <TabsTrigger value="tickets" variant="sliding">
               <AlertCircle className="h-3.5 w-3.5" /> Tickets
             </TabsTrigger>
-            <TabsTrigger value="historico" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
+            <TabsTrigger value="historico" variant="sliding">
               <History className="h-3.5 w-3.5" /> Histórico
             </TabsTrigger>
           </SlidingTabsList>
@@ -517,7 +514,7 @@ export default function AtivoDetalhePage() {
                     href={`/helpdesk/${t.id}`}
                     className="flex items-center gap-2 rounded-md border bg-card px-3 py-2 hover:bg-muted/40 transition-colors"
                   >
-                    <span className={cn('font-mono text-[11px] font-semibold shrink-0', TEXT.sky)}>
+                    <span className="font-mono text-[11px] font-semibold shrink-0 text-primary-on-surface">
                       #HLP{String(t.numero).padStart(4, '0')}
                     </span>
                     <span className="flex-1 text-[12px] truncate">{t.titulo}</span>
@@ -549,8 +546,8 @@ export default function AtivoDetalhePage() {
                 </div>
               ) : ativo.movimentacoes.map((m: any) => (
                 <div key={m.id} className="flex items-start gap-3 pb-3 border-b last:border-0">
-                  <div className="h-7 w-7 rounded-full bg-sky-100 dark:bg-sky-950/30 flex items-center justify-center shrink-0 mt-0.5">
-                    <History className={cn('h-3.5 w-3.5', TEXT.sky)} />
+                  <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <History className="h-3.5 w-3.5 text-primary-on-surface" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -609,7 +606,7 @@ function ManutencoesTab({ ativoId, manutencoes, fornecedores, users, onChanged }
           </p>
         </div>
         {!editing && (
-          <Button size="sm" onClick={() => setEditing('new')} className="gap-1.5 bg-sky-600 hover:bg-sky-700 text-white">
+          <Button size="sm" onClick={() => setEditing('new')} className="gap-1.5">
             <Plus className="h-3.5 w-3.5" /> Nova manutenção
           </Button>
         )}
@@ -737,7 +734,7 @@ function ManutencaoEditor({ ativoId, initial, fornecedores, users, onCancel, onS
   }
 
   return (
-    <div className={cn('rounded-md border-2 p-3 space-y-3', SURFACE.sky)}>
+    <div className="rounded-md border-2 border-primary/30 bg-primary/5 p-3 space-y-3">
       <div className="grid grid-cols-12 gap-3">
         <div className="col-span-12 sm:col-span-4 space-y-1.5">
           <Label className="text-[13px] font-semibold">Tipo *</Label>
@@ -804,7 +801,7 @@ function ManutencaoEditor({ ativoId, initial, fornecedores, users, onCancel, onS
         <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>
           <X className="h-3 w-3 mr-1" /> Cancelar
         </Button>
-        <Button size="sm" onClick={handleSave} disabled={saving} className="bg-sky-600 hover:bg-sky-700 gap-1.5">
+        <Button size="sm" variant="success" onClick={handleSave} disabled={saving} className="gap-1.5">
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
           Salvar
         </Button>
@@ -879,8 +876,9 @@ function AnexosTab({ ativoId, anexos, onChanged }: {
             </SelectContent>
           </Select>
           <Label htmlFor="anexo-file" className="cursor-pointer">
+            {/* Abre o seletor de arquivo — gatilho, não confirmação: botão padrão (primária). */}
             <span className={cn(
-              'inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium bg-sky-600 hover:bg-sky-700 text-white transition-colors',
+              buttonVariants({ size: 'sm' }), 'gap-1.5',
               uploading && 'opacity-60 pointer-events-none',
             )}>
               {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
@@ -911,7 +909,7 @@ function AnexosTab({ ativoId, anexos, onChanged }: {
             const meta = ANEXO_TIPO_META[a.tipo as AtivoAnexoTipo]
             return (
               <div key={a.id} className="flex items-center gap-2 rounded-md border bg-card px-2.5 py-1.5">
-                <Paperclip className={cn('h-3.5 w-3.5 shrink-0', TEXT.sky)} />
+                <Paperclip className="h-3.5 w-3.5 shrink-0 text-primary-on-surface" />
                 <span className={cn('inline-flex items-center px-1.5 py-0 rounded-full text-[9px] font-semibold border shrink-0', STATUS_CHIP_CLS[meta.cor])}>
                   {meta.label}
                 </span>
@@ -958,7 +956,7 @@ function KpiAtivo({ icon: Icon, label, value, hint }: {
   return (
     <div className="rounded-md border bg-card p-2.5">
       <div className="flex items-center gap-2">
-        <div className={cn('h-8 w-8 rounded-md flex items-center justify-center', BADGE.sky)}>
+        <div className="h-8 w-8 rounded-md flex items-center justify-center bg-primary/10 text-primary-on-surface">
           <Icon className="h-3.5 w-3.5" />
         </div>
         <div className="min-w-0 flex-1">

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   NotebookPen, Plus, ChevronLeft, ChevronRight, Loader2, Paperclip,
   FileText, Download, Trash2, Pencil, Send, AlertCircle, Settings, Megaphone, EyeOff, Eye, FolderUp, X,
+  ExternalLink,
 } from 'lucide-react'
 import {
   Button, Card, Input, Label, cn, Checkbox,
@@ -673,8 +674,11 @@ export default function RelatoriosTiPage() {
           percorrer o que a equipe entregou, e voltar à lista a cada relatório
           quebraria justamente esse percurso. */}
       <Sheet open={!!diaAberto} onOpenChange={o => { if (!o) setDiaAberto(null) }}>
+        {/* border-l-0: a borda de 1px do Sheet fica FORA da área recortada, então a
+            faixa em gradiente não a cobre e sobrava um fio à esquerda do cabeçalho.
+            A sombra do Sheet já separa o painel do fundo. */}
         <SheetContent side="right" size="xl" hideClose
-          className="flex w-full sm:w-[80vw] max-w-[1280px] flex-col overflow-hidden p-0">
+          className="flex w-full sm:w-[80vw] max-w-[1280px] flex-col overflow-hidden border-l-0 p-0">
           <SheetTitle className="sr-only">Relatórios do dia</SheetTitle>
           <SheetDescription className="sr-only">
             Lista dos relatórios do dia, com a prévia do escolhido ao lado.
@@ -686,7 +690,9 @@ export default function RelatoriosTiPage() {
             style={{ background: `linear-gradient(120deg, ${PRIMARY}, color-mix(in srgb, ${PRIMARY} 55%, #6366f1))` }}>
             <div className="min-w-0 flex-1">
               <p className="text-[11px] uppercase tracking-[.14em] opacity-80">Relatórios da TI</p>
-              <h2 className="truncate text-xl font-bold capitalize">
+              {/* text-white explícito: o global pinta h1/h2/h3 com o texto do tema,
+                  que venceria a herança e escureceria o título sobre a faixa no light. */}
+              <h2 className="truncate text-xl font-bold capitalize text-white">
                 {diaAberto && new Date(`${diaAberto}T12:00:00`).toLocaleDateString('pt-BR', {
                   weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
                 })}
@@ -706,13 +712,13 @@ export default function RelatoriosTiPage() {
               )}
               {podeGerarPdf && doDia.length > 0 && (
                 pdfDoDia ? (
-                  <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <Button asChild variant="secondary" size="sm" className="gap-1.5">
                     <a href={urlPdfDoDia} download={pdfDoDia.nome}>
                       <Download className="h-4 w-4" /> Baixar o PDF
                     </a>
                   </Button>
                 ) : (
-                  <Button variant="outline" size="sm" className="gap-1.5" onClick={gerarPdf} disabled={gerando}>
+                  <Button variant="secondary" size="sm" className="gap-1.5" onClick={gerarPdf} disabled={gerando}>
                     {gerando ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
                     Gerar PDF
                   </Button>
@@ -821,7 +827,7 @@ export default function RelatoriosTiPage() {
                     {selecionado.formato === 'ANEXO' && (
                       <Button asChild variant="outline" size="sm" className="gap-1.5">
                         <a href={`${getApiUrl()}/api/relatorios-ti/arquivo/${selecionado.id}`} target="_blank" rel="noreferrer">
-                          <Download className="h-3.5 w-3.5" /> Nova aba
+                          <ExternalLink className="h-3.5 w-3.5" /> Abrir em nova aba
                         </a>
                       </Button>
                     )}
