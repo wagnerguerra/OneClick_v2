@@ -2104,13 +2104,10 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                     />
                     <div className="flex justify-end">
                       <Button
+                        variant="success"
                         size="sm"
                         onClick={copiarPrompt}
-                        className={cn(
-                          'gap-1.5',
-                          copiouPrompt ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-sky-600 hover:bg-sky-700',
-                          'text-white',
-                        )}
+                        className="gap-1.5"
                       >
                         {copiouPrompt ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                         {copiouPrompt ? 'Copiado!' : 'Copiar prompt'}

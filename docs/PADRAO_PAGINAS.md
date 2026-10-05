@@ -118,7 +118,8 @@ Duas metades, sempre no mesmo lugar: **"Exibir N registros" na barra de cima**,
 <div className="flex items-center gap-2 text-xs text-muted-foreground">
   <span className="hidden sm:inline">Exibir</span>
   <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}>
-    <SelectTrigger className="h-8 w-[68px] bg-card text-xs"><SelectValue /></SelectTrigger>
+    {/* sem bg ou border no campo: ele herda o tema do globals.css (PADRAO_CORES_E_TEMA.md) */}
+    <SelectTrigger className="h-8 w-[68px] text-xs"><SelectValue /></SelectTrigger>
     <SelectContent>{[10, 20, 50, 100].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
   </Select>
   <span className="hidden sm:inline">registros</span>

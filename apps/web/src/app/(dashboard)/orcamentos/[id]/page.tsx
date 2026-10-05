@@ -4159,7 +4159,7 @@ export default function OrcamentoDetailPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setTextoPadraoModal(null)}>Fechar</Button>
-            <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={copiarTextoPadrao}>
+            <Button variant="success" size="sm" className="gap-1.5" onClick={copiarTextoPadrao}>
               <CopyIcon className="h-4 w-4" /> Copiar
             </Button>
           </DialogFooter>

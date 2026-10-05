@@ -20,7 +20,7 @@ interface LinhaFuncionamento extends LinhaCertidao { municipio: string }
 function SeletorTipo({ tipo, setTipo }: { tipo: Tipo; setTipo: (t: Tipo) => void }) {
   return (
     <Select value={tipo} onValueChange={v => setTipo(v as Tipo)}>
-      <SelectTrigger className="h-8 w-[190px] bg-card text-xs"><SelectValue /></SelectTrigger>
+      <SelectTrigger className="h-8 w-[190px] text-xs"><SelectValue /></SelectTrigger>
       <SelectContent>
         <SelectItem value="bombeiros">Corpo de Bombeiros</SelectItem>
         <SelectItem value="funcionamento">Funcionamento</SelectItem>
@@ -107,7 +107,7 @@ function AlvaraFuncionamento({ refreshKey, seletor }: { refreshKey: number; sele
       filtros={<>
         {seletor}
         <Select value={municipio} onValueChange={setMunicipio}>
-          <SelectTrigger className="h-8 w-[140px] bg-card text-xs"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>{opcoes.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}</SelectContent>
         </Select>
       </>}

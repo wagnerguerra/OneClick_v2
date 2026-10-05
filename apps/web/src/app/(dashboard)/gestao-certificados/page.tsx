@@ -933,6 +933,7 @@ function ReauthModal({ open, state, onClose }: {
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={executando}>Cancelar</Button>
           <Button
+            variant="success"
             onClick={handleConfirm}
             disabled={executando || !senha}
             className="gap-1.5"

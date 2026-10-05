@@ -444,7 +444,7 @@ export default function CapacitacaoDetalhePage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setAvaliando(false)} disabled={acting}>Cancelar</Button>
-            <Button size="sm"
+            <Button variant="success" size="sm"
               disabled={acting || !avForma.replace(/<[^>]*>/g, '').trim() || (!atingiu && !avAcoes.replace(/<[^>]*>/g, '').trim())}
               onClick={() => {
                 setAvaliando(false)

@@ -345,6 +345,6 @@ alerts.error('Erro', 'Não foi possível realizar a operação.')
 - Toolbar/footer: `bg-muted/20`, `border-border/60`
 - Transições: `transition-all duration-200`
 - Sidebar: sempre dark mode
-- Inputs/Selects/RichEditor: `bg-card` (não `bg-background`)
+- Inputs/Selects/RichEditor: fundo e borda vêm do `globals.css` — **nunca** `bg-*`/`border-*` no campo (ver `PADRAO_CORES_E_TEMA.md`)
 - Inputs focus: `border-primary ring-1 ring-primary` (sem ring-offset)
 - Títulos h1: sem classes inline, estilo global via CSS

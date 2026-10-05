@@ -1730,6 +1730,7 @@ export default function MeuPerfilPage() {
                   <CopyIcon className="h-3.5 w-3.5" /> Copiar todos
                 </Button>
                 <Button
+                  variant="success"
                   size="sm"
                   onClick={() => setMfaEnableModal(false)}
                 >

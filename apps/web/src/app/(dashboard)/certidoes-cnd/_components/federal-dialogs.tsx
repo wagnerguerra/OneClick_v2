@@ -287,7 +287,7 @@ export function AgendamentoDialog({ open, onOpenChange, onConcluido }: { open: b
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={executarAgora} disabled={prog?.status === 'running'} className="gap-1.5"><Play className="h-3.5 w-3.5" />Executar agora</Button>
-          <Button size="sm" onClick={salvar} disabled={saving || !cfg} className="gap-1.5">
+          <Button variant="success" size="sm" onClick={salvar} disabled={saving || !cfg} className="gap-1.5">
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}Salvar
           </Button>
         </DialogFooter>

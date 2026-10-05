@@ -1377,8 +1377,8 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                     <button
                       type="button"
                       title="Importar ID do SCI pelo CNPJ"
-                      className="shrink-0 flex items-center gap-1.5"
-                      style={{ padding: '0.55rem 0.75rem', fontSize: '.77rem', fontWeight: 500, backgroundColor: '#0ea5e9', color: '#fff', border: '1px solid #0ea5e9', borderLeft: 'none', borderRadius: '0 0.25rem 0.25rem 0', cursor: 'pointer' }}
+                      className="shrink-0 flex items-center gap-1.5 border border-l-0 border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-600"
+                      style={{ padding: '0.55rem 0.75rem', fontSize: '.77rem', fontWeight: 500, borderRadius: '0 0.25rem 0.25rem 0', cursor: 'pointer' }}
                       onClick={async () => {
                         if (!clienteId) { alerts.error('Salve o cliente', 'Salve o cliente antes de importar o ID SCI.'); return }
                         const currentId = watch('idSistema')

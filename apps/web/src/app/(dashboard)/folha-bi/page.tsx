@@ -1419,7 +1419,7 @@ function ConfigAgrupamento({ onClose, onChanged }: { onClose: () => void; onChan
           </div>
           <div className="flex items-center gap-2">
             {msg && <span className="text-xs text-muted-foreground">{msg}</span>}
-            <button onClick={aplicar} disabled={busy} className="rounded-lg px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground disabled:opacity-50">Aplicar (resolver)</button>
+            <Button variant="success" size="xs" onClick={aplicar} disabled={busy}>Aplicar (resolver)</Button>
             <Button variant="outline" size="icon-xs" onClick={onClose}><X /></Button>
           </div>
         </div>

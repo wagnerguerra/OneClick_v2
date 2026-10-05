@@ -45,7 +45,7 @@ export function AbaMunicipal({ refreshKey }: { refreshKey: number }) {
         listar={listar} totais={totais}
         filtros={(
           <Select value={municipio} onValueChange={setMunicipio}>
-            <SelectTrigger className="h-8 w-[140px] bg-card text-xs"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>{MUNICIPIOS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}</SelectContent>
           </Select>
         )}

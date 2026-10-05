@@ -1055,7 +1055,7 @@ function ButtonsSection() {
       </Note>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <ButtonShowcase label="default (primário)" code='variant="default"'><Button>Salvar</Button></ButtonShowcase>
+        <ButtonShowcase label="default (primário)" code='variant="default"'><Button>Novo registro</Button></ButtonShowcase>
         <ButtonShowcase label="secondary" code='variant="secondary"'><Button variant="secondary">Cancelar</Button></ButtonShowcase>
         <ButtonShowcase label="destructive" code='variant="destructive"'><Button variant="destructive">Excluir</Button></ButtonShowcase>
         <ButtonShowcase label="success" code='variant="success"'><Button variant="success">Aprovar</Button></ButtonShowcase>

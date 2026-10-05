@@ -127,6 +127,7 @@ export function CertVinculoModal({ open, onOpenChange, alvo, clientes, onSalvo }
             Cancelar
           </Button>
           <Button
+            variant="success"
             size="sm"
             className="gap-1.5"
             disabled={salvando || !mudou || !clienteId}

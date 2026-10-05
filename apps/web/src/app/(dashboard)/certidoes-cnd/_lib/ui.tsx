@@ -196,7 +196,7 @@ export function ListToolbar({ limit, setLimit, search, setSearch, placeholder = 
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span className="hidden sm:inline">Exibir</span>
         <Select value={String(limit)} onValueChange={v => setLimit(Number(v))}>
-          <SelectTrigger className="h-8 w-[68px] bg-card text-xs"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-8 w-[68px] text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>{LIMITES.map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
         </Select>
         <span className="hidden sm:inline">registros</span>

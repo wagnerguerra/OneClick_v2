@@ -236,13 +236,13 @@ export function ReceberModal({ open, compraId, codigo, itens, itemInicial, onClo
             <Label className="text-[13px] font-semibold">Observação <span className="font-normal text-muted-foreground">(opcional)</span></Label>
             <textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={2}
               placeholder="Avaria, divergência, quem entregou..."
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              className="w-full rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20" />
           </div>
           {problema && <p className="text-xs text-destructive">{problema}</p>}
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose} disabled={salvando}>Cancelar</Button>
-          <Button size="sm" onClick={registrar} disabled={salvando || lendo || !selecionados.length || !!problema || !data}>
+          <Button variant="success" size="sm" onClick={registrar} disabled={salvando || lendo || !selecionados.length || !!problema || !data}>
             {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackageCheck className="h-4 w-4" />}
             Registrar recebimento
           </Button>
