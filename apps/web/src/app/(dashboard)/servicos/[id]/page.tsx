@@ -1079,7 +1079,7 @@ export default function ServicoDetailPage() {
         {/* Topo — PADRAO_PAGINAS §1.1 */}
         {/* ══ Barra de página — só título, trilha e ações (padrão /orcamentos) ══ */}
         <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
-            <BackButton href="/servicos" title="Voltar para Serviços e Obrigações" />
+            <BackButton href="/servicos" title="Voltar para Serviços" />
         </>}>
           <h1 className="truncate">{nome || '—'}</h1>
           <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -1087,7 +1087,7 @@ export default function ServicoDetailPage() {
             <span className="text-muted-foreground/50">›</span>
             <span>Cadastros</span>
             <span className="text-muted-foreground/50">›</span>
-            <Link href="/servicos" className="transition-colors hover:text-foreground">Serviços e Obrigações</Link>
+            <Link href="/servicos" className="transition-colors hover:text-foreground">Serviços</Link>
           </p>
         </PageHeaderBar>
 

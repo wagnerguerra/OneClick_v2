@@ -1,6 +1,7 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import { sqlSemEmpresaInativa } from '../common/empresa-inativa'
+import { whereDaArea } from './servico-area'
 import type { CreateServicoInput, UpdateServicoInput, CreateServicoEtapaInput, CreateServicoPassoInput, CreateExecucaoInput, CreateEncadeamentoInput, Condicao, CreateMaterialInput, UpdateMaterialInput, CreateGrupoInput, UpdateGrupoInput, IniciarGrupoInput, CreateObrigacaoInput, FlowPlan } from '@saas/types'
 import { OrcamentoService } from '../orcamento/orcamento.service'
 import { ProcessoService } from '../processo/processo.service'
@@ -512,6 +513,8 @@ export class ServicoService {
     empresaId?: string,
     categoria?: 'MENSAL' | 'EXTRA' | 'FLUXO',
     tipo?: 'comerciais' | 'internos' | 'todos',
+    /** Sub-permissão "somente_minha_area": null = sem recorte; '' = sem área (nada). */
+    areaRestrita: string | null = null,
   ) {
     // Sem `categoria` → só top-level (MENSAL+EXTRA). Itens de fluxo ficam ocultos
     // por padrão (eles aparecem como nós dentro do Fluxo do serviço-pai). Pra
@@ -529,6 +532,7 @@ export class ServicoService {
         : tipoFilter === 'internos'
           ? { ehServicoInterno: true }
           : {}),
+      ...(areaRestrita !== null ? (areaRestrita ? whereDaArea(areaRestrita) : { id: '__sem_area__' }) : {}),
     }
     const rows = await prisma.servico.findMany({
       where,
@@ -3216,7 +3220,7 @@ export class ServicoService {
     })
     if (!servico) {
       throw new Error(
-        `Não encontrei o serviço "${nome}". Cadastre-o em Serviços e Obrigações, `
+        `Não encontrei o serviço "${nome}". Cadastre-o em Serviços, `
         + 'ou ajuste o nome em Configurações → Cadastros.',
       )
     }

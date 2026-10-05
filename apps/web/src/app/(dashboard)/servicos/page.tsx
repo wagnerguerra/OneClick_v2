@@ -283,6 +283,8 @@ export default function ServicosPage() {
   // tanto no formulário (Select) quanto no filtro da tabela.
   const [areas, setAreas] = useState<Array<{ id: string; name: string; code?: string | null }>>([])
   const [areaFilter, setAreaFilter] = useState<string>('') // filtro da tabela templates ('' = todas)
+  // Área a que o usuário está preso (null = vê todas). Vem do servidor.
+  const [areaRecortada, setAreaRecortada] = useState<string | null>(null)
   const [cadeiaFilter, setCadeiaFilter] = useState<'' | 'unicos' | 'cadeia' | 'inicio' | 'meio' | 'final'>('') // filtro por encadeamento
   const [segmentoFilter, setSegmentoFilter] = useState<'' | 'avulsos' | SegmentoSlug>('') // filtro por segmento de cliente
   // Filtro de tipo de cadastro: vazio = todos os tipos; demais espelham as 5 pills do form.
@@ -483,8 +485,15 @@ export default function ServicosPage() {
   useEffect(() => {
     (async () => {
       try {
-        const result = await (trpc.area as any).listForSelect.query()
-        setAreas(result || [])
+        const [result, recorte] = await Promise.all([
+          (trpc.area as any).listForSelect.query(),
+          (trpc.servico as any).meuRecorteArea.query().catch(() => ({ areaId: null })),
+        ])
+        // Sub-permissão "só a minha área": filtro, formulário e assistente
+        // passam a oferecer só a área do usuário (o servidor também barra).
+        const lista = (result || []) as Array<{ id: string; name: string; code?: string | null }>
+        setAreaRecortada(recorte?.areaId ?? null)
+        setAreas(recorte?.areaId != null ? lista.filter(a => a.id === recorte.areaId) : lista)
       } catch { setAreas([]) }
     })()
   }, [])
@@ -496,7 +505,7 @@ export default function ServicosPage() {
     setFormTipo('ATIVIDADE')
     setFormNome('')
     setFormDescricao('')
-    setFormAreaId('')
+    setFormAreaId(areaRecortada ?? '')
     setFormPrioridade('MEDIA')
     setFormValorPadrao('')
     setFormDisponivelOrcamento(true)
@@ -1694,7 +1703,7 @@ export default function ServicosPage() {
                     <SelectValue placeholder="Selecione uma área" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">— Sem área —</SelectItem>
+                    {areaRecortada === null && <SelectItem value="__none__">— Sem área —</SelectItem>}
                     {areas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                   </SelectContent>
                 </Select>

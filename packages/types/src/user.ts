@@ -109,7 +109,7 @@ export const MODULE_LABELS: Record<string, string> = {
   empresas: 'Empresas', fornecedores: 'Fornecedores', 'grupos-empresariais': 'Grupos Empresariais',
   obrigacoes: 'Obrigações Acessórias',
   'obrigacoes-fixas': 'Obrigações Fixas', 'obrigacoes-demanda': 'Obrigações Sob Demanda',
-  servicos: 'Serviços e Obrigações', socios: 'Sócios', usuarios: 'Usuários',
+  servicos: 'Serviços', socios: 'Sócios', usuarios: 'Usuários',
   // Comercial
   crm: 'CRM', whatsapp: 'WhatsApp',
   clausulas: 'Cláusulas', comercial: 'Comercial', contratos: 'Contratos',
@@ -453,6 +453,18 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     // necessariamente quem mexe em legalização.
     { key: 'manage_protocolos', label: 'Emitir e gerenciar protocolos de documentos', group: 'Protocolos' },
     { key: 'manage_client_users', label: 'Gerenciar aba usuários do cliente', group: 'Usuários do Cliente' },
+  ],
+  // Catálogo de serviços: recorte por área (05/10/2026). Marcado, o usuário
+  // lista e edita só os serviços da área dele (User.areaId) — ver
+  // apps/api/src/servico/servico-area.ts. Master/dono da empresa não recortam.
+  servicos: [
+    {
+      key: 'somente_minha_area',
+      label: 'Listar e editar apenas os serviços da minha área',
+      group: 'Escopo',
+      observacao: 'Vale para o catálogo (serviço, etapas, passos, modelos de e-mail, lembretes). '
+        + 'O usuário precisa ter a área definida no cadastro; sem área, não vê nenhum serviço.',
+    },
   ],
   orcamentos: [
     // Cadastro — espelha legado orc_cadastro
