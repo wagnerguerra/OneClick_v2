@@ -116,7 +116,7 @@ export function ManifestacaoPage({ config }: { config: Config }) {
   useEffect(() => { void carregar() }, [carregar])
 
   const Th = ({ campo, children, className }: { campo?: string; children?: React.ReactNode; className?: string }) => (
-    <TableHead className={cn('text-xs font-semibold uppercase tracking-wider', className)}>
+    <TableHead className={cn('whitespace-nowrap text-xs font-semibold uppercase tracking-wider', className)}>
       {campo ? (
         <button type="button" onClick={() => ordenar(campo)} className="inline-flex items-center gap-1 uppercase hover:text-foreground">
           {children}
@@ -191,7 +191,7 @@ export function ManifestacaoPage({ config }: { config: Config }) {
                 <Th className="hidden w-[240px] md:table-cell">Quem registrou</Th>
                 <Th campo="titulo">Assunto</Th>
                 <Th className="hidden w-[150px] xl:table-cell">Área</Th>
-                <Th className="w-[56px] text-right">Ações</Th>
+                <Th className="w-[80px] text-right">Ações</Th>
               </TableRow>
             </TableHeader>
             <TableBody>
