@@ -2581,14 +2581,25 @@ function registerIpcHandlers() {
       // Sem carimbo (VPS de antes desta mudança) não dá para afirmar que ficou
       // pela metade — na dúvida, não incomoda.
       publishIncomplete = def.id === 'core' && vpsReachable && !!publishedSha && publishedSha !== vpsSha
-      if (vpsReachable && hasTrunk && vpsSha !== remoteSha) {
-        pendingDeploy = gitOutput(['log', `${vpsSha}..${remoteSha}`, '--format=%H%x09%h%x09%s'], cwd)
+      // Deploy que morreu depois do push: os commits entre o que SUBIU
+      // (.deployed-sha) e o que está na VPS voltam para a fila, marcados como
+      // "não subiu" — antes sumiam e só restava um aviso no rodapé. A base da
+      // fila passa a ser o publicado, quando ele é ancestral do trunk.
+      const baseFila = publishIncomplete && hasTrunk
+        && gitExitCode(['cat-file', '-e', `${publishedSha}^{commit}`], cwd) === 0
+        && gitExitCode(['merge-base', '--is-ancestor', publishedSha, remoteSha], cwd) === 0
+        ? publishedSha : vpsSha
+      if (vpsReachable && hasTrunk && baseFila !== remoteSha) {
+        const naVpsSemSubir = baseFila !== vpsSha
+          ? new Set(gitOutput(['rev-list', `${baseFila}..${vpsSha}`], cwd).split('\n').filter(Boolean))
+          : new Set()
+        pendingDeploy = gitOutput(['log', `${baseFila}..${remoteSha}`, '--format=%H%x09%h%x09%s'], cwd)
           .split('\n').filter(Boolean)
           .map(l => {
             const [sha, short, ...msgParts] = l.split('\t')
-            return { sha, short, msg: msgParts.join('\t') }
+            return { sha, short, msg: msgParts.join('\t'), naoSubiu: naVpsSemSubir.has(sha) }
           })
-        const diffFiles = gitOutput(['diff', '--name-only', vpsSha, remoteSha], cwd)
+        const diffFiles = gitOutput(['diff', '--name-only', baseFila, remoteSha], cwd)
         schemaChanged = def.id === 'core' && diffFiles.split('\n').some(f => f === 'packages/db/prisma/schema.prisma')
       }
     }
@@ -3390,7 +3401,11 @@ function registerIpcHandlers() {
       // Timeout no SSH (30s): se a VPS estiver sem responder, NÃO pendura o deploy
       // aqui. `git diff` é instantâneo — >30s significa SSH/VPS travado. Na dúvida,
       // assume "sem mudança de schema" e segue (os SQLs do Stage 4.5 ainda rodam).
-      const diffFiles = await sshExec(cfg, 'cd /opt/oneclick-src && git diff --name-only HEAD@{1} HEAD 2>/dev/null', null, 30000)
+      // Base = o último commit que SUBIU (.deployed-sha). HEAD@{1} (a posição
+      // anterior do código na VPS) falha na republicação: o `reset` já tinha
+      // levado o código ao alvo no deploy que morreu, o diff dá vazio e o
+      // `db push` era pulado mesmo com schema novo. Sem carimbo, cai no HEAD@{1}.
+      const diffFiles = await sshExec(cfg, 'cd /opt/oneclick-src && B=$(cat /opt/oneclick/.deployed-sha 2>/dev/null); if [ -n "$B" ] && git cat-file -e "$B^{commit}" 2>/dev/null; then git diff --name-only "$B" HEAD; else git diff --name-only HEAD@{1} HEAD; fi 2>/dev/null', null, 30000)
       if (diffFiles.timedOut) {
         deployEmit(55, 'schema', '⚠ Verificação de schema expirou (VPS lenta/sem resposta) — assumindo sem mudança e seguindo.', 'warn')
       }
