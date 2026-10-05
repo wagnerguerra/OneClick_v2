@@ -84,7 +84,8 @@ export function NovaManifestacaoModal({ config, onClose, onCriado, editar, onSal
   const [publica, setPublica] = useState(e?.publica ?? false)
   // Registro "de dentro de casa" liberado? (Reclamações nasce travada, por
   // decisão da diretoria — o master libera nas configurações.)
-  const [permiteInterna, setPermiteInterna] = useState(true)
+  // Reclamações nasce restrita (o padrão): abre assim, sem piscar o seletor.
+  const [permiteInterna, setPermiteInterna] = useState(!config.temFluxo)
   useEffect(() => {
     api.parametros.query()
       .then((p: { permitirInternas: boolean }) => {
@@ -186,17 +187,22 @@ export function NovaManifestacaoModal({ config, onClose, onCriado, editar, onSal
       <DialogContent className="max-w-3xl">
         <DialogHeaderIcon icon={e ? Pencil : config.icone} color={e ? 'sky' : 'amber'}>
           <DialogTitle>{e ? `Editar — ${e.protocolo}` : config.rotuloNovo}</DialogTitle>
-          <DialogDescription>{e ? 'Corrija o registro. Situação e prazo seguem o fluxo de tratativa.' : config.subtitulo}</DialogDescription>
+          <DialogDescription>
+            {e ? 'Corrija o registro. Situação e prazo seguem o fluxo de tratativa.'
+              : mostraInterna ? config.subtitulo : 'O que deu errado com o cliente, e como foi tratado.'}
+          </DialogDescription>
         </DialogHeaderIcon>
 
         <DialogBody className="space-y-4">
           {/* Origem — a novidade em relação ao legado, onde cada tipo tinha um
               lado só e não havia como registrar o contrário. */}
-          <div className={cn('grid gap-2', mostraInterna && 'sm:grid-cols-2')}>
+          {/* Só uma origem possível (internas restritas): não há o que escolher. */}
+          {mostraInterna && (
+          <div className="grid gap-2 sm:grid-cols-2">
             {([
               { v: 'INTERNA' as const, t: 'De dentro de casa', d: 'Parte de um colaborador.', icone: UserIcon },
               { v: 'CLIENTE' as const, t: 'De um cliente', d: 'Chegou pelo atendimento.', icone: Building2 },
-            ]).filter(o => o.v === 'CLIENTE' || mostraInterna).map(o => {
+            ]).map(o => {
               const Ico = o.icone
               return (
                 <button key={o.v} type="button" onClick={() => setOrigem(o.v)}
@@ -210,6 +216,7 @@ export function NovaManifestacaoModal({ config, onClose, onCriado, editar, onSal
               )
             })}
           </div>
+          )}
 
           {origem === 'CLIENTE' && (
             <div className="grid grid-cols-12 gap-3 rounded-lg border border-border bg-muted/20 p-3">
