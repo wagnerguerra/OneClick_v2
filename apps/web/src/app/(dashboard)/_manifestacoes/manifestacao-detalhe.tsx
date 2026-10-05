@@ -319,7 +319,7 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
                     <Checkbox checked={msgInterna} onCheckedChange={v => setMsgInterna(v === true)} />
                     Nota interna
                   </label>
-                  <Button size="sm" variant="outline" className="ml-auto gap-1.5"
+                  <Button size="sm" variant="outline" className="gap-1.5"
                     onClick={enviarMensagem} disabled={!novaMsg.trim()}>
                     <Send className="h-3.5 w-3.5" /> Enviar
                   </Button>
@@ -388,6 +388,8 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
               </div>
             )}
 
+            {/* Botões de ação à ESQUERDA (05/10/2026): à direita ficavam atrás do
+                botão flutuante "+" do app. */}
             {/* ── Fluxo da reclamação ──
                 Um passo por vez, e só o passo da vez: mostrar os três juntos
                 convidaria a pular a apuração e ir direto ao encerramento. */}
@@ -406,7 +408,7 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
                 </p>
                 <textarea value={textoFluxo} onChange={e => setTextoFluxo(e.target.value)} rows={3}
                   className="nice-scrollbar w-full rounded-md px-2.5 py-1.5 text-sm" />
-                <div className="flex justify-end">
+                <div className="flex justify-start">
                   <Button variant="success" size="sm" disabled={salvando || !textoFluxo.trim()}
                     onClick={async () => {
                       setSalvando(true)
@@ -477,7 +479,7 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
                 )}
 
                 {procede !== null && (
-                  <div className="flex justify-end">
+                  <div className="flex justify-start">
                     <Button variant="success" size="sm" disabled={salvando}
                       onClick={async () => {
                         setSalvando(true)
@@ -510,7 +512,7 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
                 </p>
                 <textarea value={retornoFinal} onChange={e => setRetornoFinal(e.target.value)} rows={3}
                   className="nice-scrollbar w-full rounded-md px-2.5 py-1.5 text-sm" />
-                <div className="flex justify-end">
+                <div className="flex justify-start">
                   <Button variant="success" size="sm" disabled={salvando || !retornoFinal.trim()}
                     onClick={async () => {
                       setSalvando(true)
@@ -556,7 +558,7 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
                 <p className="text-[13px] font-semibold">Responder</p>
                 <RichEditor value={resposta} onChange={setResposta}
                   placeholder="A resposta que quem registrou vai ler..." />
-                <div className="flex flex-wrap justify-end gap-2">
+                <div className="flex flex-wrap justify-start gap-2">
                   <Button variant="outline" size="sm" onClick={() => responder(false)} disabled={salvando}>
                     Salvar sem encerrar
                   </Button>
