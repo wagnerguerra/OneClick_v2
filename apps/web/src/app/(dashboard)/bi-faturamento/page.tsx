@@ -18,6 +18,7 @@ import { BiVisaoGeral } from './_components/bi-visao-geral'
 import { BiMatriz } from './_components/bi-matriz'
 import { BiAnalise } from './_components/bi-analise'
 import { BiGerenciar } from './_components/bi-gerenciar'
+import { AvisoConsolidacao, type PeriodoConsolidado } from '@/components/bi-cliente/aviso-consolidacao'
 
 const MODULE_COLOR = 'var(--mod-contabil, #a78bfa)'
 
@@ -73,6 +74,15 @@ export default function BiFaturamentoPage() {
   const currentYear = new Date().getFullYear()
   const anosDisponiveis = [currentYear, currentYear - 1, currentYear - 2, currentYear - 3]
   const [anosSelecionados, setAnosSelecionados] = useState<number[]>([currentYear])
+  // Meses importados CONSOLIDADOS (matriz + filiais) nos anos exibidos — o aviso acima do dashboard.
+  const [consolidados, setConsolidados] = useState<PeriodoConsolidado[]>([])
+  useEffect(() => {
+    if (!clienteId) { setConsolidados([]); return }
+    let vivo = true
+    Promise.all(anosSelecionados.map(ano => trpc.bi.consolidacao.query({ clienteId, ano }).catch(() => [])))
+      .then(r => { if (vivo) setConsolidados(r.flat() as PeriodoConsolidado[]) })
+    return () => { vivo = false }
+  }, [clienteId, anosSelecionados])
   const ano = anosSelecionados[0] ?? currentYear // Ano principal para abas que aceitam apenas 1
 
   const toggleAno = (a: number) => {
@@ -343,6 +353,11 @@ export default function BiFaturamentoPage() {
               <Badge variant="outline" className="text-[10px] ml-2">{anosSelecionados.join(', ')}</Badge>
             </h5>
           </CardHeader>
+          {consolidados.length > 0 && (
+            <div className="px-4 pb-3">
+              <AvisoConsolidacao periodos={consolidados} publico="interno" />
+            </div>
+          )}
           <div className="flex min-h-[450px]">
             {/* Pills laterais */}
             <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3">

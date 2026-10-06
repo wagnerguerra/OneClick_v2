@@ -31,6 +31,8 @@ export default function PortalBiPage() {
     kpis: (ano, meses) => (trpc.portal as any).bi.kpis.query({ clienteId, ano, meses }),
     analise: (ano, meses) => (trpc.portal as any).bi.analise.query({ clienteId, ano, meses }),
     matriz: ano => (trpc.portal as any).bi.matriz.query({ clienteId, ano }),
+    // Aviso "os números incluem a filial" quando o escritório consolidou o balancete.
+    consolidacao: ano => (trpc.portal as any).bi.consolidacao.query({ clienteId, ano }),
   }), [clienteId])
 
   return (

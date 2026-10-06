@@ -23,6 +23,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { cn } from '@saas/ui'
+import { AvisoConsolidacao, type PeriodoConsolidado } from './aviso-consolidacao'
 import {
   TrendingUp, TrendingDown, DollarSign, BarChart3, Receipt, Wallet,
   Table as TableIcon, Loader2, Plus, Minus,
@@ -44,6 +45,11 @@ export interface FonteBiCliente {
   kpis(ano: number, meses?: string): Promise<unknown>
   analise(ano: number, meses?: string): Promise<unknown>
   matriz(ano: number): Promise<unknown>
+  /**
+   * Meses do ano importados CONSOLIDADOS (matriz + filiais). Opcional: o link
+   * público não expõe; sem ele, o aviso simplesmente não aparece.
+   */
+  consolidacao?(ano: number): Promise<PeriodoConsolidado[]>
 }
 
 /* ── helpers ── */
@@ -79,6 +85,17 @@ export function BiClienteDashboard({ fonte }: { fonte: FonteBiCliente }) {
   const ano = anosSelecionados[0] ?? new Date().getFullYear() // ano principal
 
   const [meses, setMeses] = useState<number[]>(TODOS_OS_MESES)
+  // Aviso de consolidação (matriz + filiais) para os anos exibidos.
+  const [consolidados, setConsolidados] = useState<PeriodoConsolidado[]>([])
+  useEffect(() => {
+    if (!fonte.consolidacao || anosSelecionados.length === 0) { setConsolidados([]); return }
+    let vivo = true
+    const buscar = fonte.consolidacao.bind(fonte)
+    Promise.all(anosSelecionados.map(a => buscar(a).catch(() => [] as PeriodoConsolidado[])))
+      .then(r => { if (vivo) setConsolidados(r.flat()) })
+    return () => { vivo = false }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fonte.chave, anosSelecionados])
   const mesesParam = meses.length === 12 ? undefined : meses.join(',')
 
   const [kpisByAno, setKpisByAno] = useState<Record<number, any>>({})
@@ -175,6 +192,7 @@ export function BiClienteDashboard({ fonte }: { fonte: FonteBiCliente }) {
 
   return (
     <div className="space-y-5">
+      <AvisoConsolidacao periodos={consolidados} publico="cliente" />
       {/* ── Filtros e abas, num cartão só ── */}
       <div className={cn(CARD, 'overflow-hidden')}>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 sm:px-5">
