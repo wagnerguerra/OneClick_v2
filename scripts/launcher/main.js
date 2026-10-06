@@ -1957,38 +1957,51 @@ function registerIpcHandlers() {
     let ok = 0, skipped = 0, failed = 0
     const errorsByMes = {}
 
+    // Matriz com filiais CONSOLIDADAS: o servidor manda `fontes` (matriz
+    // primeiro). Cada empresa do SCI é lida à parte e o mês sobe como um lote
+    // por empresa — quem soma é o servidor (consolidar-balancete.ts), num lugar
+    // só para este caminho e para o local. Sem `fontes`: só a matriz.
+    const fontes = Array.isArray(p.fontes) && p.fontes.length > 1 ? p.fontes.map(Number) : null
+    if (fontes) console.log(`[BiSync] Consolidando empresas SCI ${fontes.join(' + ')}`)
+
+    const lerSci = (emp, ref, dataIni, dataFim) => {
+      const r = spawnSync(
+        'python',
+        [sciScript, String(emp), dataIni, dataFim, '1', String(ref)],
+        {
+          cwd: path.dirname(sciScript),
+          encoding: 'buffer',
+          env: { ...process.env, PYTHONIOENCODING: 'utf-8', ...sciEnvOverride() },
+          timeout: 120000,
+          windowsHide: true,
+        },
+      )
+      if (r.error) throw new Error(r.error.message)
+      const stdout = (r.stdout || Buffer.from('')).toString('utf8').trim()
+      const stderr = (r.stderr || Buffer.from('')).toString('utf8').trim()
+      if (!stdout) throw new Error(stderr || 'Sem resposta do sci_balancete.py')
+      const parsed = JSON.parse(stdout)
+      if (parsed.sucesso === false) throw new Error(parsed.erro || 'SCI retornou sucesso=false')
+      return parsed.dados || []
+    }
+
     for (const ref of refs) {
       const { dataIni, dataFim } = biSyncPeriodoDoRef(ref)
       try {
-        const r = spawnSync(
-          'python',
-          [sciScript, String(prcodemp), dataIni, dataFim, '1', String(ref)],
-          {
-            cwd: path.dirname(sciScript),
-            encoding: 'buffer',
-            env: { ...process.env, PYTHONIOENCODING: 'utf-8', ...sciEnvOverride() },
-            timeout: 120000,
-            windowsHide: true,
-          },
-        )
-        if (r.error) throw new Error(r.error.message)
-        const stdout = (r.stdout || Buffer.from('')).toString('utf8').trim()
-        const stderr = (r.stderr || Buffer.from('')).toString('utf8').trim()
-        if (!stdout) throw new Error(stderr || 'Sem resposta do sci_balancete.py')
-
-        const parsed = JSON.parse(stdout)
-        if (parsed.sucesso === false) throw new Error(parsed.erro || 'SCI retornou sucesso=false')
-        const linhas = parsed.dados || []
-        if (linhas.length === 0) {
+        // Uma empresa que falha derruba o MÊS inteiro: um consolidado pela
+        // metade (só a matriz) seria um número errado com cara de certo.
+        const lotes = (fontes || [prcodemp]).map(emp => ({ prcodemp: emp, linhas: lerSci(emp, ref, dataIni, dataFim) }))
+        const total = lotes.reduce((n, l) => n + l.linhas.length, 0)
+        if (total === 0) {
           console.log(`[BiSync] ref=${ref}: 0 linhas — pulado.`)
           skipped++
           continue
         }
 
-        const up = await biSyncPost(baseUrl, '/api/bi-sync/upload-balancete', {
-          clienteId, ref, linhas, substituirExistentes: p.substituirExistentes !== false,
-        })
-        console.log(`[BiSync] ref=${ref}: ${up?.inserted ?? linhas.length} linha(s) enviada(s).`)
+        const up = await biSyncPost(baseUrl, '/api/bi-sync/upload-balancete', fontes
+          ? { clienteId, ref, linhas: [], lotes, substituirExistentes: p.substituirExistentes !== false }
+          : { clienteId, ref, linhas: lotes[0].linhas, substituirExistentes: p.substituirExistentes !== false })
+        console.log(`[BiSync] ref=${ref}: ${up?.inserted ?? total} linha(s) enviada(s)${fontes ? ` (${fontes.length} empresas)` : ''}.`)
         ok++
       } catch (e) {
         console.error(`[BiSync] ref=${ref} falhou: ${e.message}`)

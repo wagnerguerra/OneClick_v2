@@ -45,6 +45,7 @@ interface BiApi {
   balanceteKpis(clienteId: string, ano: number, meses?: string): Promise<unknown>
   balanceteAnalise(clienteId: string, ano: number, meses?: string): Promise<unknown>
   balanceteMatriz(clienteId: string, ano: number): Promise<unknown>
+  consolidacaoDoAno(clienteId: string, ano: number, empresaId: string | null): Promise<unknown>
 }
 
 /**
@@ -263,6 +264,11 @@ export function createPortalRouter(
      * `portalProcedure` resolver o vínculo.
      */
     bi: router({
+      /** Meses consolidados com filiais — o aviso "valores incluem a filial" do BI do cliente. */
+      consolidacao: portalModuloProcedure('bi')
+        .input(z.object({ clienteId: z.string(), ano: z.number().int().min(2000).max(2100) }))
+        .query(({ ctx, input }) => biService.consolidacaoDoAno(ctx.portal.clienteId, input.ano, null)),
+
       anos: portalModuloProcedure('bi')
         .input(z.object({ clienteId: z.string() }))
         .query(({ ctx }) => biService.anosComBalancete(ctx.portal.clienteId)),

@@ -859,6 +859,10 @@ model Cliente {
 
   // Integração
   idSistema      String? @map("id_sistema")
+  /// Matriz com filiais: última escolha na importação do balancete do BI —
+  /// 'CONSOLIDADO' (filiais somadas na matriz) ou 'INDIVIDUAL' (cada filial no
+  /// próprio BI). Nulo = nunca perguntado. Ver ClienteBiConsolidacao.
+  biModoFiliais  String? @map("bi_modo_filiais")
   idOmie         String? @map("id_omie")
   omieEmpresa    String? @map("omie_empresa")
   idOneClick     String? @map("id_oneclick")
@@ -1066,6 +1070,7 @@ model Cliente {
   custeioMensal           ClienteCusteioMensal[]
   biCategorias            ClienteBiCategoria[]
   biLinhas                ClienteBiLinha[]
+  biConsolidacoes         ClienteBiConsolidacao[]
   biLinks                 ClienteBiLink[]
   biCacheFaturamento      BiCacheFaturamento[]
   biCacheBalancete        BiCacheBalancete[]
@@ -2050,6 +2055,32 @@ model ClienteBiLinha {
   @@unique([clienteId, periodo, conta, ccCodigo])
   @@index([clienteId, periodo])
   @@map("cliente_bi_linhas")
+}
+
+/// Mês do balancete do BI de uma MATRIZ que foi importado CONSOLIDADO: as
+/// linhas em cliente_bi_linhas daquele período somam matriz + filiais (mesma
+/// raiz de CNPJ), conta a conta. Existe para o BI avisar — no /bi-faturamento e
+/// no portal — que os valores incluem as filiais. Importar o período só da
+/// matriz (modo individual) apaga o registro.
+///
+/// 06/10/2026: a FINATTO passou a faturar pela filial em jun/2026 e o BI da
+/// matriz mostrava faturamento zero; o balancete do contábil é o consolidado.
+model ClienteBiConsolidacao {
+  id        String   @id @default(cuid())
+  /// A matriz (dona das linhas consolidadas).
+  clienteId String   @map("cliente_id")
+  periodo   String // AAAAMM
+  /// [{ clienteId, cnpj, razaoSocial, prcodemp }] das filiais somadas.
+  filiais   Json     @default("[]")
+  userId    String?  @map("user_id")
+  empresaId String?  @map("empresa_id")
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([clienteId, periodo])
+  @@index([empresaId])
+  @@map("cliente_bi_consolidacoes")
 }
 
 model ClienteBiLink {

@@ -61,6 +61,16 @@ export function createBiRouter(biService: BiService) {
       .input(biBalanceteRefreshSchema)
       .mutation(({ input }) => biService.balanceteRefresh(input.clienteId, input.ano, input.force)),
 
+    /** Filiais elegíveis para somar no balancete do BI da matriz + última escolha. */
+    filiaisBalancete: protectedProcedure
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input, ctx }) => biService.filiaisDoBalancete(input.clienteId, ctx.empresaId ?? null)),
+
+    /** Meses do ano consolidados com filiais — o aviso do /bi-faturamento. */
+    consolidacao: protectedProcedure
+      .input(z.object({ clienteId: z.string(), ano: z.coerce.number().int().min(2000).max(2100) }))
+      .query(({ input, ctx }) => biService.consolidacaoDoAno(input.clienteId, input.ano, ctx.empresaId ?? null)),
+
     balanceteRefreshPeriodo: protectedProcedure
       .input(z.object({
         clienteId: z.string(),
