@@ -1200,7 +1200,7 @@ export default function BiCategoriasBalancetePage() {
                 <DropdownMenuItem onClick={handleExportBackup} disabled={!clienteId}><Download className="mr-2 h-4 w-4" /> Exportar Backup</DropdownMenuItem>
                 <DropdownMenuItem onClick={handleImportBackup} disabled={!clienteId}><Upload className="mr-2 h-4 w-4" /> Importar Backup (JSON)</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleImportarBalancete} disabled={!clienteId} className="font-medium text-primary hover:!text-white"><RefreshCw className="mr-2 h-4 w-4" /> Importar Balancete (SCI)</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleImportarBalancete} disabled={!clienteId} className="font-medium text-primary-on-surface focus:text-primary-on-surface"><RefreshCw className="mr-2 h-4 w-4" /> Importar Balancete (SCI)</DropdownMenuItem>
                 <DropdownMenuItem onClick={handleExcluirBalancete} disabled={!clienteId} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Excluir Balancete</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLinkPublico} disabled={!clienteId}><Link2 className="mr-2 h-4 w-4" /> Link Público BI</DropdownMenuItem>
