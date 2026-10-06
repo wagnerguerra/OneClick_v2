@@ -88,9 +88,24 @@ function iniciarTunelEscritorio({ obterConfig, sshArgs, log }) {
   const estado = { ativo: false, conectado: false, ultimoErro: null, desde: null, motivo: '' }
   const cfg = obterConfig() || {}
   if (!cfg.CND_PROXY_TOKEN || !cfg.SSH_HOST) {
-    estado.motivo = 'CND_PROXY_TOKEN ou SSH_HOST ausente no .deploy.local — túnel desligado'
+    // Sem configuração ainda: confere de novo a cada minuto e sobe quando
+    // aparecer — sem exigir reabrir o SM (em 06/10 a senha foi gravada com o
+    // SM já aberto e o túnel ficou desligado até reiniciar).
+    estado.motivo = 'CND_PROXY_TOKEN ou SSH_HOST ausente no .deploy.local — aguardando configuração'
     log(`[túnel] ${estado.motivo}`)
-    return { status: () => ({ ...estado }), parar: () => {} }
+    let real = null
+    const timer = setInterval(() => {
+      const c = obterConfig() || {}
+      if (c.CND_PROXY_TOKEN && c.SSH_HOST) {
+        clearInterval(timer)
+        log('[túnel] configuração encontrada — subindo')
+        real = iniciarTunelEscritorio({ obterConfig, sshArgs, log })
+      }
+    }, 60000)
+    return {
+      status: () => (real ? real.status() : { ...estado }),
+      parar: () => { clearInterval(timer); if (real) real.parar() },
+    }
   }
   const hosts = [...HOSTS_PADRAO, ...String(cfg.CND_PROXY_HOSTS || '').split(',').map(s => s.trim()).filter(Boolean)]
   const bind = cfg.CND_PROXY_BIND || '127.0.0.1'
