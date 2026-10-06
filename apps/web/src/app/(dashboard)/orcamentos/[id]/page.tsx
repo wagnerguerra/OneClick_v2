@@ -4378,7 +4378,7 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
                   </DropdownMenuItem>
                 )}
                 {podeExcluir && (
-                  <DropdownMenuItem className="text-destructive" onClick={onExcluir}>
+                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onExcluir}>
                     <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
                   </DropdownMenuItem>
                 )}

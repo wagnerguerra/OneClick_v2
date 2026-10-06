@@ -357,7 +357,7 @@ export default function PedidoDetalhePage() {
                                       <DropdownMenuItem onClick={() => abrirRecebimento(it.id)}><PackageCheck className="h-4 w-4" />Receber este item</DropdownMenuItem>
                                     )}
                                     {editavel && (
-                                      <DropdownMenuItem onClick={() => removeItem(it.id)} className={TEXT.rose}><Trash2 className="h-4 w-4" />Remover item</DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => removeItem(it.id)} className="text-destructive focus:text-destructive"><Trash2 className="h-4 w-4" />Remover item</DropdownMenuItem>
                                     )}
                                   </DropdownMenuContent>
                                 </DropdownMenu>
@@ -418,7 +418,7 @@ export default function PedidoDetalhePage() {
                                     <Button variant="ghost" size="icon-sm" title="Ações"><MoreVertical className="h-4 w-4" /></Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => estornar(r)} className={TEXT.rose}><Undo2 className="h-4 w-4" />Estornar recebimento</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => estornar(r)} className="text-destructive focus:text-destructive"><Undo2 className="h-4 w-4" />Estornar recebimento</DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               )}

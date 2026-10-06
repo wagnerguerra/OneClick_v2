@@ -1381,7 +1381,7 @@ function TicketRow({ ticket, onUnarchive, onArchive, currentUserId, onCancelar, 
           {podeCancelar && (
             <DropdownMenuItem
               onClick={() => onCancelar!(ticket)}
-              className={cn('gap-2 focus:text-rose-600 dark:focus:text-rose-400', TEXT.rose)}
+              className="gap-2 text-destructive focus:text-destructive"
             >
               <XCircle className="h-3.5 w-3.5" />
               Cancelar

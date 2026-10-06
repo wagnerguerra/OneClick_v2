@@ -882,7 +882,7 @@ export default function DtePage() {
                                   <CheckCircle2 className="h-3.5 w-3.5 mr-2" /> Marcar como lida
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem onClick={() => handleDelete(msg.id)} className="text-destructive">
+                              <DropdownMenuItem onClick={() => handleDelete(msg.id)} className="text-destructive focus:text-destructive">
                                 <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
                               </DropdownMenuItem>
                             </DropdownMenuContent>

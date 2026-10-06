@@ -401,7 +401,7 @@ export default function ContratoDetailPage() {
                 </DropdownMenuItem>
               )}
               {contrato.status !== 'CANCELADO' && contrato.status !== 'ENCERRADO' && (
-                <DropdownMenuItem onClick={handleCancelar} className="text-destructive">
+                <DropdownMenuItem onClick={handleCancelar} className="text-destructive focus:text-destructive">
                   <X className="h-4 w-4 mr-2" /> Cancelar contrato
                 </DropdownMenuItem>
               )}

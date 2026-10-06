@@ -1294,7 +1294,7 @@ export default function ServicosPage() {
                           <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
                             <DropdownMenuItem onClick={() => openEditServico(s.id)}><Edit className="h-3.5 w-3.5 mr-2" />Editar</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleDuplicarServico(s.id)}><Copy className="h-3.5 w-3.5 mr-2" />Duplicar</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteServico(s.id)}><Trash2 className="h-3.5 w-3.5 mr-2" />Excluir</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteServico(s.id)}><Trash2 className="h-3.5 w-3.5 mr-2" />Excluir</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -1500,7 +1500,7 @@ export default function ServicosPage() {
                         <DropdownMenuContent align="end" className="w-44">
                           <DropdownMenuItem onClick={() => openEditServico(s.id)}><Edit className="h-4 w-4" />Editar</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDuplicarServico(s.id)}><Copy className="h-4 w-4" />Duplicar</DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteServico(s.id)}><Trash2 className="h-4 w-4" />Excluir</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteServico(s.id)}><Trash2 className="h-4 w-4" />Excluir</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -1603,7 +1603,7 @@ export default function ServicosPage() {
                           {exec.status === 'EM_ANDAMENTO' && (
                             <>
                               <DropdownMenuItem onClick={() => handleConcluirExecucao(exec.id)}><CheckCircle2 className="h-4 w-4" />Concluir</DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive" onClick={() => handleCancelarExecucao(exec.id)}><XCircle className="h-4 w-4" />Cancelar</DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleCancelarExecucao(exec.id)}><XCircle className="h-4 w-4" />Cancelar</DropdownMenuItem>
                             </>
                           )}
                         </DropdownMenuContent>

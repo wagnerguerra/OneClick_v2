@@ -1392,7 +1392,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => excluirMensagem(msg)}
-                                  className={cn(TEXT.rose, 'focus:text-rose-600 dark:focus:text-rose-400')}
+                                  className="text-destructive focus:text-destructive"
                                 >
                                   <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
                                 </DropdownMenuItem>

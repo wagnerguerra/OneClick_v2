@@ -351,7 +351,7 @@ export default function ClausulasPage() {
                               <FileCheck2 className="h-3.5 w-3.5" /> Publicar
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem onClick={() => handleExcluir(c)} className="text-xs gap-2 text-destructive cursor-pointer">
+                          <DropdownMenuItem onClick={() => handleExcluir(c)} className="text-xs gap-2 text-destructive focus:text-destructive cursor-pointer">
                             <Trash2 className="h-3.5 w-3.5" /> Despublicar
                           </DropdownMenuItem>
                         </DropdownMenuContent>

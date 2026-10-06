@@ -754,7 +754,7 @@ export default function AgendaConfiguracoesPage() {
                                   <Edit2 className="h-3.5 w-3.5" />Editar
                                 </DropdownMenuItem>
                                 {s.ativo && (
-                                  <DropdownMenuItem onClick={() => deleteSala(s)} className={cn('text-xs gap-2 cursor-pointer', TEXT.rose)}>
+                                  <DropdownMenuItem onClick={() => deleteSala(s)} className="text-xs gap-2 cursor-pointer text-destructive focus:text-destructive">
                                     <Trash2 className="h-3.5 w-3.5" />Desativar
                                   </DropdownMenuItem>
                                 )}

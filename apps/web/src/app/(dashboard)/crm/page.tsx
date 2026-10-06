@@ -1236,7 +1236,7 @@ export default function CrmPage() {
                           <DropdownMenuItem onClick={() => router.push(`/crm/${op.id}/imprimir`)}>
                             <Printer className="h-3.5 w-3.5 mr-2" /> Imprimir
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(op.id, op.titulo)}>
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDelete(op.id, op.titulo)}>
                             <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -2471,7 +2471,7 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
                   <DropdownMenuItem onClick={() => routerCard.push(`/crm/${op.id}/imprimir`)}>
                     <Printer className="mr-2 h-3.5 w-3.5" /> Imprimir
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive" onClick={() => onDelete(op.id, op.titulo)}>
+                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onDelete(op.id, op.titulo)}>
                     <Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir
                   </DropdownMenuItem>
                 </DropdownMenuContent>

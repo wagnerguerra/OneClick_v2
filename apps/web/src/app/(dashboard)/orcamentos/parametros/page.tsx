@@ -569,7 +569,7 @@ export default function ParametrosOrcamentosPage() {
                           <DropdownMenuItem onClick={() => abrirEdicao(item)}>
                             <Pencil className="h-4 w-4" /> Editar
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => handleExcluir(item)}>
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleExcluir(item)}>
                             <Trash2 className="h-4 w-4" /> Excluir
                           </DropdownMenuItem>
                         </>

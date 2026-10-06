@@ -716,7 +716,7 @@ export default function UsuariosPage() {
                             <ShieldCheck className="h-3.5 w-3.5 mr-2" /> Promover a MASTER
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(user.id, user.name, user.isMaster)}>
+                        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDelete(user.id, user.name, user.isMaster)}>
                           <Trash2 className="h-3.5 w-3.5 mr-2" /> Desativar
                         </DropdownMenuItem>
                       </DropdownMenuContent>

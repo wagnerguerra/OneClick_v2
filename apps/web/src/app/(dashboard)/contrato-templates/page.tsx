@@ -299,7 +299,7 @@ export default function ContratoTemplatesPage() {
                     <DropdownMenuItem onClick={() => handleDuplicar(t)} className="text-xs gap-2 cursor-pointer">
                       <CopyIcon className="h-3.5 w-3.5" /> Duplicar
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleExcluir(t)} className="text-xs gap-2 text-destructive cursor-pointer">
+                    <DropdownMenuItem onClick={() => handleExcluir(t)} className="text-xs gap-2 text-destructive focus:text-destructive cursor-pointer">
                       <Trash2 className="h-3.5 w-3.5" /> Desativar
                     </DropdownMenuItem>
                   </DropdownMenuContent>

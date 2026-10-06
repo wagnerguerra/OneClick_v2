@@ -1026,7 +1026,7 @@ function ConversasList({ conversas, meuId, conversaAtivaId, onClickConversa, onH
               <DropdownMenuContent align="end" className="w-44">
                 <DropdownMenuItem
                   onClick={e => { e.stopPropagation(); onHideConversa(c) }}
-                  className={cn('text-xs gap-2 cursor-pointer', TEXT.rose)}
+                  className="text-xs gap-2 cursor-pointer text-destructive focus:text-destructive"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   Excluir conversa
