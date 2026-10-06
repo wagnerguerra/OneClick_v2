@@ -22,6 +22,8 @@ const CANAIS = [
   { v: 'PRESENCIAL', t: 'Presencial' },
   { v: 'SITE', t: 'Site' },
   { v: 'OUTRO', t: 'Outro' },
+  // Só para exibir/editar registros que vieram do portal (o portal grava sozinho).
+  { v: 'PORTAL', t: 'Portal do cliente' },
 ]
 
 /** AAAA-MM-DD de hoje, no fuso de quem está na tela. */

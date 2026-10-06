@@ -740,7 +740,7 @@ const RECURSOS: Recurso[] = [
   { titulo: 'Certidões', icone: FileCheck2, cor: 'bg-[#eef0fd] text-[#5b62d6] dark:bg-[#1a1d3a] dark:text-[#a3a8f0]', modulo: 'certidoes' },
   { titulo: 'Certificado digital', icone: ShieldCheck, cor: 'bg-[#fdeef5] text-[#c2477f] dark:bg-[#2a1320] dark:text-[#e98ab5]', modulo: 'certificado' },
   { titulo: 'Notas fiscais', icone: Receipt, cor: 'bg-[#e8f4f7] text-[#2b7f95] dark:bg-[#10242a] dark:text-[#7cc4d6]', modulo: 'notas' },
-  { titulo: 'Atendimento', icone: LifeBuoy, cor: 'bg-[#f2eefd] text-[#7c4dd1] dark:bg-[#1e1633] dark:text-[#b59af0]', modulo: 'chamados' },
+  { titulo: 'Atendimento', icone: LifeBuoy, cor: 'bg-[#f2eefd] text-[#7c4dd1] dark:bg-[#1e1633] dark:text-[#b59af0]', href: '/portal/chamados', modulo: 'chamados' },
 ]
 
 export function AcessoRapido({ liberados }: { liberados: Set<string> }) {

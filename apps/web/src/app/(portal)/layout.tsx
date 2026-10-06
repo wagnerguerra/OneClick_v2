@@ -50,7 +50,8 @@ const NAV = [
   // Aparece só para quem o escritório liberou pessoa a pessoa: o `bi` só entra
   // em `modulos` com o módulo ligado na empresa E `podeVerBi` no vínculo.
   { href: '/portal/bi', rotulo: 'Dashboard Financeiro', icone: BarChart3, modulo: 'bi' },
-  { href: '/portal/chamados', rotulo: 'Atendimento', icone: LifeBuoy, modulo: 'chamados', emBreve: true },
+  // Guia Atendimento: entra em `modulos` só com ao menos uma das quatro permissões.
+  { href: '/portal/chamados', rotulo: 'Atendimento', icone: LifeBuoy, modulo: 'chamados' },
 ] as const
 
 /** Guarda a empresa escolhida — o diretor de grupo troca e espera continuar nela. */
