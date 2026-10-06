@@ -134,7 +134,7 @@ const TOM = {
 } as const
 type Tom = keyof typeof TOM
 
-function Chip({ tom, children }: { tom: Tom; children: React.ReactNode }) {
+export function Chip({ tom, children }: { tom: Tom; children: React.ReactNode }) {
   return (
     <span className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${TOM[tom]}`}>
       {children}
@@ -522,14 +522,14 @@ export function BlocoDocumentos({ pasta, hoje, erro }: { pasta: Consulta<PastaDr
     <Bloco
       icone={FolderOpen}
       cor={TOM.azul}
-      titulo="Documentos recentes"
+      titulo="Arquivos recentes"
       subtitulo={pasta?.vinculada ? (pasta.nome ?? 'Pasta da sua empresa') : undefined}
-      acao={<VerTudo href="/portal/documentos">Abrir documentos</VerTudo>}
+      acao={<VerTudo href="/portal/documentos">Abrir arquivos</VerTudo>}
     >
       {pasta === undefined ? <Carregando linhas={4} /> : pasta === null ? <Falhou mensagem={erro} /> : !pasta.vinculada ? (
         <Vazio
           icone={FolderOpen}
-          titulo="Documentos indisponíveis"
+          titulo="Arquivos indisponíveis"
           texto={pasta.motivo ?? 'O escritório ainda não configurou a pasta de documentos da sua empresa.'}
         />
       ) : recentes.length === 0 ? (
@@ -589,7 +589,7 @@ export interface CertidaoPortal {
 }
 
 /** Tom da situação: verde = sem pendência; âmbar = com efeito de negativa; vermelho = positiva/irregular. */
-function tomDaSituacao(situacao: string | null): Tom {
+export function tomDaSituacao(situacao: string | null): Tom {
   const s = (situacao ?? '').toLowerCase()
   if (/efeito/.test(s)) return 'ambar'
   if (/positiva|irregular|^consta/.test(s)) return 'vermelho'
@@ -598,7 +598,7 @@ function tomDaSituacao(situacao: string | null): Tom {
 }
 
 /** "Válida até" com o alerta de vencimento: vencida = vermelho; até 15 dias = âmbar. */
-function Validade({ data, hoje }: { data: string | null; hoje: Date | null }) {
+export function Validade({ data, hoje }: { data: string | null; hoje: Date | null }) {
   if (!data) return null
   const [a, m, d] = data.slice(0, 10).split('-').map(Number)
   const fim = new Date(a!, (m ?? 1) - 1, d ?? 1)
@@ -626,7 +626,7 @@ export function BlocoCertidoes({ lista, hoje, onBaixar }: {
     try { await onBaixar(c) } finally { setBaixando(null) }
   }
   return (
-    <Bloco id="certidoes" icone={ShieldCheck} cor={TOM.verde} titulo="Certidões e alvarás" subtitulo="A última emissão de cada documento">
+    <Bloco id="certidoes" icone={ShieldCheck} cor={TOM.verde} titulo="Certidões e alvarás" subtitulo="A última emissão de cada documento" acao={<VerTudo href="/portal/certidoes">Ver todas</VerTudo>}>
       {lista === undefined ? <Carregando linhas={4} /> : lista === null ? <Falhou /> : lista.length === 0 ? (
         <Vazio
           icone={ShieldCheck}
@@ -736,14 +736,13 @@ interface Recurso {
 }
 
 const RECURSOS: Recurso[] = [
-  { titulo: 'Documentos', icone: FolderOpen, cor: TOM.azul, href: '/portal/documentos', modulo: 'documentos' },
+  { titulo: 'Atendimento', icone: LifeBuoy, cor: 'bg-[#f2eefd] text-[#7c4dd1] dark:bg-[#1e1633] dark:text-[#b59af0]', href: '/portal/chamados', modulo: 'chamados' },
+  { titulo: 'BI Financeiro', icone: BarChart3, cor: 'bg-[#e8f6fb] text-[#0b87b5] dark:bg-[#0f2230] dark:text-[#6cc7ea]', href: '/portal/bi', modulo: 'bi' },
+  { titulo: 'Certidões e Alvarás', icone: FileCheck2, cor: 'bg-[#eef0fd] text-[#5b62d6] dark:bg-[#1a1d3a] dark:text-[#a3a8f0]', href: '/portal/certidoes', modulo: 'certidoes' },
+  { titulo: 'Arquivos', icone: FolderOpen, cor: TOM.azul, href: '/portal/documentos', modulo: 'documentos' },
   { titulo: 'Obrigações', icone: CalendarCheck, cor: TOM.verde, href: '/portal/obrigacoes', modulo: 'obrigacoes' },
-  { titulo: 'Dashboard Financeiro', icone: BarChart3, cor: 'bg-[#e8f6fb] text-[#0b87b5] dark:bg-[#0f2230] dark:text-[#6cc7ea]', href: '/portal/bi', modulo: 'bi' },
-  // Sem página própria: o quadro "Certidões e alvarás" fica na página inicial, abaixo do calendário.
-  { titulo: 'Certidões', icone: FileCheck2, cor: 'bg-[#eef0fd] text-[#5b62d6] dark:bg-[#1a1d3a] dark:text-[#a3a8f0]', href: '/portal#certidoes', modulo: 'certidoes' },
   { titulo: 'Certificado digital', icone: ShieldCheck, cor: 'bg-[#fdeef5] text-[#c2477f] dark:bg-[#2a1320] dark:text-[#e98ab5]', modulo: 'certificado' },
   { titulo: 'Notas fiscais', icone: Receipt, cor: 'bg-[#e8f4f7] text-[#2b7f95] dark:bg-[#10242a] dark:text-[#7cc4d6]', modulo: 'notas' },
-  { titulo: 'Atendimento', icone: LifeBuoy, cor: 'bg-[#f2eefd] text-[#7c4dd1] dark:bg-[#1e1633] dark:text-[#b59af0]', href: '/portal/chamados', modulo: 'chamados' },
 ]
 
 export function AcessoRapido({ liberados }: { liberados: Set<string> }) {

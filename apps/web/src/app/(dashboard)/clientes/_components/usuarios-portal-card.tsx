@@ -850,8 +850,8 @@ function CampoPermissoes({ valores, onToggle }: {
  */
 type CampoDoPainel = 'podeVerBi' | 'podeVerCertidoes'
 const OPCOES_DO_PAINEL: Array<{ campo: CampoDoPainel; titulo: string; ajuda: string }> = [
-  { campo: 'podeVerBi', titulo: 'Ver o Dashboard Financeiro', ajuda: 'Receita, custos, despesas e resultado da empresa, mês a mês — o BI do balancete.' },
-  { campo: 'podeVerCertidoes', titulo: 'Ver certidões e alvarás', ajuda: 'Quadro na tela inicial, abaixo do calendário, com a última certidão de cada tipo para baixar.' },
+  { campo: 'podeVerBi', titulo: 'Ver o BI Financeiro', ajuda: 'Receita, custos, despesas e resultado da empresa, mês a mês — o BI do balancete.' },
+  { campo: 'podeVerCertidoes', titulo: 'Ver certidões e alvarás', ajuda: 'Guia "Certidões e Alvarás" e quadro na tela inicial, com a última emissão de cada documento para baixar.' },
 ]
 
 function CampoPainel({ valores, onToggle }: {

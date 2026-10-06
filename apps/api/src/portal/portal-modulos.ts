@@ -24,7 +24,7 @@ export interface ModuloDoPortal {
 export const MODULOS_DO_PORTAL: readonly ModuloDoPortal[] = [
   {
     slug: 'documentos',
-    rotulo: 'Documentos',
+    rotulo: 'Arquivos',
     descricao: 'Pasta de arquivos do cliente: baixar o que o escritório publica e enviar os próprios documentos.',
     implementado: true,
     padrao: true,
@@ -41,7 +41,7 @@ export const MODULOS_DO_PORTAL: readonly ModuloDoPortal[] = [
   },
   {
     slug: 'bi',
-    rotulo: 'Dashboard Financeiro',
+    rotulo: 'BI Financeiro',
     descricao: 'Receita, custos, despesas e resultado da empresa, mês a mês — a DRE do balancete.',
     implementado: true,
     // Nasce LIGADO no nível da empresa porque o portão de verdade é outro: a
@@ -63,7 +63,7 @@ export const MODULOS_DO_PORTAL: readonly ModuloDoPortal[] = [
   },
   {
     slug: 'certidoes',
-    rotulo: 'Certidões',
+    rotulo: 'Certidões e Alvarás',
     descricao: 'Situação e PDF da última emissão de cada certidão negativa e alvará.',
     implementado: true,
     // Mesmo raciocínio do BI: ligado na empresa, e o portão de verdade é a

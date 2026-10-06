@@ -14,6 +14,7 @@ import {
 } from '../_components/painel-inicio'
 import { ContatoEquipeModal } from '../_components/contato-equipe-modal'
 import { CalendarioPortal } from '../_components/calendario-portal'
+import { baixarCertidao } from '../_lib/certidoes'
 
 /**
  * Início do Portal do Cliente — a mesa de trabalho do cliente.
@@ -139,19 +140,7 @@ export default function PortalInicioPage() {
     return () => { ativo = false }
   }, [clienteId, temDocumentos, temObrigacoes, temCertidoes, competencia])
 
-  async function baixarCertidao(c: CertidaoPortal) {
-    if (!clienteId) return
-    const api = trpc.portal as unknown as PortalApiDaHome
-    const r = await api.certidoes.pdf.query({ clienteId, tipo: c.tipo, id: c.id }).catch(() => null)
-    if (!r?.pdfBase64) { window.alert('Não foi possível baixar este documento agora. Tente de novo em instantes.'); return }
-    const bytes = Uint8Array.from(atob(r.pdfBase64), ch => ch.charCodeAt(0))
-    const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${c.label.replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_|_$/g, '')}.pdf`
-    a.click()
-    setTimeout(() => URL.revokeObjectURL(url), 10_000)
-  }
+  const baixarDaHome = (c: CertidaoPortal) => (clienteId ? baixarCertidao(clienteId, c) : Promise.resolve())
 
   const alertas: Alerta[] = []
   if (hoje && Array.isArray(pendencias)) {
@@ -190,7 +179,7 @@ export default function PortalInicioPage() {
             )}
             <Link href="/portal/documentos" className={podeEditar ? BOTAO_SECUNDARIO : BOTAO_PRIMARIO}>
               <FolderOpen className="h-4 w-4" />
-              Abrir documentos
+              Abrir arquivos
             </Link>
           </>
         ) : undefined}
@@ -208,7 +197,7 @@ export default function PortalInicioPage() {
             qualquer largura (inclusive no fim da pilha, no celular). */}
         <div className="order-last flex min-w-0 flex-col gap-5 lg:order-none lg:col-start-2 lg:row-start-1 xl:col-start-1 xl:row-start-1">
           <CalendarioPortal clienteId={clienteId} />
-          {temCertidoes && <BlocoCertidoes lista={certidoes} hoje={hoje} onBaixar={baixarCertidao} />}
+          {temCertidoes && <BlocoCertidoes lista={certidoes} hoje={hoje} onBaixar={baixarDaHome} />}
         </div>
 
         <div className="flex min-w-0 flex-col gap-5 lg:col-start-1 lg:row-span-2 lg:row-start-1 xl:col-start-2 xl:row-span-1">

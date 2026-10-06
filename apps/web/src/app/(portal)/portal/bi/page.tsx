@@ -36,15 +36,15 @@ export default function PortalBiPage() {
   return (
     <>
       <PortalPageHeader
-        titulo="Dashboard Financeiro"
+        titulo="BI Financeiro"
         subtitulo="Receita, custos, despesas e resultado da sua empresa, mês a mês."
       />
       {!vinculo ? null : !liberado ? (
         <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card px-6 py-14 text-center">
           <BarChart3 className="h-9 w-9 text-muted-foreground/60" />
-          <p className="text-sm font-semibold text-foreground">Dashboard não disponível</p>
+          <p className="text-sm font-semibold text-foreground">BI Financeiro não disponível</p>
           <p className="max-w-sm text-xs text-muted-foreground">
-            O acesso ao Dashboard Financeiro é liberado pelo escritório. Se você precisa dele,
+            O acesso ao BI Financeiro é liberado pelo escritório. Se você precisa dele,
             fale com a sua equipe.
           </p>
         </div>
