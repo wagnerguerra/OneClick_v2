@@ -1,9 +1,9 @@
 'use client'
 
 import { Layers } from 'lucide-react'
-import { cn } from '@saas/ui'
+import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@saas/ui'
 import { formatCnpj } from '@saas/types'
-import { BORDER, SURFACE, TEXT } from '@/lib/color-styles'
+import { BADGE } from '@/lib/color-styles'
 
 /** Mês do balancete consolidado com filiais (ClienteBiConsolidacao). */
 export interface PeriodoConsolidado {
@@ -30,9 +30,10 @@ export function faixasDeMeses(periodos: string[]): string {
 }
 
 /**
- * Aviso de que o BI soma filiais na matriz (06/10/2026). Aparece no
- * /bi-faturamento (texto para a equipe) e no BI Financeiro do portal (texto
- * para o cliente) quando o ano exibido tem meses importados CONSOLIDADOS.
+ * Selo "Resultados consolidados na matriz" (06/10/2026). Aparece no
+ * /bi-faturamento e no BI Financeiro do portal quando o ano exibido tem meses
+ * importados CONSOLIDADOS. Compacto, na linha do título; o detalhe (filiais e
+ * meses) fica na dica — a faixa larga anterior empurrava o dashboard.
  */
 export function AvisoConsolidacao({ periodos, publico }: { periodos: PeriodoConsolidado[]; publico: 'interno' | 'cliente' }) {
   if (periodos.length === 0) return null
@@ -40,21 +41,28 @@ export function AvisoConsolidacao({ periodos, publico }: { periodos: PeriodoCons
   for (const p of periodos) for (const f of p.filiais) filiais.set(f.clienteId || f.cnpj, f)
   const lista = [...filiais.values()]
   const meses = faixasDeMeses(periodos.map(p => p.periodo))
-  const nomes = lista.map(f => `${f.razaoSocial} (CNPJ ${formatCnpj(f.cnpj)})`).join('; ')
 
   return (
-    <div role="note" className={cn('flex items-start gap-2.5 rounded-lg border px-3.5 py-2.5 text-[12.5px] leading-relaxed', SURFACE.sky, BORDER.sky)}>
-      <Layers className={cn('mt-0.5 h-4 w-4 shrink-0', TEXT.sky)} />
-      <p className="text-foreground">
-        <span className="font-semibold">Valores consolidados</span>
-        {publico === 'interno' ? (
-          <> — em {meses}, o balancete desta matriz soma {lista.length === 1 ? 'a filial' : 'as filiais'} {nomes}.
-            Para separar, reimporte o período escolhendo “Individualizar”.</>
-        ) : (
-          <> — em {meses}, os números incluem {lista.length === 1 ? 'a filial' : 'as filiais'} {nomes}, somadas à matriz,
-            como no balancete consolidado do escritório.</>
-        )}
-      </p>
-    </div>
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            role="note"
+            tabIndex={0}
+            className={cn('inline-flex cursor-help items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium', BADGE.sky)}
+          >
+            <Layers className="h-3 w-3" />
+            Resultados consolidados na matriz
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs text-xs leading-relaxed">
+          <p>Em {meses}, {publico === 'interno' ? 'o balancete desta matriz soma' : 'os números incluem'} {lista.length === 1 ? 'a filial' : 'as filiais'}:</p>
+          <ul className="mt-1 list-disc pl-4">
+            {lista.map(f => <li key={f.cnpj}>{f.razaoSocial} — CNPJ {formatCnpj(f.cnpj)}</li>)}
+          </ul>
+          {publico === 'interno' && <p className="mt-1 text-muted-foreground">Para separar, reimporte o período escolhendo “Individualizar”.</p>}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }

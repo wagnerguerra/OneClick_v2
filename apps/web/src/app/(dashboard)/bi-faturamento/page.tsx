@@ -347,17 +347,13 @@ export default function BiFaturamentoPage() {
       ) : (
         <Card>
           <CardHeader>
-            <h5 className="text-sm font-semibold mb-0 flex items-center gap-2">
+            <h5 className="text-sm font-semibold mb-0 flex flex-wrap items-center gap-2">
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
               {clienteSelecionado?.razaoSocial ?? 'Dashboard Financeiro'}
               <Badge variant="outline" className="text-[10px] ml-2">{anosSelecionados.join(', ')}</Badge>
+              <AvisoConsolidacao periodos={consolidados} publico="interno" />
             </h5>
           </CardHeader>
-          {consolidados.length > 0 && (
-            <div className="px-4 pb-3">
-              <AvisoConsolidacao periodos={consolidados} publico="interno" />
-            </div>
-          )}
           <div className="flex min-h-[450px]">
             {/* Pills laterais */}
             <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3">
