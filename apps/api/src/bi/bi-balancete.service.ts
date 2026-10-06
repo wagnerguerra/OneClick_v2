@@ -1,5 +1,6 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import { limparCnpj } from '@saas/types'
 import { SciService, type SciBalanceteLinha } from '../cliente/sci.service'
 import { BiSyncEventsService } from './bi-sync-events.service'
 import { conferirBalanceteFecha } from './balancete-integridade'
@@ -735,13 +736,14 @@ export class BiBalanceteService {
     // `cliente.idSistema` — um id digitado ou descoberto por CNPJ. Id errado no
     // cadastro importava o balancete de OUTRA empresa, em silêncio, sob o nome
     // do cliente certo.
-    const cnpjSci = String(linhas[0]?.CNPJ_EMPRESA ?? '').replace(/\D/g, '')
+    // limparCnpj, não /\D/g: o CNPJ alfanumérico tem letras.
+    const cnpjSci = limparCnpj(String(linhas[0]?.CNPJ_EMPRESA ?? ''))
     if (cnpjSci) {
       const cli = await prisma.cliente.findUnique({
         where: { id: clienteId },
         select: { documento: true, razaoSocial: true },
       }).catch(() => null)
-      const cnpjCliente = (cli?.documento ?? '').replace(/\D/g, '')
+      const cnpjCliente = limparCnpj(cli?.documento ?? '')
       if (cnpjCliente && cnpjCliente !== cnpjSci) {
         throw new Error(
           `O SCI devolveu o balancete do CNPJ ${cnpjSci}, mas o cliente `
