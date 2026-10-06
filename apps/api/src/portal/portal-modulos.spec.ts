@@ -69,24 +69,52 @@ describe('modulosDoVinculo — o BI exige a EMPRESA e a PESSOA', () => {
   })
 
   it('sem a permissão da pessoa, o BI some — mesmo com o módulo ligado', () => {
-    expect(modulosDoVinculo(daEmpresa, { podeVerBi: false })).not.toContain('bi')
+    expect(modulosDoVinculo(daEmpresa, { podeVerBi: false, podeVerCertidoes: false })).not.toContain('bi')
   })
 
   it('com a permissão, o BI aparece', () => {
-    expect(modulosDoVinculo(daEmpresa, { podeVerBi: true })).toContain('bi')
+    expect(modulosDoVinculo(daEmpresa, { podeVerBi: true, podeVerCertidoes: false })).toContain('bi')
   })
 
   it('a chave geral da empresa vence a permissão da pessoa', () => {
     // O escritório desligou o BI em /empresas: a marcação no usuário não
     // reabre nada — senão desligar o módulo seria só um pedido.
     const semBi = resolverLiberados([{ modulo: 'bi', liberado: false }])
-    expect(modulosDoVinculo(semBi, { podeVerBi: true })).not.toContain('bi')
+    expect(modulosDoVinculo(semBi, { podeVerBi: true, podeVerCertidoes: false })).not.toContain('bi')
   })
 
   it('a permissão do BI não mexe em nenhum outro módulo', () => {
-    const sem = modulosDoVinculo(daEmpresa, { podeVerBi: false })
-    const com = modulosDoVinculo(daEmpresa, { podeVerBi: true })
+    const sem = modulosDoVinculo(daEmpresa, { podeVerBi: false, podeVerCertidoes: false })
+    const com = modulosDoVinculo(daEmpresa, { podeVerBi: true, podeVerCertidoes: false })
     expect(sem.filter(m => m !== 'bi').sort()).toEqual(com.filter(m => m !== 'bi').sort())
     expect(sem).toContain('documentos')
+  })
+})
+
+describe('modulosDoVinculo — as certidões exigem a EMPRESA e a PESSOA', () => {
+  const daEmpresa = resolverLiberados([])
+
+  it('as certidões nascem liberadas para a empresa: o portão de verdade é a pessoa', () => {
+    expect(daEmpresa.has('certidoes')).toBe(true)
+  })
+
+  it('sem a permissão da pessoa, as certidões somem', () => {
+    expect(modulosDoVinculo(daEmpresa, { podeVerBi: true, podeVerCertidoes: false })).not.toContain('certidoes')
+  })
+
+  it('com a permissão, as certidões aparecem', () => {
+    expect(modulosDoVinculo(daEmpresa, { podeVerBi: false, podeVerCertidoes: true })).toContain('certidoes')
+  })
+
+  it('a chave geral da empresa vence a permissão da pessoa', () => {
+    const sem = resolverLiberados([{ modulo: 'certidoes', liberado: false }])
+    expect(modulosDoVinculo(sem, { podeVerBi: false, podeVerCertidoes: true })).not.toContain('certidoes')
+  })
+
+  it('as duas permissões são independentes', () => {
+    const soBi = modulosDoVinculo(daEmpresa, { podeVerBi: true, podeVerCertidoes: false })
+    const soCert = modulosDoVinculo(daEmpresa, { podeVerBi: false, podeVerCertidoes: true })
+    expect(soBi).toContain('bi'); expect(soBi).not.toContain('certidoes')
+    expect(soCert).toContain('certidoes'); expect(soCert).not.toContain('bi')
   })
 })

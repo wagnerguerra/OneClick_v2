@@ -62,9 +62,12 @@ export const MODULOS_DO_PORTAL: readonly ModuloDoPortal[] = [
   {
     slug: 'certidoes',
     rotulo: 'Certidões',
-    descricao: 'Situação e PDF da última emissão de cada certidão negativa.',
-    implementado: false,
-    padrao: false,
+    descricao: 'Situação e PDF da última emissão de cada certidão negativa e alvará.',
+    implementado: true,
+    // Mesmo raciocínio do BI: ligado na empresa, e o portão de verdade é a
+    // permissão por usuário (`ClienteUsuario.podeVerCertidoes`), que nasce
+    // desligada. Desligar aqui tira o quadro do portal de todo mundo.
+    padrao: true,
   },
   {
     slug: 'certificado',
@@ -93,6 +96,7 @@ const PADRAO = new Map(MODULOS_DO_PORTAL.map(m => [m.slug, m.padrao]))
  */
 export interface PermissoesDoVinculo {
   podeVerBi: boolean
+  podeVerCertidoes: boolean
 }
 
 /**
@@ -110,6 +114,7 @@ export function modulosDoVinculo(
 ): string[] {
   const out = new Set(liberadosNaEmpresa)
   if (!permissoes.podeVerBi) out.delete('bi')
+  if (!permissoes.podeVerCertidoes) out.delete('certidoes')
   return [...out]
 }
 

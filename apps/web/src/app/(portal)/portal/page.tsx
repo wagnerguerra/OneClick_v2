@@ -10,7 +10,7 @@ import {
   AcessoRapido, Alertas, BlocoDocumentos, BlocoEquipe, BlocoObrigacoes, BlocoPendencias,
   BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CartaoAjuda, Saudacao, diasAte,
   type Alerta, type AreaDaEquipe, type Consulta, type Obrigacao, type PastaDrive,
-  type Pendencia, type ResumoObrigacoes,
+  type Pendencia, type ResumoObrigacoes, type CertidaoPortal, BlocoCertidoes,
 } from '../_components/painel-inicio'
 import { ContatoEquipeModal } from '../_components/contato-equipe-modal'
 import { CalendarioPortal } from '../_components/calendario-portal'
@@ -57,6 +57,10 @@ interface PortalApiDaHome {
   }
   arquivos: { drive: { query(i: { clienteId: string; subPastaId: null }): Promise<PastaDrive> } }
   equipe: { query(i: { clienteId: string }): Promise<AreaDaEquipe[]> }
+  certidoes: {
+    lista: { query(i: { clienteId: string }): Promise<CertidaoPortal[]> }
+    pdf: { query(i: { clienteId: string; tipo: string; id: string }): Promise<{ pdfBase64: string | null }> }
+  }
 }
 
 /** Competência corrente, AAAAMM. Sem ela o resumo contaria o histórico inteiro. */
@@ -94,6 +98,8 @@ export default function PortalInicioPage() {
   const liberados = useMemo(() => new Set(vinculo?.modulos ?? []), [vinculo])
   const temDocumentos = liberados.has('documentos')
   const temObrigacoes = liberados.has('obrigacoes')
+  // Quadro de certidões: só com a permissão da pessoa (o servidor já descontou de `modulos`).
+  const temCertidoes = liberados.has('certidoes')
   const podeEditar = Boolean(vinculo?.podeEditar)
 
   // "Hoje" só no cliente: no servidor sairia no fuso e no instante dele.
@@ -109,6 +115,7 @@ export default function PortalInicioPage() {
   const [pasta, setPasta] = useState<Consulta<PastaDrive>>(undefined)
   const [erroPasta, setErroPasta] = useState<string | null>(null)
   const [equipe, setEquipe] = useState<Consulta<AreaDaEquipe[]>>(undefined)
+  const [certidoes, setCertidoes] = useState<Consulta<CertidaoPortal[]>>(undefined)
   const [escrevendoPara, setEscrevendoPara] = useState<AreaDaEquipe | null>(null)
 
   // Só consulta o que o escritório liberou: a rota de um módulo desligado
@@ -128,8 +135,23 @@ export default function PortalInicioPage() {
       consultar(api.obrigacoes.listar.query({ clienteId, competencia }), setObrigacoes, vivo)
       consultar(api.obrigacoes.resumo.query({ clienteId, competencia }), setResumo, vivo)
     }
+    if (temCertidoes) consultar(api.certidoes.lista.query({ clienteId }), setCertidoes, vivo)
     return () => { ativo = false }
-  }, [clienteId, temDocumentos, temObrigacoes, competencia])
+  }, [clienteId, temDocumentos, temObrigacoes, temCertidoes, competencia])
+
+  async function baixarCertidao(c: CertidaoPortal) {
+    if (!clienteId) return
+    const api = trpc.portal as unknown as PortalApiDaHome
+    const r = await api.certidoes.pdf.query({ clienteId, tipo: c.tipo, id: c.id }).catch(() => null)
+    if (!r?.pdfBase64) { window.alert('Não foi possível baixar este documento agora. Tente de novo em instantes.'); return }
+    const bytes = Uint8Array.from(atob(r.pdfBase64), ch => ch.charCodeAt(0))
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${c.label.replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_|_$/g, '')}.pdf`
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 10_000)
+  }
 
   const alertas: Alerta[] = []
   if (hoje && Array.isArray(pendencias)) {
@@ -181,10 +203,13 @@ export default function PortalInicioPage() {
           (tablet) ou para o fim da pilha (celular) — ele é contexto do mês, e
           quem abre o portal no telefone veio resolver pendência. */}
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[19rem_minmax(0,1fr)_20rem]">
-        <CalendarioPortal
-          clienteId={clienteId}
-          className="order-last lg:order-none lg:col-start-2 lg:row-start-1 xl:col-start-1 xl:row-start-1"
-        />
+        {/* Calendário e, logo abaixo dele, as certidões: a coluna inteira ocupa o
+            lugar que era só do calendário, então o quadro o acompanha em
+            qualquer largura (inclusive no fim da pilha, no celular). */}
+        <div className="order-last flex min-w-0 flex-col gap-5 lg:order-none lg:col-start-2 lg:row-start-1 xl:col-start-1 xl:row-start-1">
+          <CalendarioPortal clienteId={clienteId} />
+          {temCertidoes && <BlocoCertidoes lista={certidoes} hoje={hoje} onBaixar={baixarCertidao} />}
+        </div>
 
         <div className="flex min-w-0 flex-col gap-5 lg:col-start-1 lg:row-span-2 lg:row-start-1 xl:col-start-2 xl:row-span-1">
           {temDocumentos && <BlocoPendencias pendencias={pendencias} podeEditar={podeEditar} hoje={hoje} />}

@@ -46,6 +46,8 @@ export interface VinculoPortal {
   podeExcluir: boolean
   /** Vê o Dashboard Financeiro (BI). Já refletido em `modulos`. */
   podeVerBi: boolean
+  /** Vê o quadro de certidões e alvarás. Já refletido em `modulos`. */
+  podeVerCertidoes: boolean
   /**
    * Módulos que o master liberou para a empresa dona deste cliente, MENOS os
    * que exigem uma permissão que esta pessoa não tem (ver `modulosDoVinculo`).
@@ -120,6 +122,7 @@ export async function resolverVinculo(userId: string, clienteId: string): Promis
       podeEditar: true,
       podeExcluir: true,
       podeVerBi: true,
+      podeVerCertidoes: true,
       cliente: {
         select: {
           status: true,
@@ -155,7 +158,8 @@ export async function resolverVinculo(userId: string, clienteId: string): Promis
     podeEditar: vinculo.podeEditar,
     podeExcluir: vinculo.podeExcluir,
     podeVerBi: vinculo.podeVerBi,
-    modulos: modulosDoVinculo(resolverLiberados(excecoes), { podeVerBi: vinculo.podeVerBi }),
+    podeVerCertidoes: vinculo.podeVerCertidoes,
+    modulos: modulosDoVinculo(resolverLiberados(excecoes), { podeVerBi: vinculo.podeVerBi, podeVerCertidoes: vinculo.podeVerCertidoes }),
     areas: intersecaoAreas(
       vinculo.areas,
       vinculo.cliente.servicosContratados.map(a => a.areaId),
@@ -194,6 +198,7 @@ export async function listarVinculos(
       podeEditar: true,
       podeExcluir: true,
       podeVerBi: true,
+      podeVerCertidoes: true,
       cliente: {
         select: {
           razaoSocial: true,
@@ -232,9 +237,10 @@ export async function listarVinculos(
     podeEditar: v.podeEditar,
     podeExcluir: v.podeExcluir,
     podeVerBi: v.podeVerBi,
+    podeVerCertidoes: v.podeVerCertidoes,
     modulos: modulosDoVinculo(
       resolverLiberados(porEmpresa.get(v.cliente.empresaId ?? '') ?? []),
-      { podeVerBi: v.podeVerBi },
+      { podeVerBi: v.podeVerBi, podeVerCertidoes: v.podeVerCertidoes },
     ),
     areas: intersecaoAreas(v.areas, v.cliente.servicosContratados.map(a => a.areaId)),
     razaoSocial: v.cliente.razaoSocial,

@@ -1781,6 +1781,8 @@ export function createClienteRouter(
         podeExcluir: z.boolean().optional(),
         /** Dashboard Financeiro no portal — ver `ClienteUsuario.podeVerBi`. */
         podeVerBi: z.boolean().optional(),
+        /** Quadro de certidões no portal — ver `ClienteUsuario.podeVerCertidoes`. */
+        podeVerCertidoes: z.boolean().optional(),
         telefone: z.string().nullish(),
         /**
          * Outras empresas do MESMO GRUPO que recebem o mesmo acesso.
@@ -1804,6 +1806,8 @@ export function createClienteRouter(
         podeExcluir: z.boolean().optional(),
         /** Dashboard Financeiro no portal — ver `ClienteUsuario.podeVerBi`. */
         podeVerBi: z.boolean().optional(),
+        /** Quadro de certidões no portal — ver `ClienteUsuario.podeVerCertidoes`. */
+        podeVerCertidoes: z.boolean().optional(),
       }))
       .mutation(({ input }) => usuarios().atualizar(input)),
 

@@ -718,6 +718,10 @@ model ClienteUsuario {
   /// empresa não são para todo usuário do cliente — o escritório libera pessoa
   /// a pessoa. Também depende do módulo `bi` estar liberado para a empresa.
   podeVerBi   Boolean @default(false) @map("pode_ver_bi")
+  /// Quadro "Certidões e alvarás" no portal (PDF da última emissão de cada
+  /// certidão do cliente). Nasce DESLIGADO, pelo mesmo motivo do BI: o
+  /// escritório libera pessoa a pessoa. Depende do módulo `certidoes` da empresa.
+  podeVerCertidoes Boolean @default(false) @map("pode_ver_certidoes")
 
   /// Quem criou o vínculo. Pode ser um usuário INTERNO (escritório cadastrando
   /// o primeiro administrador) ou o próprio administrador do cliente.

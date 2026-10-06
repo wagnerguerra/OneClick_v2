@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { prisma } from '@saas/db'
 import { router, publicProcedure, portalSessaoProcedure, portalProcedure, portalModuloProcedure } from '../trpc/trpc.service'
 import type { PortalArquivosService } from './portal-arquivos.service'
 import type { GestaoArquivosDriveService } from '../gestao-arquivos/gestao-arquivos-drive.service'
@@ -9,6 +10,7 @@ import type { ConviteValido } from './portal-tipos'
 import { listarVinculos } from './portal-escopo'
 import { listarEquipe } from './portal-equipe'
 import { itensDoCalendario, type ItemDoCalendario } from './portal-calendario'
+import { certidoesDoCliente, pdfDaCertidao } from '../cnd/certidoes-do-cliente'
 
 /**
  * O router declara o que USA do serviço, em vez de importar a classe.
@@ -282,6 +284,34 @@ export function createPortalRouter(
           ano: z.number().int().min(2000).max(2100),
         }))
         .query(({ ctx, input }) => biService.balanceteMatriz(ctx.portal.clienteId, input.ano)),
+    }),
+
+    /**
+     * Certidões e alvarás — a última emissão de cada tipo, com o PDF.
+     *
+     * Mesmos dois portões do BI, resolvidos por `portalModuloProcedure`: o
+     * módulo `certidoes` liberado para a empresa e a permissão da pessoa
+     * (`podeVerCertidoes`), já descontada de `modulos`. Mesma consulta da aba
+     * Legalização (certidoes-do-cliente.ts), sempre do cliente do VÍNCULO.
+     */
+    certidoes: router({
+      lista: portalModuloProcedure('certidoes')
+        .input(z.object({ clienteId: z.string() }))
+        .query(async ({ ctx }) => {
+          const cli = await prisma.cliente.findUnique({ where: { id: ctx.portal.clienteId }, select: { empresaId: true } })
+          if (!cli?.empresaId) return []
+          // Só o que o cliente pode usar: emitidas com PDF.
+          return (await certidoesDoCliente(cli.empresaId, ctx.portal.clienteId)).filter(c => c.sucesso && c.temPdf)
+        }),
+
+      pdf: portalModuloProcedure('certidoes')
+        .input(z.object({ clienteId: z.string(), tipo: z.string(), id: z.string() }))
+        .query(async ({ ctx, input }) => {
+          const cli = await prisma.cliente.findUnique({ where: { id: ctx.portal.clienteId }, select: { empresaId: true } })
+          if (!cli?.empresaId) return { pdfBase64: null }
+          // `clienteId` do vínculo na consulta: um id de certidão de OUTRO cliente não sai.
+          return { pdfBase64: await pdfDaCertidao(cli.empresaId, input.tipo, input.id, ctx.portal.clienteId) }
+        }),
     }),
 
     /**
