@@ -154,36 +154,41 @@ export class CrfFgtsService {
             if (ini && fim && fim > ini) dataValidade = fim
           }
 
-          const certMatch = textoCrf.match(/Certificado\s*N[úu]mero:\s*(\d+)/)
-          if (certMatch) numeroCertificado = certMatch[1]!
+          // A Caixa escreve "Certificação Número" (a regex antiga procurava
+          // "Certificado Número" e o número nunca era gravado).
+          const lerNumero = (t: string) => t.match(/Certifica(?:do|[çc][ãa]o)\s*N[úu]mero:\s*(\d+)/)?.[1] ?? null
+          numeroCertificado = lerNumero(textoCrf)
 
-          // "Visualizar" gera o PDF oficial da Caixa — interceptado via CDP Fetch.
+          // "Visualizar" NÃO gera PDF: é um postback AJAX que redesenha a página
+          // com o certificado, e o "Imprimir" da Caixa só chama window.print().
+          // O documento oficial é a impressão dessa página — feita aqui com
+          // page.pdf(). (Antes se interceptava um PDF via CDP Fetch que nunca
+          // existiu, e o resultado era sempre a "captura da tela"; o Fetch.enable
+          // também quebra o proxy do escritório — ver cndt-trabalhista.)
           etapa('Gerando PDF do certificado...')
-          const temVisualizar = await page.$('#mainForm\\:btnVisualizar')
-          if (temVisualizar) {
-            const cdpClient = await page.createCDPSession()
-            await cdpClient.send('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Response' }] })
-
-            cdpClient.on('Fetch.requestPaused', async (event) => {
-              const ct = (event.responseHeaders || []).find(h => h.name.toLowerCase() === 'content-type')
-              if (ct && ct.value.includes('pdf') && !pdfBase64) {
-                try {
-                  const body = await cdpClient.send('Fetch.getResponseBody', { requestId: event.requestId })
-                  const buf = Buffer.from(body.body, body.base64Encoded ? 'base64' : 'utf8')
-                  // Assinatura "%P" de PDF: descarta página de erro com content-type errado.
-                  if (buf.length > 100 && buf[0] === 0x25 && buf[1] === 0x50) {
-                    pdfBase64 = buf.toString('base64')
-                    origemPdf = 'oficial'
-                    logger.log(`PDF oficial capturado via Visualizar: ${buf.length} bytes`)
-                  }
-                } catch { /* corpo indisponível — segue para o fallback */ }
-              }
-              await cdpClient.send('Fetch.continueRequest', { requestId: event.requestId }).catch(() => {})
-            })
-
+          if (await page.$('[id="mainForm:btnVisualizar"]')) {
             await page.evaluate(() => { (document.getElementById('mainForm:btnVisualizar') as HTMLElement | null)?.click() })
-            await espera(10000)
-            await cdpClient.detach().catch(() => {})
+            // A versão de impressão é a que tem o botão "Imprimir" — a página
+            // anterior já contém "Certificado de Regularidade" e "Validade:", então
+            // esperar pelo texto imprimia a página errada (com o cabeçalho do site).
+            const abriu = await page.waitForFunction(
+              () => Array.from(document.querySelectorAll<HTMLInputElement>('input[type="button"], input[type="submit"]')).some(b => /imprimir/i.test(b.value || '')),
+              { timeout: 15000 },
+            ).then(() => true).catch(() => false)
+            if (abriu) {
+              const textoCert = await page.evaluate(() => document.body.innerText)
+              numeroCertificado = lerNumero(textoCert) ?? numeroCertificado
+              const v = textoCert.match(/Validade:\s*(\d{2}\/\d{2}\/\d{4})\s*a\s*(\d{2}\/\d{2}\/\d{4})/)
+              if (v) { const ini = dataIso(v[1]); const fim = dataIso(v[2]); if (ini && fim && fim > ini) dataValidade = fim }
+              // Sem os botões "Voltar"/"Imprimir" da página no documento.
+              await page.evaluate(() => {
+                document.querySelectorAll<HTMLElement>('input[type="button"], input[type="submit"], button').forEach(b => { b.style.display = 'none' })
+              })
+              const pdf = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } })
+              pdfBase64 = Buffer.from(pdf).toString('base64')
+              origemPdf = 'oficial'
+              logger.log(`Certificado impresso em PDF: ${pdf.length} bytes`)
+            }
           }
 
           // Fallback: impressão da tela. Fica marcada como captura para o usuário

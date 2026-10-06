@@ -155,23 +155,45 @@ export class CndtTrabalhistaService {
     const etapa = (s: string) => this.consultaEtapa.set(empresaId, s)
     await page.setViewport({ width: 1200, height: 800 })
 
-    // CDP Fetch para interceptar o PDF (vem como attachment, não abre na aba).
-    const client = await page.createCDPSession()
-    await client.send('Fetch.enable', { patterns: [
-      { urlPattern: '*/api/certidao*', requestStage: 'Response' }, // portal novo (out/2026)
-      { urlPattern: '*emissaoCertidao*', requestStage: 'Response' }, // portal JSF antigo
-    ] })
+    // O portal novo (out/2026) baixa o PDF com fetch → blob → link temporário
+    // (URL.createObjectURL). Uma cópia do blob é guardada na própria página no
+    // momento em que o link é criado. NÃO usar uma sessão CDP com Fetch.enable
+    // para interceptar: junto do page.authenticate do proxy do escritório, o
+    // Chromium falha com ERR_INVALID_AUTH_CREDENTIALS (reproduzido em produção,
+    // 06/10). O evento `response` abaixo fica de reserva (sem proxy funciona).
+    await page.evaluateOnNewDocument(() => {
+      const original = URL.createObjectURL.bind(URL)
+      URL.createObjectURL = (obj: Blob | MediaSource) => {
+        if (obj instanceof Blob) {
+          const leitor = new FileReader()
+          leitor.onload = () => { (window as unknown as { __pdfCndt?: string }).__pdfCndt = String(leitor.result).split(',')[1] || '' }
+          leitor.readAsDataURL(obj)
+        }
+        return original(obj)
+      }
+    })
+    // O clique do portal no link temporário vira download no disco do servidor: recusa.
+    const cdp = await page.createCDPSession()
+    await cdp.send('Page.setDownloadBehavior', { behavior: 'deny' }).catch(() => undefined)
+    const lerBlobDaPagina = async () => {
+      const b64 = await page.evaluate(() => (window as unknown as { __pdfCndt?: string }).__pdfCndt || '').catch(() => '')
+      if (!b64 || captura.pdf) return
+      const buf = Buffer.from(b64, 'base64')
+      if (buf.length > 100 && buf[0] === 0x25 && buf[1] === 0x50) {
+        captura.pdf = b64
+        log.log(`PDF capturado: ${buf.length} bytes`)
+      }
+    }
     const captura: { pdf: string | null } = { pdf: null }
-    client.on('Fetch.requestPaused', async (event) => {
+    page.on('response', async (r) => {
+      if (!/\/api\/certidao|emissaoCertidao/.test(r.url()) || captura.pdf) return
       try {
-        const body = await client.send('Fetch.getResponseBody', { requestId: event.requestId })
-        const buf = Buffer.from(body.body, body.base64Encoded ? 'base64' : 'utf8')
+        const buf = await r.buffer()
         if (buf.length > 100 && buf[0] === 0x25 && buf[1] === 0x50) {
           captura.pdf = buf.toString('base64')
           log.log(`PDF capturado: ${buf.length} bytes`)
         }
-      } catch { /* resposta sem corpo — segue */ }
-      await client.send('Fetch.continueRequest', { requestId: event.requestId }).catch(() => {})
+      } catch { /* resposta sem corpo (redirect/attachment) — segue */ }
     })
 
     // Alguns erros do portal saem em alert(); guarda o texto e fecha o diálogo
@@ -214,7 +236,7 @@ export class CndtTrabalhistaService {
         }, doc, resposta)
       }
       etapa('Aguardando resposta do TST...')
-      for (let t = 0; t < 24 && !captura.pdf; t++) await espera(500)
+      for (let t = 0; t < 24 && !captura.pdf; t++) { await espera(500); await lerBlobDaPagina() }
       await espera(captura.pdf ? 1000 : 0)
 
       etapa('Verificando resultado...')
