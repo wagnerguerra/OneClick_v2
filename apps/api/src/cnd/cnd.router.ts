@@ -46,6 +46,13 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
         return compilarService.getProgress(emp(ctx), ctx.userId)
       }),
 
+    compilarHistorico: readProcedure(MODULE)
+      .input(z.object({ limit: z.number().int().min(1).max(100).default(20) }).optional())
+      .query(({ input, ctx }) => {
+        if (!compilarService) return []
+        return compilarService.historico(emp(ctx), input?.limit ?? 20)
+      }),
+
     compilarRetry: writeProcedure(MODULE)
       .input(z.object({
         documento: z.string().min(11),
