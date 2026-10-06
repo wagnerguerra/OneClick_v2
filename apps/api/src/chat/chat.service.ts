@@ -98,7 +98,7 @@ export class ChatService {
       select: { id: true, isActive: true },
     })
     if (!outro?.isActive) {
-      throw new Error('Usuario indisponivel para iniciar conversa')
+      throw new Error('Usuário indisponível para iniciar conversa')
     }
 
     // Busca DM existente entre os 2

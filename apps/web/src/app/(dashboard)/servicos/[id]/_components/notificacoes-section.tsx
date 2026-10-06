@@ -237,6 +237,7 @@ export function NotificacoesSection({
       title: 'Desativar recorrência',
       text: 'O serviço deixará de ser disparado automaticamente. Execuções já criadas não são afetadas.',
       confirmText: 'Desativar',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -327,6 +328,7 @@ export function NotificacoesSection({
       title: 'Remover regra',
       text: 'Esta regra de notificação será excluída. Logs históricos ficam preservados.',
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -367,9 +369,9 @@ export function NotificacoesSection({
       : { titulo: 'Notificações & Recorrência', Icon: Bell }
 
   /**
-   * Conteudo da aba Regras. Fica numa const porque tem DOIS lugares de uso:
+   * Conteúdo da aba Regras. Fica numa const porque tem DOIS lugares de uso:
    * solto na aba (o caminho real, `modo="regras"`) e dentro da pill do modo
-   * standalone, que sobrevive so por compatibilidade com o layout antigo.
+   * standalone, que sobrevive só por compatibilidade com o layout antigo.
    */
   const blocoRegras = (
             <div className="grid grid-cols-12 gap-4 items-start">
@@ -517,7 +519,7 @@ export function NotificacoesSection({
                         navigator.clipboard?.writeText(v.key)
                         void alerts.success('Copiado', `${v.key} copiado para a área de transferência`)
                       }}
-                      className="block w-full text-left px-2 py-1 rounded hover:bg-emerald-100 dark:hover:bg-emerald-950/50 text-[10.5px] font-mono"
+                      className="block w-full text-left px-2 py-1 rounded hover:bg-primary/10 text-[10.5px] font-mono"
                       title={v.label}
                     >
                       {v.key}
@@ -553,7 +555,7 @@ export function NotificacoesSection({
                 {testandoEnvio ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
                 Enviar teste
               </Button>
-              <Button size="sm" onClick={salvarRegra} disabled={savingRegra} className="gap-1.5" style={{ backgroundColor: 'var(--mod-cadastros, #10b981)' }}>
+              <Button size="sm" variant="success" onClick={salvarRegra} disabled={savingRegra} className="gap-1.5">
                 {savingRegra ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                 {editingId ? 'Atualizar regra' : 'Criar regra'}
               </Button>
@@ -593,7 +595,7 @@ export function NotificacoesSection({
                       document.querySelector('[data-form-regra]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                     }, 50)
                   }}
-                  className="block w-full text-left p-2.5 rounded border bg-card hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:border-emerald-300 transition-colors"
+                  className="block w-full text-left p-2.5 rounded border bg-card hover:bg-primary/10 hover:border-primary/60 transition-colors"
                 >
                   <div className="text-[12px] font-semibold mb-0.5 leading-snug">{tpl.nome}</div>
                   <div className="text-[10.5px] text-muted-foreground leading-snug">{tpl.descricao}</div>
@@ -604,9 +606,9 @@ export function NotificacoesSection({
             </div>
   )
 
-  // A aba Regras nao usa card geral: os proprios cards sao a estrutura, e
-  // um card em volta de cards so acrescentaria uma moldura sem conteudo.
-  // O titulo que o CardHeader dava ja e o cabecalho do card de regras.
+  // A aba Regras não usa card geral: os próprios cards são a estrutura, e
+  // um card em volta de cards só acrescentaria uma moldura sem conteúdo.
+  // O título que o CardHeader dava já é o cabeçalho do card de regras.
   if (modo === 'regras') return blocoRegras
 
   return (
@@ -634,7 +636,7 @@ export function NotificacoesSection({
                         ? 'text-white shadow-sm'
                         : 'text-muted-foreground hover:bg-white dark:hover:bg-accent hover:text-foreground',
                     )}
-                    style={active ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
+                    style={active ? { backgroundColor: 'var(--color-primary)' } : undefined}
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0" />
                     <span className="flex-1">{p.label}</span>
@@ -777,7 +779,7 @@ export function NotificacoesSection({
                               type="button"
                               onClick={() => aplicarPreset(p)}
                               title={p.descricao}
-                              className="px-2.5 py-1 rounded-full text-[11px] border bg-card hover:bg-emerald-50 hover:border-emerald-300 transition-colors"
+                              className="px-2.5 py-1 rounded-full text-[11px] border bg-card hover:bg-primary/5 hover:border-primary/40 transition-colors"
                             >
                               {p.label}
                             </button>
@@ -804,7 +806,7 @@ export function NotificacoesSection({
                                     ? 'text-white border-transparent shadow-sm'
                                     : 'bg-card hover:bg-muted text-foreground',
                                 )}
-                                style={ativo ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
+                                style={ativo ? { backgroundColor: 'var(--color-primary)' } : undefined}
                               >
                                 {d}
                               </button>
@@ -823,7 +825,7 @@ export function NotificacoesSection({
                                     ? 'text-white border-transparent shadow-sm'
                                     : 'bg-card hover:bg-muted text-foreground',
                                 )}
-                                style={ativo ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
+                                style={ativo ? { backgroundColor: 'var(--color-primary)' } : undefined}
                                 title="Sempre o último dia do mês (28/29/30/31 conforme o mês)"
                               >
                                 Último
@@ -853,7 +855,7 @@ export function NotificacoesSection({
                                     ? 'text-white border-transparent shadow-sm'
                                     : 'bg-card hover:bg-muted text-foreground',
                                 )}
-                                style={ativo ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
+                                style={ativo ? { backgroundColor: 'var(--color-primary)' } : undefined}
                               >
                                 {label}
                               </button>
@@ -935,7 +937,7 @@ export function NotificacoesSection({
                           <Trash2 className="h-3.5 w-3.5" /> Remover
                         </Button>
                       )}
-                      <Button size="sm" onClick={salvarRecorrencia} disabled={savingRec} className="gap-1.5" style={{ backgroundColor: 'var(--mod-cadastros, #10b981)' }}>
+                      <Button size="sm" variant="success" onClick={salvarRecorrencia} disabled={savingRec} className="gap-1.5">
                         {savingRec ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                         Salvar
                       </Button>

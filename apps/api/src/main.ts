@@ -88,17 +88,17 @@ async function bootstrap() {
     }
     const sessao = await authService.auth.api.getSession({ headers: cabecalhos }).catch(() => null)
     if (!sessao?.user?.id) {
-      return res.status(401).json({ error: 'Sessao invalida' })
+      return res.status(401).json({ error: 'Sessão inválida' })
     }
 
     const filename = req.params.filename
     if (!filename || filename.includes('..') || !filename.endsWith('.zip')) {
-      return res.status(400).json({ error: 'Arquivo invalido' })
+      return res.status(400).json({ error: 'Arquivo inválido' })
     }
     const backupDir = path.resolve(process.cwd(), '..', '..', 'backups')
     const filepath = path.join(backupDir, filename)
     if (!fs.existsSync(filepath)) {
-      return res.status(404).json({ error: 'Arquivo nao encontrado' })
+      return res.status(404).json({ error: 'Arquivo não encontrado' })
     }
     res.download(filepath, filename, (err: Error) => {
       if (err) console.error('Erro no download:', err)

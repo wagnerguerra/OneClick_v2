@@ -117,6 +117,22 @@ export const ORCAMENTO_STATUS_LABELS: Record<OrcamentoStatusValue, string> = {
   CANCELADO: 'Cancelado',
 }
 
+/**
+ * Cor (hex) de cada status — fonte única para gráficos, bolinhas e badges com
+ * cor inline (listagem, detalhe, relatórios e Painel Comercial). Mesmo padrão
+ * do `CONTRATO_STATUS_COLORS`.
+ */
+export const ORCAMENTO_STATUS_COLORS: Record<OrcamentoStatusValue, string> = {
+  NOVO: '#818cf8',       // indigo
+  A_ENVIAR: '#94a3b8',   // slate
+  ENVIADO: '#3b82f6',    // blue
+  APROVADO: '#10b981',   // emerald
+  LIBERADO: '#059669',   // emerald escuro
+  FINALIZADO: '#1e293b', // slate escuro
+  ENCERRADO: '#ef4444',  // red
+  CANCELADO: '#64748b',  // slate médio
+}
+
 // Transições do funil (drag no kanban). Cancelamento NÃO é transição de drag —
 // é ação própria (botão Cancelar), então CANCELADO não é destino de ninguém e,
 // sendo terminal, não sai para lugar nenhum.

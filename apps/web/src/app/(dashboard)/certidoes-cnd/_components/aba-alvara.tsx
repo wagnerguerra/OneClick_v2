@@ -20,7 +20,7 @@ interface LinhaFuncionamento extends LinhaCertidao { municipio: string }
 function SeletorTipo({ tipo, setTipo }: { tipo: Tipo; setTipo: (t: Tipo) => void }) {
   return (
     <Select value={tipo} onValueChange={v => setTipo(v as Tipo)}>
-      <SelectTrigger className="h-8 w-[190px] bg-card text-xs"><SelectValue /></SelectTrigger>
+      <SelectTrigger className="h-8 w-[190px] text-xs"><SelectValue /></SelectTrigger>
       <SelectContent>
         <SelectItem value="bombeiros">Corpo de Bombeiros</SelectItem>
         <SelectItem value="funcionamento">Funcionamento</SelectItem>
@@ -51,7 +51,7 @@ function AlvaraBombeiros({ refreshKey, seletor }: { refreshKey: number; seletor:
       listar={listar} totais={totais} filtros={seletor}
       indicadoresFiltram={false}
       indicadores={t => [
-        { key: '', label: 'Total', count: t.total ?? 0, cor: STATUS_COR.modulo, icon: Shield },
+        { key: '', label: 'Total', count: t.total ?? 0, cor: STATUS_COR.primaria, icon: Shield },
         { key: 'regulares', label: 'Regulares', count: t.regulares ?? 0, cor: STATUS_COR.emerald, icon: CheckCircle2 },
         { key: 'irregulares', label: 'Irregulares', count: t.irregulares ?? 0, cor: STATUS_COR.amber, icon: AlertTriangle },
       ]}
@@ -107,13 +107,13 @@ function AlvaraFuncionamento({ refreshKey, seletor }: { refreshKey: number; sele
       filtros={<>
         {seletor}
         <Select value={municipio} onValueChange={setMunicipio}>
-          <SelectTrigger className="h-8 w-[140px] bg-card text-xs"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>{opcoes.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}</SelectContent>
         </Select>
       </>}
       indicadoresFiltram={false}
       indicadores={t => [
-        { key: '', label: 'Total', count: t.total ?? 0, cor: STATUS_COR.modulo, icon: Shield },
+        { key: '', label: 'Total', count: t.total ?? 0, cor: STATUS_COR.primaria, icon: Shield },
         { key: 'emitidos', label: 'Emitidos', count: t.emitidos ?? 0, cor: STATUS_COR.emerald, icon: CheckCircle2 },
         { key: 'nao_emitidos', label: 'Não emitidos', count: t.naoEmitidos ?? 0, cor: STATUS_COR.red, icon: XCircle },
       ]}

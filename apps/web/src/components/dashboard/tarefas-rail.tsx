@@ -114,7 +114,7 @@ export function TarefasRail() {
                   placeholder="Tarefa rápida (vence hoje)…"
                   className="h-9 flex-1 rounded-md px-2.5 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-400"
                 />
-                <Button size="sm" className="bg-sky-500 hover:bg-sky-600 text-white px-2.5" onClick={quickAdd} disabled={!novo.trim() || salvando}>
+                <Button size="sm" variant="success" className="px-2.5" onClick={quickAdd} disabled={!novo.trim() || salvando}>
                   {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 </Button>
               </div>

@@ -430,18 +430,18 @@ function classificarContaFolha(row: { conta: string; nomeConta: string; nomePai:
   const doBlocoDePessoal = FOLHA_PAI.test(pai)
 
   if (FOLHA_ENCARGO.test(nome)) {
-    return { categoria: 'ENCARGO', motivo: 'Encargo sobre a folha — a CPP nao incide sobre ele.' }
+    return { categoria: 'ENCARGO', motivo: 'Encargo sobre a folha — a CPP não incide sobre ele.' }
   }
   if (FOLHA_BENEFICIO.test(nome)) {
-    return { categoria: 'BENEFICIO', motivo: 'Beneficio fora do salario de contribuicao (Lei 8.212/1991, art. 28, §9o).' }
+    return { categoria: 'BENEFICIO', motivo: 'Benefício fora do salário de contribuição (Lei 8.212/1991, art. 28, §9o).' }
   }
   if (FOLHA_REMUNERACAO.test(nome)) {
-    return { categoria: 'REMUNERACAO', motivo: 'Remuneracao — base da CPP (Lei 8.212/1991, art. 22, I).' }
+    return { categoria: 'REMUNERACAO', motivo: 'Remuneração — base da CPP (Lei 8.212/1991, art. 22, I).' }
   }
   // Conta pendurada no bloco de pessoal com nome que nao se explica. Aparece
   // para o usuario decidir, em vez de entrar ou sair calada.
   if (doBlocoDePessoal) {
-    return { categoria: 'REVISAR', motivo: 'Esta no bloco de pessoal, mas o nome nao identifica a natureza.' }
+    return { categoria: 'REVISAR', motivo: 'Está no bloco de pessoal, mas o nome não identifica a natureza.' }
   }
   return null
 }
@@ -459,7 +459,7 @@ function classificarContaCredito(row: { conta: string; nomeConta: string; catego
   const categoriaDre = row.categoriaDre ?? ''
 
   if (FOLHA_PREFIXOS.some(pref => conta.startsWith(pref)) || FOLHA_NOME.test(nome) || TRIBUTOS_NOME.test(nome)) {
-    return { categoria: 'NAO_CREDITAVEL', motivo: 'Natureza tipicamente nao creditavel ou ligada a folha/tributos/encargos.' }
+    return { categoria: 'NAO_CREDITAVEL', motivo: 'Natureza tipicamente não creditável ou ligada a folha/tributos/encargos.' }
   }
 
   if (
@@ -468,14 +468,14 @@ function classificarContaCredito(row: { conta: string; nomeConta: string; catego
     || conta.startsWith('4.1.')
     || CREDITO_NOME.test(nome)
   ) {
-    return { categoria: 'CREDITAVEL', motivo: 'Custo/insumo/servico com potencial de credito a confirmar.' }
+    return { categoria: 'CREDITAVEL', motivo: 'Custo/insumo/serviço com potencial de crédito a confirmar.' }
   }
 
   if (categoriaDre === 'DESPESAS_OPERACIONAIS' || conta.startsWith('4.2.')) {
-    return { categoria: 'REVISAR', motivo: 'Despesa operacional exige validacao fiscal para definir creditamento.' }
+    return { categoria: 'REVISAR', motivo: 'Despesa operacional exige validação fiscal para definir creditamento.' }
   }
 
-  return { categoria: 'REVISAR', motivo: 'Conta sem classificacao fiscal objetiva no plano atual.' }
+  return { categoria: 'REVISAR', motivo: 'Conta sem classificação fiscal objetiva no plano atual.' }
 }
 
 function scoreQualidade(args: {
@@ -484,10 +484,10 @@ function scoreQualidade(args: {
   cnaes: Array<{ codigo: string; descricao: string | null; principal: boolean }>
 }) {
   const items = [
-    { ok: !!args.cliente.tributacao, label: 'Regime tributario cadastrado' },
+    { ok: !!args.cliente.tributacao, label: 'Regime tributário cadastrado' },
     { ok: !!args.cliente.cnaePrincipal || args.cnaes.length > 0, label: 'CNAE informado' },
-    { ok: args.metrics.faturamento12m > 0, label: 'Faturamento dos ultimos 12 meses' },
-    { ok: args.metrics.creditos.baseAjustada12m > 0 || args.metrics.comprasMercadorias12m + args.metrics.servicosTomados12m > 0, label: 'Base de compras/servicos para credito' },
+    { ok: args.metrics.faturamento12m > 0, label: 'Faturamento dos últimos 12 meses' },
+    { ok: args.metrics.creditos.baseAjustada12m > 0 || args.metrics.comprasMercadorias12m + args.metrics.servicosTomados12m > 0, label: 'Base de compras/serviços para crédito' },
     { ok: args.metrics.documentosSaida + args.metrics.documentosEntrada > 0, label: 'Documentos fiscais importados' },
   ]
   const pontos = items.filter(i => i.ok).length
@@ -520,12 +520,12 @@ function scoreConfiabilidade(args: {
   const baseCredito = args.metrics.comprasMercadorias12m + args.metrics.servicosTomados12m
   if (args.metrics.creditos.baseAjustada12m > 0) {
     score += args.metrics.creditos.confianca === 'ALTA' ? 8 : 4
-    fatores.push(`Base de creditos classificada: ${args.metrics.creditos.confianca}`)
+    fatores.push(`Base de créditos classificada: ${args.metrics.creditos.confianca}`)
   } else if (baseCredito > 0) fatores.push('Base de compras/serviços disponível para estimar créditos')
   else pendencias.push('Sem base objetiva de compras e serviços tomados')
 
   if (args.metrics.creditos.baseRevisao12m > args.metrics.creditos.baseCreditavel12m) {
-    pendencias.push('Contas em revisao superam a base creditavel classificada')
+    pendencias.push('Contas em revisão superam a base creditável classificada')
   }
 
   if (args.metrics.documentosSaida >= 12) score += 4
@@ -540,9 +540,9 @@ function scoreConfiabilidade(args: {
 
   if (args.metrics.erp.disponivel) {
     score += args.metrics.erp.origem === 'balancete_importado' ? 8 : 4
-    fatores.push(`ERP contabil consultado: ${args.metrics.erp.origem}`)
+    fatores.push(`ERP contábil consultado: ${args.metrics.erp.origem}`)
   } else if (args.metrics.erp.consultado) {
-    pendencias.push(args.metrics.erp.mensagem ?? 'ERP contabil indisponivel na consulta')
+    pendencias.push(args.metrics.erp.mensagem ?? 'ERP contábil indisponível na consulta')
   }
 
   const normalized = Math.max(0, Math.min(100, Math.round(score)))
@@ -1165,7 +1165,7 @@ export class ReformaTributariaService {
       id,
       empresaId ?? null,
     )
-    if (!rows[0]) throw new TRPCError({ code: 'NOT_FOUND', message: 'Simulacao nao encontrada' })
+    if (!rows[0]) throw new TRPCError({ code: 'NOT_FOUND', message: 'Simulação não encontrada' })
     await prisma.$executeRawUnsafe('DELETE FROM reforma_tributaria_simulacoes WHERE id = $1', id)
     return { id }
   }
@@ -1183,7 +1183,7 @@ export class ReformaTributariaService {
       empresaId ?? null,
     )
     const cliente = rows[0]
-    if (!cliente) throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente nao encontrado' })
+    if (!cliente) throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente não encontrado' })
     return cliente
   }
 
@@ -1524,7 +1524,7 @@ export class ReformaTributariaService {
       creditos,
       margemOperacionalPercentual: faturamento12m > 0 ? (faturamento12m - custosDespesas12m) / faturamento12m : null,
       mensagem: periodos > 0
-        ? `Balancete ERP importado em ${periodos} periodo(s) entre ${periodoInicio} e ${periodoFim}.`
+        ? `Balancete ERP importado em ${periodos} período(s) entre ${periodoInicio} e ${periodoFim}.`
         : 'Sem balancete ERP importado para a janela analisada.',
     }
   }
@@ -1533,7 +1533,7 @@ export class ReformaTributariaService {
     const doc = onlyDigits(cliente.documento)
     const periodo = periodFromMonths(meses)
     if (doc.length !== 14) {
-      return { consultado: false, disponivel: false, periodo, faturamento12m: 0, documentosEntrada: 0, documentosSaida: 0, mensagem: 'CNPJ invalido para consulta SCI.' }
+      return { consultado: false, disponivel: false, periodo, faturamento12m: 0, documentosEntrada: 0, documentosSaida: 0, mensagem: 'CNPJ inválido para consulta SCI.' }
     }
 
     try {
@@ -1546,7 +1546,7 @@ export class ReformaTributariaService {
         faturamento12m,
         documentosEntrada: sumSciRows(metricas.nf_entrada) + sumSciRows(metricas.nf_tomado),
         documentosSaida: sumSciRows(metricas.nf_saida) + sumSciRows(metricas.nf_prestado),
-        mensagem: 'Metricas SCI consultadas diretamente pelo CNPJ.',
+        mensagem: 'Métricas SCI consultadas diretamente pelo CNPJ.',
       }
     } catch (e) {
       this.logger.warn(`Falha ao consultar SCI para cliente ${cliente.id}: ${(e as Error).message}`)
@@ -1557,7 +1557,7 @@ export class ReformaTributariaService {
         faturamento12m: 0,
         documentosEntrada: 0,
         documentosSaida: 0,
-        mensagem: 'SCI indisponivel na consulta online; usados dados ja importados no OneClick.',
+        mensagem: 'SCI indisponível na consulta online; usados dados já importados no OneClick.',
       }
     }
   }
@@ -1611,7 +1611,7 @@ export class ReformaTributariaService {
         setor: null,
         reducaoSetorial: 0,
         alertas: [
-          'Cliente possui beneficio fiscal cadastrado, mas nao ha premissa IBS/CBS vinculada por CNAE.',
+          'Cliente possui benefício fiscal cadastrado, mas não há premissa IBS/CBS vinculada por CNAE.',
           'Cadastrar premissa setorial antes de emitir parecer conclusivo.',
         ],
       }
@@ -1635,12 +1635,12 @@ export class ReformaTributariaService {
   private observacoes(cliente: ClienteBase, score: number) {
     const obs: string[] = []
     if (cliente.tributacao !== 'SIMPLES_NACIONAL') {
-      obs.push('Cliente fora do Simples: o MVP apresenta impacto estimado no regime regular, nao uma opcao de permanencia no Simples.')
+      obs.push('Cliente fora do Simples: o MVP apresenta impacto estimado no regime regular, não uma opção de permanência no Simples.')
     }
     if (score < 70) {
-      obs.push('Qualidade de dados abaixo do ideal: revise faturamento, compras creditaveis e documentos fiscais antes de usar como parecer final.')
+      obs.push('Qualidade de dados abaixo do ideal: revise faturamento, compras creditáveis e documentos fiscais antes de usar como parecer final.')
     }
-    obs.push('Aliquotas e pesos sao premissas de trabalho ajustaveis; nao substituem parametrizacao legal/setorial final.')
+    obs.push('Alíquotas e pesos são premissas de trabalho ajustáveis; não substituem parametrização legal/setorial final.')
     return obs
   }
 
@@ -1659,10 +1659,10 @@ export class ReformaTributariaService {
     const impacto = { valor: abs, percentualReceita: pct }
     const textos: Record<Recomendacao, string> = {
       MANTER_SIMPLES: 'Manter IBS/CBS dentro do Simples tende a ser mais eficiente nas premissas atuais.',
-      AVALIAR_REGULAR: 'Resultado proximo do equilibrio: validar margem, perfil B2B e compras creditaveis antes de decidir.',
-      REGULAR_TENDE_MELHOR: 'Apuracao regular tende a melhorar competitividade/carga efetiva nas premissas atuais.',
-      REGIME_REGULAR_ANALISE_IMPACTO: 'Cliente ja esta fora do Simples; use o comparativo como estimativa de impacto e creditos.',
-      INCONCLUSIVO: 'Dados insuficientes para recomendacao confiavel.',
+      AVALIAR_REGULAR: 'Resultado próximo do equilíbrio: validar margem, perfil B2B e compras creditáveis antes de decidir.',
+      REGULAR_TENDE_MELHOR: 'Apuração regular tende a melhorar competitividade/carga efetiva nas premissas atuais.',
+      REGIME_REGULAR_ANALISE_IMPACTO: 'Cliente já está fora do Simples; use o comparativo como estimativa de impacto e créditos.',
+      INCONCLUSIVO: 'Dados insuficientes para recomendação confiável.',
     }
     return { texto: textos[recomendacao], impacto }
   }
@@ -1676,22 +1676,22 @@ export class ReformaTributariaService {
     const diferenca = simulacao.cenarios.diferenca
     const linhas = [
       `Cliente: ${cliente.razaoSocial}`,
-      `Regime atual: ${cliente.tributacao ?? 'Nao informado'}`,
+      `Regime atual: ${cliente.tributacao ?? 'Não informado'}`,
       `Receita analisada em 12 meses: R$ ${receita.toFixed(2)}`,
       `Carga estimada com IBS/CBS dentro do Simples: R$ ${cargaSimples.toFixed(2)}`,
-      `Carga estimada na apuracao regular: R$ ${cargaRegular.toFixed(2)}`,
-      `Credito potencial transferido ao cliente B2B na apuracao regular: R$ ${creditoCliente.toFixed(2)}`,
-      `Diferenca ajustada entre cenarios: R$ ${diferenca.toFixed(2)}`,
-      `Recomendacao: ${simulacao.resumo.texto}`,
+      `Carga estimada na apuração regular: R$ ${cargaRegular.toFixed(2)}`,
+      `Crédito potencial transferido ao cliente B2B na apuração regular: R$ ${creditoCliente.toFixed(2)}`,
+      `Diferença ajustada entre cenários: R$ ${diferenca.toFixed(2)}`,
+      `Recomendação: ${simulacao.resumo.texto}`,
       `Qualidade dos dados: ${simulacao.qualidade.score}%`,
-      `Confiabilidade tecnica: ${simulacao.confiabilidade.nivel} (${simulacao.confiabilidade.score}%)`,
+      `Confiabilidade técnica: ${simulacao.confiabilidade.nivel} (${simulacao.confiabilidade.score}%)`,
       `Fonte principal dos dados: ${simulacao.metrics.fontePrincipal}`,
-      `Base creditavel classificada: R$ ${simulacao.metrics.creditos.baseCreditavel12m.toFixed(2)}`,
-      `Base nao creditavel classificada: R$ ${simulacao.metrics.creditos.baseNaoCreditavel12m.toFixed(2)}`,
-      `Base em revisao fiscal: R$ ${simulacao.metrics.creditos.baseRevisao12m.toFixed(2)}`,
+      `Base creditável classificada: R$ ${simulacao.metrics.creditos.baseCreditavel12m.toFixed(2)}`,
+      `Base não creditável classificada: R$ ${simulacao.metrics.creditos.baseNaoCreditavel12m.toFixed(2)}`,
+      `Base em revisão fiscal: R$ ${simulacao.metrics.creditos.baseRevisao12m.toFixed(2)}`,
     ]
     if (simulacao.metrics.erp.mensagem) {
-      linhas.push(`ERP contabil: ${simulacao.metrics.erp.mensagem}`)
+      linhas.push(`ERP contábil: ${simulacao.metrics.erp.mensagem}`)
     }
     if (simulacao.regraSetorial.origem !== 'SEM_REGRA') {
       linhas.push(`Regra setorial: ${simulacao.regraSetorial.premissaNome ?? simulacao.regraSetorial.origem}`)
@@ -1703,18 +1703,18 @@ export class ReformaTributariaService {
       linhas.push(`Pontos pendentes: ${simulacao.qualidade.faltantes.join('; ')}`)
     }
     if (simulacao.confiabilidade.pendencias.length > 0) {
-      linhas.push(`Pendencias tecnicas: ${simulacao.confiabilidade.pendencias.join('; ')}`)
+      linhas.push(`Pendências técnicas: ${simulacao.confiabilidade.pendencias.join('; ')}`)
     }
     if (simulacao.sensibilidade.length > 0) {
       linhas.push('Sensibilidade:')
       for (const item of simulacao.sensibilidade) {
-        linhas.push(`- ${item.label}: diferenca ajustada R$ ${item.diferenca.toFixed(2)}; recomendacao ${item.recomendacao}`)
+        linhas.push(`- ${item.label}: diferença ajustada R$ ${item.diferenca.toFixed(2)}; recomendação ${item.recomendacao}`)
       }
     }
     if (simulacao.planoAcao.length > 0) {
-      linhas.push(`Plano de acao: ${simulacao.planoAcao.join('; ')}`)
+      linhas.push(`Plano de ação: ${simulacao.planoAcao.join('; ')}`)
     }
-    linhas.push('Observacao: parecer gerado por premissas parametrizadas no sistema; validar aliquotas, regras setoriais e dados contabeis antes da recomendacao final ao cliente.')
+    linhas.push('Observação: parecer gerado por premissas parametrizadas no sistema; validar alíquotas, regras setoriais e dados contábeis antes da recomendação final ao cliente.')
     return linhas.join('\n')
   }
 
@@ -1727,7 +1727,7 @@ export class ReformaTributariaService {
     const variacoes = [
       { cenario: 'CONSERVADOR' as const, label: 'Conservador', b2b: 0.85, compras: 0.85, aliquota: 1.05 },
       { cenario: 'BASE' as const, label: 'Base', b2b: 1, compras: 1, aliquota: 1 },
-      { cenario: 'FAVORAVEL_REGULAR' as const, label: 'Favoravel ao regular', b2b: 1.15, compras: 1.15, aliquota: 0.95 },
+      { cenario: 'FAVORAVEL_REGULAR' as const, label: 'Favorável ao regular', b2b: 1.15, compras: 1.15, aliquota: 0.95 },
     ]
 
     return variacoes.map(v => {
@@ -1765,30 +1765,30 @@ export class ReformaTributariaService {
 
     const recomendacoes = new Set(sensibilidade.map(s => s.recomendacao))
     if (recomendacoes.size > 1) {
-      passos.add('Rodar entrevista com o cliente para confirmar percentual B2B e capacidade de aproveitamento de creditos')
+      passos.add('Rodar entrevista com o cliente para confirmar percentual B2B e capacidade de aproveitamento de créditos')
     }
     if (recomendacao === 'REGULAR_TENDE_MELHOR' || recomendacao === 'AVALIAR_REGULAR') {
-      passos.add('Validar impacto comercial dos creditos transferidos para clientes B2B antes de recomendar mudanca de apuracao')
+      passos.add('Validar impacto comercial dos créditos transferidos para clientes B2B antes de recomendar mudança de apuração')
     }
     if (diagnostico.metrics.comprasMercadorias12m + diagnostico.metrics.servicosTomados12m === 0) {
-      passos.add('Consultar ERP contabil para separar compras creditaveis, despesas nao creditaveis e servicos tomados')
+      passos.add('Consultar ERP contábil para separar compras creditáveis, despesas não creditáveis e serviços tomados')
     }
     if (diagnostico.metrics.creditos.baseRevisao12m > 0) {
-      passos.add('Revisar contas classificadas como duvidosas para confirmar direito a credito IBS/CBS')
+      passos.add('Revisar contas classificadas como duvidosas para confirmar direito a crédito IBS/CBS')
     }
     if (diagnostico.metrics.creditos.origem !== 'balancete_importado') {
-      passos.add('Importar balancete para substituir estimativa de creditos por classificacao contabil')
+      passos.add('Importar balancete para substituir estimativa de créditos por classificação contábil')
     }
     if (!diagnostico.metrics.erp.disponivel) {
-      passos.add('Atualizar integracao ERP/SCI ou importar balancete do periodo para elevar a confiabilidade do parecer')
+      passos.add('Atualizar integração ERP/SCI ou importar balancete do período para elevar a confiabilidade do parecer')
     }
     for (const alerta of diagnostico.regraSetorial.alertas) {
       passos.add(`Regra setorial: ${alerta}`)
     }
     if (diagnostico.cliente.cnaePrincipal) {
-      passos.add(`Confirmar se o CNAE ${diagnostico.cliente.cnaePrincipal} possui regra setorial especifica ou reducao legal aplicavel`)
+      passos.add(`Confirmar se o CNAE ${diagnostico.cliente.cnaePrincipal} possui regra setorial específica ou redução legal aplicável`)
     }
-    passos.add('Revisar premissas fiscais com responsavel tecnico antes de enviar parecer ao cliente')
+    passos.add('Revisar premissas fiscais com responsável técnico antes de enviar parecer ao cliente')
     return Array.from(passos)
   }
 

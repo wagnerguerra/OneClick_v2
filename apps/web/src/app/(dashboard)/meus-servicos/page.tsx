@@ -17,7 +17,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT, STRONG, BADGE, SURFACE } from '@/lib/color-styles'
+import { TEXT, STRONG, BADGE, SURFACE, FILL } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { trpc } from '@/lib/trpc'
@@ -28,7 +28,7 @@ import { PRIORIDADE_LABELS, PRIORIDADE_COLORS, type PrioridadeServico } from '@s
 import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
 import { ExecucaoChecklistModal } from '../_components/execucao-checklist-modal'
 
-const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)' // sky (bloco Administrativo)
+const PRIMARY = 'var(--color-primary)'
 
 interface ExecucaoMinha {
   id: string
@@ -105,7 +105,7 @@ function ResponsavelChip({ user, size = 'sm' }: {
   }
   return (
     <span className={cn('inline-flex items-center gap-1', txt)} title={`Responsável: ${user.name}`}>
-      <UserAvatar user={user} className={cn('border border-background shrink-0', dim)} bg="bg-sky-500" />
+      <UserAvatar user={user} className={cn('border border-background shrink-0', dim)} bg="bg-primary" fg="text-primary-foreground" />
       <span className="font-medium text-foreground/80 truncate max-w-[140px]">{user.name}</span>
     </span>
   )
@@ -263,7 +263,7 @@ function ResponsavelEditor({
               {salvando === c.id ? (
                 <Loader2 className="h-4 w-4 animate-spin shrink-0" />
               ) : (
-                <UserAvatar user={c} className="h-5 w-5 text-[8px] shrink-0" bg="bg-sky-500" />
+                <UserAvatar user={c} className="h-5 w-5 text-[8px] shrink-0" bg="bg-primary" fg="text-primary-foreground" />
               )}
               <span className="flex-1 min-w-0">
                 <span className="block truncate font-medium text-foreground">{c.name}</span>
@@ -729,7 +729,7 @@ export default function MeusServicosPage() {
   const colunasKanban: KanbanCol[] = useMemo(() => {
     const agora = Date.now()
     const cols: Record<string, KanbanCol> = {
-      em_andamento: { key: 'em_andamento', titulo: 'Em Andamento', cor: MODULE_COLOR, items: [] },
+      em_andamento: { key: 'em_andamento', titulo: 'Em Andamento', cor: PRIMARY, items: [] },
       atrasados: { key: 'atrasados', titulo: 'Atrasados', cor: '#ef4444', items: [] },
       pausados: { key: 'pausados', titulo: 'Pausados', cor: '#f59e0b', items: [] },
     }
@@ -748,7 +748,7 @@ export default function MeusServicosPage() {
   // Lista de filtros (chips) — mantém função de filtragem mas no padrão visual CRM/Orçamentos:
   // barra horizontal de chips em vez de KPIs em cards grandes.
   const filtros: Array<{ key: FilterKind; label: string; icon: typeof Play; cor: string; count: number }> = [
-    { key: 'em_andamento', label: 'Em Andamento', icon: Play, cor: MODULE_COLOR, count: kpis.emAndamento },
+    { key: 'em_andamento', label: 'Em Andamento', icon: Play, cor: PRIMARY, count: kpis.emAndamento },
     { key: 'atrasados', label: 'Atrasados', icon: AlertTriangle, cor: '#ef4444', count: kpis.atrasados },
     { key: 'pausados', label: 'Pausados', icon: Pause, cor: '#f59e0b', count: kpis.pausados },
     { key: 'todos', label: 'Ativos', icon: ListChecks, cor: '#94a3b8', count: kpis.ativos },
@@ -762,8 +762,7 @@ export default function MeusServicosPage() {
             <Button
               size="sm"
               onClick={abrirNovoServico}
-              style={{ backgroundColor: MODULE_COLOR }}
-              className="text-white gap-1.5"
+              className="gap-1.5"
             >
               <Plus className="h-4 w-4" /> Novo Serviço
             </Button>
@@ -966,10 +965,10 @@ export default function MeusServicosPage() {
                               {atualKb && exec.status === 'EM_ANDAMENTO' && (
                                 <div
                                   className="rounded-sm border border-dashed px-1.5 py-1 text-[10px] flex flex-col gap-0.5"
-                                  style={{ borderColor: `color-mix(in srgb, ${MODULE_COLOR} 33%, transparent)`, backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 4%, transparent)` }}
+                                  style={{ borderColor: `color-mix(in srgb, ${PRIMARY} 33%, transparent)`, backgroundColor: `color-mix(in srgb, ${PRIMARY} 4%, transparent)` }}
                                   title={`Etapa: ${atualKb.etapaNome} · Passo: ${atualKb.passoNome}`}
                                 >
-                                  <span className="inline-flex items-center gap-1 font-semibold uppercase tracking-wider" style={{ color: MODULE_COLOR }}>
+                                  <span className="inline-flex items-center gap-1 font-semibold uppercase tracking-wider text-primary-on-surface">
                                     <ListChecks className="h-2.5 w-2.5" /> {atualKb.etapaNome}
                                   </span>
                                   <span className="text-foreground/85 leading-tight line-clamp-2">
@@ -1003,16 +1002,10 @@ export default function MeusServicosPage() {
                                   <span className="font-semibold tabular-nums">{progressPct}% ({cPassos}/{totalPassos})</span>
                                 </div>
                                 <div className="h-1 rounded-full bg-muted overflow-hidden">
+                                  {/* Progresso = verde; pausado (e não concluído) = âmbar. */}
                                   <div
-                                    className="h-full rounded-full transition-all"
-                                    style={{
-                                      width: `${progressPct}%`,
-                                      backgroundColor: progressPct === 100
-                                        ? '#10b981'
-                                        : exec.pausado
-                                          ? '#f59e0b'
-                                          : MODULE_COLOR,
-                                    }}
+                                    className={cn('h-full rounded-full transition-all', exec.pausado && progressPct < 100 ? FILL.amber : FILL.emerald)}
+                                    style={{ width: `${progressPct}%` }}
                                   />
                                 </div>
                               </div>
@@ -1155,11 +1148,11 @@ export default function MeusServicosPage() {
                     </div>
                     <div className="flex justify-end pl-11">
                       <Button
+                        variant="success"
                         size="sm"
                         onClick={() => responderPergunta(exec.id)}
                         disabled={respondendoId === exec.id || escolhidas.length === 0}
                         className="gap-1.5"
-                        style={{ backgroundColor: '#f59e0b', color: '#fff' }}
                       >
                         {respondendoId === exec.id
                           ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1248,8 +1241,7 @@ export default function MeusServicosPage() {
                           title={`Etapa: ${atual.etapaNome} · Passo: ${atual.passoNome}`}
                         >
                           <span
-                            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-semibold"
-                            style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 10%, transparent)`, color: MODULE_COLOR }}
+                            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-semibold bg-primary/10 text-primary-on-surface"
                           >
                             <ListChecks className="h-3 w-3" /> {atual.etapaNome}
                           </span>
@@ -1326,16 +1318,10 @@ export default function MeusServicosPage() {
                         <span className="font-semibold tabular-nums">{progressPct}% ({concluidos}/{totalPassos})</span>
                       </div>
                       <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        {/* Progresso = verde; pausado (e não concluído) = âmbar ("congelada"). */}
                         <div
-                          className="h-full rounded-full transition-all"
-                          style={{
-                            width: `${progressPct}%`,
-                            backgroundColor: progressPct === 100
-                              ? '#10b981'
-                              : exec.pausado
-                                ? '#f59e0b' // amber-500: barra "congelada" indica pausa
-                                : MODULE_COLOR,
-                          }}
+                          className={cn('h-full rounded-full transition-all', exec.pausado && progressPct < 100 ? FILL.amber : FILL.emerald)}
+                          style={{ width: `${progressPct}%` }}
                         />
                       </div>
                     </div>
@@ -1433,7 +1419,7 @@ export default function MeusServicosPage() {
         open={checklistOpen}
         onOpenChange={setChecklistOpen}
         execucaoId={checklistExecId}
-        accentColor={MODULE_COLOR}
+        accentColor={PRIMARY}
         onChange={() => fetchData({ silent: true })}
       />
 
@@ -1476,11 +1462,11 @@ export default function MeusServicosPage() {
               Cancelar
             </Button>
             <Button
+              variant="success"
               size="sm"
               onClick={handleSalvarConfig}
               disabled={configSalvando}
-              style={{ backgroundColor: MODULE_COLOR }}
-              className="text-white gap-1.5"
+              className="gap-1.5"
             >
               {configSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
               Salvar
@@ -1492,7 +1478,7 @@ export default function MeusServicosPage() {
       {/* Modal: Novo Serviço */}
       <Dialog open={novoOpen} onOpenChange={setNovoOpen}>
         <DialogContent className="sm:max-w-[560px]">
-          <DialogHeaderIcon icon={ListChecks} color="sky">
+          <DialogHeaderIcon icon={ListChecks} color="emerald">
             <DialogTitle>Iniciar novo serviço</DialogTitle>
             <DialogDescription>
               Selecione o template, o cliente e a prioridade. O serviço será atribuído a você.
@@ -1551,11 +1537,11 @@ export default function MeusServicosPage() {
               Cancelar
             </Button>
             <Button
+              variant="success"
               size="sm"
               onClick={handleCriarExecucao}
               disabled={novoSalvando || !novoServicoId || !novoClienteId}
-              style={{ backgroundColor: MODULE_COLOR }}
-              className="text-white gap-1.5"
+              className="gap-1.5"
             >
               {novoSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               Iniciar serviço

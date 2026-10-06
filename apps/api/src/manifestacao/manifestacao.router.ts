@@ -86,7 +86,7 @@ export function createManifestacaoRouter(
 
     // `registrar` já estava no catálogo de permissões, mas o criar exigia só a
     // escrita do módulo — o interruptor aparecia na tela e não segurava nada.
-    criar: writeSubProcedure(MODULE, 'registrar', 'Registrar manifestacoes')
+    criar: writeSubProcedure(MODULE, 'registrar', 'Registrar manifestações')
       .input(criarManifestacaoSchema.omit({ tipo: true }))
       .mutation(({ input, ctx }) =>
         service.criar({ ...input, tipo }, ctx.userId, ctx.empresaId)),
@@ -185,10 +185,10 @@ export function createManifestacaoRouter(
     // (`If SGQ_ELO = "3"` em central/modules/sgq_elogios/details.asp). Aqui
     // vira sub-permissão própria, em vez de bastar o delete do módulo.
     // Excluir = enviar para os inativos (não apaga mais).
-    excluir: deleteSubProcedure(MODULE, 'excluir', 'Excluir manifestacoes')
+    excluir: deleteSubProcedure(MODULE, 'excluir', 'Excluir manifestações')
       .input(z.object({ id: z.string(), motivo: z.string().max(1000).optional().nullable() }))
       .mutation(({ input, ctx }) => service.excluir(input.id, tipo, ctx.empresaId, ctx.userId, input.motivo)),
-    restaurar: writeSubProcedure(MODULE, 'restaurar', 'Restaurar manifestacoes')
+    restaurar: writeSubProcedure(MODULE, 'restaurar', 'Restaurar manifestações')
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => service.restaurar(input.id, tipo, ctx.empresaId, ctx.userId)),
 
@@ -199,7 +199,7 @@ export function createManifestacaoRouter(
           .input(z.object({ id: z.string().min(1), texto: z.string().min(1).max(4000) }))
           .mutation(({ input, ctx }) => service.darRetorno(input, ctx.userId, ctx.empresaId)),
 
-        analisarProcedencia: writeSubProcedure(MODULE, 'tratar', 'Analisar procedencia')
+        analisarProcedencia: writeSubProcedure(MODULE, 'tratar', 'Analisar procedência')
           .input(z.object({
             id: z.string().min(1),
             procede: z.boolean(),
@@ -209,7 +209,7 @@ export function createManifestacaoRouter(
           }))
           .mutation(({ input, ctx }) => service.analisarProcedencia(input, ctx.userId, ctx.empresaId)),
 
-        finalizar: writeSubProcedure(MODULE, 'tratar', 'Finalizar reclamacao')
+        finalizar: writeSubProcedure(MODULE, 'tratar', 'Finalizar reclamação')
           .input(z.object({ id: z.string().min(1), retornoFinal: z.string().min(1).max(4000) }))
           .mutation(({ input, ctx }) => service.finalizarReclamacao(input, ctx.userId, ctx.empresaId)),
 

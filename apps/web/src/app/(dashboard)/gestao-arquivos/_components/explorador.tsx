@@ -808,7 +808,7 @@ function FilaDeEnvio({ fila, onFechar }: { fila: EnvioEmCurso[]; onFechar: () =>
               <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-muted">
                 <div
                   className="h-full rounded-full transition-[width] duration-150 ease-out"
-                  style={{ width: `${f.progresso}%`, backgroundColor: 'var(--mod-administrativo, #38bdf8)' }}
+                  style={{ width: `${f.progresso}%`, backgroundColor: 'var(--color-primary)' }}
                 />
               </div>
             )}

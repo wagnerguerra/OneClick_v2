@@ -199,7 +199,7 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved, oportunidadeI
                   const u = usuarios.find(x => x.id === id)
                   return (
                     <span key={id} className="flex items-center gap-1.5 text-[11px] pl-1 pr-2 py-0.5 rounded-full bg-muted">
-                      <UserAvatar user={u ? { name: u.name, image: u.image } : null} className="h-4 w-4 text-[8px]" bg="bg-emerald-500" />
+                      <UserAvatar user={u ? { name: u.name, image: u.image } : null} className="h-4 w-4 text-[8px]" bg="bg-primary" fg="text-primary-foreground" />
                       {u?.name ?? id}
                       <button type="button" onClick={() => setParticipantes(arr => arr.filter(x => x !== id))} className="hover:text-red-500"><X className="h-3 w-3" /></button>
                     </span>
@@ -228,7 +228,7 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved, oportunidadeI
                           onMouseDown={(e) => { e.preventDefault(); setParticipantes(arr => [...arr, u.id]); setBuscaPart('') }}
                           className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-muted"
                         >
-                          <UserAvatar user={{ name: u.name, image: u.image }} className="h-5 w-5 text-[9px]" bg="bg-emerald-500" />
+                          <UserAvatar user={{ name: u.name, image: u.image }} className="h-5 w-5 text-[9px]" bg="bg-primary" fg="text-primary-foreground" />
                           <span className="truncate">{u.name}</span>
                         </button>
                       ))}
@@ -287,7 +287,7 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved, oportunidadeI
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={saving} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
+          <Button variant="success" onClick={handleSave} disabled={saving} className="gap-1.5">
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckSquare className="h-3.5 w-3.5" />}
             {isEdit ? 'Salvar' : 'Criar tarefa'}
           </Button>

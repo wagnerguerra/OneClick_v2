@@ -20,7 +20,7 @@ import {
   Layers, Trash2, Pencil, MoreVertical, PackageCheck, ChevronRight, Palette,
 } from 'lucide-react'
 import {
-  Button, Card, Input, cn,
+  Button, Card, Checkbox, Input, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription, Label,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
 } from '@saas/ui'
@@ -29,6 +29,7 @@ import { UserAvatar } from '@/components/ui/user-avatar'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { FILL } from '@/lib/color-styles'
 
 type Papel = 'EXECUTANTE' | 'COLABORADOR'
 type Pessoa = { id: string; name: string; image: string | null; papel?: string }
@@ -193,13 +194,23 @@ function ModalEscolha({ open, onOpenChange, titulo, descricao, opcoes, jaDentro,
               const marcado = marcados.includes(o.id)
               return (
                 <label key={o.id} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm transition-colors hover:bg-muted/60">
-                  <input
-                    type={unico ? 'radio' : 'checkbox'}
-                    name={unico ? 'escolha-unica' : undefined}
-                    checked={marcado}
-                    onChange={() => setMarcados(a => unico ? [o.id] : marcado ? a.filter(i => i !== o.id) : [...a, o.id])}
-                    className="h-3.5 w-3.5 accent-current"
-                  />
+                  {/* Múltipla = Checkbox centralizado; única = rádio nativo (o
+                      @saas/ui não tem rádio). */}
+                  {unico ? (
+                    <input
+                      type="radio"
+                      name="escolha-unica"
+                      checked={marcado}
+                      onChange={() => setMarcados([o.id])}
+                      className="h-3.5 w-3.5 accent-current"
+                    />
+                  ) : (
+                    <Checkbox
+                      checked={marcado}
+                      onCheckedChange={() => setMarcados(a => marcado ? a.filter(i => i !== o.id) : [...a, o.id])}
+                      className="h-3.5 w-3.5"
+                    />
+                  )}
                   <span className="min-w-0 truncate">{o.rotulo}</span>
                   {o.complemento && <span className="truncate text-[11px] text-muted-foreground">{o.complemento}</span>}
                 </label>
@@ -318,7 +329,7 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
       text: e._count.rodadas > 0
         ? `As ${e._count.rodadas} rodada(s) dela e os apontamentos vão junto.`
         : 'Não dá para desfazer.',
-      icon: 'warning', confirmText: 'Excluir',
+      icon: 'warning', confirmText: 'Excluir', destructive: true,
     })
     if (!ok) return
     try {
@@ -408,7 +419,7 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
                   </p>
                   {/* O quanto já está pronto, informado na aba Rodadas */}
                   <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-white/25">
-                    <div className="h-full rounded-full bg-white transition-[width] duration-300" style={{ width: `${e.progresso}%` }} />
+                    <div className={cn('h-full rounded-full transition-[width] duration-300', FILL.emerald)} style={{ width: `${e.progresso}%` }} />
                   </div>
                 </div>
                 <DropdownMenu>

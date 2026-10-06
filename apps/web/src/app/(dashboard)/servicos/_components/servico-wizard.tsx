@@ -15,7 +15,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Wand2, Repeat, Zap, Lock, ShieldCheck, CircleDollarSign, Copy, Loader2 } from 'lucide-react'
 import {
-  Dialog, DialogContent, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription,
   Input, Label, RichEditor, Button, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
@@ -24,7 +24,7 @@ import { WizardShell, type WizardStep } from '@/components/ui/wizard-shell'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
+const PRIMARY = 'var(--color-primary)'
 
 type PrioridadeVal = 'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE'
 type TipoKey = 'MENSAL' | 'EXTRA' | 'INTERNO' | 'ACESSORIA'
@@ -194,11 +194,11 @@ export function ServicoWizard({ open, onOpenChange, areas }: ServicoWizardProps)
           <DialogDescription>Vamos criar o serviço passo a passo.</DialogDescription>
         </DialogHeaderIcon>
 
-        <div className="px-6 py-5 overflow-y-auto">
+        <DialogBody className="px-6 py-5">
           <WizardShell
             steps={visibleSteps}
             current={step}
-            color={MODULE_COLOR}
+            color={PRIMARY}
             onNavigate={setStep}
             onBack={onBack}
             onNext={onNext}
@@ -379,7 +379,7 @@ export function ServicoWizard({ open, onOpenChange, areas }: ServicoWizardProps)
               </div>
             )}
           </WizardShell>
-        </div>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   )

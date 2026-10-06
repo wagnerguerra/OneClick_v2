@@ -44,10 +44,10 @@ interface Socio {
 }
 
 const TIPO_SOCIO_LABELS: Record<string, string> = {
-  SOCIO_ADMINISTRADOR: 'Socio Administrador',
-  SOCIO_DIRETOR: 'Socio Diretor',
+  SOCIO_ADMINISTRADOR: 'Sócio Administrador',
+  SOCIO_DIRETOR: 'Sócio Diretor',
   REPRESENTANTE_LEGAL: 'Representante Legal',
-  SOCIO_QUOTISTA: 'Socio Quotista',
+  SOCIO_QUOTISTA: 'Sócio Quotista',
   TITULAR: 'Titular',
 }
 
@@ -63,7 +63,7 @@ const LINKS_RAPIDOS = [
   { label: 'RedeSim', url: 'https://www.gov.br/empresas-e-negocios/pt-br/redesim' },
   { label: 'JUCEES', url: 'https://www.jucees.es.gov.br' },
   { label: 'Corpo de Bombeiros ES', url: 'https://cb.es.gov.br' },
-  { label: 'Agencia Virtual SEFAZ', url: 'https://agenciavirtual.sefaz.es.gov.br' },
+  { label: 'Agência Virtual SEFAZ', url: 'https://agenciavirtual.sefaz.es.gov.br' },
 ]
 
 interface Acesso { id: string; portal: string; usuario: string | null; senha: string | null; observacoes: string | null }
@@ -135,7 +135,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
   async function handleBulkDeleteSocios() {
     const ids = [...selectedSocioIds]
     if (!ids.length) return
-    const ok = await alerts.confirm({ title: 'Excluir sócios?', text: `Excluir ${ids.length} sócio(s) selecionado(s)? Esta ação não pode ser desfeita.`, confirmText: 'Excluir', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Excluir sócios?', text: `Excluir ${ids.length} sócio(s) selecionado(s)? Esta ação não pode ser desfeita.`, confirmText: 'Excluir', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.socio as any).deleteMany.mutate({ ids })
@@ -495,7 +495,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
       <div className="flex items-center gap-2 border-b border-border px-5 py-3">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <div className="flex items-center gap-2">
-            <Shield className={cn('h-4 w-4', TEXT.emerald)} />
+            <Shield className="h-4 w-4 text-primary" />
             <h5 className="text-[13px] font-semibold">Legalização</h5>
           </div>
         </div>
@@ -606,7 +606,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     ? 'text-white shadow-sm'
                     : 'text-muted-foreground hover:bg-muted/60',
                 )}
-                style={activeTab === pill.id ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
+                style={activeTab === pill.id ? { backgroundColor: 'var(--color-primary)' } : undefined}
               >
                 <Icon className="h-3.5 w-3.5 shrink-0" />
                 <span className="flex-1 truncate">{pill.label}</span>
@@ -667,12 +667,12 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                   <Input placeholder="NIRE" {...register('nire' as any)} />
                 </div>
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
-                  <Label>RG Edificacao</Label>
-                  <Input placeholder="RG Edificacao" {...register('rgEdificacao' as any)} />
+                  <Label>RG Edificação</Label>
+                  <Input placeholder="RG Edificação" {...register('rgEdificacao' as any)} />
                 </div>
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
-                  <Label>Codigo Simples</Label>
-                  <Input placeholder="Codigo Simples Nacional" {...register('codigoSimples' as any)} />
+                  <Label>Código Simples</Label>
+                  <Input placeholder="Código Simples Nacional" {...register('codigoSimples' as any)} />
                 </div>
 
                 {/* Separador Bombeiros */}
@@ -682,8 +682,8 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                 </div>
 
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
-                  <Label>Tipo / Ocupacao</Label>
-                  <Input placeholder="Tipo de ocupacao" {...register('bombeirosOcupacao' as any)} />
+                  <Label>Tipo / Ocupação</Label>
+                  <Input placeholder="Tipo de ocupação" {...register('bombeirosOcupacao' as any)} />
                 </div>
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
                   <Label>Metragem</Label>
@@ -714,7 +714,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     <h4 className="text-[13px] font-semibold text-foreground">Sócios vinculados</h4>
                     <div className="flex items-center gap-3">
                       {capitalSocial != null && <p className="text-[10px] text-muted-foreground">Capital Social: <strong>R$ {capitalSocial.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></p>}
-                      {socios.length > 0 && <p className="text-[10px] text-muted-foreground">Ultima consulta: <strong>{new Date(Math.max(...socios.map(s => new Date(s.createdAt).getTime()))).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong></p>}
+                      {socios.length > 0 && <p className="text-[10px] text-muted-foreground">Última consulta: <strong>{new Date(Math.max(...socios.map(s => new Date(s.createdAt).getTime()))).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong></p>}
                     </div>
                   </div>
                   {clienteId && (
@@ -743,13 +743,13 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
               <div className="p-5">
                 {sociosLoading ? (
                   <div className="flex items-center justify-center py-8 text-muted-foreground">
-                    <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando socios...
+                    <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando sócios...
                   </div>
                 ) : socios.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Users className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                    <p className="text-sm">Nenhum socio vinculado a este cliente.</p>
-                    <p className="text-xs mt-1">Vincule socios no modulo de Socios.</p>
+                    <p className="text-sm">Nenhum sócio vinculado a este cliente.</p>
+                    <p className="text-xs mt-1">Vincule sócios no módulo de Sócios.</p>
                   </div>
                 ) : (
                   <div className="rounded-lg border overflow-x-auto nice-scrollbar">
@@ -812,6 +812,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                                         text: `Deseja excluir o sócio "${s.nomeCompleto}"? Esta ação não pode ser desfeita.`,
                                         confirmText: 'Excluir',
                                         icon: 'warning',
+                                        destructive: true,
                                       })
                                       if (!ok) return
                                       try {
@@ -1257,10 +1258,10 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                           tabIndex={0}
                           onClick={() => setViewCertId(cert.id)}
                           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewCertId(cert.id) } }}
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-md border border-border hover:bg-muted/30 hover:border-fuchsia-300 dark:hover:border-fuchsia-800 cursor-pointer transition-colors"
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-md border border-border hover:bg-muted/30 hover:border-primary cursor-pointer transition-colors"
                           title="Ver detalhes do certificado"
                         >
-                          <FileLock className={cn('h-5 w-5 shrink-0', TEXT.fuchsia)} />
+                          <FileLock className="h-5 w-5 shrink-0 text-primary" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">
                               {cert.titular || cert.id}
@@ -1374,7 +1375,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     <Button variant="outline" onClick={() => setCertEdit(null)} disabled={certSalvando} type="button">
                       Cancelar
                     </Button>
-                    <Button onClick={salvarCertificado} disabled={certSalvando} type="button">
+                    <Button variant="success" onClick={salvarCertificado} disabled={certSalvando} type="button">
                       {certSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}
                     </Button>
                   </DialogFooter>
@@ -1457,7 +1458,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 rounded-lg border p-3 text-sm hover:bg-muted/40 transition-colors"
                   >
-                    <ExternalLink className={cn('h-4 w-4 shrink-0', TEXT.emerald)} />
+                    <ExternalLink className="h-4 w-4 shrink-0 text-primary" />
                     {link.label}
                   </a>
                 ))}
@@ -1483,7 +1484,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="outline" size="sm" onClick={() => setAceModalOpen(false)}>Fechar</Button>
-          <Button type="button" size="sm" onClick={saveAcesso} disabled={!aceForm.portal}>Salvar</Button>
+          <Button type="button" variant="success" size="sm" onClick={saveAcesso} disabled={!aceForm.portal}>Salvar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1501,7 +1502,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="outline" size="sm" onClick={() => setVncModalOpen(false)}>Fechar</Button>
-          <Button type="button" size="sm" onClick={saveVencimento} disabled={!vncForm.descricao}>Salvar</Button>
+          <Button type="button" variant="success" size="sm" onClick={saveVencimento} disabled={!vncForm.descricao}>Salvar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1527,7 +1528,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="outline" size="sm" onClick={() => setAndModalOpen(false)}>Fechar</Button>
-          <Button type="button" size="sm" onClick={saveAndamento} disabled={!andForm.tipo}>Salvar</Button>
+          <Button type="button" variant="success" size="sm" onClick={saveAndamento} disabled={!andForm.tipo}>Salvar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1544,7 +1545,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="outline" size="sm" onClick={() => setCnaeModalOpen(false)}>Fechar</Button>
-          <Button type="button" size="sm" onClick={saveCnae} disabled={!cnaeForm.codigo.trim() || cnaeSalvando}>{cnaeSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}</Button>
+          <Button type="button" variant="success" size="sm" onClick={saveCnae} disabled={!cnaeForm.codigo.trim() || cnaeSalvando}>{cnaeSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1561,7 +1562,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="outline" size="sm" onClick={() => setDteModalOpen(false)}>Fechar</Button>
-          <Button type="button" size="sm" onClick={saveDteMensagem} disabled={!dteForm.titulo.trim() || dteSalvando}>{dteSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}</Button>
+          <Button type="button" variant="success" size="sm" onClick={saveDteMensagem} disabled={!dteForm.titulo.trim() || dteSalvando}>{dteSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1986,7 +1987,7 @@ function EditSocioModal(props: {
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" size="sm" type="button" onClick={onClose} disabled={saving}>Cancelar</Button>
-          <Button variant="default" size="sm" type="button" onClick={salvar} disabled={saving || loading || !socio}>
+          <Button variant="success" size="sm" type="button" onClick={salvar} disabled={saving || loading || !socio}>
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
             Salvar
           </Button>

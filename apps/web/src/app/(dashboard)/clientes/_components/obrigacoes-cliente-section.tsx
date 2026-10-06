@@ -21,7 +21,7 @@ import { areaTone } from '../_lib/area-tone'
 import { useClientesPerms } from './use-clientes-perms'
 import { alerts } from '@/lib/alerts'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
+const PRIMARY = 'var(--color-primary)'
 
 interface ClienteObrigacao {
   id: string
@@ -172,7 +172,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
       const ok = await alerts.confirm({
         title: 'Substituir todas as obrigações?',
         text: 'Isto REMOVE todas as obrigações atuais do cliente — inclusive as adicionadas manualmente — antes de aplicar o grupo. Não dá pra desfazer.',
-        confirmText: 'Substituir tudo', icon: 'warning',
+        confirmText: 'Substituir tudo', icon: 'warning', destructive: true,
       })
       if (!ok) return
     }
@@ -249,7 +249,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
     const ok = await alerts.confirm({
       title: `Desvincular ${selected.size} obrigação(ões)?`,
       text: 'O vínculo será removido. Você pode reaplicar um grupo de obrigações depois, se precisar.',
-      confirmText: 'Desvincular', icon: 'warning',
+      confirmText: 'Desvincular', icon: 'warning', destructive: true,
     })
     if (!ok) return
     try {
@@ -409,7 +409,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                   'flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium transition-colors',
                   view === 'tabela' ? 'text-white' : 'text-muted-foreground hover:text-foreground',
                 )}
-                style={view === 'tabela' ? { backgroundColor: MODULE_COLOR } : undefined}
+                style={view === 'tabela' ? { backgroundColor: PRIMARY } : undefined}
               >
                 <List className="h-3.5 w-3.5" />Tabela
               </button>
@@ -421,7 +421,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                   'flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium transition-colors border-l border-border/60',
                   view === 'calendario' ? 'text-white' : 'text-muted-foreground hover:text-foreground',
                 )}
-                style={view === 'calendario' ? { backgroundColor: MODULE_COLOR } : undefined}
+                style={view === 'calendario' ? { backgroundColor: PRIMARY } : undefined}
               >
                 <LayoutGrid className="h-3.5 w-3.5" />Calendário
               </button>
@@ -429,7 +429,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
             <Button type="button" variant="outline" size="sm" onClick={abrirGrupo}>
               <ListPlus className="h-4 w-4 text-orange-500" />Aplicar grupo
             </Button>
-            <Button type="button" size="sm" onClick={abrirAdicionar} style={{ backgroundColor: MODULE_COLOR, color: 'white' }}>
+            <Button type="button" size="sm" variant="success" onClick={abrirAdicionar}>
               <Plus className="h-4 w-4" />Adicionar individual
             </Button>
           </div>
@@ -536,7 +536,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
             {loading ? (
               <TableRow><TableCell colSpan={5} className="text-center py-10">
                 <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin text-emerald-500" /> Carregando...
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" /> Carregando...
                 </div>
               </TableCell></TableRow>
             ) : !items.length ? (
@@ -690,8 +690,8 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
             <Button
               type="button"
               onClick={aplicarGrupo}
+              variant="success"
               disabled={!grupoSelecionado || aplicando}
-              style={{ backgroundColor: '#f97316', color: 'white' }}
             >
               {aplicando ? <Loader2 className="h-4 w-4 animate-spin" /> : <ListPlus className="h-4 w-4" />}
               Aplicar grupo
@@ -769,7 +769,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
               type="button"
               onClick={adicionarObrigacao}
               disabled={!obrSelecionada || adicionando}
-              style={{ backgroundColor: MODULE_COLOR, color: 'white' }}
+              variant="success"
             >
               {adicionando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               Adicionar

@@ -418,12 +418,12 @@ export function HelpdeskIaSection() {
                   cursor={{ fill: CHART_CURSOR_FILL }}
                 />
                 <Bar yAxisId="left" dataKey="totalUsd" fill="#8b5cf6" name="Gasto" radius={[4, 4, 0, 0]} />
-                <Bar yAxisId="right" dataKey="tickets" fill="#06b6d4" name="Tickets" radius={[4, 4, 0, 0]} />
+                <Bar yAxisId="right" dataKey="tickets" fill="var(--color-primary)" name="Tickets" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
             <div className="flex items-center gap-4 mt-2 text-[10px] text-muted-foreground justify-center">
               <span className="inline-flex items-center gap-1"><span className={cn('h-2 w-2 rounded-sm', DOT.violet)} /> Custo USD</span>
-              <span className="inline-flex items-center gap-1"><span className={cn('h-2 w-2 rounded-sm', DOT.cyan)} /> Tickets processados</span>
+              <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-primary" /> Tickets processados</span>
             </div>
           </div>
         )}
@@ -600,7 +600,7 @@ function DecisaoLinha({ decisao: d, aberto, planoStatus, onToggle }: {
               target="_blank"
               rel="noreferrer"
               onClick={e => e.stopPropagation()}
-              className={cn('hover:underline inline-flex items-center gap-1', TEXT.sky)}
+              className="hover:underline inline-flex items-center gap-1 text-primary-on-surface"
             >
               #HLP{String(d.ticket.numero).padStart(4, '0')}
               <ExternalLink className="h-3 w-3" />

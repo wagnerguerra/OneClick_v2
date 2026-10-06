@@ -29,8 +29,9 @@ import {
   PieChart, Pie, Cell, Legend,
 } from 'recharts'
 import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
+import { ORCAMENTO_STATUS_COLORS, ORCAMENTO_STATUS_LABELS, CONTRATO_STATUS_COLORS, CONTRATO_STATUS_LABELS } from '@saas/types'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 // ── Período ──────────────────────────────────────────────────
 // Data inicial e final (inclusivas, no fuso de Brasília — o backend converte),
@@ -100,26 +101,22 @@ interface IndicadoresFunil {
   servicosDeEntrada: number
 }
 
-const PIE_COLORS = [
-  '#fb7185', '#818cf8', '#34d399', '#fbbf24', '#60a5fa',
-  '#f97316', '#a78bfa', '#2dd4bf', '#f472b6', '#38bdf8',
-]
-
+// Rótulos e cores de status vêm de @saas/types (tipados pelo enum de status:
+// status novo sem rótulo/cor quebra o typecheck, não dessincroniza calado).
+const ORC_STATUS_LABEL: Record<string, string> = ORCAMENTO_STATUS_LABELS
 /** Cor do status do orçamento (a mesma do kanban de /orcamentos). */
-const ORC_STATUS_COR: Record<string, string> = {
-  NOVO: '#818cf8', A_ENVIAR: '#94a3b8', ENVIADO: '#3b82f6', APROVADO: '#10b981',
-  LIBERADO: '#059669', FINALIZADO: '#1e293b', ENCERRADO: '#ef4444', CANCELADO: '#9ca3af',
-}
-
-const ORC_STATUS_LABEL: Record<string, string> = {
-  NOVO: 'Novo', A_ENVIAR: 'A enviar', ENVIADO: 'Enviado', APROVADO: 'Aprovado',
-  LIBERADO: 'Liberado', FINALIZADO: 'Finalizado', ENCERRADO: 'Encerrado', CANCELADO: 'Cancelado',
-}
+const ORC_STATUS_COR: Record<string, string> = ORCAMENTO_STATUS_COLORS
 const CONTRATO_STATUS_LABEL: Record<string, string> = {
+  ...CONTRATO_STATUS_LABELS,
   // Vigência da carteira (Gestão de Contratos) — a aba Contratos lê de lá.
+  // Não são status do enum de contrato, por isso não estão em @saas/types.
   VENCIDO: 'Vencido', SEM_VIGENCIA: 'Sem vigência informada',
-  RASCUNHO: 'Rascunho', AGUARDANDO_ASSINATURA: 'Aguardando assinatura', ASSINADO: 'Assinado',
-  VIGENTE: 'Vigente', ENCERRADO: 'Encerrado', CANCELADO: 'Cancelado',
+}
+/** Cor da fatia de contrato: status do enum + vigência da carteira (semáforo). */
+const CONTRATO_STATUS_COR: Record<string, string> = {
+  ...CONTRATO_STATUS_COLORS,
+  VENCIDO: '#ef4444',      // vermelho — o mesmo "Vencido" de Benefícios e Certificados
+  SEM_VIGENCIA: '#f59e0b', // âmbar — falta cadastrar a data de fim
 }
 
 const formatCurrency = (v: number) =>
@@ -260,13 +257,15 @@ export default function ComercialPage() {
 
   // ── Dados de graficos ──────────────────────────────────────
   const funilChart = funilEtapas.filter((e) => !e.ehPerda)
+  // Cor por STATUS (fonte única em @saas/types), não por posição: a mesma
+  // fatia tem sempre a mesma cor, com significado, qualquer que seja o período.
   const orcPie = orcPorStatus
     .filter((s) => (s._count ?? 0) > 0)
-    .map((s, idx) => ({ name: ORC_STATUS_LABEL[s.status] ?? s.status, value: s._count, fill: PIE_COLORS[idx % PIE_COLORS.length] }))
+    .map((s) => ({ name: ORC_STATUS_LABEL[s.status] ?? s.status, value: s._count, fill: (ORCAMENTO_STATUS_COLORS as Record<string, string>)[s.status] ?? '#94a3b8' }))
   const ctPorStatus: any[] = ct?.porStatus ?? []
   const ctPie = ctPorStatus
     .filter((s) => (s.count ?? 0) > 0)
-    .map((s, idx) => ({ name: CONTRATO_STATUS_LABEL[s.status] ?? s.status, value: s.count, fill: PIE_COLORS[idx % PIE_COLORS.length] }))
+    .map((s) => ({ name: CONTRATO_STATUS_LABEL[s.status] ?? s.status, value: s.count, fill: CONTRATO_STATUS_COR[s.status] ?? '#94a3b8' }))
   const ctEvolucao: any[] = ct?.evolucaoMensal ?? []
   const aVencer: any[] = ct?.aVencer ?? []
 
@@ -305,7 +304,7 @@ export default function ComercialPage() {
 
       {loading ? (
         <div className="flex items-center justify-center py-24">
-          <Loader2 className="h-6 w-6 animate-spin" style={{ color: MODULE_COLOR }} />
+          <Loader2 className="h-6 w-6 animate-spin text-primary-on-surface" />
           <span className="ml-2 text-sm text-muted-foreground">Carregando painel...</span>
         </div>
       ) : erro ? (
@@ -326,8 +325,7 @@ export default function ComercialPage() {
               return (
                 <button key={v} type="button" onClick={() => trocarAba(v)}
                   className={cn('flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors whitespace-nowrap',
-                    ativa ? 'text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground')}
-                  style={ativa ? { borderBottomColor: MODULE_COLOR } : undefined}>
+                    ativa ? 'text-foreground border-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground')}>
                   <Icon className="h-3.5 w-3.5" /> {label}
                 </button>
               )
@@ -349,18 +347,18 @@ export default function ComercialPage() {
             <div className="flex flex-col gap-5">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-                  <Target className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> CRM — Pipeline
+                  <Target className="h-3.5 w-3.5 text-primary-on-surface" /> CRM — Pipeline
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <KpiFunil icon={Target} label="Oportunidades ativas" ajuda={AJUDA.oportunidadesAtivas} value={oportunidadesAtivas} color="#818cf8" sub="criadas no período, ainda no funil" />
                   <KpiFunil icon={TrendingUp} label="Valor em pipeline" ajuda={AJUDA.valorPipeline} value={formatCompact(pipelineValor)} color="#34d399" sub={formatCurrency(pipelineValor)} />
-                  <KpiFunil icon={Percent} label="Taxa de conversão" ajuda={AJUDA.taxaConversao} value={`${taxaConversao}%`} color={MODULE_COLOR} />
+                  <KpiFunil icon={Percent} label="Taxa de conversão" ajuda={AJUDA.taxaConversao} value={`${taxaConversao}%`} color={PRIMARY} />
                 </div>
               </div>
 
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-                  <CircleDollarSign className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Orçamentos
+                  <CircleDollarSign className="h-3.5 w-3.5 text-primary-on-surface" /> Orçamentos
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <KpiFunil icon={FileText} label="Em aberto" ajuda={AJUDA.emAberto} value={orcEmAberto} color="#60a5fa" />
@@ -375,7 +373,7 @@ export default function ComercialPage() {
               {mrrAvulso && (
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-                    <CircleDollarSign className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Receita — recorrente vs. avulsa <Ajuda texto={AJUDA.mixReceita} />
+                    <CircleDollarSign className="h-3.5 w-3.5 text-primary-on-surface" /> Receita — recorrente vs. avulsa <Ajuda texto={AJUDA.mixReceita} />
                   </p>
                   <Card className="p-4">
                     {recAvTotal > 0 ? (
@@ -412,8 +410,7 @@ export default function ComercialPage() {
                         </div>
                         <button
                           onClick={() => trocarAba('mrr')}
-                          className="self-start text-[11px] font-medium hover:underline"
-                          style={{ color: MODULE_COLOR }}
+                          className="self-start text-[11px] font-medium hover:underline text-primary-on-surface"
                         >
                           Ver relatório completo de MRR →
                         </button>
@@ -436,10 +433,16 @@ export default function ComercialPage() {
                           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                           <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
                           <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-                          <Tooltip content={<ChartTooltip format={(v: number, n?: string) => (n === 'Valor' ? formatCurrency(v) : v)} />} cursor={{ fill: CHART_CURSOR_FILL }} />
+                          <Tooltip
+                            content={<ChartTooltip
+                              format={(v: number, n?: string) => (n === 'Valor' ? formatCurrency(v) : v)}
+                              seriesColor={(_serie, etapa) => (etapa.cor as string) || PRIMARY}
+                            />}
+                            cursor={{ fill: CHART_CURSOR_FILL }}
+                          />
                           <Bar dataKey="count" name="Quantidade" radius={[4, 4, 0, 0]}>
                             {funilChart.map((e: any) => (
-                              <Cell key={e.etapaId} fill={e.cor || MODULE_COLOR} opacity={0.85} />
+                              <Cell key={e.etapaId} fill={e.cor || PRIMARY} opacity={0.85} />
                             ))}
                           </Bar>
                         </BarChart>
@@ -480,7 +483,7 @@ export default function ComercialPage() {
                         <Legend wrapperStyle={{ fontSize: 11 }} />
                         <Bar dataKey="ganhos" name="Ganhos" fill="#10b981" radius={[4, 4, 0, 0]} />
                         <Bar dataKey="perdidos" name="Perdidos" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="total" name="Total" fill={MODULE_COLOR} opacity={0.4} radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="total" name="Total" fill={PRIMARY} radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -495,11 +498,11 @@ export default function ComercialPage() {
             <div className="flex flex-col gap-5">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-                  <FileCheck className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Contratos — Carteira
+                  <FileCheck className="h-3.5 w-3.5 text-primary-on-surface" /> Contratos — Carteira
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <KpiFunil icon={FileCheck} label="Clientes na carteira" ajuda={AJUDA.clientesCarteira} value={vigentes} color="#34d399" />
-                  <KpiFunil icon={Landmark} label="MRR (receita recorrente)" ajuda={AJUDA.mrr} value={formatCompact(mrr)} color={MODULE_COLOR} sub={formatCurrency(mrr)} />
+                  <KpiFunil icon={Landmark} label="MRR (receita recorrente)" ajuda={AJUDA.mrr} value={formatCompact(mrr)} color={PRIMARY} sub={formatCurrency(mrr)} />
                   <KpiFunil icon={CalendarClock} label="Vencem no período" ajuda={AJUDA.aVencer} value={vencemNoPeriodo} color="#fbbf24" />
                 </div>
               </div>
@@ -547,7 +550,7 @@ export default function ComercialPage() {
               {aVencer.length ? (
                 <Card className="overflow-hidden">
                   <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-                    <CalendarClock className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                    <CalendarClock className="h-4 w-4 text-primary-on-surface" />
                     <h3 className="text-[13px] font-semibold text-foreground">Contratos que vencem no período</h3>
                     <Ajuda texto={AJUDA.tabelaAVencer} />
                   </div>
@@ -627,7 +630,7 @@ function FunilComercial({ funil, periodo, onChanged }: {
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,6fr)_minmax(0,3fr)] gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-            <Phone className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Funil — Qualificação
+            <Phone className="h-3.5 w-3.5 text-primary-on-surface" /> Funil — Qualificação
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <KpiFunil icon={Inbox} label="Leads recebidos" ajuda={AJUDA.leadsRecebidos} value={t.leadsRecebidos} color="#818cf8" />
@@ -641,12 +644,12 @@ function FunilComercial({ funil, periodo, onChanged }: {
         </div>
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-            <FileSignature className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Funil — Fechamento
+            <FileSignature className="h-3.5 w-3.5 text-primary-on-surface" /> Funil — Fechamento
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <KpiFunil icon={CalendarCheck} label="Reuniões realizadas" ajuda={AJUDA.reunioesRealizadas} value={t.reunioesRealizadas} color="#60a5fa" />
             <KpiFunil icon={Send} label="Propostas enviadas" ajuda={AJUDA.propostasEnviadas} value={t.propostasEnviadas} color="#a78bfa" />
-            <KpiFunil icon={FileSignature} label="Contratos assinados" ajuda={AJUDA.contratosAssinados} value={t.contratosAssinados} color={MODULE_COLOR}
+            <KpiFunil icon={FileSignature} label="Contratos assinados" ajuda={AJUDA.contratosAssinados} value={t.contratosAssinados} color={PRIMARY}
               sub={funil.servicosDeEntrada === 0 ? 'sem serviço de entrada' : undefined}
               title={funil.servicosDeEntrada === 0 ? 'Nenhum serviço está marcado como entrada de novo cliente (cadastro do serviço).' : undefined} />
           </div>
@@ -656,7 +659,7 @@ function FunilComercial({ funil, periodo, onChanged }: {
       {pessoas.length > 0 && (
         <Card className="overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-            <Users className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+            <Users className="h-4 w-4 text-primary-on-surface" />
             <h3 className="text-[13px] font-semibold text-foreground">Funil por pessoa</h3>
           </div>
           <div className="overflow-x-auto nice-scrollbar">
@@ -697,8 +700,7 @@ function FunilComercial({ funil, periodo, onChanged }: {
                       {t[c.campo] > 0 ? (
                         <button type="button" onClick={() => setAberto(c)}
                           title={`Ver ${c.rotulo.toLowerCase()}`}
-                          className="min-w-8 rounded px-2 py-1 underline decoration-dotted underline-offset-4 hover:bg-background hover:no-underline transition-colors"
-                          style={{ color: MODULE_COLOR }}>
+                          className="min-w-8 rounded px-2 py-1 underline decoration-dotted underline-offset-4 hover:bg-background hover:no-underline transition-colors text-primary-on-surface">
                           {t[c.campo]}
                         </button>
                       ) : t[c.campo]}
@@ -752,6 +754,7 @@ function DetalheIndicadorModal({ coluna, periodo, onClose, onChanged }: {
       text: `O orçamento #${i.orcamentoNumero} deixa de contar como contrato fechado.`,
       confirmText: 'Desfazer',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -771,7 +774,7 @@ function DetalheIndicadorModal({ coluna, periodo, onClose, onChanged }: {
   return (
     <Dialog open={!!coluna} onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="max-w-[min(1280px,95vw)]">
-        <DialogHeaderIcon icon={ListChecks} color="sky">
+        <DialogHeaderIcon icon={ListChecks}>
           <DialogTitle className="text-[15px]">{coluna?.rotulo}</DialogTitle>
           <DialogDescription className="text-[11px]">
             {itens ? `${itens.length} registro(s)` : 'Carregando…'} · {intervalo}
@@ -864,7 +867,7 @@ function DetalheIndicadorModal({ coluna, periodo, onClose, onChanged }: {
                                 {i.contratoFechadoEm ? 'Alterar data do contrato' : 'Marcar contrato fechado'}
                               </DropdownMenuItem>
                               {i.contratoFechadoEm && (
-                                <DropdownMenuItem onClick={() => desfazer(i)} className={TEXT.rose}>
+                                <DropdownMenuItem onClick={() => desfazer(i)} className="text-destructive focus:text-destructive">
                                   <Undo2 className="h-4 w-4" />Desfazer contrato fechado
                                 </DropdownMenuItem>
                               )}
@@ -941,7 +944,7 @@ function ContratoFechadoModal({ item, onClose, onSaved }: {
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose} disabled={salvando}>Cancelar</Button>
-          <Button size="sm" onClick={salvar} disabled={salvando || !data}>
+          <Button variant="success" size="sm" onClick={salvar} disabled={salvando || !data}>
             {salvando && <Loader2 className="h-4 w-4 animate-spin" />}Registrar
           </Button>
         </DialogFooter>

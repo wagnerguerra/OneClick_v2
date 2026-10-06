@@ -8,8 +8,6 @@ import { trpc } from '@/lib/trpc'
 
 const LIMIT = 20
 
-const MODULE_COLOR = 'var(--mod-comercial, #10b981)'
-
 interface OrcItem { descricao: string | null }
 interface OrcNovo {
   id: string; numero: number; status: string; totalGeral: string | number | null
@@ -84,7 +82,7 @@ export function OrcamentosNovoSection({ clienteId }: { clienteId?: string | null
   return (
     <div className="rounded-lg border border-border bg-card overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border/60">
-        <FileBarChart className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+        <FileBarChart className="h-4 w-4 text-primary" />
         <span className="text-[13px] font-semibold">Orçamentos</span>
         <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{total}</span>
         {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}

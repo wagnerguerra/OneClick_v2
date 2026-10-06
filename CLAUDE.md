@@ -11,7 +11,8 @@ Pagamento recorrente via Stripe. Reconstrução modernizada do legado **OneClick
 - `docs/error-registry.md` — registry de erros + gate obrigatório de entrega
 - `docs/PADRAO_PAGINAS.md` — **como se monta uma tela**: listagem (ref. `/clientes`), kanban (ref. `/crm` e `/orcamentos`) e detalhe (ref. `/clientes/[id]` e `/orcamentos/[id]`)
 - `docs/PADRAO_MODULOS.md`, `docs/PADRAO_MASCARAS.md`, `docs/PADRAO_KANBAN_DND.md` — padrões específicos
-- `docs/PADRAO_CORES_E_TEMA.md` — tokens de tema + fonte única de cores de conceito (`color-styles.ts`, 8 papéis) + modelo de duas camadas + cor de módulo dinâmica (`--mod-<slug>`/retint)
+- `docs/PADRAO_CORES_E_TEMA.md` — tokens de tema, cor primária (`primary-on-surface`), cores semânticas (verde/vermelho), fonte única `color-styles.ts`, campos, gráficos e a cor de módulo (só indicador, lista fechada)
+- `/admin/design-system` (UI, master) — **referência viva** dos padrões visuais, com exemplos e as tabelas de cor por ação; vence em caso de dúvida
 - `docs/PADRAO_RESPONSIVIDADE.md` — celular/tablet/notebook 1366×768 (o modelo para toda tela nova ou tocada); baixa da varredura em `docs/responsividade-progresso.md`
 - `docs/PADRAO_ESTADOS_E_PERMISSOES.md` — estado derivado no backend (flags no payload), permissão de campo (`hasSubPermission`), propagação por SSE
 
@@ -104,16 +105,19 @@ No frontend: sempre `useServerTable + DataTable`. Nunca paginação client-side 
 ### Formulários
 `React Hook Form + Zod + shadcn/ui Form`. Schema do form = schema do DTO Nest. Campos: `h-9 text-sm`, label `text-[13px] font-semibold`, espaçamento `space-y-1.5`.
 
-### Modais — `DialogHeaderIcon` obrigatório
-Todo modal usa `<DialogHeaderIcon icon={X} color="Y">` (componente em `apps/web/src/components/ui/dialog-header-icon.tsx`). Cores: `sky | emerald | rose | amber | violet | indigo | cyan | orange | fuchsia | lime | slate | red | purple | blue`.
+**Campos sem fundo/borda própria:** `<input>`, `<textarea>`, `<select>`, `<Input>`, `<Textarea>` e `<SelectTrigger>` herdam fundo e borda da regra base do `globals.css`. **Nunca** `bg-*` (`bg-card`, `bg-background`, `bg-transparent`…) nem `border`/`border-*` neles — só layout. Exceção: `border-destructive` de erro de validação. Combobox feito à mão (botão que abre um `Command`) leva `role="combobox"`.
 
-Por contexto: Criar=`emerald` · Editar=`sky`/`blue` · Excluir=`rose`/`red` · Avisos=`amber` · Config=`slate`/`violet` · Import/Export=`emerald`/`sky`.
+### Modais — `DialogHeaderIcon` obrigatório
+Todo modal usa `<DialogHeaderIcon icon={X} color="Y">` (componente em `apps/web/src/components/ui/dialog-header-icon.tsx`). `color` é opcional — o default `primary` é a cor do sistema. Cores: `primary | sky | emerald | rose | amber | violet | indigo | cyan | orange | fuchsia | lime | slate | red | purple | blue`.
+
+**Qual cor usar por ação** (ícone + botão de confirmação da ação principal) é guideline, documentada num lugar só: `/admin/design-system` → aba "Modais" → "Quando usar cada cor" (`apps/web/src/app/(dashboard)/admin/design-system/page.tsx`). Consulte lá antes de escolher; não copie a tabela pra outro lugar.
 
 **Proibido:** `<DialogHeader>` cru, ícone inline no `<DialogTitle>`, divs com bg colorido manual.
-Doc viva: `/admin/design-system` → aba "Modais".
+
+**Confirmação com SweetAlert** (`alerts.confirm`, `@/lib/alerts`): `destructive: true` quando a ação é destrutiva (excluir, remover, apagar, revogar, desvincular, limpar dados) **ou** quando o gatilho que abre o Swal é vermelho. Arquivar nunca é destrutivo. Detalhes em `/admin/design-system` → Modais → "Confirmação destrutiva".
 
 ### Sub-abas (Card com pills laterais)
-Wrapper `<Card>` + `flex min-h-[450px]` + sidebar de pills `w-[170px] bg-muted/40 border-r border-border`. Pill ativa = cor do módulo (CSS var). Conteúdo com `key={activeTab}` + `animation: fadeSlideIn 0.25s`. Títulos internos `text-[13px] font-semibold text-foreground` com `border-b` full-width via `-mx-5`. Textareas = `<RichEditor>` (TipTap), nunca textarea puro. Grid 12 colunas.
+Wrapper `<Card>` + `flex min-h-[450px]` + sidebar de pills `w-[170px] bg-muted/40 border-r border-border`. Pill ativa = `bg-primary text-primary-foreground shadow-sm`. Conteúdo com `key={activeTab}` + `animation: fadeSlideIn 0.25s`. Títulos internos `text-[13px] font-semibold text-foreground` com `border-b` full-width via `-mx-5`. Textareas = `<RichEditor>` (TipTap), nunca textarea puro. Grid 12 colunas.
 
 ### Texto rico: `RichEditor` para editar, `RichContent` para exibir (PROIBIDO `prose`)
 
@@ -130,23 +134,19 @@ Trava: `pnpm check:prose` falha se a classe reaparecer.
 ### Tokens semânticos de tema (CRÍTICO para dark mode)
 **Sempre** `bg-muted/40`, `border-border`, `text-foreground`; divisória fininha = `border-hairline`. **Nunca** `bg-[#f8f9fa]`, `border-[rgba(0,0,0,0.08)]`. Hex hardcoded quebra dark mode. Tema = classe `.dark` no `<html>` (padrão segue o sistema, persiste no localStorage); skins de acento (`data-skin`) trocam a `--color-primary`.
 
+Fora de classe (Recharts, SVG, `style`): `var(--color-<token>)` — nunca `var(--border)`/`hsl(var(--…))` (não existem, saem pretos no dark).
+
 **Cores de conceito** (status/ênfase/superfície colorida) = **fonte única** `apps/web/src/lib/color-styles.ts`: 8 papéis (`BADGE`/`PILL`/`STRONG`/`TEXT`/`SURFACE`/`BORDER`/`DOT`/`FILL`) × 16 cores, **strings literais** (é o safelist do JIT — **nunca interpole** `bg-${c}-50`). Uso: `cn('layout…', TEXT.emerald)`. NÃO pinte botão com o helper (use variants do `<Button>`); hex de gráfico/inline → mapa `*_COR` local. Modelo de duas camadas e receitas em `docs/PADRAO_CORES_E_TEMA.md`.
 
-### Cores de módulo (dinâmicas)
-Editáveis em `/admin/design-system → Tokens & cores`, persistidas em `module_colors`, injetadas como CSS vars em `:root` via `ModuleColorsProvider`. Slugs em `docs/MODULOS.md`.
+### Cor primária, cores com significado e cor de módulo (CRÍTICO)
+Regras completas em `docs/PADRAO_CORES_E_TEMA.md`; exemplos em `/admin/design-system`.
 
-Uso:
-```tsx
-// 1) CSS var (preferencial)
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
-
-// 2) Hook (quando precisa hex puro)
-import { useModuleColor } from '@/components/theme/module-colors'
-const moduleColor = useModuleColor('cadastros')
-```
-Nunca hardcoded `const MODULE_COLOR = '#10b981'`. Nova cor: adicionar em `DEFAULT_MODULE_COLORS` em `apps/api/src/theme/theme.service.ts` + mirror em `apps/web/src/components/theme/module-colors.tsx`.
-
-**Retint `.mod-<slug>`:** cada página roda sob `body.mod-<slug>` (`use-module-scope.ts`, via `resolveSlug`); o `globals.css` retinge os utilitários da cor **daquele módulo** para `var(--mod-<slug>)` (claro + `dark:`). **Intenção decide o mecanismo:** cor do módulo → a **var** explícita (nunca conte só com o retint); cor de conceito (mesmo que coincida com a do módulo) → o **helper** `color-styles` (o retint pegar é aceito). Hex inline que é cor de módulo → var; hex de status → `*_COR` inline. Duas camadas + regra de intenção completas em `docs/PADRAO_CORES_E_TEMA.md`.
+- **Conteúdo da tela usa a PRIMÁRIA** (segue tema e skin): sólido `bg-primary text-primary-foreground` (o `<Button>` padrão já é isso — não repita em `style`); **texto/ícone/link/aba ativa/valor em destaque = `text-primary-on-surface`** (`text-primary` puro some no dark); tint `bg-primary/10`; inline/gráfico `var(--color-primary)`. Nunca um azul/hue literal no lugar da primária.
+- **Verde = concluído/positivo:** botão que CONCLUI (Salvar, Criar/Adicionar no rodapé, Confirmar, Atualizar, Registrar, Aplicar, Importar, Aprovar, Concluir, Copiar) → `variant="success"`, mesmo em modal com ícone de outra cor; botão que só ABRE algo ("+ Novo…") → `<Button>` padrão. Barra de progresso → `FILL.emerald`; toggle positivo → `<Switch variant="success" />`.
+- **Vermelho = destrutivo:** item de menu → `text-destructive focus:text-destructive`; confirmação → `alerts.confirm({ …, destructive: true })` (ver Modais).
+- **Cor de módulo (`--mod-<slug>`) NÃO é cor de conteúdo.** Só aparece, sempre via var/`useModuleColor`, em: sidebar, widgets do dashboard, FAQ (cor do artigo), grupos de permissão em `/usuarios` e nós do editor de fluxo de Serviços. **Proibido** em botões, abas, links, KPIs, badges, barras, capas, avatares e ícones de tela. Não acrescente lugares sem aprovação explícita. Não existe mais retint `.mod-<slug>`. Cor editável em `/admin/design-system → Tokens & cores` (`module_colors`); cor nova = `DEFAULT_MODULE_COLORS` em `apps/api/src/theme/theme.service.ts` + mirror em `apps/web/src/components/theme/module-colors.tsx`.
+### Componentes centralizados — use e migre as cópias
+Ao criar ou tocar uma tela, use os componentes de `packages/ui/src/components/` (`@saas/ui`) e `apps/web/src/components/` (+ `ui/`) e troque reimplementações locais por eles: toggle → `<Switch>`; checkbox → `<Checkbox>`; avatar → `<UserAvatar>`; voltar → `<BackButton>` (com `label` quando sozinho, só ícone ao lado de outros botões; sempre a última ação); modal → `Dialog` + `DialogHeaderIcon`; topo de página → `<PageHeaderBar>`; abas de pílula → `SlidingTabsList` + `<TabsTrigger variant="sliding">` (contador pela prop `count`); tooltip de gráfico → `<ChartTooltip>`; detalhe em seções → `<SectionCard>`. Se o componente não cobre um caso, **estenda-o com uma prop** — não mantenha a cópia.
 
 ### Estrutura de módulo NestJS
 ```
@@ -161,25 +161,18 @@ src/[modulo]/
 Estado/valor **derivado** (lógico/matemático **ou** de permissão) mora no backend e vira **flag/valor no payload**; o front **compõe**, sem reimplementar a regra (evita drift). Cobre o princípio geral (ex.: `avaliacaoDisponivel`, `congelado`, `totalGeral`), a **permissão de campo com `hasSubPermission`**, e a **propagação por SSE** (mudança de permissão reflete **sem reload**). Ao notar um lugar que se beneficiaria desses padrões, **proponha o encaixe sob confirmação** — nunca aplique direto.
 
 ### Coluna "Ações" em tabelas
-Sempre dropdown `⋮` (`MoreVertical`) — nunca botões inline.
+Dropdown `⋮` (`MoreVertical`) — ou, quando há poucas ações frequentes, botões de ícone `soft-*` `size="icon-sm"` na linha. Uma variação por tela; detalhes em `/admin/design-system` → Tabelas.
 
 ### Scrollbar tematizada — `.nice-scrollbar`
-Todo container com scroll (`overflow-y-auto`/`overflow-auto` em listagens, feeds, painéis roláveis) leva a classe **`.nice-scrollbar`** (definida em `apps/web/src/app/globals.css`: thin + cor `muted-foreground/35`, com variante dark). A scrollbar nativa do SO destoa do tema (sobretudo no dark). Variantes: `.chat-scrollbar` (contexto de chat) e `.scrollbar-none` (esconder). Padrão geral = `.nice-scrollbar`.
+Todo container com scroll (`overflow-y-auto`/`overflow-auto` em listagens, feeds, painéis roláveis) leva a classe **`.nice-scrollbar`** (definida em `apps/web/src/app/globals.css`: thin + cor `muted-foreground/35`, com variante dark). A scrollbar nativa do SO destoa do tema (sobretudo no dark). Variantes: `.chat-scrollbar` (contexto de chat) e `.scrollbar-none` (esconder). Padrão geral = `.nice-scrollbar`. Vale para qualquer eixo, inclusive `overflow-x-auto`. `<DialogBody>` já traz a classe — não repita; e não ponha `overflow-y-auto` no `<DialogContent>` que envolve um `DialogBody` (vira scroll duplo).
 
 ### Tooltips — Radix (`Tooltip`) quando pode ser cortado
 Para dicas em hover, prefira o **`Tooltip` do `@saas/ui`** (Radix, `Tooltip`/`TooltipTrigger`/`TooltipContent`/`TooltipProvider`) — ele renderiza em **portal**, então **não é cortado** por ancestrais com `overflow` (modais, sheets, áreas roláveis). Um tooltip via CSS/`absolute` (ex.: `group-hover`) é clipado nesses casos — só use quando tiver certeza de que não há `overflow` no caminho. Detalhe: se o gatilho for um botão `disabled`, o Radix não dispara no botão direto — envolva num `<span>` e use-o como `TooltipTrigger asChild` (o hover no span funciona mesmo com o botão desabilitado).
 
-### Header de páginas de detalhe — componente `PageHeader` (PADRÃO FIXO)
-**SEMPRE** use `<PageHeader>` (`apps/web/src/components/page-header.tsx`) para o cabeçalho de páginas de detalhe/módulo. **Nunca recrie a capa na mão.** Ele já entrega o wrapper bleed-edge (sangra com `-mx/-mt`) + capa em gradiente da cor do módulo + ícone (lucide via `icon` OU imagem de `/materiais` via `iconImg`) + título/subtítulo + `breadcrumb` + `actions` (botões à direita) + `children` (abas/pills abaixo).
+### Topo das páginas — `PageHeaderBar` (PADRÃO FIXO)
+Toda listagem e todo detalhe começam com `<PageHeaderBar>` (`apps/web/src/components/page-header-bar.tsx`): `<h1>` puro + trilha `Página inicial › Bloco › Módulo` + ações à direita ("+ Novo…" primeiro, `⋮` por último, `<BackButton>` por último em subpáginas). O detalhe ganha o hero com capa do registro ou gradiente da **primária** (nunca a cor do módulo). Estrutura completa em `docs/PADRAO_PAGINAS.md`.
 
-```tsx
-import { PageHeader } from '@/components/page-header'
-<PageHeader color={MODULE_COLOR} icon={Icon} title="Título" subtitle="..."
-  breadcrumb={<>...</>} actions={<Button>...</Button>}>
-  {/* abas/pills opcionais */}
-</PageHeader>
-```
-Para abas, use `SlidingTabsList` dentro de `children`. Ícone do módulo via imagem: `iconImg="/materiais/icon_x.png"` (copiar de `materiais/` p/ `apps/web/public/materiais/`). Páginas antigas com capa inline devem migrar pra esse componente quando tocadas.
+O `<PageHeader>` de capa sangrada (`apps/web/src/components/page-header.tsx`) é só das Ferramentas e do FAQ — `color` = a primária (`var(--color-primary)`; no FAQ, a cor do artigo). Não use em listagem nem em tela nova de detalhe.
 
 ---
 

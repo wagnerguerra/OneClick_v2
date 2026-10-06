@@ -16,10 +16,10 @@ import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { BADGE, FILL } from '@/lib/color-styles'
+import { statusBadge } from './_lib/status-cores'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
-const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)' // sky (bloco Administrativo)
 const PAGE_SIZES = [10, 20, 50]
 
 interface ProcessoListItem {
@@ -51,13 +51,6 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELADO: 'Cancelado',
 }
 
-// EM_ANDAMENTO = sky (cor do módulo Administrativo, retingida sob .mod-administrativo);
-// CONCLUIDO/CANCELADO = status universais. Todos derivam do helper BADGE.
-const STATUS_BADGE: Record<string, string> = {
-  EM_ANDAMENTO: BADGE.sky,
-  CONCLUIDO:    BADGE.emerald,
-  CANCELADO:    BADGE.rose,
-}
 
 export default function ProcessosPage() {
   const router = useRouter()
@@ -103,8 +96,7 @@ export default function ProcessosPage() {
           <Button
             size="sm"
             onClick={() => router.push('/processos/painel')}
-            style={{ backgroundColor: MODULE_COLOR }}
-            className="text-white gap-1.5"
+            className="gap-1.5"
           >
             <LayoutDashboard className="h-4 w-4" />
             Painel Operacional
@@ -188,7 +180,7 @@ export default function ProcessosPage() {
                     </div>
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
-                    <Badge variant="outline" className={`text-[10px] h-5 ${STATUS_BADGE[p.status]}`}>
+                    <Badge variant="outline" className={`text-[10px] h-5 ${statusBadge(p.status)}`}>
                       {p.status === 'EM_ANDAMENTO' && <PlayCircle className="h-2.5 w-2.5 mr-1" />}
                       {p.status === 'CONCLUIDO' && <CheckCircle2 className="h-2.5 w-2.5 mr-1" />}
                       {p.status === 'CANCELADO' && <XCircle className="h-2.5 w-2.5 mr-1" />}
@@ -217,7 +209,7 @@ export default function ProcessosPage() {
                   <TableCell className="hidden lg:table-cell">
                     {p.responsavel ? (
                       <div className="flex items-center gap-2">
-                        <UserAvatar user={p.responsavel} className="h-6 w-6 text-[10px]" bg="bg-sky-500" />
+                        <UserAvatar user={p.responsavel} className="h-6 w-6 text-[10px]" bg="bg-primary" fg="text-primary-foreground" />
                         <span className="text-xs">{p.responsavel.name}</span>
                       </div>
                     ) : (

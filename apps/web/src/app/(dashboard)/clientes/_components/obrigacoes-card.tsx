@@ -60,7 +60,7 @@ export function ObrigacoesCard({ clienteId }: { clienteId: string }) {
   }
 
   async function handleRemove(id: string) {
-    if (!(await alerts.confirmDelete('esta obrigacao'))) return
+    if (!(await alerts.confirmDelete('esta obrigação'))) return
     try { await (trpc.cliente as any).removeObrigacao.mutate({ id }); fetch() }
     catch (e) { alerts.error('Erro', (e as Error).message) }
   }
@@ -71,8 +71,8 @@ export function ObrigacoesCard({ clienteId }: { clienteId: string }) {
     <Card>
       <div className="flex items-center justify-between border-b border-border/60 bg-muted/20 px-5 py-3">
         <div>
-          <h4 className="text-sm font-semibold flex items-center gap-2"><ListChecks className={cn('h-4 w-4', TEXT.emerald)} /> Obrigacoes</h4>
-          <p className="text-[11px] text-muted-foreground mt-0.5">{items.filter(i => i.ativo).length} obrigacoes ativas</p>
+          <h4 className="text-sm font-semibold flex items-center gap-2"><ListChecks className={cn('h-4 w-4', TEXT.emerald)} /> Obrigações</h4>
+          <p className="text-[11px] text-muted-foreground mt-0.5">{items.filter(i => i.ativo).length} obrigações ativas</p>
         </div>
         {canManageRegistration && <Button type="button" variant="outline" size="sm" onClick={() => setAdding(!adding)} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Adicionar</Button>}
       </div>
@@ -80,7 +80,7 @@ export function ObrigacoesCard({ clienteId }: { clienteId: string }) {
       {adding && (
         <div className="px-5 py-3 border-b border-border/40 bg-emerald-50/30 dark:bg-emerald-950/10">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <div className="col-span-2"><Input placeholder="Nome da obrigacao" value={form.nome} onChange={e => setForm(p => ({ ...p, nome: e.target.value }))} className="h-8 text-xs" /></div>
+            <div className="col-span-2"><Input placeholder="Nome da obrigação" value={form.nome} onChange={e => setForm(p => ({ ...p, nome: e.target.value }))} className="h-8 text-xs" /></div>
             <Select value={form.tipo} onValueChange={v => setForm(p => ({ ...p, tipo: v }))}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(TIPO_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent></Select>
             <Select value={form.periodicidade} onValueChange={v => setForm(p => ({ ...p, periodicidade: v }))}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(PERIOD_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent></Select>
           </div>
@@ -95,7 +95,7 @@ export function ObrigacoesCard({ clienteId }: { clienteId: string }) {
         {items.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <ListChecks className="h-8 w-8 mx-auto mb-2 opacity-40" />
-            <p className="text-sm">Nenhuma obrigacao cadastrada.</p>
+            <p className="text-sm">Nenhuma obrigação cadastrada.</p>
           </div>
         ) : items.map(item => (
           <div key={item.id} className={cn('flex items-center gap-3 px-5 py-3 group', !item.ativo && 'opacity-40')}>

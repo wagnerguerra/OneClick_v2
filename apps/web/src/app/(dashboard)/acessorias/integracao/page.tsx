@@ -33,7 +33,7 @@ import { masks } from '@/lib/masks'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { AbasAcessorias } from '../_components/abas-acessorias'
-import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
+import { BADGE, FILL, SURFACE, TEXT } from '@/lib/color-styles'
 
 
 type Tab = 'companies' | 'mapping' | 'deliveries' | 'explorer'
@@ -169,14 +169,15 @@ export default function AcessoriasPage() {
 
       <AbasAcessorias />
 
-      {/* Tabs (pills) */}
+      {/* Sub-abas em cápsula deslizante (pill), de propósito diferente das abas
+          principais do módulo logo acima (sublinhado, ver AbasAcessorias). */}
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
         <div className="flex justify-start">
           <SlidingTabsList
             activeValue={tab}
             indicatorInsetY={4}
-            className="!shadow-sm !border !border-sky-200 dark:!border-sky-900/50 gap-1 !p-1 !bg-sky-50/70 dark:!bg-sky-950/20 !rounded-full w-fit items-center"
-            indicatorClassName="!bg-white dark:!bg-sky-900/60 !shadow-md"
+            className="!shadow-sm !border !border-border gap-1 !p-1 !bg-muted/40 !rounded-full w-fit items-center"
+            indicatorClassName="!bg-card !shadow-md"
           >
             {([
               { v: 'companies',  Icon: Building2,  label: 'Empresas' },
@@ -184,11 +185,7 @@ export default function AcessoriasPage() {
               { v: 'deliveries', Icon: RefreshCw,  label: 'Entregas' },
               { v: 'explorer',   Icon: FileSearch, label: 'Explorer' },
             ] as const).map(({ v, Icon, label }) => (
-              <TabsTrigger
-                key={v}
-                value={v}
-                className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-2 !text-xs !font-semibold !text-foreground/60 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-sky-800 dark:data-[state=active]:!text-sky-200 gap-1.5 leading-none !items-center"
-              >
+              <TabsTrigger key={v} value={v} variant="sliding" className="!py-2 leading-none !items-center">
                 <Icon className="h-3.5 w-3.5" /> {label}
               </TabsTrigger>
             ))}
@@ -269,7 +266,7 @@ function CompaniesPanel() {
       <div className="px-5 py-3 border-b border-border/60 flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-sky-600" />
+            <Building2 className="h-4 w-4 text-primary-on-surface" />
             Sincronização de Empresas
           </h3>
           <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -781,7 +778,7 @@ function MappingPanel() {
       <div className="px-5 py-3 border-b border-border/60 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold flex items-center gap-2">
-            <LinkIcon className="h-4 w-4 text-sky-600" />
+            <LinkIcon className="h-4 w-4 text-primary-on-surface" />
             Mapeamento de Obrigações
           </h3>
           <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -949,7 +946,7 @@ function MappingPanel() {
 
       <Dialog open={sugOpen} onOpenChange={(o) => !o && setSugOpen(false)}>
         <DialogContent className="sm:max-w-[900px] max-h-[85vh] flex flex-col">
-          <DialogHeaderIcon icon={Zap} color="sky">
+          <DialogHeaderIcon icon={Zap}>
             <DialogTitle>Sugestões automáticas de mapeamento</DialogTitle>
             <DialogDescription>
               Classificamos cada obrigação por área (fiscal/contábil/trabalhista) e regime (quando o
@@ -1060,7 +1057,7 @@ function MappingPanel() {
               {sugSelected.size} selecionada(s) · {suggestions.filter(s => s.suggestedServicoId && !s.alreadyMapped).length} sugestões aplicáveis
             </div>
             <Button variant="outline" onClick={() => setSugOpen(false)} disabled={sugApplying}>Cancelar</Button>
-            <Button onClick={aplicarSugestoes} disabled={sugApplying || sugSelected.size === 0} className="gap-1.5" style={{ backgroundColor: 'var(--mod-administrativo, #0ea5e9)' }}>
+            <Button variant="success" onClick={aplicarSugestoes} disabled={sugApplying || sugSelected.size === 0} className="gap-1.5">
               {sugApplying ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
               Aplicar selecionados
             </Button>
@@ -1115,7 +1112,7 @@ function MappingPanel() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={createSaving}>Cancelar</Button>
-            <Button onClick={salvarCriacao} disabled={createSaving} className="gap-1.5" style={{ backgroundColor: 'var(--mod-administrativo, #0ea5e9)' }}>
+            <Button variant="success" onClick={salvarCriacao} disabled={createSaving} className="gap-1.5">
               {createSaving && <Loader2 className="h-4 w-4 animate-spin" />}
               Criar e vincular
             </Button>
@@ -1169,6 +1166,7 @@ function LimparVinculosModal({ onClose, onDone }: { onClose: () => void; onDone:
         : 'Todos os vínculos dos serviços marcados serão removidos, inclusive os feitos à mão. Não há como desfazer.',
       icon: 'warning',
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     setRemovendo(true)
@@ -1314,7 +1312,7 @@ function DeliveriesPanel({ firstDay, lastDay, onSyncIniciada }: {
     <Card className="p-0 overflow-hidden">
       <div className="px-5 py-3 border-b border-border/60">
         <h3 className="text-sm font-semibold flex items-center gap-2">
-          <RefreshCw className="h-4 w-4 text-sky-600" />
+          <RefreshCw className="h-4 w-4 text-primary-on-surface" />
           Sincronização de Entregas
         </h3>
         <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -1442,10 +1440,10 @@ function LogsPanel({ atualizarEm }: { atualizarEm?: number }) {
     <Card className="p-0 overflow-hidden">
       <div className="px-5 py-3 border-b border-border/60 flex items-center justify-between">
         <h3 className="text-sm font-semibold flex items-center gap-2">
-          <History className="h-4 w-4 text-sky-600" />
+          <History className="h-4 w-4 text-primary-on-surface" />
           Histórico de Sincronizações
           {temRodando && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-normal text-sky-600">
+            <span className="inline-flex items-center gap-1 text-[10px] font-normal text-primary-on-surface">
               <Loader2 className="h-3 w-3 animate-spin" />atualizando sozinho
             </span>
           )}
@@ -1506,7 +1504,7 @@ function LogsPanel({ atualizarEm }: { atualizarEm?: number }) {
                   {log.status === 'running' && total > 0 ? (
                     <div className="w-full space-y-1">
                       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                        <div className="h-full rounded-full bg-sky-500 transition-all duration-500" style={{ width: pct + '%' }} />
+                        <div className={cn('h-full rounded-full transition-all duration-500', FILL.emerald)} style={{ width: pct + '%' }} />
                       </div>
                       <div className="text-[10px] text-muted-foreground">{atual}/{total} ({pct}%)</div>
                     </div>
@@ -1660,7 +1658,7 @@ function DetalheSyncModal({ log, onClose }: { log: SyncLog; onClose: () => void 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl">
-        <DialogHeaderIcon icon={History} color="sky">
+        <DialogHeaderIcon icon={History}>
           <DialogTitle>Sincronização de {log.tipo === 'companies' ? 'empresas' : 'entregas'}</DialogTitle>
         </DialogHeaderIcon>
         <DialogBody className="space-y-4">
@@ -1774,7 +1772,7 @@ function ExplorerPanel() {
     <Card className="p-0 overflow-hidden">
       <div className="px-5 py-3 border-b border-border/60 flex items-center justify-between">
         <h3 className="text-sm font-semibold flex items-center gap-2">
-          <FileSearch className="h-4 w-4 text-sky-600" />
+          <FileSearch className="h-4 w-4 text-primary-on-surface" />
           Explorer da API
         </h3>
         <Button variant="success" size="sm" onClick={executar} disabled={loading} className="gap-1.5">
@@ -1801,7 +1799,7 @@ function ExplorerPanel() {
                 key={p.label}
                 type="button"
                 onClick={() => { setPath(p.path); setQueryRaw(p.query ? new URLSearchParams(p.query).toString() : '') }}
-                className={cn('h-7 px-2.5 rounded-md border hover:bg-sky-100 text-[11px] font-medium transition-colors', BADGE.sky)}
+                className="h-7 px-2.5 rounded-md border border-primary/30 bg-primary/5 hover:bg-primary/15 text-primary-on-surface text-[11px] font-medium transition-colors"
               >
                 {p.label}
               </button>

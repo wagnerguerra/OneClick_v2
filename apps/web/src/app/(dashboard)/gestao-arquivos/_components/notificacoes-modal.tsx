@@ -236,7 +236,7 @@ export function NotificacoesModal({
           {/* A aba do Drive salva em cada ação (conectar, vincular), então não
               tem um "Salvar" no rodapé — teria de salvar o quê? */}
           {aba === 'notificacoes' && (
-            <Button onClick={salvar} disabled={salvando || loading} className="gap-1.5">
+            <Button variant="success" onClick={salvar} disabled={salvando || loading} className="gap-1.5">
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar
             </Button>

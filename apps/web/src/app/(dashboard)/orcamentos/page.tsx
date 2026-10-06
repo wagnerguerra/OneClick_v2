@@ -52,19 +52,11 @@ import { useUserPermissions } from '@/hooks/use-user-permissions'
 // Tipos e constantes
 // ============================================================
 
-import { isOrcamentoTransitionAllowed, ORCAMENTO_STATUS_LABELS, resolveOrcamentoScope, type OrcamentoScope, formatDocumento, ehMatrizCnpj, DESTAQUE_CORES, DESTAQUE_COR_LABELS, type DestaqueCor } from '@saas/types'
+import { isOrcamentoTransitionAllowed, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_COLORS, resolveOrcamentoScope, type OrcamentoScope, formatDocumento, ehMatrizCnpj, DESTAQUE_CORES, DESTAQUE_COR_LABELS, type DestaqueCor } from '@saas/types'
 
 const STATUS_ORDER = ['NOVO', 'A_ENVIAR', 'ENVIADO', 'APROVADO', 'LIBERADO', 'FINALIZADO', 'ENCERRADO'] as const
 
-const STATUS_COLORS: Record<string, string> = {
-  NOVO: '#818cf8',
-  A_ENVIAR: '#94a3b8',
-  ENVIADO: '#3b82f6',
-  APROVADO: '#10b981',
-  LIBERADO: '#059669',
-  FINALIZADO: '#1e293b',
-  ENCERRADO: '#ef4444',
-}
+const STATUS_COLORS: Record<string, string> = ORCAMENTO_STATUS_COLORS
 
 const STATUS_LABELS: Record<string, string> = {
   NOVO: 'Novo',
@@ -77,7 +69,7 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const PAGE_SIZES = [10, 20, 50]
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 interface UserRef { id: string; name: string; image?: string | null }
 
@@ -143,10 +135,8 @@ const OrcConfigContext = createContext<OrcConfig>(DEFAULT_CONFIG)
 
 /**
  * Cor do destaque em hex, aplicada inline na bolinha do menu, na borda do card
- * e no ícone do rodapé — os três idênticos. Não usa classes Tailwind porque a
- * página roda sob `.mod-comercial`, e o retint do globals.css troca as classes
- * rosa pela cor do módulo (a borda saía lavada, puxando para o laranja). Cor
- * escolhida pelo usuário é conceito, não módulo: mapa `*_COR` local.
+ * e no ícone do rodapé — os três idênticos. Cor escolhida pelo usuário é
+ * conceito, não módulo: mapa `*_COR` local em hex.
  */
 const DESTAQUE_COR: Record<DestaqueCor, string> = {
   amber: '#f59e0b',
@@ -974,7 +964,7 @@ export default function OrcamentosPage() {
             <SlidersHorizontal className="h-4 w-4" />
             Filtros
             {filtrosAtivos > 0 && (
-              <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-white text-[10px] font-semibold leading-none" style={{ backgroundColor: MODULE_COLOR }}>{filtrosAtivos}</span>
+              <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-white text-[10px] font-semibold leading-none" style={{ backgroundColor: PRIMARY }}>{filtrosAtivos}</span>
             )}
           </button>
           <button
@@ -1081,8 +1071,8 @@ export default function OrcamentosPage() {
               </div>
               <div className="flex items-end">
                 <label className="inline-flex items-center gap-2 h-9 cursor-pointer select-none">
-                  <Checkbox className="cursor-pointer" accentColor={MODULE_COLOR} checked={incluirParalizados} onCheckedChange={v => { setIncluirParalizados(v === true); setPage(1) }} />
-                  <span className="text-sm text-foreground">Incluir paralizados</span>
+                  <Checkbox className="cursor-pointer" accentColor={PRIMARY} checked={incluirParalizados} onCheckedChange={v => { setIncluirParalizados(v === true); setPage(1) }} />
+                  <span className="text-sm text-foreground">Incluir paralisados</span>
                 </label>
               </div>
             </div>
@@ -1265,7 +1255,7 @@ export default function OrcamentosPage() {
                     <span className="flex items-center gap-1.5 min-w-0">
                       <span className="flex min-w-0">{getClienteNome(orc) || '—'}</span>
                       {orc.paralizado && (
-                        <Badge variant="outline" className={cn('shrink-0 text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.amber)}>Paralizado</Badge>
+                        <Badge variant="outline" className={cn('shrink-0 text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.amber)}>Paralisado</Badge>
                       )}
                       {orc.status === 'APROVADO' && orc.servicosConcluidos && (
                         <Badge variant="outline" title="Serviço concluído — ao liberar, o orçamento é finalizado automaticamente"
@@ -1352,7 +1342,7 @@ export default function OrcamentosPage() {
           onClose={() => setRelatorioColuna(null)}
           status={relatorioColuna}
           statusLabel={STATUS_LABELS[relatorioColuna] || relatorioColuna}
-          moduleColor={MODULE_COLOR}
+          moduleColor={PRIMARY}
         />
       )}
 
@@ -1487,13 +1477,13 @@ export default function OrcamentosPage() {
             </div>
 
             {/* Notificar áreas (pills) — mesma lista e mesmo efeito do balão do FAB */}
-            <AreasNotificarPicker areas={areasNotificaveis} value={areasNotificar} onChange={setAreasNotificar} accent={MODULE_COLOR} required />
+            <AreasNotificarPicker areas={areasNotificaveis} value={areasNotificar} onChange={setAreasNotificar} accent={PRIMARY} required />
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={handleCreate} disabled={creating || !form.clienteId}>
+            <Button size="sm" variant="success" className="gap-1.5" onClick={handleCreate} disabled={creating || !form.clienteId}>
               {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              Criar Orcamento
+              Criar Orçamento
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1806,7 +1796,7 @@ function KanbanCardContent({ orc, cliente, onDuplicar, onArquivar, onCancelar, o
   if (prazo.variant === 'danger') avisos.push({ curto: prazo.label === 'vence hoje' ? 'Vence hoje' : 'Vencido', label: `Prazo ${prazo.label}`, detalhe: prazo.tooltip, Icon: AlertTriangle, cor: AVISO_COR.vermelho })
   else if (prazo.variant === 'warning') avisos.push({ curto: 'Vencendo', label: `Prazo: ${prazo.label}`, detalhe: prazo.tooltip, Icon: Clock, cor: AVISO_COR.ambar })
   if (orc.status === 'APROVADO' && orc.servicosConcluidos) avisos.push({ curto: 'Serviço concluído', label: 'Serviço concluído', detalhe: 'Ao liberar, o orçamento é finalizado automaticamente', Icon: CheckCircle2, cor: AVISO_COR.verde })
-  if (orc.paralizado) avisos.push({ curto: 'Paralizado', label: 'Orçamento paralizado', Icon: Pause, cor: AVISO_COR.ambar })
+  if (orc.paralizado) avisos.push({ curto: 'Paralisado', label: 'Orçamento paralisado', Icon: Pause, cor: AVISO_COR.ambar })
   const aviso = avisos[0] ?? null
 
   // Cabeçalho: nome curto (fantasia, senão a razão social); o corpo traz a
@@ -1844,7 +1834,7 @@ function KanbanCardContent({ orc, cliente, onDuplicar, onArquivar, onCancelar, o
               <TooltipTrigger asChild>
                 <span
                   className="inline-flex max-w-[110px] cursor-help items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold"
-                  // Cor inline (fundo = a cor com ~10% de alfa): em classe, o vermelho sofre o retint do módulo.
+                  // Cor inline (fundo = a cor com ~10% de alfa): a cor do aviso vem em hex.
                   style={{ backgroundColor: `${aviso.cor}1A`, color: aviso.cor }}
                   onClick={e => e.stopPropagation()}
                   onPointerDown={e => e.stopPropagation()}
@@ -1933,7 +1923,7 @@ function KanbanCardContent({ orc, cliente, onDuplicar, onArquivar, onCancelar, o
               <span className="truncate">{stripHtml(orc.itens[0]!.descricao)}</span>
               {(orc._count?.itens ?? orc.itens.length) > 1 && (
                 <ItensRestantesTooltip restantes={(orc.itensDescricoes ?? []).slice(1)}>
-                  <span className="shrink-0 cursor-help text-[11px] font-medium" style={{ color: MODULE_COLOR }}>
+                  <span className="shrink-0 cursor-help text-[11px] font-medium text-primary-on-surface">
                     +{(orc._count?.itens ?? orc.itens.length) - 1}
                   </span>
                 </ItensRestantesTooltip>
@@ -1943,7 +1933,7 @@ function KanbanCardContent({ orc, cliente, onDuplicar, onArquivar, onCancelar, o
             <span className="truncate text-muted-foreground">{orc.observacoes ? stripHtml(orc.observacoes) : 'Sem serviços'}</span>
           )}
           {valor > 0 && (
-            <span className="ml-auto shrink-0 pl-2 font-semibold tabular-nums" style={{ color: MODULE_COLOR }}>{formatCurrency(valor)}</span>
+            <span className={cn('ml-auto shrink-0 pl-2 font-semibold tabular-nums', TEXT.emerald)}>{formatCurrency(valor)}</span>
           )}
         </LinhaCard>
         {orc.solicitante && (
@@ -1993,7 +1983,7 @@ function KanbanCardContent({ orc, cliente, onDuplicar, onArquivar, onCancelar, o
           )}
           {orc.pesquisaRespondida && (
             <DicaIcone titulo="Pesquisa respondida" texto="O cliente respondeu a pesquisa de satisfação">
-              <span className="flex cursor-help items-center" style={{ color: 'var(--mod-comercial, #fb7185)' }}>
+              <span className="flex cursor-help items-center text-primary-on-surface">
                 <Star className="h-3.5 w-3.5 fill-current" />
               </span>
             </DicaIcone>

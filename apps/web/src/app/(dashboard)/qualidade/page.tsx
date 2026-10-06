@@ -12,7 +12,7 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { NC_SITUACAO_LABEL } from '@saas/types'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+const PRIMARY = 'var(--color-primary)'
 
 interface Regua { vencidas: number; hoje: number; aVencer: number }
 interface Painel {
@@ -56,7 +56,7 @@ function CardModulo({ href, icon: Icon, titulo, children }: {
   return (
     <Card className="p-5 flex flex-col gap-3">
       <Link href={href} className="flex items-center gap-2 group w-fit">
-        <Icon className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+        <Icon className="h-4 w-4" style={{ color: PRIMARY }} />
         <h4 className="text-sm font-semibold group-hover:underline underline-offset-2">{titulo}</h4>
       </Link>
       {children}
@@ -175,7 +175,7 @@ export default function PainelQualidadePage() {
             <div className="space-y-2.5">
               <Link href="/elogios" className="flex items-center justify-between group">
                 <span className="flex items-center gap-2 text-xs text-muted-foreground group-hover:text-foreground">
-                  <ThumbsUp className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} />Elogios em triagem
+                  <ThumbsUp className="h-3.5 w-3.5" style={{ color: PRIMARY }} />Elogios em triagem
                 </span>
                 <span className={cn('text-sm font-semibold tabular-nums', p.manifestacoes.elogiosNovos > 0 && TEXT.amber)}>
                   {p.manifestacoes.elogiosNovos}
@@ -183,7 +183,7 @@ export default function PainelQualidadePage() {
               </Link>
               <Link href="/sugestoes" className="flex items-center justify-between group">
                 <span className="flex items-center gap-2 text-xs text-muted-foreground group-hover:text-foreground">
-                  <Lightbulb className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} />Sugestões sem resposta
+                  <Lightbulb className="h-3.5 w-3.5" style={{ color: PRIMARY }} />Sugestões sem resposta
                 </span>
                 <span className={cn('text-sm font-semibold tabular-nums', p.manifestacoes.sugestoesSemResposta > 0 && TEXT.amber)}>
                   {p.manifestacoes.sugestoesSemResposta}
@@ -191,7 +191,7 @@ export default function PainelQualidadePage() {
               </Link>
               <Link href="/documentos-internos" className="flex items-center justify-between group">
                 <span className="flex items-center gap-2 text-xs text-muted-foreground group-hover:text-foreground">
-                  <FileText className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} />Revisões de documento em aprovação
+                  <FileText className="h-3.5 w-3.5" style={{ color: PRIMARY }} />Revisões de documento em aprovação
                 </span>
                 <span className={cn('text-sm font-semibold tabular-nums', p.documentos.emAprovacao > 0 && TEXT.amber)}>
                   {p.documentos.emAprovacao}

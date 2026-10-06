@@ -157,7 +157,7 @@ export function NotesRail() {
                   {/* Ações */}
                   <div className="flex items-center justify-end gap-2">
                     <Button variant="ghost" size="sm" onClick={() => { setComporAberto(false); setNovoTitulo(''); setNovoConteudo(''); setNovaCor('default') }}>Cancelar</Button>
-                    <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white" onClick={criar} disabled={salvando || (!novoTitulo.trim() && !novoConteudo.trim())}>
+                    <Button size="sm" variant="success" onClick={criar} disabled={salvando || (!novoTitulo.trim() && !novoConteudo.trim())}>
                       {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Adicionar
                     </Button>
                   </div>
@@ -218,7 +218,7 @@ function NotaCard({ nota, onPatch, onExcluir }: {
           <textarea value={conteudo} onChange={e => setConteudo(e.target.value)} rows={4} autoFocus className="w-full bg-transparent text-sm resize-none focus:outline-none placeholder:text-muted-foreground/60" placeholder="Nota…" />
           <div className="flex justify-end gap-1">
             <Button variant="ghost" size="sm" onClick={() => { setTitulo(nota.titulo ?? ''); setConteudo(nota.conteudo); setEditando(false) }}>Cancelar</Button>
-            <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white" onClick={salvar}><Check className="h-3.5 w-3.5" /> Salvar</Button>
+            <Button size="sm" variant="success" onClick={salvar}><Check className="h-3.5 w-3.5" /> Salvar</Button>
           </div>
         </div>
       ) : (

@@ -86,7 +86,7 @@ export default function TabelasRegistrosPage() {
       text: t._count.versoes === 1
         ? 'O registro e a sua única versão serão apagados.'
         : `O registro e as suas ${t._count.versoes} versões serão apagados.`,
-      icon: 'warning', confirmText: 'Excluir',
+      icon: 'warning', confirmText: 'Excluir', destructive: true,
     })
     if (!ok) return
     try {
@@ -123,6 +123,10 @@ export default function TabelasRegistrosPage() {
       <Card>
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
+            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
+            </Select>
             <Select value={processoId || '__all__'} onValueChange={(v) => { setProcessoId(v === '__all__' ? '' : v); setPage(1) }}>
               <SelectTrigger className="h-8 w-[190px] text-xs"><SelectValue placeholder="Processo" /></SelectTrigger>
               <SelectContent>
@@ -135,12 +139,8 @@ export default function TabelasRegistrosPage() {
                 Limpar (1)
               </Button>
             )}
-            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
-            </Select>
           </div>
-          <div className="max-w-xs w-full sm:w-auto">
+          <div className="w-full sm:w-[272px]">
             <Input placeholder="Buscar pelo nome..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
@@ -154,7 +154,7 @@ export default function TabelasRegistrosPage() {
               <TableHead className="w-[80px] text-center">Versão</TableHead>
               <TableHead className="hidden sm:table-cell w-[110px]">Data</TableHead>
               <TableHead className="hidden lg:table-cell w-[220px]">Retenção</TableHead>
-              <TableHead className="w-[90px] text-right">Ações</TableHead>
+              <TableHead className="w-[104px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

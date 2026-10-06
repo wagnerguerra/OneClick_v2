@@ -180,10 +180,10 @@ export class CndSchedulerService implements OnModuleInit, OnModuleDestroy {
 
   async runNow(userId: string | undefined, empresaId: string): Promise<{ message: string }> {
     const empId = exigirEmpresa(empresaId)
-    if (this.emExecucao.has(empId)) return { message: 'Uma execucao ja esta em andamento.' }
-    if ((await idsDeEmpresasInativas()).includes(empId)) return { message: 'Empresa inativa — execucao nao iniciada.' }
-    this.executeFetch('manual', userId, empId).catch(e => logger.error(`Erro na execucao (empresa ${empId}): ${(e as Error).message}`))
-    return { message: 'Execucao iniciada em background.' }
+    if (this.emExecucao.has(empId)) return { message: 'Uma execução já está em andamento.' }
+    if ((await idsDeEmpresasInativas()).includes(empId)) return { message: 'Empresa inativa — execução não iniciada.' }
+    this.executeFetch('manual', userId, empId).catch(e => logger.error(`Erro na execução (empresa ${empId}): ${(e as Error).message}`))
+    return { message: 'Execução iniciada em background.' }
   }
 
   /**

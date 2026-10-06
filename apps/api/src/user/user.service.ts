@@ -959,7 +959,7 @@ export class UserService {
 
   async revokeTrustedDevice(userId: string, deviceId: string) {
     const device = await prisma.trustedDevice.findUnique({ where: { id: deviceId }, select: { userId: true } })
-    if (!device || device.userId !== userId) throw new Error('Dispositivo nao encontrado')
+    if (!device || device.userId !== userId) throw new Error('Dispositivo não encontrado')
     await prisma.trustedDevice.delete({ where: { id: deviceId } })
     return { ok: true }
   }

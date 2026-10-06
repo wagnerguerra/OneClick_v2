@@ -65,9 +65,10 @@ export function RichContent({ html, className, style }: {
         '[&_th>p]:m-0 [&_td>p]:m-0',
         // Marcações inline.
         '[&_strong]:font-semibold [&_em]:italic [&_u]:underline [&_s]:line-through',
-        // Links e imagens: o editor já grava classe própria no HTML que ele
-        // gera, mas conteúdo antigo (ou colado de fora) vem sem — daí o fallback.
-        '[&_a]:underline [&_img]:max-w-full [&_img]:rounded',
+        // Links e imagens. A cor do link vem daqui (primária legível sobre a
+        // superfície) e vence a classe `text-primary` que o editor gravava no
+        // HTML antigo — [&_a] é mais específico que a classe no próprio <a>.
+        '[&_a]:underline [&_a]:text-primary-on-surface [&_img]:max-w-full [&_img]:rounded',
         className,
       )}
       dangerouslySetInnerHTML={{ __html: html }}

@@ -101,7 +101,7 @@ export default function DocumentosInternosPage() {
       text: d._count.versoes === 1
         ? 'O documento e a sua única revisão serão apagados.'
         : `O documento e as suas ${d._count.versoes} revisões serão apagados.`,
-      icon: 'warning', confirmText: 'Excluir',
+      icon: 'warning', confirmText: 'Excluir', destructive: true,
     })
     if (!ok) return
     try {
@@ -144,6 +144,10 @@ export default function DocumentosInternosPage() {
       <Card>
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
+            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
+            </Select>
             <Select value={situacao || '__all__'} onValueChange={(v) => { setSituacao(v === '__all__' ? '' : v); setPage(1) }}>
               <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
               <SelectContent>
@@ -170,12 +174,8 @@ export default function DocumentosInternosPage() {
                 Limpar ({filtrosAtivos})
               </Button>
             )}
-            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
-            </Select>
           </div>
-          <div className="max-w-xs w-full sm:w-auto">
+          <div className="w-full sm:w-[272px]">
             <Input placeholder="Buscar pelo nome..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
@@ -190,7 +190,9 @@ export default function DocumentosInternosPage() {
               <TableHead className="w-[70px] text-center">Rev.</TableHead>
               <TableHead className="w-[150px]">Situação</TableHead>
               <TableHead className="hidden sm:table-cell w-[110px]">Data</TableHead>
-              <TableHead className="w-[110px] text-right">Ações</TableHead>
+              {/* 140px = 3 botões icon-sm (32px) + gaps + padding da célula (px-4).
+                  Com 110 a coluna fixa espremia os botões no flex. */}
+              <TableHead className="w-[140px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

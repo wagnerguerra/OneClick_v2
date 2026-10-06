@@ -22,8 +22,6 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 
-const MODULE_COLOR = 'var(--mod-fiscal, #0369a1)'
-
 interface ClienteAgregadoNFSe {
   clienteId: string | null
   razaoSocial: string
@@ -107,8 +105,7 @@ export default function NFSePage() {
         <Button
           size="sm"
           disabled
-          className="gap-1.5 text-white opacity-60 cursor-not-allowed"
-          style={{ backgroundColor: MODULE_COLOR }}
+          className="gap-1.5 opacity-60 cursor-not-allowed"
           title="Upload manual disponível em breve"
         >
           <Upload className="h-3.5 w-3.5" /> Upload XML

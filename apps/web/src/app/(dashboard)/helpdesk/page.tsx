@@ -39,8 +39,6 @@ import { NovoTicketModal } from './_components/novo-ticket-modal'
 import { TicketDetalheCompletoSheet } from './_components/ticket-detalhe-completo-sheet'
 import { HELPDESK_STATUS_COR } from './_lib/status-styles'
 
-const MODULO_COLOR = 'var(--mod-ti, #22d3ee)'
-
 interface Ticket {
   id: string
   numero: number
@@ -356,6 +354,7 @@ export default function HelpdeskPage() {
       text: 'O chamado fica registrado como cancelado e sai da fila de atendimento.',
       confirmText: 'Cancelar chamado',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -550,7 +549,7 @@ export default function HelpdeskPage() {
               <SlidersHorizontal className="h-4 w-4" />
               Filtros
               {filtrosAtivos > 0 && (
-                <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none text-white" style={{ backgroundColor: MODULO_COLOR }}>{filtrosAtivos}</span>
+                <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none bg-primary text-primary-foreground">{filtrosAtivos}</span>
               )}
             </button>
           {/* Toggle Kanban/Lista — só TI (podeAtuar). Demais usuários veem só Lista. */}
@@ -577,8 +576,7 @@ export default function HelpdeskPage() {
           <Button
             size="sm"
             onClick={() => setNovoOpen(true)}
-            style={{ backgroundColor: MODULO_COLOR }}
-            className="text-white gap-1.5"
+            className="gap-1.5"
           >
             <Plus className="h-4 w-4" /> Novo Ticket
           </Button>
@@ -1089,7 +1087,7 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
 
   // Badge informativo: o que pede atenção, do mais urgente ao menos.
   const avisos: Array<{ curto: string; label: string; detalhe?: string; Icon: typeof Bug; cor: string }> = []
-  if (ticket.aguardandoResposta) avisos.push({ curto: 'Respondeu', label: 'Solicitante respondeu', detalhe: 'Aguardando o agente', Icon: MessageSquare, cor: '#0891b2' })
+  if (ticket.aguardandoResposta) avisos.push({ curto: 'Respondeu', label: 'Solicitante respondeu', detalhe: 'Aguardando o agente', Icon: MessageSquare, cor: 'var(--color-primary-on-surface)' })
   if (sla?.estado === 'vencido') avisos.push({ curto: 'SLA vencido', label: 'SLA vencido', detalhe: sla.texto, Icon: AlertTriangle, cor: '#e11d48' })
   else if (sla?.estado === 'vencendo') avisos.push({ curto: 'SLA vencendo', label: 'SLA vencendo', detalhe: sla.texto, Icon: Clock, cor: '#d97706' })
   if (ticket.prioridade === 'URGENTE' || ticket.prioridade === 'ALTA') {
@@ -1104,8 +1102,8 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
         // drag continua funcionando.
         'group relative cursor-pointer overflow-hidden rounded-md border border-border/60 bg-white dark:bg-card',
         dragging && 'shadow-lg',
-        // Solicitante respondeu — anel ciano (a vez é do agente).
-        ticket.aguardandoResposta && 'border-cyan-400/60 ring-2 ring-cyan-400 dark:ring-cyan-500',
+        // Solicitante respondeu — anel na primária (a vez é do agente).
+        ticket.aguardandoResposta && 'border-primary/60 ring-2 ring-primary',
       )}
     >
       {/* Cabeçalho — tipo + título; nº do ticket e badge informativo à direita */}
@@ -1123,8 +1121,9 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
               <TooltipTrigger asChild>
                 <span
                   className="inline-flex max-w-[110px] cursor-help items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold"
-                  // Cor inline (fundo = a cor com ~10% de alfa): em classe, o vermelho sofre o retint do módulo.
-                  style={{ backgroundColor: `${aviso.cor}1A`, color: aviso.cor }}
+                  // Cor inline (fundo = a cor com ~10% de alfa): a cor do aviso vem pronta.
+                  // color-mix em vez de sufixo hex de alfa: aceita tanto hex quanto var (o "Respondeu" é a primária).
+                  style={{ backgroundColor: `color-mix(in srgb, ${aviso.cor} 10%, transparent)`, color: aviso.cor }}
                   onClick={e => e.stopPropagation()}
                   onPointerDown={e => e.stopPropagation()}
                 >
@@ -1382,7 +1381,7 @@ function TicketRow({ ticket, onUnarchive, onArchive, currentUserId, onCancelar, 
           {podeCancelar && (
             <DropdownMenuItem
               onClick={() => onCancelar!(ticket)}
-              className={cn('gap-2 focus:text-rose-600 dark:focus:text-rose-400', TEXT.rose)}
+              className="gap-2 text-destructive focus:text-destructive"
             >
               <XCircle className="h-3.5 w-3.5" />
               Cancelar

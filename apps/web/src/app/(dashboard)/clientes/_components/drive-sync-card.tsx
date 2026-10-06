@@ -475,7 +475,7 @@ export function DriveSyncCard({ clienteId }: DriveSyncCardProps) {
               size="sm"
               onClick={handleVincular}
               disabled={vinculando || !folderInput.trim()}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              variant="success"
             >
               {vinculando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Vincular'}
             </Button>
@@ -613,7 +613,7 @@ function PastaLocalSection({
             size="sm"
             onClick={handleSalvar}
             disabled={salvando || !dirty}
-            className="bg-sky-600 hover:bg-sky-700 text-white"
+            variant="success"
           >
             {salvando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
             {salvando ? 'Salvando...' : 'Salvar configuração'}
@@ -1252,7 +1252,7 @@ function NfeSefazSection({
             size="sm"
             onClick={handleSalvar}
             disabled={salvando || !dirty}
-            className="bg-sky-600 hover:bg-sky-700 text-white"
+            variant="success"
           >
             {salvando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
             {salvando ? 'Salvando...' : 'Salvar configuração'}
@@ -1488,7 +1488,7 @@ function NfseNacionalSection({
             size="sm"
             onClick={handleSalvar}
             disabled={salvando || !dirty}
-            className="bg-sky-600 hover:bg-sky-700 text-white"
+            variant="success"
           >
             {salvando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
             {salvando ? 'Salvando...' : 'Salvar configuração'}

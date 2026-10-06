@@ -98,7 +98,7 @@ export default function FornecedoresPage() {
     const confirmed = await alerts.confirm({
       title: 'Inativar fornecedor?',
       text: `"${name}" deixará de aparecer na lista, mas o histórico é mantido. Você pode reativá-lo depois em "Mostrar inativos".`,
-      icon: 'warning', confirmText: 'Inativar',
+      icon: 'warning', confirmText: 'Inativar', destructive: true,
     })
     if (!confirmed) return
     try {

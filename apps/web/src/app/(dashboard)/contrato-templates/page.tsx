@@ -20,7 +20,6 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { CLAUSULA_CATEGORIA_LABELS, type ClausulaCategoria } from '@saas/types'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
 
 interface Clausula {
   id: string
@@ -148,7 +147,7 @@ export default function ContratoTemplatesPage() {
   }
 
   async function handleExcluir(t: Template) {
-    const ok = await alerts.confirm({ title: 'Desativar modelo?', text: t.nome, confirmText: 'Desativar', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Desativar modelo?', text: t.nome, confirmText: 'Desativar', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.contrato as any).deleteTemplate.mutate({ id: t.id })
@@ -246,7 +245,7 @@ export default function ContratoTemplatesPage() {
     <div className="space-y-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-          <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={openCreate}>
+          <Button size="sm" className="gap-1.5" onClick={openCreate}>
             <Plus className="h-4 w-4" /> Novo Modelo
           </Button>
       </>}>
@@ -271,7 +270,7 @@ export default function ContratoTemplatesPage() {
         <Card className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <FileBox className="h-10 w-10 opacity-30 mb-3" />
           <p className="text-sm mb-3">Nenhum modelo cadastrado</p>
-          <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={openCreate}>
+          <Button size="sm" className="gap-1.5" onClick={openCreate}>
             <Plus className="h-4 w-4" /> Criar primeiro modelo
           </Button>
         </Card>
@@ -300,7 +299,7 @@ export default function ContratoTemplatesPage() {
                     <DropdownMenuItem onClick={() => handleDuplicar(t)} className="text-xs gap-2 cursor-pointer">
                       <CopyIcon className="h-3.5 w-3.5" /> Duplicar
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleExcluir(t)} className="text-xs gap-2 text-destructive cursor-pointer">
+                    <DropdownMenuItem onClick={() => handleExcluir(t)} className="text-xs gap-2 text-destructive focus:text-destructive cursor-pointer">
                       <Trash2 className="h-3.5 w-3.5" /> Desativar
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -390,7 +389,7 @@ export default function ContratoTemplatesPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditorOpen(false)} disabled={salvando}>Cancelar</Button>
-            <Button size="sm" onClick={handleSalvar} disabled={salvando} style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5">
+            <Button size="sm" onClick={handleSalvar} disabled={salvando} variant="success" className="gap-1.5">
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {editing ? 'Salvar' : 'Criar'}
             </Button>
@@ -470,7 +469,7 @@ export default function ContratoTemplatesPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOrgOpen(false)} disabled={orgSavingClausulas}>Cancelar</Button>
-            <Button size="sm" onClick={salvarOrganizacao} disabled={orgSavingClausulas} style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5">
+            <Button size="sm" onClick={salvarOrganizacao} disabled={orgSavingClausulas} variant="success" className="gap-1.5">
               {orgSavingClausulas ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Salvar organização
             </Button>

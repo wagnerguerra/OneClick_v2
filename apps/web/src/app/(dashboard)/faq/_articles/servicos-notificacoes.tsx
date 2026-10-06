@@ -5,10 +5,11 @@ import {
   CheckCircle2, PlayCircle, HelpCircle,
 } from 'lucide-react'
 import { ArticleShell } from '../_components/article-shell'
+import { corDoArtigo } from '../_components/articles-catalog'
 import { Section, Step, Callout, DefRow } from '../_components/article-blocks'
 
-const MODULO_COLOR = 'var(--mod-cadastros, #10b981)'
-const FAQ_COLOR = 'var(--mod-ajuda, #0891b2)'
+const MODULO_COLOR = corDoArtigo('servicos-notificacoes')
+const FAQ_COLOR = 'var(--color-primary)'
 
 export default function FaqServicosNotificacoesPage() {
   return (

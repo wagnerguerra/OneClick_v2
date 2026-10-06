@@ -54,19 +54,19 @@ export function createDocumentoInternoRouter(service: DocumentoInternoService) {
       .input(atualizarDocumentoSchema)
       .mutation(({ input, ctx }) => service.atualizar(input, ctx.userId, ctx.empresaId)),
 
-    novaRevisao: writeSubProcedure(MODULE, 'gerenciar', 'Publicar revisoes')
+    novaRevisao: writeSubProcedure(MODULE, 'gerenciar', 'Publicar revisões')
       .input(novaRevisaoSchema)
       .mutation(({ input, ctx }) => service.novaRevisao(input, ctx.userId, ctx.empresaId)),
 
-    enviarParaAprovacao: writeSubProcedure(MODULE, 'gerenciar', 'Publicar revisoes')
+    enviarParaAprovacao: writeSubProcedure(MODULE, 'gerenciar', 'Publicar revisões')
       .input(z.object({ versaoId: z.string() }))
       .mutation(({ input, ctx }) => service.enviarParaAprovacao(input.versaoId, ctx.userId, ctx.empresaId)),
 
-    aprovar: writeSubProcedure(MODULE, 'aprovar', 'Aprovar revisoes')
+    aprovar: writeSubProcedure(MODULE, 'aprovar', 'Aprovar revisões')
       .input(aprovarRevisaoSchema)
       .mutation(({ input, ctx }) => service.aprovar(input, ctx.userId, ctx.empresaId)),
 
-    cancelarRevisao: writeSubProcedure(MODULE, 'gerenciar', 'Publicar revisoes')
+    cancelarRevisao: writeSubProcedure(MODULE, 'gerenciar', 'Publicar revisões')
       .input(z.object({ versaoId: z.string() }))
       .mutation(({ input, ctx }) => service.cancelarRevisao(input.versaoId, ctx.userId, ctx.empresaId)),
 

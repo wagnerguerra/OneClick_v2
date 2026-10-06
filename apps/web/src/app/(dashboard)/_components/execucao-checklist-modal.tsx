@@ -10,6 +10,7 @@ import {
   Collapsible, CollapsibleTrigger, CollapsibleContent,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { FILL, TEXT } from '@/lib/color-styles'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -274,7 +275,7 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
       }
       texto += '\n\nCancelar a execução não desfaz o orçamento nem o card do CRM, mas eles ficam visivelmente sem serviço ativo. Confirmar?'
     }
-    const ok = await alerts.confirm({ title: 'Cancelar execução', text: texto, icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Cancelar execução', text: texto, icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.servico as any).cancelarExecucao.mutate({ id: execucao.id })
@@ -387,10 +388,11 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Progresso</span>
-                    <span className="font-semibold" style={{ color: accentColor }}>{progressPct}% ({concluidos}/{totalPassos})</span>
+                    {/* Progresso = verde semântico (não a cor de destaque da página). */}
+                    <span className={cn('font-semibold', TEXT.emerald)}>{progressPct}% ({concluidos}/{totalPassos})</span>
                   </div>
                   <div className="h-2.5 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-300" style={{ width: `${progressPct}%`, backgroundColor: accentColor }} />
+                    <div className={cn('h-full rounded-full transition-all duration-300', FILL.emerald)} style={{ width: `${progressPct}%` }} />
                   </div>
                 </div>
 
@@ -824,7 +826,8 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
               size="sm"
               onClick={handlePausar}
               disabled={!pausarMotivo.trim()}
-              className="gap-1.5 text-white bg-amber-500 hover:bg-amber-600"
+              variant="warning"
+              className="gap-1.5"
             >
               <Pause className="h-4 w-4" /> Pausar
             </Button>

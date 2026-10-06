@@ -6,12 +6,12 @@ import {
   Button, Badge, Checkbox, Input, Switch, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { FILL, TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { limparCnpj } from '@/lib/masks'
-import { MODULE_COLOR, LoteItemIcon, formatDoc, toggleSet } from '../_lib/ui'
+import { LoteItemIcon, formatDoc, toggleSet } from '../_lib/ui'
 import { carregarClientesMensais } from '../_lib/api'
 import type { ClienteOpcao } from './dialogs'
 
@@ -112,7 +112,7 @@ export function FederalLoteDialog({ open, onOpenChange, onConcluido }: { open: b
                   <span className="font-medium tabular-nums">{prog.atual} / {prog.total}</span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${prog.total ? (prog.atual / prog.total) * 100 : 0}%`, backgroundColor: MODULE_COLOR }} />
+                  <div className={cn('h-full rounded-full transition-all duration-500', FILL.emerald)} style={{ width: `${prog.total ? (prog.atual / prog.total) * 100 : 0}%` }} />
                 </div>
               </div>
               {prog.running && prog.item && <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 shrink-0 animate-spin" /><span className="truncate">{prog.item}</span></div>}
@@ -219,8 +219,7 @@ export function AgendamentoDialog({ open, onOpenChange, onConcluido }: { open: b
   }
 
   const parsed = cfg ? parseCron(cfg.cron) : null
-  const pill = (ativo: boolean) => cn('rounded-md border px-2.5 py-1.5 text-[11px] font-medium transition-all', ativo ? 'text-white shadow-sm' : 'border-border/60 text-muted-foreground hover:border-foreground/30')
-  const pillStyle = (ativo: boolean) => ativo ? { backgroundColor: MODULE_COLOR, borderColor: MODULE_COLOR } : undefined
+  const pill = (ativo: boolean) => cn('rounded-md border px-2.5 py-1.5 text-[11px] font-medium transition-all', ativo ? 'border-primary bg-primary text-primary-foreground shadow-sm' : 'border-border/60 text-muted-foreground hover:border-foreground/30')
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -244,7 +243,7 @@ export function AgendamentoDialog({ open, onOpenChange, onConcluido }: { open: b
                   {DIAS_SEMANA.map(d => {
                     const ativo = parsed.dias.includes(d.key)
                     return (
-                      <button key={d.key} type="button" className={pill(ativo)} style={pillStyle(ativo)} onClick={() => {
+                      <button key={d.key} type="button" className={pill(ativo)} onClick={() => {
                         const dias = ativo ? parsed.dias.filter(x => x !== d.key) : [...parsed.dias, d.key]
                         if (dias.length) setCfg({ ...cfg, cron: buildCron(dias, parsed.horas) })
                       }}>{d.label}</button>
@@ -258,7 +257,7 @@ export function AgendamentoDialog({ open, onOpenChange, onConcluido }: { open: b
                   {HORAS.map(h => {
                     const ativo = parsed.horas.includes(h)
                     return (
-                      <button key={h} type="button" className={cn(pill(ativo), 'min-w-[40px] px-2 py-1 font-mono')} style={pillStyle(ativo)} onClick={() => {
+                      <button key={h} type="button" className={cn(pill(ativo), 'min-w-[40px] px-2 py-1 font-mono')} onClick={() => {
                         const horas = ativo ? parsed.horas.filter(x => x !== h) : [...parsed.horas, h]
                         if (horas.length) setCfg({ ...cfg, cron: buildCron(parsed.dias, horas) })
                       }}>{String(h).padStart(2, '0')}h</button>
@@ -271,7 +270,7 @@ export function AgendamentoDialog({ open, onOpenChange, onConcluido }: { open: b
                   <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-2 text-xs">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" /><span className="font-medium">Processando {prog.current}/{prog.total}</span>
                   </div>
-                  <div className="h-1.5 bg-muted"><div className="h-full transition-all duration-500" style={{ width: `${prog.total > 0 ? (prog.current / prog.total) * 100 : 0}%`, backgroundColor: MODULE_COLOR }} /></div>
+                  <div className="h-1.5 bg-muted"><div className={cn('h-full transition-all duration-500', FILL.emerald)} style={{ width: `${prog.total > 0 ? (prog.current / prog.total) * 100 : 0}%` }} /></div>
                   <div className="nice-scrollbar max-h-[200px] divide-y overflow-y-auto">
                     {prog.items.map((item, i) => (
                       <div key={i} className={cn('flex items-center gap-2 px-3 py-1.5 text-[11px]', item.status === 'processando' && 'bg-muted/40 font-medium')}>
@@ -288,7 +287,7 @@ export function AgendamentoDialog({ open, onOpenChange, onConcluido }: { open: b
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={executarAgora} disabled={prog?.status === 'running'} className="gap-1.5"><Play className="h-3.5 w-3.5" />Executar agora</Button>
-          <Button size="sm" onClick={salvar} disabled={saving || !cfg} className="gap-1.5">
+          <Button variant="success" size="sm" onClick={salvar} disabled={saving || !cfg} className="gap-1.5">
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}Salvar
           </Button>
         </DialogFooter>

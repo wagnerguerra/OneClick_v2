@@ -72,7 +72,7 @@ export class UploadController {
         const blocked = ['.exe', '.bat', '.cmd', '.sh', '.msi', '.dll']
         const ext = extname(file.originalname).toLowerCase()
         if (blocked.includes(ext)) {
-          cb(new BadRequestException('Tipo de arquivo nao permitido por seguranca.'), false)
+          cb(new BadRequestException('Tipo de arquivo não permitido por segurança.'), false)
         } else {
           cb(null, true)
         }

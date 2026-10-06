@@ -1212,7 +1212,7 @@ function EventoRequestForm({
       {/* Footer */}
       <div className="px-4 py-3 border-t border-border bg-muted/30 flex items-center justify-end gap-2">
         <Button variant="outline" size="sm" onClick={onCancel} disabled={enviando}>Cancelar</Button>
-        <Button size="sm" onClick={handleCriar} disabled={enviando || !titulo.trim() || !tipoId} className="gap-1.5 text-white" style={{ background: accent }}>
+        <Button size="sm" variant="success" onClick={handleCriar} disabled={enviando || !titulo.trim() || !tipoId} className="gap-1.5">
           {enviando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CalendarPlus className="h-3.5 w-3.5" />}
           Criar evento
         </Button>

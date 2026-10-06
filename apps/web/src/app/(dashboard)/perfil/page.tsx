@@ -34,7 +34,7 @@ import {
   type SignatureTemplate,
 } from '@/lib/signature-html'
 
-const MODULE_COLOR = 'var(--mod-perfil, #5ea3cb)' // azul primário do sistema
+const PRIMARY = 'var(--color-primary)'
 
 interface MyProfile {
   id: string
@@ -282,7 +282,7 @@ export default function MeuPerfilPage() {
     } catch { setTrustedDevices([]) }
   }
   async function handleRevokeDevice(id: string) {
-    const ok = await alerts.confirm({ title: 'Revogar este dispositivo?', text: 'O próximo login deste dispositivo exigirá novamente o código MFA.', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Revogar este dispositivo?', text: 'O próximo login deste dispositivo exigirá novamente o código MFA.', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.user as any).revokeMyTrustedDevice.mutate({ id })
@@ -292,7 +292,7 @@ export default function MeuPerfilPage() {
   }
   async function handleRevokeAllDevices() {
     if (trustedDevices.length === 0) return
-    const ok = await alerts.confirm({ title: 'Revogar todos?', text: `Os ${trustedDevices.length} dispositivos confiáveis serão removidos. Em todos eles o MFA será exigido novamente no próximo login.`, icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Revogar todos?', text: `Os ${trustedDevices.length} dispositivos confiáveis serão removidos. Em todos eles o MFA será exigido novamente no próximo login.`, icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.user as any).revokeAllMyTrustedDevices.mutate()
@@ -512,7 +512,7 @@ export default function MeuPerfilPage() {
   }
 
   async function removeSignaturePhoto() {
-    const ok = await alerts.confirm({ title: 'Remover foto da assinatura?', text: 'A foto será apagada — você pode subir outra depois.', confirmText: 'Remover' })
+    const ok = await alerts.confirm({ title: 'Remover foto da assinatura?', text: 'A foto será apagada — você pode subir outra depois.', confirmText: 'Remover', destructive: true })
     if (!ok) return
     setUploadingSignature(true)
     try {
@@ -690,7 +690,7 @@ export default function MeuPerfilPage() {
   }
 
   async function handleCoverRemove() {
-    const ok = await alerts.confirm({ title: 'Remover capa?', text: 'A imagem de fundo personalizada será removida e voltará ao padrão.', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Remover capa?', text: 'A imagem de fundo personalizada será removida e voltará ao padrão.', icon: 'warning', destructive: true })
     if (!ok) return
     setUploadingCover(true)
     try {
@@ -729,11 +729,16 @@ export default function MeuPerfilPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-0">
       {/* Banner de fundo + Avatar/Nome + Tabs — wrapper unico (mesmo padrao /orcamentos/[id]) */}
       <div
-        className="-mx-4 sm:-mx-6 relative overflow-hidden group/cover"
+        // Intensidade do degradê por tema (vars trocadas pelo `dark:`): no light a
+        // primária pesa bem menos — um banner deste tamanho gritava.
+        className="-mx-4 sm:-mx-6 relative overflow-hidden group/cover [--banner-a:18%] [--banner-b:12%] [--banner-c:24%] dark:[--banner-a:38%] dark:[--banner-b:30%] dark:[--banner-c:44%]"
+        // Degradê do banner padrão — adaptação do original (azul claro → azul mais
+        // escuro, 135°) para a primária: começa na primária e termina num tom mais
+        // escuro dela, misturado com o fundo do tema; o texto usa tokens e lê nos dois temas.
         style={{
           background: profile.coverImage
             ? undefined
-            : `linear-gradient(135deg, ${MODULE_COLOR} 0%, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent) 60%, #4a8db5 100%)`,
+            : `linear-gradient(135deg, color-mix(in srgb, ${PRIMARY} var(--banner-a), var(--color-background)) 0%, color-mix(in srgb, ${PRIMARY} var(--banner-b), var(--color-background)) 60%, color-mix(in srgb, color-mix(in srgb, ${PRIMARY} 80%, black) var(--banner-c), var(--color-background)) 100%)`,
         }}
       >
         {/* Imagem de fundo personalizada — em tamanho natural; tile (repeat) quando menor que o wrapper */}
@@ -754,13 +759,14 @@ export default function MeuPerfilPage() {
         {profile.coverImage && (
           <div
             className="absolute inset-0"
-            style={{ backgroundImage: `linear-gradient(to right, transparent 0%, color-mix(in srgb, ${MODULE_COLOR} 80%, transparent) 100%)` }}
+            style={{ backgroundImage: `linear-gradient(to right, transparent 0%, color-mix(in srgb, ${PRIMARY} 55%, transparent) 100%)` }}
           />
         )}
-        {/* Decoração: blobs sutis (apenas no modo gradiente padrao) */}
+        {/* Decoração: bolinhas sutis (apenas no modo gradiente padrão) — na cor do
+            texto do tema: escuras no light, claras no dark (branco fixo sumia no light) */}
         {!profile.coverImage && (
           <div className="absolute inset-0 opacity-10" style={{
-            backgroundImage: 'radial-gradient(circle at 20% 30%, white 1px, transparent 1px), radial-gradient(circle at 80% 70%, white 1px, transparent 1px)',
+            backgroundImage: 'radial-gradient(circle at 20% 30%, var(--color-foreground) 1px, transparent 1px), radial-gradient(circle at 80% 70%, var(--color-foreground) 1px, transparent 1px)',
             backgroundSize: '40px 40px, 60px 60px',
           }} />
         )}
@@ -819,9 +825,9 @@ export default function MeuPerfilPage() {
                   user={{ name: profile.name, image: profile.image }}
                   className="h-[88px] w-[88px] text-2xl ring-2 ring-white shadow-lg"
                   bg="bg-white dark:bg-gray-800"
-                  fg="text-[var(--mod-perfil,#5ea3cb)]"
+                  fg="text-primary"
                 />
-                <div className="absolute bottom-0 right-0 h-7 w-7 rounded-full flex items-center justify-center shadow-lg border-2 border-white group-hover:scale-110 transition-transform" style={{ backgroundColor: MODULE_COLOR }}>
+                <div className="absolute bottom-0 right-0 h-7 w-7 rounded-full flex items-center justify-center shadow-lg border-2 border-white group-hover:scale-110 transition-transform" style={{ backgroundColor: PRIMARY }}>
                   {uploadingAvatar ? (
                     <Loader2 className="h-3.5 w-3.5 text-white animate-spin" />
                   ) : (
@@ -875,24 +881,19 @@ export default function MeuPerfilPage() {
         {/* Tabs em pills — mesmo padrão de /orcamentos/[id] (cor do módulo: blue/sky) */}
         <div className="relative z-10 px-4 sm:px-6 pb-2 overflow-x-auto nice-scrollbar flex justify-center">
           <SlidingTabsList activeValue={activeTab} className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit">
-            <TabsTrigger value="overview" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-perfil,#5ea3cb)] dark:data-[state=active]:!text-[color-mix(in_srgb,var(--mod-perfil,#5ea3cb)_50%,white)] dark:data-[state=active]:!bg-transparent gap-1.5">
+            <TabsTrigger value="overview" variant="sliding">
               <UserIcon className="h-3.5 w-3.5" /> Visão Geral
             </TabsTrigger>
-            <TabsTrigger value="dados" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-perfil,#5ea3cb)] dark:data-[state=active]:!text-[color-mix(in_srgb,var(--mod-perfil,#5ea3cb)_50%,white)] dark:data-[state=active]:!bg-transparent gap-1.5">
+            <TabsTrigger value="dados" variant="sliding">
               <Pencil className="h-3.5 w-3.5" /> Meus Dados
             </TabsTrigger>
-            <TabsTrigger value="carteira" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-perfil,#5ea3cb)] dark:data-[state=active]:!text-[color-mix(in_srgb,var(--mod-perfil,#5ea3cb)_50%,white)] dark:data-[state=active]:!bg-transparent gap-1.5">
+            <TabsTrigger value="carteira" variant="sliding" count={carteiraLoading ? undefined : carteira.length}>
               <Users className="h-3.5 w-3.5" /> Carteira
-              {!carteiraLoading && carteira.length > 0 && (
-                <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-sky-500/15 text-sky-700 dark:text-sky-300 text-[10px] font-bold tabular-nums">
-                  {carteira.length}
-                </span>
-              )}
             </TabsTrigger>
-            <TabsTrigger value="assinatura" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-perfil,#5ea3cb)] dark:data-[state=active]:!text-[color-mix(in_srgb,var(--mod-perfil,#5ea3cb)_50%,white)] dark:data-[state=active]:!bg-transparent gap-1.5">
+            <TabsTrigger value="assinatura" variant="sliding">
               <Mail className="h-3.5 w-3.5" /> Assinatura
             </TabsTrigger>
-            <TabsTrigger value="seguranca" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-perfil,#5ea3cb)] dark:data-[state=active]:!text-[color-mix(in_srgb,var(--mod-perfil,#5ea3cb)_50%,white)] dark:data-[state=active]:!bg-transparent gap-1.5">
+            <TabsTrigger value="seguranca" variant="sliding">
               <Shield className="h-3.5 w-3.5" /> Segurança
             </TabsTrigger>
           </SlidingTabsList>
@@ -907,7 +908,7 @@ export default function MeuPerfilPage() {
             <div className="lg:col-span-5 space-y-6">
               <Card>
                 <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">
-                  <UserIcon className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                  <UserIcon className="h-4 w-4" style={{ color: PRIMARY }} />
                   <h3 className="text-sm font-semibold flex-1">Informações</h3>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -926,7 +927,7 @@ export default function MeuPerfilPage() {
             <div className="lg:col-span-7 space-y-6">
               <Card>
                 <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">
-                  <Globe className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                  <Globe className="h-4 w-4" style={{ color: PRIMARY }} />
                   <h3 className="text-sm font-semibold flex-1">Último Acesso</h3>
                 </CardHeader>
                 <CardContent className="p-5">
@@ -953,15 +954,14 @@ export default function MeuPerfilPage() {
 
               <Card>
                 <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">
-                  <Shield className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                  <Shield className="h-4 w-4" style={{ color: PRIMARY }} />
                   <h3 className="text-sm font-semibold flex-1">Segurança</h3>
                 </CardHeader>
                 <CardContent className="p-5 space-y-3">
                   <p className="text-sm text-muted-foreground">Mantenha sua senha forte e única para garantir a segurança da sua conta.</p>
                   <Button
                     size="sm"
-                    style={{ backgroundColor: MODULE_COLOR }}
-                    className="text-white gap-1.5"
+                    className="gap-1.5"
                     onClick={() => setPwdModal(true)}
                   >
                     <Key className="h-4 w-4" /> Alterar senha
@@ -978,7 +978,7 @@ export default function MeuPerfilPage() {
             {/* CARD 1: PESSOAL */}
             <Card>
               <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">
-                <UserIcon className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <UserIcon className="h-4 w-4" style={{ color: PRIMARY }} />
                 <h3 className="text-sm font-semibold flex-1">Informações Pessoais</h3>
               </CardHeader>
               <CardContent className="p-5 space-y-3">
@@ -1053,7 +1053,7 @@ export default function MeuPerfilPage() {
             {/* CARD 2: CONTATO */}
             <Card>
               <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">
-                <Phone className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <Phone className="h-4 w-4" style={{ color: PRIMARY }} />
                 <h3 className="text-sm font-semibold flex-1">Contato</h3>
               </CardHeader>
               <CardContent className="p-5">
@@ -1083,7 +1083,7 @@ export default function MeuPerfilPage() {
             {/* CARD 3: ENDEREÇO */}
             <Card>
               <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">
-                <MapPin className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <MapPin className="h-4 w-4" style={{ color: PRIMARY }} />
                 <h3 className="text-sm font-semibold flex-1">Endereço</h3>
               </CardHeader>
               <CardContent className="p-5">
@@ -1127,7 +1127,7 @@ export default function MeuPerfilPage() {
             {/* CARD 4: SOCIAIS */}
             <Card>
               <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">
-                <Globe className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <Globe className="h-4 w-4" style={{ color: PRIMARY }} />
                 <h3 className="text-sm font-semibold flex-1">Redes sociais e links</h3>
               </CardHeader>
               <CardContent className="p-5">
@@ -1170,8 +1170,8 @@ export default function MeuPerfilPage() {
             <div className="lg:col-span-2 flex justify-end sticky bottom-4 z-10">
               <Button
                 size="sm"
-                style={{ backgroundColor: MODULE_COLOR }}
-                className="text-white gap-1.5 shadow-lg"
+                variant="success"
+                className="gap-1.5 shadow-lg"
                 onClick={handleSaveProfile}
                 disabled={savingProfile}
               >
@@ -1205,7 +1205,7 @@ export default function MeuPerfilPage() {
 
           <Card>
             <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">
-              <Users className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <Users className="h-4 w-4" style={{ color: PRIMARY }} />
               <h3 className="text-sm font-semibold flex-1">Carteira de clientes</h3>
               <div className="flex items-center gap-2">
                 {/* Filtro por role */}
@@ -1218,10 +1218,9 @@ export default function MeuPerfilPage() {
                       className={cn(
                         'px-2.5 py-1 text-[11px] font-medium transition-colors',
                         carteiraFiltroRole === opt
-                          ? 'text-white'
+                          ? 'bg-primary text-primary-foreground'
                           : 'text-muted-foreground hover:text-foreground',
                       )}
-                      style={carteiraFiltroRole === opt ? { backgroundColor: MODULE_COLOR } : undefined}
                     >
                       {opt === 'TODOS' ? 'Todos' : opt === 'RESP' ? 'Responsável' : 'Substituto'}
                     </button>
@@ -1242,7 +1241,7 @@ export default function MeuPerfilPage() {
             <CardContent className="p-0">
               {carteiraLoading ? (
                 <div className="flex items-center justify-center py-10 gap-2 text-muted-foreground text-sm">
-                  <Loader2 className="h-4 w-4 animate-spin" style={{ color: MODULE_COLOR }} />
+                  <Loader2 className="h-4 w-4 animate-spin" style={{ color: PRIMARY }} />
                   Carregando carteira...
                 </div>
               ) : carteiraFiltrada.length === 0 ? (
@@ -1308,7 +1307,7 @@ export default function MeuPerfilPage() {
             {/* Card: Foto da assinatura */}
             <Card>
               <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">
-                <ImageIcon className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <ImageIcon className="h-4 w-4" style={{ color: PRIMARY }} />
                 <h3 className="text-sm font-semibold flex-1">Foto da assinatura</h3>
               </CardHeader>
               <CardContent className="p-5 space-y-3">
@@ -1333,8 +1332,7 @@ export default function MeuPerfilPage() {
                   <div className="flex flex-col gap-2 w-full">
                     <Button
                       size="sm"
-                      className="text-white gap-1.5"
-                      style={{ backgroundColor: MODULE_COLOR }}
+                      className="gap-1.5"
                       onClick={() => signatureFileInputRef.current?.click()}
                       disabled={uploadingSignature}
                     >
@@ -1369,7 +1367,7 @@ export default function MeuPerfilPage() {
             <Card className="lg:col-span-2">
               <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                  <Mail className="h-4 w-4" style={{ color: PRIMARY }} />
                   <h3 className="text-sm font-semibold">Sua assinatura</h3>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1430,7 +1428,7 @@ export default function MeuPerfilPage() {
         <TabsContent value="seguranca" className="mt-6">
           <Card className="max-w-2xl">
             <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">
-              <Shield className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <Shield className="h-4 w-4" style={{ color: PRIMARY }} />
               <h3 className="text-sm font-semibold flex-1">Segurança da Conta</h3>
             </CardHeader>
             <CardContent className="p-5 space-y-3">
@@ -1493,7 +1491,7 @@ export default function MeuPerfilPage() {
                     <Trash2 className="h-3.5 w-3.5" /> Desabilitar
                   </Button>
                 ) : (
-                  <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={abrirEnableMFA}>
+                  <Button size="sm" className="gap-1.5" onClick={abrirEnableMFA}>
                     <Shield className="h-3.5 w-3.5" /> Habilitar
                   </Button>
                 )}
@@ -1592,8 +1590,8 @@ export default function MeuPerfilPage() {
             <Button variant="outline" size="sm" onClick={() => setPwdModal(false)} disabled={savingPwd}>Cancelar</Button>
             <Button
               size="sm"
-              style={{ backgroundColor: MODULE_COLOR }}
-              className="text-white gap-1.5"
+              variant="success"
+              className="gap-1.5"
               onClick={handleChangePassword}
               disabled={savingPwd || !pwdCurrent || !pwdNew || pwdNew !== pwdConfirm}
             >
@@ -1607,7 +1605,7 @@ export default function MeuPerfilPage() {
       {/* Modal Habilitar MFA — fluxo: senha → QR + verificação → backup codes */}
       <Dialog open={mfaEnableModal} onOpenChange={open => { if (!open) setMfaEnableModal(false) }}>
         <DialogContent className="sm:max-w-[520px]">
-          <DialogHeaderIcon icon={Shield} color="sky">
+          <DialogHeaderIcon icon={Shield}>
             <DialogTitle>Habilitar autenticação em dois fatores</DialogTitle>
             <DialogDescription>
               {mfaStep === 'password' && 'Confirme sua senha para iniciar a configuração.'}
@@ -1655,7 +1653,7 @@ export default function MeuPerfilPage() {
                   )}
                 </div>
                 <div className="flex justify-end">
-                  <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={() => setMfaStep('verify')}>
+                  <Button size="sm" onClick={() => setMfaStep('verify')}>
                     Já escaneei →
                   </Button>
                 </div>
@@ -1683,8 +1681,8 @@ export default function MeuPerfilPage() {
                   <Button variant="outline" size="sm" onClick={() => setMfaStep('qr')}>← Voltar</Button>
                   <Button
                     size="sm"
-                    style={{ backgroundColor: MODULE_COLOR }}
-                    className="text-white gap-1.5"
+                    variant="success"
+                    className="gap-1.5"
                     onClick={handleVerifyMFASetup}
                     disabled={mfaLoading || mfaTotpCode.length !== 6}
                   >
@@ -1717,8 +1715,7 @@ export default function MeuPerfilPage() {
                 <Button variant="outline" size="sm" onClick={() => setMfaEnableModal(false)} disabled={mfaLoading}>Cancelar</Button>
                 <Button
                   size="sm"
-                  style={{ backgroundColor: MODULE_COLOR }}
-                  className="text-white gap-1.5"
+                  className="gap-1.5"
                   onClick={handleEnableMFAStep1}
                   disabled={mfaLoading || !mfaPassword}
                 >
@@ -1733,9 +1730,8 @@ export default function MeuPerfilPage() {
                   <CopyIcon className="h-3.5 w-3.5" /> Copiar todos
                 </Button>
                 <Button
+                  variant="success"
                   size="sm"
-                  style={{ backgroundColor: MODULE_COLOR }}
-                  className="text-white"
                   onClick={() => setMfaEnableModal(false)}
                 >
                   Concluir

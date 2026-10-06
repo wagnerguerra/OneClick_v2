@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { X, Plus, Tag, Settings2, Loader2, Pencil, Trash2, Check } from 'lucide-react'
 import {
   Button, Input,
-  Dialog, DialogContent, DialogFooter,
+  Dialog, DialogContent, DialogFooter, DialogTitle,
   cn,
 } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
@@ -12,7 +12,7 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
+const PRIMARY = 'var(--color-primary)'
 
 interface Categoria { id: string; nome: string; _count?: { vinculos: number } }
 
@@ -82,7 +82,7 @@ export function CategoriaTagsInput({ value, onChange }: { value: string[]; onCha
         onClick={() => setFocused(true)}
       >
         {selected.map((c) => (
-          <span key={c.id} className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium text-white" style={{ backgroundColor: MODULE_COLOR }}>
+          <span key={c.id} className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium text-white" style={{ backgroundColor: PRIMARY }}>
             {c.nome}
             <button type="button" onClick={(e) => { e.stopPropagation(); remove(c.id) }} className="hover:opacity-70"><X className="h-3 w-3" /></button>
           </span>
@@ -159,7 +159,7 @@ function CategoriasManagerModal({
     const ok = await alerts.confirm({
       title: 'Excluir categoria?',
       text: emUso > 0 ? `"${c.nome}" está em ${emUso} fornecedor(es); será removida deles.` : `"${c.nome}"`,
-      icon: 'warning', confirmText: 'Excluir',
+      icon: 'warning', confirmText: 'Excluir', destructive: true,
     })
     if (!ok) return
     try { await (trpc.fornecedor as any).deleteCategoria.mutate({ id: c.id }); onChanged(c.id) }
@@ -169,7 +169,9 @@ function CategoriasManagerModal({
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-md">
-        <DialogHeaderIcon icon={Settings2} color="slate">Gerenciar categorias</DialogHeaderIcon>
+        <DialogHeaderIcon icon={Settings2} color="slate">
+          <DialogTitle>Gerenciar categorias</DialogTitle>
+        </DialogHeaderIcon>
         <div className="max-h-[50vh] space-y-1 overflow-y-auto nice-scrollbar py-1">
           {!cats.length ? (
             <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma categoria cadastrada.</p>

@@ -103,7 +103,7 @@ export default function ChatConfigPage() {
         </div>
 
         <div className="flex items-center justify-end pt-3 border-t border-border">
-          <Button onClick={handleSave} disabled={saving} className="gap-1.5">
+          <Button variant="success" onClick={handleSave} disabled={saving} className="gap-1.5">
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
             Salvar
           </Button>

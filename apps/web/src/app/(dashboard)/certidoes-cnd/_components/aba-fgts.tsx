@@ -28,7 +28,7 @@ export function AbaFgts({ refreshKey }: { refreshKey: number }) {
       nome="CRF/FGTS" icon={DollarSign} refreshKey={refreshKey} vazio="Nenhum CRF/FGTS consultado"
       listar={listar} totais={totais}
       indicadores={t => [
-        { key: '', label: 'Total', count: t.total ?? 0, cor: STATUS_COR.modulo, icon: Shield },
+        { key: '', label: 'Total', count: t.total ?? 0, cor: STATUS_COR.primaria, icon: Shield },
         { key: 'regular', label: 'Regulares', count: t.regulares ?? 0, cor: STATUS_COR.emerald, icon: CheckCircle2 },
         { key: 'irregular', label: 'Irregulares', count: t.irregulares ?? 0, cor: STATUS_COR.red, icon: XCircle },
         { key: 'nao_emitida', label: 'Não emitidos', count: t.naoEmitidas ?? 0, cor: STATUS_COR.amber, icon: AlertTriangle },

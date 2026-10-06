@@ -21,7 +21,7 @@ import {
 } from 'lucide-react'
 import type { FlowPlan } from '@saas/types'
 import {
-  Dialog, DialogContent, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription,
   Input, Label, Button, Checkbox,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn,
 } from '@saas/ui'
@@ -31,7 +31,7 @@ import { WizardShell, type WizardStep } from '@/components/ui/wizard-shell'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
+const PRIMARY = 'var(--color-primary)'
 
 const STEPS: WizardStep[] = [
   { key: 'checklist', title: 'Checklist', optional: true },
@@ -230,7 +230,7 @@ export function FluxoAssistant({ open, onOpenChange, servicoId, servicoNome, ser
           <DialogDescription className="truncate">Serviço: {servicoNome}</DialogDescription>
         </DialogHeaderIcon>
 
-        <div className="px-6 py-5 overflow-y-auto">
+        <DialogBody className="px-6 py-5">
           {/* Gerar com IA — preenche o rascunho; o humano revisa antes de aplicar */}
           <div className="mb-4 rounded-md border border-violet-300/50 bg-violet-50/40 dark:bg-violet-950/20">
             <button
@@ -266,7 +266,7 @@ export function FluxoAssistant({ open, onOpenChange, servicoId, servicoNome, ser
           <WizardShell
             steps={STEPS}
             current={step}
-            color={MODULE_COLOR}
+            color={PRIMARY}
             onNavigate={setStep}
             onBack={onBack}
             onNext={onNext}
@@ -414,7 +414,7 @@ export function FluxoAssistant({ open, onOpenChange, servicoId, servicoNome, ser
               </div>
             )}
           </WizardShell>
-        </div>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   )

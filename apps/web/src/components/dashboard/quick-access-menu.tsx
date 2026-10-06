@@ -68,7 +68,7 @@ export function QuickAccessMenu() {
           type="button"
           className={cn(
             'flex items-center gap-1.5 rounded-lg px-2.5 h-9 text-sm font-medium transition-colors outline-none',
-            open ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-primary/10 hover:text-primary',
+            open ? 'bg-primary/10 text-primary-on-surface' : 'text-muted-foreground hover:bg-primary/10 hover:text-primary-on-surface',
           )}
           title="Acesso rápido"
         >

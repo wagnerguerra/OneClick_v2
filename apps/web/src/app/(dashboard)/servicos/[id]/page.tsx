@@ -46,7 +46,7 @@ import { PassoCamposClienteSection } from './_components/passo-campos-cliente-se
 import { FeixeDeLinhas } from '@/components/ui/feixe-de-linhas'
 import { useTheme } from '@/hooks/use-theme'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // Emerald (Cadastros / Serviços)
+const PRIMARY = 'var(--color-primary)'
 
 /** Formata centavos em string BRL "1.234,56" (sem prefixo R$, que vem do adornment). */
 function formatBRLFromCents(cents: number): string {
@@ -579,6 +579,7 @@ export default function ServicoDetailPage() {
       text: `"${v.titulo}" deixa de ser oferecida ao lançar este serviço num orçamento. Itens já lançados com ela não mudam.`,
       icon: 'warning',
       confirmText: 'Excluir',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -784,6 +785,7 @@ export default function ServicoDetailPage() {
       title: 'Remover etapa',
       text: 'Todos os passos desta etapa serão removidos junto.',
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -964,6 +966,7 @@ export default function ServicoDetailPage() {
       title: 'Remover passo',
       text: 'Este passo será excluído da etapa.',
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     // 1) Marca o passo como "em saída" — CSS faz fade + collapse.
@@ -1049,6 +1052,7 @@ export default function ServicoDetailPage() {
       title: 'Remover sucessor',
       text: `O sucessor "${enc.servicoDestino.nome}" será desvinculado deste serviço.`,
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -1098,7 +1102,7 @@ export default function ServicoDetailPage() {
             registro, e a trilha volta a ser só trilha. */}
         <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
           <div className="relative overflow-hidden">
-            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR} 0%, var(--color-primary) 100%)` }} />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${PRIMARY} 0%, var(--color-primary) 100%)` }} />
             {/* Feixe de linhas do modelo. Entra ENTRE o gradiente e o véu escuro:
                 por cima do véu ele brigaria com o texto branco; por baixo do
                 gradiente, não apareceria. As linhas são brancas porque o fundo
@@ -1112,7 +1116,7 @@ export default function ServicoDetailPage() {
                 <div className="flex items-end gap-4">
                   <div className="relative shrink-0">
                     <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-card shadow-lg ring-4 ring-white/50">
-                      <ListChecks className="h-10 w-10" style={{ color: MODULE_COLOR }} />
+                      <ListChecks className="h-10 w-10" style={{ color: PRIMARY }} />
                     </div>
                   </div>
                   <div className="min-w-0">
@@ -1140,7 +1144,7 @@ export default function ServicoDetailPage() {
                         </span>
                       )}
                       {disponivelOrcamento && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-emerald-200 ring-1 ring-white/25 backdrop-blur">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur">
                           Em orçamentos
                         </span>
                       )}
@@ -1300,7 +1304,7 @@ export default function ServicoDetailPage() {
                           'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                           active ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-white dark:hover:bg-accent hover:text-foreground',
                         )}
-                        style={active ? { backgroundColor: MODULE_COLOR } : undefined}
+                        style={active ? { backgroundColor: PRIMARY } : undefined}
                       >
                         <Icon className="h-3.5 w-3.5 shrink-0" />
                         <span>{p.label}</span>
@@ -1507,8 +1511,7 @@ export default function ServicoDetailPage() {
                   <div className="space-y-4 px-5 py-4" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
                     <div className="flex items-center justify-between border-b border-border pb-2 -mx-5 px-5">
                       <h4 className="text-[13px] font-semibold text-foreground">Responsáveis</h4>
-                      <Button onClick={salvarVisao} disabled={saving} size="sm" className="gap-1.5"
-                        style={{ backgroundColor: MODULE_COLOR }}>
+                      <Button variant="success" onClick={salvarVisao} disabled={saving} size="sm" className="gap-1.5">
                         {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                         Salvar
                       </Button>
@@ -1721,7 +1724,7 @@ export default function ServicoDetailPage() {
                           id="disp-orc"
                           checked={disponivelOrcamento}
                           onCheckedChange={setDisponivelOrcamento}
-                          className={cn(disponivelOrcamento && 'bg-emerald-600')}
+                          variant="success"
                         />
                         <Label htmlFor="disp-orc" className="text-[13px] font-medium cursor-pointer select-none">
                           Disponibilizar para inclusão em orçamentos
@@ -1733,7 +1736,8 @@ export default function ServicoDetailPage() {
                           id="entrada-cliente"
                           checked={entradaNovoCliente}
                           onCheckedChange={setEntradaNovoCliente}
-                          className={cn('mt-0.5', entradaNovoCliente && 'bg-emerald-600')}
+                          variant="success"
+                          className="mt-0.5"
                         />
                         <Label htmlFor="entrada-cliente" className="text-[13px] font-medium cursor-pointer select-none leading-snug">
                           Serviço de entrada de novo cliente
@@ -1985,7 +1989,7 @@ export default function ServicoDetailPage() {
 
                 {/* Rodapé fixo com botão Salvar — vale pra qualquer pill */}
                 <div className="mt-auto border-t border-border px-5 py-3 bg-card flex justify-end">
-                  <Button onClick={salvarVisao} disabled={saving} className="gap-1.5" style={{ backgroundColor: MODULE_COLOR }}>
+                  <Button variant="success" onClick={salvarVisao} disabled={saving} className="gap-1.5">
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Salvar alterações
                   </Button>
@@ -2474,7 +2478,7 @@ export default function ServicoDetailPage() {
             <p className="text-[11px] text-muted-foreground">
               Monte o fluxo por perguntas guiadas ou edite os blocos diretamente no canvas.
             </p>
-            <Button variant="success" size="sm" onClick={() => setAssistOpen(true)} className="gap-1.5">
+            <Button size="sm" onClick={() => setAssistOpen(true)} className="gap-1.5">
               <Zap className="h-4 w-4" /> Montar com assistente
             </Button>
           </div>
@@ -2541,7 +2545,7 @@ export default function ServicoDetailPage() {
                 <div className="space-y-2">
                   {encadeamentos.map(enc => (
                     <div key={enc.id} className="flex items-center gap-3 rounded-lg border bg-card p-3 hover:shadow-sm transition-shadow">
-                      <div className={cn('shrink-0 flex h-8 w-8 items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-xs font-bold', TEXT.emerald)}>
+                      <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary-on-surface">
                         {enc.ordem + 1}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -2549,7 +2553,7 @@ export default function ServicoDetailPage() {
                           <button
                             type="button"
                             onClick={() => router.push(`/servicos/${enc.servicoDestinoId}`)}
-                            className="text-sm font-semibold truncate hover:text-emerald-600 hover:underline text-left"
+                            className="text-sm font-semibold truncate hover:text-primary-on-surface hover:underline text-left"
                           >
                             {enc.servicoDestino.nome}
                           </button>
@@ -2608,7 +2612,7 @@ export default function ServicoDetailPage() {
                     texto e o valor padrão dele.
                   </p>
                 </div>
-                <Button onClick={abrirNovaVariacao} size="sm" className="gap-1.5 shrink-0" style={{ backgroundColor: MODULE_COLOR }}>
+                <Button variant="success" onClick={abrirNovaVariacao} size="sm" className="gap-1.5 shrink-0">
                   <Plus className="h-3.5 w-3.5" /> Nova variação
                 </Button>
               </div>
@@ -2688,7 +2692,7 @@ export default function ServicoDetailPage() {
                     notas ou documentação automática quando este serviço for executado.
                   </p>
                 </div>
-                <Button onClick={salvarVisao} disabled={saving} size="sm" className="gap-1.5 shrink-0" style={{ backgroundColor: MODULE_COLOR }}>
+                <Button variant="success" onClick={salvarVisao} disabled={saving} size="sm" className="gap-1.5 shrink-0">
                   {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                   Salvar alterações
                 </Button>
@@ -2719,7 +2723,7 @@ export default function ServicoDetailPage() {
       {/* Modal de Encadeamento (Adicionar/Editar) */}
       <Dialog open={encModalOpen} onOpenChange={setEncModalOpen}>
         <DialogContent className="sm:max-w-[560px]">
-          <DialogHeaderIcon icon={Network} color="violet">
+          <DialogHeaderIcon icon={Network} color={editingEnc ? 'sky' : 'emerald'}>
             <DialogTitle>{editingEnc ? 'Editar sucessor' : 'Adicionar sucessor'}</DialogTitle>
             <DialogDescription>Configure o serviço que será criado após este.</DialogDescription>
           </DialogHeaderIcon>
@@ -2769,7 +2773,7 @@ export default function ServicoDetailPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEncModalOpen(false)} disabled={encSaving}>Cancelar</Button>
-            <Button onClick={salvarEncadeamento} disabled={encSaving} className="gap-1.5" style={{ backgroundColor: MODULE_COLOR }}>
+            <Button onClick={salvarEncadeamento} disabled={encSaving} className="gap-1.5" variant="success">
               {encSaving && <Loader2 className="h-4 w-4 animate-spin" />}
               {editingEnc ? 'Salvar' : 'Adicionar'}
             </Button>
@@ -2815,8 +2819,7 @@ export default function ServicoDetailPage() {
             <Button variant="outline" size="sm" onClick={() => setVarModalOpen(false)} disabled={varSalvando}>
               Cancelar
             </Button>
-            <Button onClick={salvarVariacao} disabled={varSalvando} size="sm" className="gap-1.5"
-              style={{ backgroundColor: MODULE_COLOR }}>
+            <Button variant="success" onClick={salvarVariacao} disabled={varSalvando} size="sm" className="gap-1.5">
               {varSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar
             </Button>

@@ -22,8 +22,8 @@ import {
 import { Card, CardContent, Badge } from '@saas/ui'
 import { PageHeaderBar } from '@/components/page-header-bar'
 
-// Cor de acento do bloco "Ajuda" (cyan), via a var editável do módulo.
-const ACCENT = 'var(--mod-ajuda, #0891b2)'
+// Acento primário do sistema (antes: cor do módulo Ajuda).
+const ACCENT = 'var(--color-primary)'
 
 // Versão atual do sistema web — fonte: apps/web/package.json (campo "version").
 const VERSAO_WEB = '0.1.0'
@@ -112,8 +112,8 @@ export default function SobrePage() {
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           <Badge
             variant="outline"
-            className="border-border font-mono text-xs"
-            style={{ color: ACCENT, borderColor: ACCENT }}
+            className="border-border font-mono text-xs text-primary-on-surface"
+            style={{ borderColor: ACCENT }}
           >
             v{VERSAO_WEB}
           </Badge>

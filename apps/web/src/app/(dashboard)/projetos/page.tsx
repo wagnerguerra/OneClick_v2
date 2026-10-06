@@ -24,8 +24,8 @@ import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { PROJETO_STATUS_LABELS, type ProjetoStatus } from '@saas/types'
 
-// Cor do bloco TI (fallback bate com FALLBACK_HEX do PageHeaderIcon e DEFAULT_MODULE_COLORS)
-const MODULE_COLOR = 'var(--mod-ti, #22d3ee)'
+// Cor primária do sistema — fallback quando o projeto não tem cor própria.
+const PRIMARY = 'var(--color-primary)'
 
 type ProjetoStatusFilter = ProjetoStatus | 'TODOS'
 
@@ -324,7 +324,7 @@ export default function ProjetosPage() {
             <Card
               key={p.id}
               className="p-4 cursor-pointer hover:shadow-md transition-shadow border-l-4"
-              style={{ borderLeftColor: p.cor || MODULE_COLOR }}
+              style={{ borderLeftColor: p.cor || PRIMARY }}
               onClick={() => router.push(`/projetos/${p.id}`)}
             >
               <div className="flex items-start justify-between gap-3 mb-2">
@@ -367,8 +367,8 @@ export default function ProjetosPage() {
                 <span
                   className="px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wide"
                   style={{
-                    background: `color-mix(in srgb, ${p.cor || MODULE_COLOR} 15%, transparent)`,
-                    color: p.cor || MODULE_COLOR,
+                    background: `color-mix(in srgb, ${p.cor || PRIMARY} 15%, transparent)`,
+                    color: p.cor || PRIMARY,
                   }}
                 >
                   {PROJETO_STATUS_LABELS[p.status]}

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { Loader2, Filter, Megaphone, Target, Send, CheckCircle2, FileCheck, DollarSign, Landmark, Repeat, Zap, Users2, Trophy, TicketPercent, Scissors, Wallet, TrendingDown } from 'lucide-react'
-import { Card } from '@saas/ui'
+import { Card, cn } from '@saas/ui'
+import { FILL, TEXT } from '@/lib/color-styles'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { trpc } from '@/lib/trpc'
 import {
@@ -22,7 +23,9 @@ import type { AppRouter } from '@saas/api/src/trpc/trpc.service'
  * (data inicial/final) escolhido lá. A rota antiga só redireciona.
  */
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+// Primária do tema (preenchimento de barras/KPIs). A cor do módulo Comercial não
+// entra no conteúdo — ver /admin/design-system → Tokens & cores.
+const PRIMARY = 'var(--color-primary)'
 const COR_RECORRENTE = '#34d399'
 const COR_AVULSO = '#fbbf24'
 
@@ -108,20 +111,20 @@ function FunilUnificadoReport({ funil }: { funil: FunilData }) {
               {i > 0 && (
                 <div className="flex items-center gap-2 pl-[200px] py-0.5">
                   <span className="text-[10px] text-muted-foreground">↓ conversão</span>
-                  <span className="text-[10px] font-semibold tabular-nums" style={{ color: MODULE_COLOR }}>
+                  <span className={cn('text-[10px] font-semibold tabular-nums', TEXT.emerald)}>
                     {s.conversao != null ? `${s.conversao}%` : '—'}
                   </span>
                 </div>
               )}
               <div className="flex items-center gap-3">
                 <div className="w-[190px] shrink-0 flex items-center gap-2 text-xs font-medium">
-                  <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: MODULE_COLOR }} />
+                  <Icon className="h-3.5 w-3.5 shrink-0 text-primary-on-surface" />
                   <span className="truncate">{s.label}</span>
                   {AJUDA.funilUnificado[s.label] && <Ajuda texto={AJUDA.funilUnificado[s.label]} />}
                 </div>
                 <div className="flex-1 h-8 bg-muted/30 rounded relative overflow-hidden">
                   <div className="h-full flex items-center justify-end pr-2 text-[11px] font-semibold text-white transition-all"
-                    style={{ width: `${Math.max(pct, 6)}%`, backgroundColor: MODULE_COLOR }}>
+                    style={{ width: `${Math.max(pct, 6)}%`, backgroundColor: PRIMARY }}>
                     {s.count}
                   </div>
                 </div>
@@ -142,7 +145,8 @@ function KpiCard({ icon: Icon, label, value, sub, cor, ajuda }: { icon: any; lab
     <Card className="p-4">
       <div className="flex items-center gap-2 mb-2">
         <div className="flex h-7 w-7 items-center justify-center rounded-[4px]" style={{ background: `color-mix(in srgb, ${cor} 15%, transparent)` }}>
-          <Icon className="h-4 w-4" style={{ color: cor }} />
+          {/* Ícone é texto sobre superfície: a primária vira a variante legível no dark */}
+          <Icon className="h-4 w-4" style={{ color: cor === PRIMARY ? 'var(--color-primary-on-surface)' : cor }} />
         </div>
         <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
         {ajuda && <Ajuda texto={ajuda} className="ml-auto" />}
@@ -163,7 +167,7 @@ function MrrReport({ mrr }: { mrr: MrrData }) {
         <KpiCard icon={Landmark} label="MRR na data final" ajuda={AJUDA.mrrAtual} value={formatCompact(mrr.mrrAtual)} sub={formatCurrency(mrr.mrrAtual)} cor={COR_RECORRENTE} />
         <KpiCard icon={Repeat} label="Receita anualizada" ajuda={AJUDA.receitaAnualizada} value={formatCompact(mrr.mrrAnualizado)} sub="MRR × 12" cor="#34d399" />
         <KpiCard icon={Users2} label="Contratos recorrentes" ajuda={AJUDA.contratosRecorrentes} value={String(mrr.contratosRecorrentes)} sub="na Gestão de Contratos" cor="#818cf8" />
-        <KpiCard icon={Zap} label="Ticket médio MRR" ajuda={AJUDA.ticketMedioMrr} value={formatCompact(mrr.ticketMedioMrr)} sub="por contrato/mês" cor={MODULE_COLOR} />
+        <KpiCard icon={Zap} label="Ticket médio MRR" ajuda={AJUDA.ticketMedioMrr} value={formatCompact(mrr.ticketMedioMrr)} sub="por contrato/mês" cor={PRIMARY} />
       </div>
 
       {/* Mix de vendas aprovadas no período */}
@@ -235,13 +239,13 @@ function VendedoresReport({ data }: { data: VendedoresData }) {
         <KpiCard icon={Send} label="Orçamentos enviados" ajuda={AJUDA.rankEnviados} value={String(totais.enviados)} cor="#60a5fa" />
         <KpiCard icon={CheckCircle2} label="Aprovados" ajuda={AJUDA.rankAprovados} value={String(totais.aprovados)} sub={`${totais.enviados > 0 ? Math.round((totais.aprovados / totais.enviados) * 100) : 0}% de aprovação`} cor={COR_RECORRENTE} />
         <KpiCard icon={DollarSign} label="Valor aprovado" ajuda={AJUDA.rankValor} value={formatCompact(totais.valorAprovado)} sub={formatCurrency(totais.valorAprovado)} cor="#34d399" />
-        <KpiCard icon={FileCheck} label="Contratos efetivados" ajuda={AJUDA.rankContratos} value={String(totais.contratos)} sub="de clientes novos" cor={MODULE_COLOR} />
+        <KpiCard icon={FileCheck} label="Contratos efetivados" ajuda={AJUDA.rankContratos} value={String(totais.contratos)} sub="de clientes novos" cor={PRIMARY} />
       </div>
 
       {/* Tabela ranking */}
       <Card className="overflow-hidden">
         <div className="px-5 py-3 border-b border-border flex items-center gap-2">
-          <Trophy className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+          <Trophy className="h-4 w-4 text-primary-on-surface" />
           <h3 className="text-sm font-semibold">Ranking por valor aprovado</h3>
         </div>
         <div className="divide-y divide-border">
@@ -257,7 +261,7 @@ function VendedoresReport({ data }: { data: VendedoresData }) {
                   <span className="text-sm font-semibold tabular-nums shrink-0">{formatCurrency(v.valorAprovado)}</span>
                 </div>
                 <div className="mt-1 h-1.5 w-full rounded bg-muted/40 overflow-hidden">
-                  <div className="h-full rounded transition-all" style={{ width: `${Math.max((v.valorAprovado / maxValor) * 100, 2)}%`, backgroundColor: MODULE_COLOR }} />
+                  <div className={cn('h-full rounded transition-all', FILL.emerald)} style={{ width: `${Math.max((v.valorAprovado / maxValor) * 100, 2)}%` }} />
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground">
                   <span><Send className="inline h-3 w-3 mr-0.5" />{v.enviados} env.</span>
@@ -287,7 +291,7 @@ function DescontosReport({ data }: { data: DescontosData }) {
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KpiCard icon={Wallet} label="Valor bruto" ajuda={AJUDA.descBruto} value={formatCompact(kpis.brutoTotal)} sub={`${kpis.totalAprovados} aprovado(s)`} cor="#60a5fa" />
-        <KpiCard icon={Scissors} label="Desconto concedido" ajuda={AJUDA.descConcedido} value={formatCompact(kpis.descTotal)} sub={formatCurrency(kpis.descTotal)} cor={MODULE_COLOR} />
+        <KpiCard icon={Scissors} label="Desconto concedido" ajuda={AJUDA.descConcedido} value={formatCompact(kpis.descTotal)} sub={formatCurrency(kpis.descTotal)} cor={PRIMARY} />
         <KpiCard icon={TicketPercent} label="Desconto médio" ajuda={AJUDA.descMedio} value={`${kpis.descontoMedioPct}%`} sub="sobre o bruto" cor="#f97316" />
         <KpiCard icon={TrendingDown} label="Com desconto" ajuda={AJUDA.descComDesconto} value={`${kpis.pctComDesconto}%`} sub={`${kpis.comDesconto} de ${kpis.totalAprovados}`} cor="#fbbf24" />
       </div>
@@ -335,7 +339,7 @@ function DescontosReport({ data }: { data: DescontosData }) {
                 <span className="w-[110px] shrink-0 text-xs">{f.label}</span>
                 <div className="flex-1 h-6 bg-muted/30 rounded relative overflow-hidden">
                   <div className="h-full flex items-center justify-end pr-2 text-[11px] font-semibold text-white transition-all"
-                    style={{ width: `${Math.max((f.count / maxFaixa) * 100, f.count > 0 ? 8 : 0)}%`, backgroundColor: MODULE_COLOR }}>
+                    style={{ width: `${Math.max((f.count / maxFaixa) * 100, f.count > 0 ? 8 : 0)}%`, backgroundColor: PRIMARY }}>
                     {f.count > 0 ? f.count : ''}
                   </div>
                   {f.count === 0 && <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">0</span>}
@@ -356,7 +360,7 @@ function DescontosReport({ data }: { data: DescontosData }) {
               <div key={v.id} className="flex items-center gap-3">
                 <span className="w-[150px] shrink-0 text-xs font-medium truncate">{v.nome}</span>
                 <div className="flex-1 h-5 bg-muted/30 rounded overflow-hidden">
-                  <div className="h-full rounded transition-all" style={{ width: `${Math.max((v.descontoMedioPct / maxVend) * 100, v.descontoMedioPct > 0 ? 4 : 0)}%`, backgroundColor: MODULE_COLOR }} />
+                  <div className="h-full rounded transition-all" style={{ width: `${Math.max((v.descontoMedioPct / maxVend) * 100, v.descontoMedioPct > 0 ? 4 : 0)}%`, backgroundColor: PRIMARY }} />
                 </div>
                 <span className="w-12 shrink-0 text-right text-xs font-semibold tabular-nums">{v.descontoMedioPct}%</span>
                 <span className="w-20 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums">{formatCompact(v.desconto)}</span>
@@ -370,7 +374,7 @@ function DescontosReport({ data }: { data: DescontosData }) {
       {topDescontos.length > 0 && (
         <Card className="overflow-hidden">
           <div className="px-5 py-3 border-b border-border flex items-center gap-2">
-            <Scissors className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+            <Scissors className="h-4 w-4 text-primary-on-surface" />
             <h3 className="text-sm font-semibold">Maiores descontos concedidos</h3>
           </div>
           <div className="divide-y divide-border">
@@ -382,7 +386,7 @@ function DescontosReport({ data }: { data: DescontosData }) {
                   <p className="text-[11px] text-muted-foreground truncate">{d.vendedor}</p>
                 </div>
                 <span className="w-24 shrink-0 text-right text-muted-foreground tabular-nums">{formatCurrency(d.bruto)}</span>
-                <span className="w-24 shrink-0 text-right tabular-nums" style={{ color: MODULE_COLOR }}>−{formatCurrency(d.desconto)}</span>
+                <span className="w-24 shrink-0 text-right tabular-nums text-primary-on-surface">−{formatCurrency(d.desconto)}</span>
                 <span className="w-14 shrink-0 text-right font-semibold tabular-nums">{d.pct}%</span>
               </div>
             ))}

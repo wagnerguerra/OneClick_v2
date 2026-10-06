@@ -15,7 +15,7 @@ import { BADGE, TEXT, type ColorName } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 
-const MODULE_COLOR = 'var(--mod-fiscal, #0369a1)'
+const PRIMARY = 'var(--color-primary)'
 
 const STATUS_TONE: Record<string, ColorName> = {
   PROCESSANDO: 'sky',
@@ -95,7 +95,7 @@ export default function LotesPage() {
                   <TableCell className="hidden lg:table-cell text-right">
                     <div className="text-[11px] tabular-nums">{lote.processados}/{lote.totalXmls} ({pct}%)</div>
                     <div className="h-1 bg-muted rounded-full overflow-hidden mt-1 w-[80px] ml-auto">
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: MODULE_COLOR }} />
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: PRIMARY }} />
                     </div>
                   </TableCell>
                   <TableCell className={cn('hidden xl:table-cell text-center text-[12px] tabular-nums font-medium', TEXT.emerald)}>{lote.sucesso}</TableCell>

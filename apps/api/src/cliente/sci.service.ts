@@ -139,14 +139,14 @@ export class SciService {
     })
 
     if (result.error) {
-      throw new Error(`Erro ao executar metricas SCI: ${result.error.message}`)
+      throw new Error(`Erro ao executar métricas SCI: ${result.error.message}`)
     }
 
     const stdout = (result.stdout || '').trim()
-    if (!stdout) throw new Error('SCI metricas: sem resposta')
+    if (!stdout) throw new Error('SCI métricas: sem resposta')
 
     let parsed: Record<string, unknown>
-    try { parsed = JSON.parse(stdout) } catch { throw new Error(`Resposta invalida: ${stdout.slice(0, 200)}`) }
+    try { parsed = JSON.parse(stdout) } catch { throw new Error(`Resposta inválida: ${stdout.slice(0, 200)}`) }
 
     if (parsed.sucesso === false) throw new Error(String(parsed.erro || 'Erro desconhecido no SCI'))
 

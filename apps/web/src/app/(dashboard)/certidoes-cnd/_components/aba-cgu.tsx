@@ -21,7 +21,7 @@ export function AbaCgu({ refreshKey }: { refreshKey: number }) {
       nome="CGU" icon={Shield} refreshKey={refreshKey} vazio="Nenhuma certidão CGU consultada"
       listar={listar} totais={totais}
       indicadores={t => [
-        { key: '', label: 'Total', count: t.total ?? 0, cor: STATUS_COR.modulo, icon: Shield },
+        { key: '', label: 'Total', count: t.total ?? 0, cor: STATUS_COR.primaria, icon: Shield },
         { key: 'nada_consta', label: 'Nada consta', count: t.nadaConsta ?? 0, cor: STATUS_COR.emerald, icon: CheckCircle2 },
         { key: 'consta', label: 'Consta', count: t.consta ?? 0, cor: STATUS_COR.red, icon: XCircle },
         { key: 'nao_emitida', label: 'Não emitidas', count: t.naoEmitidas ?? 0, cor: STATUS_COR.amber, icon: AlertTriangle },

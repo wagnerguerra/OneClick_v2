@@ -13,7 +13,7 @@ import { getApiUrl } from '@/lib/api-url'
 import { useTabLabel } from '@/hooks/use-tab-label'
 import { UserAvatar } from '@/components/ui/user-avatar'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 const wa = () => (trpc as any).whatsapp
 
 type Status = 'ABERTA' | 'PENDENTE' | 'RESOLVIDA' | 'FECHADA'
@@ -148,7 +148,7 @@ export default function WhatsappPage() {
         <div className="w-[320px] shrink-0 border-r border-border flex flex-col">
           <div className="p-3 border-b border-border space-y-2">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md text-white" style={{ background: MODULE_COLOR }}>
+              <div className="flex h-8 w-8 items-center justify-center rounded-md text-white" style={{ background: PRIMARY }}>
                 <MessageSquare className="h-4 w-4" />
               </div>
               <span className="font-semibold text-sm">WhatsApp</span>
@@ -161,7 +161,7 @@ export default function WhatsappPage() {
               {FILTROS.map(f => (
                 <button key={f.label} onClick={() => setFiltro(f.key)}
                   className={cn('h-7 px-2.5 rounded-md text-xs font-medium', filtro === f.key ? 'text-white' : 'text-muted-foreground hover:bg-muted')}
-                  style={filtro === f.key ? { background: MODULE_COLOR } : undefined}>
+                  style={filtro === f.key ? { background: PRIMARY } : undefined}>
                   {f.label}
                 </button>
               ))}
@@ -183,7 +183,7 @@ export default function WhatsappPage() {
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs text-muted-foreground truncate">{c.ultimaPrevia || '—'}</span>
-                    {c.naoLidas > 0 && <span className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full text-white text-[10px] font-bold flex items-center justify-center" style={{ background: MODULE_COLOR }}>{c.naoLidas}</span>}
+                    {c.naoLidas > 0 && <span className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full text-white text-[10px] font-bold flex items-center justify-center" style={{ background: PRIMARY }}>{c.naoLidas}</span>}
                   </div>
                 </div>
               </button>
@@ -253,7 +253,7 @@ export default function WhatsappPage() {
                     rows={1}
                     className="flex-1 resize-none rounded-md px-3 py-2 text-sm focus:outline-none focus-visible:ring-1 focus-visible:ring-ring max-h-32"
                   />
-                  <Button onClick={enviar} disabled={enviando || !texto.trim()} className="text-white gap-1.5 shrink-0" style={{ background: MODULE_COLOR }}>
+                  <Button onClick={enviar} disabled={enviando || !texto.trim()} className="text-white gap-1.5 shrink-0" style={{ background: PRIMARY }}>
                     {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   </Button>
                 </div>

@@ -497,6 +497,7 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
       text: 'A conversa some daqui pra você. Se chegar uma nova mensagem, ela volta automaticamente. Outros participantes continuam vendo o histórico.',
       confirmText: 'Excluir',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -1025,7 +1026,7 @@ function ConversasList({ conversas, meuId, conversaAtivaId, onClickConversa, onH
               <DropdownMenuContent align="end" className="w-44">
                 <DropdownMenuItem
                   onClick={e => { e.stopPropagation(); onHideConversa(c) }}
-                  className={cn('text-xs gap-2 cursor-pointer', TEXT.rose)}
+                  className="text-xs gap-2 cursor-pointer text-destructive focus:text-destructive"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   Excluir conversa
@@ -1439,6 +1440,7 @@ function ChatView({ conversa, meuId, onMessageSent }: {
       text: 'A mensagem será substituída por "Mensagem excluída" para todos os participantes.',
       confirmText: 'Excluir',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -1927,8 +1929,7 @@ function NovoGrupoView({ meuId, onlineUsers, onCancel, onCreated, presencaPorUsu
       </div>
       <div className="px-3 py-2.5 border-t border-border flex justify-end gap-2">
         <Button variant="outline" size="sm" onClick={onCancel}>Cancelar</Button>
-        <Button size="sm" onClick={criar} disabled={saving || !nome.trim() || selecionados.length === 0}
-          className="bg-sky-500 hover:bg-sky-600 text-white">
+        <Button size="sm" variant="success" onClick={criar} disabled={saving || !nome.trim() || selecionados.length === 0}>
           {saving && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}Criar grupo
         </Button>
       </div>

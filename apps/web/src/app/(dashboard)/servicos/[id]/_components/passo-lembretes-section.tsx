@@ -539,7 +539,7 @@ function LembreteEditor({ mode, passoId, initial, onCancel, onSaved, onDeleted }
           <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>
             <X className="h-3 w-3 mr-1" /> Cancelar
           </Button>
-          <Button size="sm" className="bg-amber-600 text-white hover:bg-amber-700" onClick={handleSave} disabled={saving}>
+          <Button size="sm" variant="success" onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
             Salvar
           </Button>

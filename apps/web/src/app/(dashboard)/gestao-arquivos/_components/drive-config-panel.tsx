@@ -139,6 +139,7 @@ export function DriveConfigPanel({ podeAdministrar }: { podeAdministrar: boolean
             disabled={!podeAdministrar}
           />
           <Button
+            variant="success"
             onClick={salvarRaiz}
             disabled={salvando || !pastaUrl.trim() || !podeAdministrar}
             className="gap-1.5 shrink-0"

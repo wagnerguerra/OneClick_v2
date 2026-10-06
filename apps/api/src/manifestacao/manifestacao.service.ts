@@ -186,10 +186,10 @@ export class ManifestacaoService {
       where: { id, tipo, empresaId: ctx.empresaId ?? null },
       select: { id: true, autorId: true, publica: true, excluidaEm: true },
     })
-    if (!m) throw new Error('Registro nao encontrado.')
+    if (!m) throw new Error('Registro não encontrado.')
     // Inativa: só quem pode restaurar enxerga (as demais regras valem por cima).
     if (m.excluidaEm) {
-      if (!ctx.podeRestaurar) throw new Error('Registro nao encontrado.')
+      if (!ctx.podeRestaurar) throw new Error('Registro não encontrado.')
       return m // quem restaura vê qualquer inativa, de qualquer autor
     }
     const proprio = m.autorId != null && m.autorId === ctx.userId
@@ -197,7 +197,7 @@ export class ManifestacaoService {
     if (!ctx.verTodos && !proprio && !noMural) {
       // Mesma mensagem de "nao encontrado": dizer "sem permissao" confirmaria
       // que o registro existe, e o protocolo do vizinho viraria oraculo.
-      throw new Error('Registro nao encontrado.')
+      throw new Error('Registro não encontrado.')
     }
     return m
   }
@@ -218,9 +218,9 @@ export class ManifestacaoService {
       where: { id, tipo, empresaId: ctx.empresaId ?? null, excluidaEm: null },
       select: { id: true, autorId: true },
     })
-    if (!m) throw new Error('Registro nao encontrado.')
+    if (!m) throw new Error('Registro não encontrado.')
     const proprio = m.autorId != null && m.autorId === ctx.userId
-    if (!ctx.trata && !proprio) throw new Error('Registro nao encontrado.')
+    if (!ctx.trata && !proprio) throw new Error('Registro não encontrado.')
     return m
   }
 

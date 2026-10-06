@@ -22,7 +22,7 @@ export function CertAcessoModal({ certId, titular, open, onOpenChange }: {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[440px]">
-        <DialogHeaderIcon icon={ShieldCheck} color="violet">
+        <DialogHeaderIcon icon={ShieldCheck}>
           <DialogTitle>Acesso ao certificado</DialogTitle>
           <DialogDescription>{titular}</DialogDescription>
         </DialogHeaderIcon>

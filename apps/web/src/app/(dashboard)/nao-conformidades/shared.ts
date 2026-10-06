@@ -1,7 +1,7 @@
 /** Chaves visuais compartilhadas do módulo de Não Conformidades. */
 import { BADGE } from '@/lib/color-styles'
 
-export const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+export const PRIMARY = 'var(--color-primary)'
 
 export const NC_SITUACAO_BADGE: Record<string, string> = {
   AGUARDANDO_CAUSA: BADGE.orange,

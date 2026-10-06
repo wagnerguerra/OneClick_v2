@@ -34,9 +34,12 @@ const buttonVariants = cva(
         'outline-success':
           'border border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-transparent hover:bg-emerald-500 hover:text-white',
 
-        // Soft (light background)
+        // Soft: cor e fundo vêm de vars por-skin (--color-primary-on-surface/--btn-soft-bg,
+        // definidas no globals.css) pra cada skin poder ter ajuste individual.
+        // Base: texto = primária, fundo = primária a 25%. Hover intensifica o fundo.
         soft:
-          'bg-primary/15 text-primary dark:text-blue-400 hover:bg-primary/25',
+          'text-primary-on-surface bg-[color:var(--btn-soft-bg)] ' +
+          'hover:bg-[color-mix(in_oklab,var(--btn-soft-accent)_35%,transparent)]',
         'soft-destructive':
           'bg-destructive/10 text-destructive hover:bg-destructive/20',
         'soft-success':

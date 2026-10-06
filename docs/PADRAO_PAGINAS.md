@@ -16,7 +16,9 @@ e copie a estrutura** — divergir dela é que gera trabalho depois.
 Padrões vizinhos, que continuam valendo: [`PADRAO_MODULOS.md`](PADRAO_MODULOS.md)
 (botões, variantes, tipografia), [`PADRAO_KANBAN_DND.md`](PADRAO_KANBAN_DND.md)
 (mecânica do arrasto), [`PADRAO_RESPONSIVIDADE.md`](PADRAO_RESPONSIVIDADE.md)
-(celular, tablet, notebook) e o `CLAUDE.md` (modais, tokens, cores de módulo).
+(celular, tablet, notebook), [`PADRAO_CORES_E_TEMA.md`](PADRAO_CORES_E_TEMA.md)
+(primária, cores com significado, campos) e o `CLAUDE.md` (modais, componentes).
+Exemplos vivos de tudo isso em `/admin/design-system`.
 
 ---
 
@@ -60,9 +62,10 @@ botões que se usam uma vez por semestre. Depois dele vêm as secundárias e, po
 último, o menu `⋮` — que é onde mora tudo o que é raro (importações, varreduras,
 configurações).
 
-Botão primário usa o `variant` padrão do `Button` (o azul do tema). Não pinte a
-ação principal com a cor do módulo: a cor do módulo é para barra de progresso,
-checkbox e destaques internos, não para o botão que existe em todas as telas.
+Botão primário usa o `variant` padrão do `Button` (a primária do tema). Não pinte
+nenhum botão com a cor do módulo — ela não entra no conteúdo da tela (barra de
+progresso é verde semântico; checkbox e destaques usam a primária). Ver o aviso
+em `/admin/design-system` → Tokens & cores.
 
 #### O espaçamento (`mb-0 sm:mb-0`)
 
@@ -117,7 +120,8 @@ Duas metades, sempre no mesmo lugar: **"Exibir N registros" na barra de cima**,
 <div className="flex items-center gap-2 text-xs text-muted-foreground">
   <span className="hidden sm:inline">Exibir</span>
   <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}>
-    <SelectTrigger className="h-8 w-[68px] bg-card text-xs"><SelectValue /></SelectTrigger>
+    {/* sem bg ou border no campo: ele herda o tema do globals.css (PADRAO_CORES_E_TEMA.md) */}
+    <SelectTrigger className="h-8 w-[68px] text-xs"><SelectValue /></SelectTrigger>
     <SelectContent>{[10, 20, 50, 100].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
   </Select>
   <span className="hidden sm:inline">registros</span>
@@ -270,8 +274,8 @@ direita e `<BackButton>` por último.
 ```tsx
 <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
   <div className="relative overflow-hidden">
-    {/* capa: imagem do registro OU gradiente da cor do módulo */}
-    <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR} 0%, var(--color-primary) 100%)` }} />
+    {/* capa: imagem do registro OU gradiente da PRIMÁRIA (nunca a cor do módulo) */}
+    <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary) 100%)` }} />
     <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
 
     <div className="relative z-10 px-5 pb-5 pt-24 text-white sm:px-6 sm:pt-28">
@@ -314,7 +318,10 @@ direita e `<BackButton>` por último.
 **A capa é do registro, não do módulo.** Quando o registro tem imagem própria,
 é ela que aparece: o cliente usa a capa do cliente, o orçamento a sua, e o
 usuário a imagem de fundo que a pessoa escolheu em `/perfil` (`cover_image`).
-O gradiente da cor do módulo é o que sobra quando não há imagem.
+O gradiente da primária é o que sobra quando não há imagem — a cor do módulo
+não entra no conteúdo da tela (ver o aviso em `/admin/design-system` → Tokens &
+cores). O ícone do quadro (`bg-card`) e os totais fora do hero usam
+`text-primary-on-surface`.
 
 Detalhes que não são decoração:
 - **Chips em CAIXA ALTA**, de vidro (`bg-white/15 ring-1 ring-white/25 backdrop-blur`),
@@ -348,7 +355,9 @@ Modais seguem o `DialogHeaderIcon` obrigatório (ver `CLAUDE.md`).
 | `<PageHeader>` (capa sangrada) numa listagem | é de detalhe; gera a capa colorida que destoa de `/clientes` e `/crm` |
 | `p-4 md:p-6` no wrapper da página | o layout do dashboard já dá o padding — sai dobrado |
 | `<Card><CardHeader>` cru no detalhe | o padrão é `SectionCard`, com recolher e cabeçalho uniforme |
-| Botões de ação soltos na linha da tabela | a coluna Ações é dropdown `⋮` |
+| Botões de ação soltos na linha da tabela fora do padrão | a coluna Ações é dropdown `⋮` ou botões `soft-*` `icon-sm` — uma variação por tela (ver `/admin/design-system` → Tabelas) |
+| Cor do módulo em botão, aba, KPI, capa ou ícone | o conteúdo usa a primária; a cor do módulo é só indicador (ver `PADRAO_CORES_E_TEMA.md` §6) |
+| `bg-*`/`border-*` em campo de formulário | o campo herda o tema do `globals.css`; override destoa no dark |
 | Badge/chip em minúsculas no hero | os chips do hero são caixa alta |
 | Coluna Status na tabela | situação é badge na linha; o estado se gerencia no form |
 | Ação que só aparece no hover | some no celular — ver `PADRAO_RESPONSIVIDADE.md` §8 |

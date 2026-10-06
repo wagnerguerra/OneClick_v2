@@ -56,7 +56,7 @@ export class CndController {
   async visualizarPdf(@Param('id') id: string, @Req() req: Request, @Res() res: Response) {
     const { empresaId } = await this.exigirSessao(req)
     const pdfBase64 = await this.cndService.getPdf(empresaId, id)
-    if (!pdfBase64) throw new NotFoundException('PDF nao disponivel para esta consulta.')
+    if (!pdfBase64) throw new NotFoundException('PDF não disponível para esta consulta.')
 
     const pdfBuffer = Buffer.from(pdfBase64, 'base64')
     res.setHeader('Content-Type', 'application/pdf')
@@ -72,7 +72,7 @@ export class CndController {
     // getById já recorta pela empresa: registro de outro tenant = não encontrado.
     const record = await this.cndService.getById(empresaId, id).catch(() => null)
     const pdfBase64 = record ? await this.cndService.getPdf(empresaId, id) : null
-    if (!record || !pdfBase64) throw new NotFoundException('PDF nao disponivel para esta consulta.')
+    if (!record || !pdfBase64) throw new NotFoundException('PDF não disponível para esta consulta.')
 
     const pdfBuffer = Buffer.from(pdfBase64, 'base64')
     // Documento só com letras/dígitos: o nome vai num cabeçalho HTTP.

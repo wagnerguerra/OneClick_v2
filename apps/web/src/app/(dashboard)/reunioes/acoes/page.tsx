@@ -19,7 +19,7 @@ import { alerts } from '@/lib/alerts'
 import { BackButton } from '@/components/ui/back-button'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+const PRIMARY = 'var(--color-primary)'
 const PAGE_SIZES = [10, 20, 50]
 
 interface Row {
@@ -103,6 +103,10 @@ export default function AcoesReunioesPage() {
       <Card>
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
+            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
+            </Select>
             <Select value={status || '__all__'} onValueChange={(v) => { setStatus(v === '__all__' ? '' : v); setPage(1) }}>
               <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
               <SelectContent>
@@ -113,22 +117,18 @@ export default function AcoesReunioesPage() {
             </Select>
             <Button variant={vencidas ? 'default' : 'outline'} size="xs"
               className={vencidas ? 'text-white' : ''}
-              style={vencidas ? { backgroundColor: MODULE_COLOR } : undefined}
+              style={vencidas ? { backgroundColor: PRIMARY } : undefined}
               onClick={() => { setVencidas((v) => !v); setPage(1) }}>
               <AlertTriangle className="h-3.5 w-3.5" />Só vencidas
             </Button>
             {podeVerTodas && (
               <Button variant={todos ? 'default' : 'outline'} size="xs"
                 className={todos ? 'text-white' : ''}
-                style={todos ? { backgroundColor: MODULE_COLOR } : undefined}
+                style={todos ? { backgroundColor: PRIMARY } : undefined}
                 onClick={() => { setTodos((v) => !v); setPage(1) }}>
                 <Users className="h-3.5 w-3.5" />Toda a equipe
               </Button>
             )}
-            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
-            </Select>
           </div>
         </div>
 
@@ -139,7 +139,7 @@ export default function AcoesReunioesPage() {
               <TableHead className="hidden md:table-cell w-[200px]">Reunião</TableHead>
               <TableHead className="hidden sm:table-cell w-[160px]">Responsável</TableHead>
               <TableHead className="w-[120px]">Prazo</TableHead>
-              <TableHead className="w-[110px] text-right">Ações</TableHead>
+              <TableHead className="w-[124px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -162,7 +162,7 @@ export default function AcoesReunioesPage() {
                       </span>
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
-                      <Link href={`/reunioes/${a.reuniao.id}`} className="hover:text-foreground truncate block" onClick={(e) => e.stopPropagation()}>
+                      <Link href={`/reunioes/${a.reuniao.id}`} className="text-primary-on-surface hover:underline truncate block" onClick={(e) => e.stopPropagation()}>
                         {a.reuniao.titulo} · {dataBR(a.reuniao.data)}
                       </Link>
                     </TableCell>

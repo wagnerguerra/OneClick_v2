@@ -142,7 +142,7 @@ export function AbaFederal({ refreshKey, filtroInicial }: { refreshKey: number; 
           setPage(1)
         }}
         itens={[
-          { key: '', label: 'Todas', count: totais.total, cor: STATUS_COR.modulo, icon: FileOutput },
+          { key: '', label: 'Todas', count: totais.total, cor: STATUS_COR.primaria, icon: FileOutput },
           { key: 'Negativa', label: 'Negativas', count: totais.negativas, cor: STATUS_COR.emerald, icon: CheckCircle2 },
           { key: 'Positiva com Efeitos de Negativa', label: 'Positivas c/ efeito', count: totais.positivasEfeitos, cor: STATUS_COR.amber, icon: AlertTriangle },
           { key: '__nao_emitida__', label: 'Não emitidas', count: totais.naoEmitidas, cor: STATUS_COR.red, icon: XCircle },

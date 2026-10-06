@@ -3270,7 +3270,7 @@ export class ServicoService {
       where: { id: input.servicoId },
       include: { etapas: { orderBy: { ordem: 'asc' }, include: { passos: { orderBy: { ordem: 'asc' } } } } },
     })
-    if (!servico) throw new Error('Servico nao encontrado')
+    if (!servico) throw new Error('Serviço não encontrado')
 
     const statusInicial = internal?.statusInicial ?? 'EM_ANDAMENTO'
     // SLA so comeca a contar quando a execucao esta efetivamente EM_ANDAMENTO.
@@ -3429,7 +3429,7 @@ export class ServicoService {
 
   async togglePasso(id: string, userId?: string, valoresCampos?: Record<string, unknown>, camposRevisados?: string[]) {
     const passo = await prisma.servicoExecucaoPasso.findUnique({ where: { id } })
-    if (!passo) throw new Error('Passo nao encontrado')
+    if (!passo) throw new Error('Passo não encontrado')
 
     // Passos ignorados não podem ser concluídos diretamente — usuário precisa
     // primeiro "desfazer ignorar" e depois concluir.
@@ -4184,8 +4184,8 @@ export class ServicoService {
    */
   async pausarExecucao(id: string, motivo: string, userId?: string) {
     const exec = await prisma.servicoExecucao.findUnique({ where: { id } })
-    if (!exec) throw new Error('Execucao nao encontrada')
-    if (exec.pausado) throw new Error('Execucao ja esta pausada')
+    if (!exec) throw new Error('Execução não encontrada')
+    if (exec.pausado) throw new Error('Execução já está pausada')
     const updated = await prisma.servicoExecucao.update({
       where: { id },
       data: { pausado: true, pausadoEm: new Date(), pausadoPor: userId || null, pausadoMotivo: motivo },
@@ -4197,8 +4197,8 @@ export class ServicoService {
 
   async retomarExecucao(id: string, userId?: string) {
     const exec = await prisma.servicoExecucao.findUnique({ where: { id } })
-    if (!exec) throw new Error('Execucao nao encontrada')
-    if (!exec.pausado || !exec.pausadoEm) throw new Error('Execucao nao esta pausada')
+    if (!exec) throw new Error('Execução não encontrada')
+    if (!exec.pausado || !exec.pausadoEm) throw new Error('Execução não está pausada')
     // Recalcula prazoLimite estendendo pelo tempo de pausa
     const tempoPausadoMs = Date.now() - exec.pausadoEm.getTime()
     const novoPrazo = exec.prazoLimite
@@ -4239,7 +4239,7 @@ export class ServicoService {
       where: { id: execPassoId },
       select: { execucaoId: true, passoNome: true },
     })
-    if (!passo) throw new Error('Passo nao encontrado')
+    if (!passo) throw new Error('Passo não encontrado')
     const created = await prisma.servicoExecucaoPassoComentario.create({
       data: { execPassoId, userId: userId || null, mensagem },
     })
@@ -4264,7 +4264,7 @@ export class ServicoService {
       where: { id: input.execPassoId },
       select: { execucaoId: true, passoNome: true },
     })
-    if (!passo) throw new Error('Passo nao encontrado')
+    if (!passo) throw new Error('Passo não encontrado')
     const created = await prisma.servicoExecucaoPassoAnexo.create({
       data: {
         execPassoId: input.execPassoId,
