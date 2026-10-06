@@ -13,7 +13,6 @@ import { PageTransition } from '@/components/dashboard/page-transition'
 import { RouteProgress } from '@/components/dashboard/route-progress'
 import { ApiHealthMonitor } from '@/components/dashboard/api-health-monitor'
 import { FloatingFeedbackButton } from '@/components/dashboard/floating-feedback-button'
-// ⚠️ DEBUG TEMPORÁRIO — remover antes do PR (ver uso abaixo).
 import { PrimaryDebugTool } from '@/components/dashboard/primary-debug-tool'
 import { TarefasRail } from '@/components/dashboard/tarefas-rail'
 import { NotesRail } from '@/components/dashboard/notes-rail'
@@ -24,7 +23,6 @@ import { TabBar } from '@/components/dashboard/tab-bar'
 import { useSyncRouteTab } from '@/hooks/use-sync-route-tab'
 import { usePermissionsSse } from '@/hooks/use-permissions-sse'
 import { usePresencePing } from '@/hooks/use-presence-ping'
-import { useModuleScope } from '@/hooks/use-module-scope'
 import { useAgendaLembreteSse } from '@/hooks/use-agenda-lembrete-sse'
 import { cn } from '@saas/ui'
 import { RegistradorDeRecentes } from '@/components/dashboard/busca-global'
@@ -42,7 +40,6 @@ function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMob
   useSyncRouteTab()
   usePermissionsSse()
   usePresencePing()
-  useModuleScope()
   useAgendaLembreteSse()
   // Sidebar reduzida que expande ao passar o mouse (Configurações de layout):
   // abre POR CIMA do conteúdo — a margem do conteúdo não muda.
@@ -84,9 +81,8 @@ function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMob
       </div>
       <ApiHealthMonitor />
       <FloatingFeedbackButton />
-      {/* ⚠️ DEBUG TEMPORÁRIO (branch feat/module-color-to-primary) — REMOVER ANTES DO PR
-          (este bloco + primary-debug-tool.tsx + a skin [data-skin="debug"] no globals.css).
-          Gated em não-produção como rede de segurança. */}
+      {/* Ferramenta de dev: confere se a tela segue a cor primária (troca as
+          skins). Só em desenvolvimento — o build de produção não a renderiza. */}
       {process.env.NODE_ENV !== 'production' && <PrimaryDebugTool />}
       <TarefasRail />
       <NotesRail />

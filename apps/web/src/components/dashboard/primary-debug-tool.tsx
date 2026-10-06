@@ -1,14 +1,14 @@
 'use client'
 
 /* ============================================================================
- * ⚠️ DEBUG — FERRAMENTA TEMPORÁRIA (branch feat/module-color-to-primary).
- * REMOVER ANTES DO PR: este arquivo + a montagem em (dashboard)/layout.tsx +
- * a skin [data-skin="debug"] no globals.css.
+ * Ferramenta de DESENVOLVIMENTO (montada em (dashboard)/layout.tsx só fora de
+ * produção; usa a skin [data-skin="debug"] do globals.css).
  *
- * Valida visualmente a migração cor-de-módulo → primária:
+ * Confere visualmente se a tela segue a cor primária do sistema:
  *  - "Arco-íris": cicla data-skin por todas as skins rapidamente. Todo elemento
  *    que respeita a cor PRIMÁRIA do sistema muda de cor a cada passo; o que
- *    sobrou preso à cor de módulo fica PARADO → evidencia o que falta migrar.
+ *    ficou preso a uma cor fixa (hex, hue literal) fica PARADO → é o que falta
+ *    trocar pela primária.
  *  - "Magenta debug": aplica [data-skin="debug"] (magenta vívido, fora do menu
  *    de skins) — mesma finalidade, estático.
  *

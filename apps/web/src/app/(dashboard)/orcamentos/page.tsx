@@ -133,10 +133,8 @@ const OrcConfigContext = createContext<OrcConfig>(DEFAULT_CONFIG)
 
 /**
  * Cor do destaque em hex, aplicada inline na bolinha do menu, na borda do card
- * e no ícone do rodapé — os três idênticos. Não usa classes Tailwind porque a
- * página roda sob `.mod-comercial`, e o retint do globals.css troca as classes
- * rosa pela cor do módulo (a borda saía lavada, puxando para o laranja). Cor
- * escolhida pelo usuário é conceito, não módulo: mapa `*_COR` local.
+ * e no ícone do rodapé — os três idênticos. Cor escolhida pelo usuário é
+ * conceito, não módulo: mapa `*_COR` local em hex.
  */
 const DESTAQUE_COR: Record<DestaqueCor, string> = {
   amber: '#f59e0b',
@@ -1831,7 +1829,7 @@ function KanbanCardContent({ orc, cliente, onDuplicar, onArquivar, onCancelar, o
               <TooltipTrigger asChild>
                 <span
                   className="inline-flex max-w-[110px] cursor-help items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold"
-                  // Cor inline (fundo = a cor com ~10% de alfa): em classe, o vermelho sofre o retint do módulo.
+                  // Cor inline (fundo = a cor com ~10% de alfa): a cor do aviso vem em hex.
                   style={{ backgroundColor: `${aviso.cor}1A`, color: aviso.cor }}
                   onClick={e => e.stopPropagation()}
                   onPointerDown={e => e.stopPropagation()}

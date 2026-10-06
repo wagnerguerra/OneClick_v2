@@ -216,8 +216,7 @@ export const DOT: Record<ColorName, string> = {
  * Preenchimento SÓLIDO de área: barra de progresso, medidor, célula/faixa colorida.
  * Hoje é o mesmo tom do `DOT` (`bg-<c>-500`), mas papel à parte de propósito — a
  * intenção é distinta (preencher vs. pontuar) e os dois podem divergir de shade no
- * futuro sem quebrar quem usa. Sob `.mod-<slug>`, o `bg-<c>-500` da cor do módulo
- * retinge pro `var(--mod-<slug>)` (fill vira a cor do módulo). NÃO usar em texto/borda.
+ * futuro sem quebrar quem usa. NÃO usar em texto/borda.
  */
 export const FILL: Record<ColorName, string> = {
   pink: 'bg-pink-500',

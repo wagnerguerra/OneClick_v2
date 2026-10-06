@@ -1121,7 +1121,7 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
               <TooltipTrigger asChild>
                 <span
                   className="inline-flex max-w-[110px] cursor-help items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold"
-                  // Cor inline (fundo = a cor com ~10% de alfa): em classe, o vermelho sofre o retint do módulo.
+                  // Cor inline (fundo = a cor com ~10% de alfa): a cor do aviso vem pronta.
                   // color-mix em vez de sufixo hex de alfa: aceita tanto hex quanto var (o "Respondeu" é a primária).
                   style={{ backgroundColor: `color-mix(in srgb, ${aviso.cor} 10%, transparent)`, color: aviso.cor }}
                   onClick={e => e.stopPropagation()}

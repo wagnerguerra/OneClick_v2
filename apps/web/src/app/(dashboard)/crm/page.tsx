@@ -2437,7 +2437,7 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
               <TooltipTrigger asChild>
                 <span
                   className="inline-flex max-w-[110px] cursor-help items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold"
-                  // Cor inline (fundo = a cor com ~10% de alfa): em classe, o vermelho sofre o retint do módulo.
+                  // Cor inline (fundo = a cor com ~10% de alfa): a cor do aviso vem em hex.
                   style={{ backgroundColor: `${aviso.cor}1A`, color: aviso.cor }}
                   onClick={e => e.stopPropagation()}
                   onPointerDown={e => e.stopPropagation()}
