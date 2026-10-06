@@ -1383,22 +1383,31 @@ export default function AgendaPage() {
     <div className="space-y-3">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-        <Button
-          size="sm"
-          style={{ backgroundColor: 'var(--mod-administrativo, #38bdf8)' }}
-          className="text-white gap-1.5"
-          onClick={() => openNewEvent()}
-        >
-          <Plus className="h-4 w-4" /> Novo Evento
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => { setTarefaEditando(null); setTarefaModalOpen(true) }}
-        >
-          <CheckSquare className="h-4 w-4" /> Nova Tarefa
-        </Button>
+        {/* "+ Novo" único (padrão do cabeçalho: primeiro, no azul do tema), com
+            Evento e Tarefa no menu — antes eram dois botões lado a lado. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" className="gap-1.5">
+              <Plus className="h-4 w-4" /> Novo <ChevronDown className="h-3.5 w-3.5 opacity-80" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-52">
+            <DropdownMenuItem onClick={() => openNewEvent()} className="cursor-pointer gap-2 text-xs">
+              <Calendar className="h-3.5 w-3.5" />
+              <span className="flex flex-col">
+                <span className="font-medium">Evento</span>
+                <span className="text-[11px] text-muted-foreground">Reunião, compromisso, visita</span>
+              </span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { setTarefaEditando(null); setTarefaModalOpen(true) }} className="cursor-pointer gap-2 text-xs">
+              <CheckSquare className="h-3.5 w-3.5" />
+              <span className="flex flex-col">
+                <span className="font-medium">Tarefa</span>
+                <span className="text-[11px] text-muted-foreground">Algo a fazer, sem horário marcado</span>
+              </span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button asChild variant="outline" size="sm" className="gap-1.5">
           <Link href="/agenda/disponibilidade">
             <Users className="h-4 w-4" /> Verificar disponibilidade
