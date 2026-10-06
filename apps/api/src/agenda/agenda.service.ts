@@ -5,6 +5,7 @@ import type { Prisma } from '@saas/db'
 import { EmailService } from '../common/email.service'
 import { NotificationService } from '../notification/notification.service'
 import { AgendaConfigService } from './agenda-config.service'
+import { AgendaGoogleService } from './agenda-google.service'
 import { dataBrKey, horaBrKey } from './data-br.util'
 import { aplicarAjusteVencimento, proximoDiaUtil } from '../notificacao/feriados-br'
 import { carregarDiasNaoUteis, anosEntre } from '../common/dias-nao-uteis'
@@ -126,6 +127,8 @@ export class AgendaService {
     @Inject(EmailService) private readonly emailService: EmailService,
     @Inject(NotificationService) private readonly notificationService: NotificationService,
     @Inject(AgendaConfigService) private readonly configService: AgendaConfigService,
+    // Envio automático ao Google Agenda do criador (paridade com o v1).
+    @Inject(AgendaGoogleService) private readonly googleService: AgendaGoogleService,
   ) {}
 
   /**
@@ -1206,6 +1209,8 @@ export class AgendaService {
       }
     }
 
+    this.googleService.enfileirarEnvio(createdEvents.map(e => e.id))
+
     return createdEvents.length === 1 ? createdEvents[0]! : createdEvents
   }
 
@@ -1351,6 +1356,7 @@ export class AgendaService {
       })
     }
 
+    this.googleService.enfileirarEnvio([updated.id])
     return updated
   }
 
@@ -1377,10 +1383,12 @@ export class AgendaService {
       },
     })
 
-    return prisma.agendaEvento.update({
+    const excluido = await prisma.agendaEvento.update({
       where: { id },
       data: { isActive: false },
     })
+    this.googleService.enfileirarEnvio([id])
+    return excluido
   }
 
   async deleteLote(lote: string, userId: string) {
@@ -1412,6 +1420,7 @@ export class AgendaService {
       where: { lote, isActive: true },
       data: { isActive: false },
     })
+    this.googleService.enfileirarEnvio(eventos.map(e => e.id))
 
     return { deleted: result.count }
   }
@@ -1449,6 +1458,7 @@ export class AgendaService {
       where: { lote: ev.lote, isActive: true, data: { gte: ev.data } },
       data: { isActive: false },
     })
+    this.googleService.enfileirarEnvio(eventos.map(e => e.id))
     return { deleted: result.count }
   }
 

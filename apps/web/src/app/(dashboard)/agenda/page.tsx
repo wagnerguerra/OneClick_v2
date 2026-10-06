@@ -34,6 +34,7 @@ import { useIsMobile } from '@/hooks/use-media-query'
 import { resolveAssetUrl, getApiUrl } from '@/lib/api-url'
 import { renderConflitosHtml } from '@/lib/agenda-conflitos'
 import { TarefaModal } from './_components/tarefa-modal'
+import { GoogleAgendaButton } from './_components/google-agenda-button'
 import { alerts } from '@/lib/alerts'
 import { useSession } from '@/lib/auth-client'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -1410,6 +1411,7 @@ export default function AgendaPage() {
             <Printer className="h-4 w-4" /> Imprimir o dia
           </Link>
         </Button>
+        <GoogleAgendaButton onSincronizado={() => { void fetchEventos() }} />
         {canVerRelatorios && (
           <Button asChild variant="outline" size="sm" className="gap-1.5">
             <Link href="/agenda/relatorios">
