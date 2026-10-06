@@ -14,6 +14,7 @@ import { CompilarCertidoesService } from './compilar-certidoes.service'
 import { TRPCError } from '@trpc/server'
 import { paginationSchema } from '@saas/types'
 import { exigirEmpresa, limparDoc } from './cnd-comum'
+import { certidoesDoCliente, pdfDaCertidao } from './certidoes-do-cliente'
 
 const MODULE = 'certidoes-cnd'
 
@@ -44,6 +45,13 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
       .query(({ ctx }) => {
         if (!compilarService) return { status: 'idle', items: [], current: 0, total: 0 }
         return compilarService.getProgress(emp(ctx), ctx.userId)
+      }),
+
+    compilarHistorico: readProcedure(MODULE)
+      .input(z.object({ limit: z.number().int().min(1).max(100).default(20) }).optional())
+      .query(({ input, ctx }) => {
+        if (!compilarService) return []
+        return compilarService.historico(emp(ctx), input?.limit ?? 20)
       }),
 
     compilarRetry: writeProcedure(MODULE)
@@ -110,77 +118,12 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
     // ── Certidões consolidadas por cliente ─────────────────
     certidoesCliente: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))
-      .query(async ({ input, ctx }) => {
-        const empresaId = emp(ctx)
-        const rows: Array<{ id: string; tipo: string; label: string; situacao: string | null; dataValidade: string | null; dataConsulta: string | null; sucesso: boolean; temPdf: boolean }> = []
-
-        // Federal
-        const fed = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-          `SELECT id, tipo_certidao, data_validade, created_at, sucesso, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM certidoes_cnd WHERE cliente_id = $1 AND empresa_id = $2 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1`, input.clienteId, empresaId,
-        ).catch(() => [])
-        if (fed[0]) rows.push({ id: fed[0].id as string, tipo: 'federal', label: 'CND Federal (PGFN/RFB)', situacao: fed[0].tipo_certidao as string | null, dataValidade: fed[0].data_validade ? (fed[0].data_validade as Date).toISOString().split('T')[0] ?? null : null, dataConsulta: fed[0].created_at ? (fed[0].created_at as Date).toISOString() : null, sucesso: fed[0].sucesso as boolean, temPdf: !!fed[0].tem_pdf })
-
-        // Estadual
-        const est = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-          `SELECT id, sucesso, mensagem, created_at, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM certidoes_cnd_estadual WHERE cliente_id = $1 AND empresa_id = $2 ORDER BY created_at DESC LIMIT 1`, input.clienteId, empresaId,
-        ).catch(() => [])
-        if (est[0]) rows.push({ id: est[0].id as string, tipo: 'estadual', label: 'CND Estadual (SEFAZ ES)', situacao: est[0].sucesso ? 'Negativa' : (est[0].mensagem as string || 'Não emitida'), dataValidade: null, dataConsulta: est[0].created_at ? (est[0].created_at as Date).toISOString() : null, sucesso: est[0].sucesso as boolean, temPdf: !!est[0].tem_pdf })
-
-        // Municipal
-        const mun = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-          `SELECT id, tipo_certidao, municipio, data_validade, created_at, sucesso, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM certidoes_cnd_municipal WHERE cliente_id = $1 AND empresa_id = $2 ORDER BY created_at DESC LIMIT 1`, input.clienteId, empresaId,
-        ).catch(() => [])
-        if (mun[0]) rows.push({ id: mun[0].id as string, tipo: 'municipal', label: `CND Municipal (${mun[0].municipio || ''})`, situacao: mun[0].tipo_certidao as string | null, dataValidade: mun[0].data_validade ? (mun[0].data_validade as Date).toISOString().split('T')[0] ?? null : null, dataConsulta: mun[0].created_at ? (mun[0].created_at as Date).toISOString() : null, sucesso: mun[0].sucesso as boolean, temPdf: !!mun[0].tem_pdf })
-
-        // Trabalhista
-        const trb = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-          `SELECT id, tipo_certidao, data_validade, created_at, sucesso, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM certidoes_cndt WHERE cliente_id = $1 AND empresa_id = $2 ORDER BY created_at DESC LIMIT 1`, input.clienteId, empresaId,
-        ).catch(() => [])
-        if (trb[0]) rows.push({ id: trb[0].id as string, tipo: 'trabalhista', label: 'CNDT Trabalhista (TST)', situacao: trb[0].tipo_certidao as string | null, dataValidade: trb[0].data_validade ? (trb[0].data_validade as Date).toISOString().split('T')[0] ?? null : null, dataConsulta: trb[0].created_at ? (trb[0].created_at as Date).toISOString() : null, sucesso: trb[0].sucesso as boolean, temPdf: !!trb[0].tem_pdf })
-
-        // FGTS
-        const fgts = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-          `SELECT id, tipo_certidao, data_validade, created_at, sucesso, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM certidoes_crf_fgts WHERE cliente_id = $1 AND empresa_id = $2 ORDER BY created_at DESC LIMIT 1`, input.clienteId, empresaId,
-        ).catch(() => [])
-        if (fgts[0]) rows.push({ id: fgts[0].id as string, tipo: 'fgts', label: 'CRF/FGTS (Caixa)', situacao: fgts[0].tipo_certidao as string | null, dataValidade: fgts[0].data_validade ? (fgts[0].data_validade as Date).toISOString().split('T')[0] ?? null : null, dataConsulta: fgts[0].created_at ? (fgts[0].created_at as Date).toISOString() : null, sucesso: fgts[0].sucesso as boolean, temPdf: !!fgts[0].tem_pdf })
-
-        // CGU
-        const cgu = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-          `SELECT id, tipo_certidao, created_at, sucesso, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM certidoes_cgu WHERE cliente_id = $1 AND empresa_id = $2 ORDER BY created_at DESC LIMIT 1`, input.clienteId, empresaId,
-        ).catch(() => [])
-        if (cgu[0]) rows.push({ id: cgu[0].id as string, tipo: 'cgu', label: 'CGU (Certidão Correcional)', situacao: cgu[0].tipo_certidao as string | null, dataValidade: null, dataConsulta: cgu[0].created_at ? (cgu[0].created_at as Date).toISOString() : null, sucesso: cgu[0].sucesso as boolean, temPdf: !!cgu[0].tem_pdf })
-
-        // Alvará Bombeiros
-        const alv = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-          `SELECT id, alvara_id, status, data_fim_validade, created_at, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM alvaras_bombeiros WHERE cliente_id = $1 AND empresa_id = $2 ORDER BY created_at DESC LIMIT 1`, input.clienteId, empresaId,
-        ).catch(() => [])
-        if (alv[0]) rows.push({ id: alv[0].id as string, tipo: 'alvara_bombeiros', label: 'Alvará Bombeiros (CBMES)', situacao: alv[0].status as string | null, dataValidade: alv[0].data_fim_validade ? String(alv[0].data_fim_validade).slice(0, 10) : null, dataConsulta: alv[0].created_at ? (alv[0].created_at as Date).toISOString() : null, sucesso: (alv[0].status as string) === 'Regular', temPdf: !!alv[0].tem_pdf })
-
-        // Alvará Funcionamento
-        const alvFunc = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-          `SELECT id, sucesso, municipio, mensagem, created_at, (pdf_base64 IS NOT NULL AND pdf_base64 != '') as tem_pdf FROM alvaras_funcionamento WHERE cliente_id = $1 AND empresa_id = $2 ORDER BY created_at DESC LIMIT 1`, input.clienteId, empresaId,
-        ).catch(() => [])
-        if (alvFunc[0]) rows.push({ id: alvFunc[0].id as string, tipo: 'alvara_func', label: `Alvará Funcionamento (${alvFunc[0].municipio || ''})`, situacao: alvFunc[0].sucesso ? 'Emitido' : (alvFunc[0].mensagem as string || 'Não emitido'), dataValidade: null, dataConsulta: alvFunc[0].created_at ? (alvFunc[0].created_at as Date).toISOString() : null, sucesso: alvFunc[0].sucesso as boolean, temPdf: !!alvFunc[0].tem_pdf })
-
-        return rows
-      }),
+      // Fonte única com o portal do cliente — ver certidoes-do-cliente.ts.
+      .query(({ input, ctx }) => certidoesDoCliente(emp(ctx), input.clienteId)),
 
     certidaoPdf: readProcedure(MODULE)
       .input(z.object({ tipo: z.string(), id: z.string() }))
-      .query(async ({ input, ctx }) => {
-        const tableMap: Record<string, string> = {
-          federal: 'certidoes_cnd', estadual: 'certidoes_cnd_estadual', municipal: 'certidoes_cnd_municipal',
-          trabalhista: 'certidoes_cndt', fgts: 'certidoes_crf_fgts', cgu: 'certidoes_cgu',
-          alvara_bombeiros: 'alvaras_bombeiros', alvara_func: 'alvaras_funcionamento',
-        }
-        const table = tableMap[input.tipo]
-        if (!table) return { pdfBase64: null }
-        const rows = await prisma.$queryRawUnsafe<Array<{ pdf_base64: string | null }>>(
-          // `table` vem do mapa fixo acima (nunca do usuário); id e empresa por parâmetro.
-          `SELECT pdf_base64 FROM ${table} WHERE id = $1 AND empresa_id = $2`, input.id, emp(ctx),
-        ).catch(() => [])
-        return { pdfBase64: rows[0]?.pdf_base64 || null }
-      }),
+      .query(async ({ input, ctx }) => ({ pdfBase64: await pdfDaCertidao(emp(ctx), input.tipo, input.id) })),
 
     // ── Consulta ─────────────────────────────────────────
 

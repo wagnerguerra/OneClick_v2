@@ -17,6 +17,8 @@ export const manifestacaoOrigemSchema = z.enum(['INTERNA', 'CLIENTE'])
 
 export const manifestacaoCanalSchema = z.enum([
   'TELEFONE', 'EMAIL', 'WHATSAPP', 'PRESENCIAL', 'SITE', 'OUTRO',
+  // Registrado pelo próprio cliente na guia Atendimento do portal.
+  'PORTAL',
 ])
 
 /**

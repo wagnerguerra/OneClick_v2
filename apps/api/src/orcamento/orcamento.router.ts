@@ -502,12 +502,15 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
         notificarUsuarios: z.array(z.string()).optional(),
         restritoFinanceiro: z.boolean().optional(),
         parentId: z.string().optional(),
+        /** Aparece para o cliente no portal (só vale em orçamento pedido pelo portal). */
+        visivelCliente: z.boolean().optional(),
       }))
       .mutation(({ input, ctx }) => orcamentoService.addMensagem(input.orcamentoId, ctx.userId || '', input.mensagem, {
         acessoUsuarios: input.acessoUsuarios,
         notificarUsuarios: input.notificarUsuarios,
         restritoFinanceiro: input.restritoFinanceiro,
         parentId: input.parentId,
+        visivelCliente: input.visivelCliente,
       })),
 
     // Envia e-mail ao cliente pelo detalhe do orçamento (registra como mensagem;

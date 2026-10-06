@@ -61,14 +61,19 @@ export class BiSyncController {
       anoFim: number
       mesFim: number
       substituirExistentes?: boolean
+      /** Matriz com filiais: consolidar na matriz ou individualizar. */
+      modoFiliais?: 'CONSOLIDADO' | 'INDIVIDUAL'
+      filialIds?: string[]
     },
     @Req() req: Request,
   ) {
-    await this.assertAuth(req)
+    const { userId } = await this.assertAuth(req)
+    const modo = body.modoFiliais === 'CONSOLIDADO' || body.modoFiliais === 'INDIVIDUAL' ? body.modoFiliais : undefined
     try {
       return await this.biService.balanceteRefreshPeriodo(
         body.clienteId, body.anoInicio, body.mesInicio, body.anoFim, body.mesFim,
         body.substituirExistentes ?? true,
+        modo ? { modoFiliais: modo, filialIds: Array.isArray(body.filialIds) ? body.filialIds.map(String) : undefined, userId } : undefined,
       )
     } catch (e) {
       // Sem isto, um erro de REGRA (cliente sem ID SCI, por exemplo) virava
@@ -135,11 +140,14 @@ export class BiSyncController {
       ref: number
       linhas: SciBalanceteLinha[]
       substituirExistentes?: boolean
+      /** SM com consolidação: um lote por empresa do SCI (matriz primeiro). */
+      lotes?: Array<{ prcodemp: number; linhas: SciBalanceteLinha[] }>
     },
     @Req() req: Request,
   ) {
     await this.assertAuth(req)
-    if (!body.clienteId || !body.ref || !Array.isArray(body.linhas)) {
+    const lotes = Array.isArray(body.lotes) && body.lotes.every(l => Array.isArray(l?.linhas)) ? body.lotes : undefined
+    if (!body.clienteId || !body.ref || (!Array.isArray(body.linhas) && !lotes)) {
       throw new Error('Payload inválido: requer clienteId, ref (AAAAMM) e linhas[]')
     }
     if (body.ref < 200001 || body.ref > 209912) {
@@ -148,8 +156,9 @@ export class BiSyncController {
     const r = await this.balanceteService.uploadBalanceteMes(
       body.clienteId,
       body.ref,
-      body.linhas,
+      body.linhas ?? [],
       body.substituirExistentes ?? true,
+      lotes,
     )
     // Avança o job do fluxo via launcher (se houver um rodando pra este cliente/ref).
     this.balanceteService.advanceLauncherJob(body.clienteId, body.ref, r.inserted ?? 0)

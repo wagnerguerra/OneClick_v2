@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   FolderOpen, CalendarCheck, LifeBuoy, LayoutGrid, Building2, ChevronDown,
-  LogOut, Moon, Sun, Loader2, BarChart3,
+  LogOut, Moon, Sun, Loader2, BarChart3, ShieldCheck,
 } from 'lucide-react'
 import { cn } from '@saas/ui'
 
@@ -45,12 +45,16 @@ import { PortalContexto, type VinculoPortal } from './_lib/contexto'
  */
 const NAV = [
   { href: '/portal', rotulo: 'Início', icone: LayoutGrid },
-  { href: '/portal/documentos', rotulo: 'Documentos', icone: FolderOpen, modulo: 'documentos' },
-  { href: '/portal/obrigacoes', rotulo: 'Obrigações', icone: CalendarCheck, modulo: 'obrigacoes' },
+  // Guia Atendimento: entra em `modulos` só com ao menos uma das quatro permissões.
+  { href: '/portal/chamados', rotulo: 'Atendimento', icone: LifeBuoy, modulo: 'chamados' },
   // Aparece só para quem o escritório liberou pessoa a pessoa: o `bi` só entra
   // em `modulos` com o módulo ligado na empresa E `podeVerBi` no vínculo.
-  { href: '/portal/bi', rotulo: 'Dashboard Financeiro', icone: BarChart3, modulo: 'bi' },
-  { href: '/portal/chamados', rotulo: 'Atendimento', icone: LifeBuoy, modulo: 'chamados', emBreve: true },
+  { href: '/portal/bi', rotulo: 'BI Financeiro', icone: BarChart3, modulo: 'bi' },
+  // Idem: `certidoes` só com `podeVerCertidoes` no vínculo.
+  { href: '/portal/certidoes', rotulo: 'Certidões e Alvarás', icone: ShieldCheck, modulo: 'certidoes' },
+  // "Arquivos" no menu; a rota segue /portal/documentos (links já enviados continuam valendo).
+  { href: '/portal/documentos', rotulo: 'Arquivos', icone: FolderOpen, modulo: 'documentos' },
+  { href: '/portal/obrigacoes', rotulo: 'Obrigações', icone: CalendarCheck, modulo: 'obrigacoes' },
 ] as const
 
 /** Guarda a empresa escolhida — o diretor de grupo troca e espera continuar nela. */

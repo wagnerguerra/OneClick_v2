@@ -2,7 +2,8 @@ import { Injectable, forwardRef, Inject } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import type { Prisma } from '@saas/db'
 import { BiCalculosService } from './bi-calculos.service'
-import { BiBalanceteService } from './bi-balancete.service'
+import { BiBalanceteService, type FilialDoBi } from './bi-balancete.service'
+import { ehMatrizCnpj, limparCnpj } from '@saas/types'
 import { SciService } from '../cliente/sci.service'
 import { carregarDepara, sqlJoinsCategoria, sqlSomenteFolhas, sqlPeriodosEscolhidos, SQL_CATEGORIA, ehFolha } from './categoria-sql'
 import { nivel3De } from './depara-nivel3'
@@ -794,19 +795,109 @@ export class BiService {
     })
   }
 
-  async balanceteRefreshPeriodo(clienteId: string, anoInicio: number, mesInicio: number, anoFim: number, mesFim: number, substituirExistentes = true) {
+  async balanceteRefreshPeriodo(
+    clienteId: string, anoInicio: number, mesInicio: number, anoFim: number, mesFim: number, substituirExistentes = true,
+    /**
+     * Matriz com filiais: 'CONSOLIDADO' soma as filiais no BI da matriz;
+     * 'INDIVIDUAL' importa a matriz sozinha e dispara a importação de cada
+     * filial no próprio BI. Ausente = comportamento antigo (só a matriz).
+     */
+    opcoes?: { modoFiliais?: 'CONSOLIDADO' | 'INDIVIDUAL'; filialIds?: string[]; userId?: string | null; empresaId?: string | null },
+  ) {
     const cliente = await prisma.cliente.findUnique({
       where: { id: clienteId },
-      select: { id: true, idSistema: true, documento: true },
+      select: { id: true, idSistema: true, documento: true, empresaId: true },
     })
     if (!cliente) throw new Error('Cliente não encontrado.')
+    if (opcoes?.empresaId && cliente.empresaId && cliente.empresaId !== opcoes.empresaId) {
+      throw new Error('Cliente não encontrado nesta empresa.')
+    }
 
     const idSistema = await this.garantirIdSci(cliente)
     const prcodemp = this.resolverPrcodemp(cliente.documento, idSistema)
 
-    return this.balancete.importarBalanceteSci({
+    const modo = opcoes?.modoFiliais
+    if (!modo) {
+      return this.balancete.importarBalanceteSci({
+        clienteId, prcodemp, anoInicio, mesInicio, anoFim, mesFim, substituirExistentes,
+      })
+    }
+
+    const elegiveis = (await this.filiaisDoBalancete(clienteId, opcoes?.empresaId ?? null)).filiais
+    const escolhidas = opcoes?.filialIds?.length ? elegiveis.filter(f => opcoes.filialIds!.includes(f.clienteId)) : elegiveis
+    await prisma.cliente.update({ where: { id: clienteId }, data: { biModoFiliais: modo } })
+
+    if (modo === 'CONSOLIDADO' && escolhidas.length > 0) {
+      return this.balancete.importarBalanceteSci({
+        clienteId, prcodemp, anoInicio, mesInicio, anoFim, mesFim, substituirExistentes,
+        consolidacao: { filiais: escolhidas, userId: opcoes?.userId ?? null, empresaId: cliente.empresaId ?? null },
+      })
+    }
+
+    // INDIVIDUAL: a matriz só com o próprio balancete (o upload apaga o
+    // registro de consolidação dos meses reimportados) e cada filial no BI
+    // dela, com o próprio job.
+    const daMatriz = await this.balancete.importarBalanceteSci({
       clienteId, prcodemp, anoInicio, mesInicio, anoFim, mesFim, substituirExistentes,
     })
+    const dasFiliais: Array<{ clienteId: string; razaoSocial: string; started: boolean; erro?: string }> = []
+    for (const f of escolhidas) {
+      try {
+        const r = await this.balancete.importarBalanceteSci({
+          clienteId: f.clienteId, prcodemp: f.prcodemp, anoInicio, mesInicio, anoFim, mesFim, substituirExistentes,
+        })
+        dasFiliais.push({ clienteId: f.clienteId, razaoSocial: f.razaoSocial, started: r.started !== false })
+      } catch (e) {
+        dasFiliais.push({ clienteId: f.clienteId, razaoSocial: f.razaoSocial, started: false, erro: (e as Error).message })
+      }
+    }
+    return { ...daMatriz, filiais: dasFiliais }
+  }
+
+  /**
+   * Filiais da matriz que podem entrar no balancete do BI: mesma raiz de CNPJ,
+   * mesma empresa (tenant), ativas e com ID SCI. Também devolve a última
+   * escolha (`biModoFiliais`). Para uma filial ou um CPF, a lista vem vazia.
+   */
+  async filiaisDoBalancete(clienteId: string, empresaId: string | null) {
+    const cli = await prisma.cliente.findUnique({
+      where: { id: clienteId },
+      select: { documento: true, tipoDocumento: true, ehMatriz: true, empresaId: true, biModoFiliais: true },
+    })
+    if (!cli || (empresaId && cli.empresaId && cli.empresaId !== empresaId)) {
+      return { ehMatriz: false, modo: null as string | null, filiais: [] as FilialDoBi[] }
+    }
+    const doc = limparCnpj(cli.documento)
+    if (!ehMatrizCnpj(cli.documento, cli.ehMatriz, cli.tipoDocumento)) {
+      return { ehMatriz: false, modo: cli.biModoFiliais, filiais: [] as FilialDoBi[] }
+    }
+    const rows = await prisma.$queryRawUnsafe<Array<{ id: string; documento: string; razao_social: string; id_sistema: string | null }>>(
+      `SELECT id, documento, razao_social, id_sistema FROM clientes
+        WHERE id <> $1 AND status = 'ATIVO'
+          AND ($2::text IS NULL OR empresa_id = $2)
+          AND UPPER(REGEXP_REPLACE(documento, '[^0-9A-Za-z]', '', 'g')) LIKE $3
+          AND id_sistema ~ '^[0-9]+$' AND id_sistema::bigint > 0
+        ORDER BY documento`,
+      clienteId, cli.empresaId ?? empresaId, `${doc.slice(0, 8)}%`,
+    )
+    return {
+      ehMatriz: true,
+      modo: cli.biModoFiliais,
+      filiais: rows.map(r => ({ clienteId: r.id, cnpj: r.documento, razaoSocial: r.razao_social, prcodemp: Number(r.id_sistema) })),
+    }
+  }
+
+  /** Meses do ano cujo balancete do BI está consolidado com filiais (para o aviso da tela). */
+  async consolidacaoDoAno(clienteId: string, ano: number, empresaId: string | null) {
+    const rows = await prisma.clienteBiConsolidacao.findMany({
+      where: {
+        clienteId, periodo: { gte: `${ano}01`, lte: `${ano}12` },
+        ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}),
+      },
+      orderBy: { periodo: 'asc' },
+      select: { periodo: true, filiais: true },
+    })
+    return rows.map(r => ({ periodo: r.periodo, filiais: (Array.isArray(r.filiais) ? r.filiais : []) as unknown as FilialDoBi[] }))
   }
 
   balanceteRefreshStatus(clienteId: string, ano: number) {

@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common'
+import { Inject, Injectable } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import { formatDocumento } from '@saas/types'
+import { CaptchaService } from '../common/captcha.service'
 import { cndLogger, comNavegador, limparDoc, naFilaDoNavegador, PorEmpresa, precisaReconsultar } from './cnd-comum'
 
 const logger = cndLogger('Cgu')
@@ -48,6 +49,8 @@ function classificarBloco(texto: string): SituacaoCgu | null {
 
 @Injectable()
 export class CguCertidaoService {
+  constructor(@Inject(CaptchaService) private readonly captcha: CaptchaService) {}
+
   // Estado por EMPRESA: antes era único e um escritório via a etapa/lote do outro.
   private readonly consultaEtapa = new PorEmpresa<string>(() => '')
   private readonly loteProgress = new PorEmpresa<CguLoteProgress>(loteVazio)
@@ -150,15 +153,55 @@ export class CguCertidaoService {
 
       etapa('Consultando...')
       await page.click('#consultar')
-      await espera(8000)
+
+      // Desde out/2026 a consulta passa por um CAPTCHA de grade do AWS WAF
+      // ("escolha todas as cortinas"), num shadow DOM aberto. O 2Captcha diz
+      // QUAIS das 9 células clicar e o clique é feito aqui, no nosso navegador —
+      // o token que o WAF emite nasce nele. (O modo "token" do 2Captcha foi
+      // testado e recusado: HTTP 405, o token vale só para quem resolveu.)
+      const captchaNaTela = () => page.evaluate(() => {
+        const host = document.querySelector('awswaf-captcha') as HTMLElement | null
+        return !!host && !!host.shadowRoot?.querySelector('canvas') && host.getClientRects().length > 0
+      })
+      await espera(4000)
+      for (let rodada = 1; await captchaNaTela(); rodada++) {
+        if (rodada > 4) throw new Error('O portal da CGU não aceitou a resolução do captcha depois de 4 tentativas. Tente de novo mais tarde ou emita manualmente em certidoes.cgu.gov.br.')
+        etapa(`Resolvendo o captcha da CGU (2Captcha, tentativa ${rodada})...`)
+        // Instrução em inglês para os resolvedores do 2Captcha (o seletor de idioma é do próprio widget).
+        await page.evaluate(() => {
+          const sel = document.querySelector('awswaf-captcha')?.shadowRoot?.querySelector('select') as HTMLSelectElement | null
+          const en = sel ? Array.from(sel.options).find(o => /^english$/i.test(o.text.trim())) : null
+          if (sel && en && sel.value !== en.value) { sel.value = en.value; sel.dispatchEvent(new Event('change', { bubbles: true })) }
+        })
+        await espera(2500)
+        const alvo = await page.evaluate(() => document.querySelector('awswaf-captcha')?.shadowRoot?.querySelector('em')?.textContent?.trim() || '')
+        const canvas = await page.evaluateHandle(() => document.querySelector('awswaf-captcha')?.shadowRoot?.querySelector('canvas') ?? null)
+        const el = canvas.asElement() as import('puppeteer').ElementHandle<Element> | null
+        if (!el || !alvo) throw new Error('Não foi possível ler o captcha da CGU (a página mudou).')
+        const imagem = await el.screenshot({ encoding: 'base64' }) as string
+        const { celulas, taskId } = await this.captcha.resolveGrid(imagem, `Select all images with ${alvo}`, 3, 3)
+        // Os botões "1".."9" ficam invisíveis sobre o canvas (sem área para o
+        // puppeteer clicar): clica no centro de cada célula, como uma pessoa.
+        const caixa = await el.boundingBox()
+        if (!caixa) throw new Error('Não foi possível localizar a grade do captcha da CGU na tela.')
+        for (const n of celulas) {
+          const lin = Math.floor((n - 1) / 3)
+          const col = (n - 1) % 3
+          await page.mouse.click(caixa.x + (col + 0.5) * (caixa.width / 3), caixa.y + (lin + 0.5) * (caixa.height / 3))
+          await espera(350)
+        }
+        const confirmar = await page.evaluateHandle(() => document.querySelector('awswaf-captcha')?.shadowRoot?.querySelector('#amzn-btn-verify-internal') ?? null)
+        const c = confirmar.asElement() as import('puppeteer').ElementHandle<Element> | null
+        if (!c) throw new Error('Botão "Confirmar" do captcha da CGU não encontrado (a página mudou).')
+        await c.click()
+        await espera(5000)
+        // Ainda na tela = errou (o widget já trocou o quebra-cabeça): reporta e tenta de novo.
+        if (await captchaNaTela()) await this.captcha.reportarIncorretoV2(taskId)
+      }
+      etapa('Consultando...')
+      await espera(5000)
 
       const texto = await page.evaluate(() => document.body.innerText)
-      // Desde out/2026 o portal pede um CAPTCHA de imagens (<awswaf-captcha>, em shadow DOM) depois de
-      // "Consultar". Não há como seguir sem uma pessoa: avisa com clareza em vez
-      // de "nenhuma certidão no resultado".
-      if (await page.$('awswaf-captcha') || /confirmar que voc[eê] [eé] humano/i.test(texto)) {
-        throw new Error('O portal da CGU passou a exigir verificação humana (CAPTCHA de imagens). Emita esta certidão manualmente em certidoes.cgu.gov.br.')
-      }
       if (/inv[aá]lido/i.test(texto)) return { invalido: true as const, texto }
 
       // Situação POR CERTIDÃO: o bloco (linha/cartão) de cada botão de emissão.
@@ -187,7 +230,7 @@ export class CguCertidaoService {
       }
 
       return { invalido: false as const, texto, blocos, pdfBase64: pdfBase64 as string | null }
-    }, { timeoutMs: 120_000, disfarcarAutomacao: true })
+    }, { timeoutMs: 300_000, disfarcarAutomacao: true }) // inclui até 3 min do 2Captcha
 
     if (coleta.invalido) {
       const msg = 'CNPJ/CPF inválido'

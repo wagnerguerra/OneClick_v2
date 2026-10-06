@@ -718,6 +718,16 @@ model ClienteUsuario {
   /// empresa não são para todo usuário do cliente — o escritório libera pessoa
   /// a pessoa. Também depende do módulo `bi` estar liberado para a empresa.
   podeVerBi   Boolean @default(false) @map("pode_ver_bi")
+  /// Quadro "Certidões e alvarás" no portal (PDF da última emissão de cada
+  /// certidão do cliente). Nasce DESLIGADO, pelo mesmo motivo do BI: o
+  /// escritório libera pessoa a pessoa. Depende do módulo `certidoes` da empresa.
+  podeVerCertidoes Boolean @default(false) @map("pode_ver_certidoes")
+  /// Guia "Atendimento" do portal — cada ação liberada pessoa a pessoa, todas
+  /// nascem DESLIGADAS. Sem nenhuma, a guia some (`modulosDoVinculo`).
+  podeSolicitarServicos   Boolean @default(false) @map("pode_solicitar_servicos")
+  podeRegistrarReclamacao Boolean @default(false) @map("pode_registrar_reclamacao")
+  podeRegistrarSugestao   Boolean @default(false) @map("pode_registrar_sugestao")
+  podeRegistrarElogio     Boolean @default(false) @map("pode_registrar_elogio")
 
   /// Quem criou o vínculo. Pode ser um usuário INTERNO (escritório cadastrando
   /// o primeiro administrador) ou o próprio administrador do cliente.
@@ -849,6 +859,10 @@ model Cliente {
 
   // Integração
   idSistema      String? @map("id_sistema")
+  /// Matriz com filiais: última escolha na importação do balancete do BI —
+  /// 'CONSOLIDADO' (filiais somadas na matriz) ou 'INDIVIDUAL' (cada filial no
+  /// próprio BI). Nulo = nunca perguntado. Ver ClienteBiConsolidacao.
+  biModoFiliais  String? @map("bi_modo_filiais")
   idOmie         String? @map("id_omie")
   omieEmpresa    String? @map("omie_empresa")
   idOneClick     String? @map("id_oneclick")
@@ -1056,6 +1070,7 @@ model Cliente {
   custeioMensal           ClienteCusteioMensal[]
   biCategorias            ClienteBiCategoria[]
   biLinhas                ClienteBiLinha[]
+  biConsolidacoes         ClienteBiConsolidacao[]
   biLinks                 ClienteBiLink[]
   biCacheFaturamento      BiCacheFaturamento[]
   biCacheBalancete        BiCacheBalancete[]
@@ -2040,6 +2055,32 @@ model ClienteBiLinha {
   @@unique([clienteId, periodo, conta, ccCodigo])
   @@index([clienteId, periodo])
   @@map("cliente_bi_linhas")
+}
+
+/// Mês do balancete do BI de uma MATRIZ que foi importado CONSOLIDADO: as
+/// linhas em cliente_bi_linhas daquele período somam matriz + filiais (mesma
+/// raiz de CNPJ), conta a conta. Existe para o BI avisar — no /bi-faturamento e
+/// no portal — que os valores incluem as filiais. Importar o período só da
+/// matriz (modo individual) apaga o registro.
+///
+/// 06/10/2026: a FINATTO passou a faturar pela filial em jun/2026 e o BI da
+/// matriz mostrava faturamento zero; o balancete do contábil é o consolidado.
+model ClienteBiConsolidacao {
+  id        String   @id @default(cuid())
+  /// A matriz (dona das linhas consolidadas).
+  clienteId String   @map("cliente_id")
+  periodo   String // AAAAMM
+  /// [{ clienteId, cnpj, razaoSocial, prcodemp }] das filiais somadas.
+  filiais   Json     @default("[]")
+  userId    String?  @map("user_id")
+  empresaId String?  @map("empresa_id")
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([clienteId, periodo])
+  @@index([empresaId])
+  @@map("cliente_bi_consolidacoes")
 }
 
 model ClienteBiLink {
@@ -4764,6 +4805,10 @@ model Orcamento {
   clienteId              String?         @map("cliente_id")
   responsavelId          String?         @map("responsavel_id")
   solicitanteId          String?         @map("solicitante_id")
+  /// INTERNO | PORTAL — PORTAL = pedido feito pelo cliente na guia Atendimento.
+  origem                 String          @default("INTERNO")
+  /// Usuário do portal (cliente) que pediu — `solicitanteId` é da equipe.
+  portalUsuarioId        String?         @map("portal_usuario_id")
   status                 OrcamentoStatus @default(NOVO)
   tipo                   String? // SERVICO_EXTRA | SERVICO_MENSAL
   area                   String?
@@ -4899,6 +4944,10 @@ model OrcamentoMensagem {
   restritoFinanceiro Boolean   @default(false) @map("restrito_financeiro")
   viaEmail           Boolean   @default(false) @map("via_email") // enviada/recebida por e-mail
   autorExterno       String?   @map("autor_externo") // remetente externo (cliente) quando userId é null
+  /// Aparece para o cliente no portal (guia Atendimento). Nasce oculta.
+  visivelCliente     Boolean   @default(false) @map("visivel_cliente")
+  /// Escrita pelo cliente no portal (userId = usuário do portal).
+  viaPortal          Boolean   @default(false) @map("via_portal")
   createdAt          DateTime  @default(now()) @map("created_at")
   editadoEm          DateTime? @map("editado_em")
   parentId           String?   @map("parent_id")
@@ -8976,6 +9025,8 @@ model ManifestacaoMensagem {
   texto          String   @db.Text
   /// Nota interna não aparece na consulta pública por protocolo.
   interna        Boolean  @default(true)
+  /// Escrita pelo cliente no portal (guia Atendimento). Sempre `interna = false`.
+  viaPortal      Boolean  @default(false) @map("via_portal")
   criadoEm       DateTime @default(now()) @map("criado_em")
 
   manifestacao Manifestacao @relation(fields: [manifestacaoId], references: [id], onDelete: Cascade)

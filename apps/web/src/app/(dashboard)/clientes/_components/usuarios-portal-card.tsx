@@ -54,6 +54,11 @@ interface AcessoDaPessoa {
   podeEditar: boolean
   podeExcluir: boolean
   podeVerBi: boolean
+  podeVerCertidoes: boolean
+  podeSolicitarServicos: boolean
+  podeRegistrarReclamacao: boolean
+  podeRegistrarSugestao: boolean
+  podeRegistrarElogio: boolean
   cliente: { id: string; razaoSocial: string; grupo: string | null; status: string }
 }
 
@@ -66,6 +71,11 @@ interface UsuarioPortal {
   podeEditar: boolean
   podeExcluir: boolean
   podeVerBi: boolean
+  podeVerCertidoes: boolean
+  podeSolicitarServicos: boolean
+  podeRegistrarReclamacao: boolean
+  podeRegistrarSugestao: boolean
+  podeRegistrarElogio: boolean
   criadoEm: string
   user: {
     id: string; name: string; email: string; telefone: string | null
@@ -88,6 +98,11 @@ const formVazio = () => ({
   // Os números da empresa não são para todo usuário do cliente: o escritório
   // libera pessoa a pessoa, por ato deliberado.
   podeVerBi: false,
+  podeVerCertidoes: false,
+  podeSolicitarServicos: false,
+  podeRegistrarReclamacao: false,
+  podeRegistrarSugestao: false,
+  podeRegistrarElogio: false,
 })
 
 /**
@@ -165,6 +180,11 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
         nivel: form.nivel, areas: form.areas,
         podeVer: form.podeVer, podeEditar: form.podeEditar, podeExcluir: form.podeExcluir,
         podeVerBi: form.podeVerBi,
+        podeVerCertidoes: form.podeVerCertidoes,
+        podeSolicitarServicos: form.podeSolicitarServicos,
+        podeRegistrarReclamacao: form.podeRegistrarReclamacao,
+        podeRegistrarSugestao: form.podeRegistrarSugestao,
+        podeRegistrarElogio: form.podeRegistrarElogio,
         clientesAdicionais: irmasMarcadas,
       }) as {
         criouUsuario: boolean
@@ -233,6 +253,11 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
         podeEditar: editando.podeEditar,
         podeExcluir: editando.podeExcluir,
         podeVerBi: editando.podeVerBi,
+        podeVerCertidoes: editando.podeVerCertidoes,
+        podeSolicitarServicos: editando.podeSolicitarServicos,
+        podeRegistrarReclamacao: editando.podeRegistrarReclamacao,
+        podeRegistrarSugestao: editando.podeRegistrarSugestao,
+        podeRegistrarElogio: editando.podeRegistrarElogio,
       })
 
       // Só chama se houver grupo na tela: sem isso, um cliente sem irmãs
@@ -506,9 +531,13 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
               valores={form}
               onToggle={(campo, v) => setForm(f => ({ ...f, [campo]: v }))}
             />
-            <CampoBi
-              valor={form.podeVerBi}
-              onToggle={v => setForm(f => ({ ...f, podeVerBi: v }))}
+            <CampoPainel
+              valores={form}
+              onToggle={(campo, v) => setForm(f => ({ ...f, [campo]: v }))}
+            />
+            <CampoAtendimento
+              valores={form}
+              onToggle={(campo, v) => setForm(f => ({ ...f, [campo]: v }))}
             />
             <CampoGrupo
               grupo={grupo}
@@ -551,9 +580,13 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
               }}
               onToggle={(campo, v) => setEditando(u => (u ? { ...u, [campo]: v } : u))}
             />
-            <CampoBi
-              valor={editando?.podeVerBi ?? false}
-              onToggle={v => setEditando(u => (u ? { ...u, podeVerBi: v } : u))}
+            <CampoPainel
+              valores={{ podeVerBi: editando?.podeVerBi ?? false, podeVerCertidoes: editando?.podeVerCertidoes ?? false }}
+              onToggle={(campo, v) => setEditando(u => (u ? { ...u, [campo]: v } : u))}
+            />
+            <CampoAtendimento
+              valores={{podeSolicitarServicos: editando?.podeSolicitarServicos ?? false, podeRegistrarReclamacao: editando?.podeRegistrarReclamacao ?? false, podeRegistrarSugestao: editando?.podeRegistrarSugestao ?? false, podeRegistrarElogio: editando?.podeRegistrarElogio ?? false}}
+              onToggle={(campo, v) => setEditando(u => (u ? { ...u, [campo]: v } : u))}
             />
             <label className="flex items-center gap-2 text-sm">
               <Checkbox
@@ -667,6 +700,8 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
                           a.podeExcluir && 'exclui',
                         ].filter(Boolean).join(', ') || 'sem acesso a arquivos'}
                         {a.podeVerBi && ' · vê o dashboard'}
+                        {a.podeVerCertidoes && ' · vê as certidões'}
+                        {(a.podeSolicitarServicos || a.podeRegistrarReclamacao || a.podeRegistrarSugestao || a.podeRegistrarElogio) && ' · atendimento'}
                         {!a.ativo && ' · desativado'}
                       </span>
                     </span>
@@ -807,26 +842,66 @@ function CampoPermissoes({ valores, onToggle }: {
 }
 
 /**
- * Dashboard Financeiro no portal.
+ * O que aparece no painel do cliente, além dos arquivos.
  *
- * Campo à parte das permissões de arquivo porque é outra coisa: não é o que a
- * pessoa faz com documentos, é se ela enxerga os NÚMEROS da empresa — receita,
- * custos, resultado. Há quem cuide dos documentos do cliente e não deva ver o
- * lucro dele.
+ * À parte das permissões de arquivo porque é outra coisa. O Dashboard mostra
+ * os NÚMEROS da empresa — há quem cuide dos documentos do cliente e não deva
+ * ver o lucro dele. As certidões entram num quadro da tela inicial do portal,
+ * com o PDF para baixar.
  */
-function CampoBi({ valor, onToggle }: { valor: boolean; onToggle: (v: boolean) => void }) {
+type CampoDoPainel = 'podeVerBi' | 'podeVerCertidoes'
+const OPCOES_DO_PAINEL: Array<{ campo: CampoDoPainel; titulo: string; ajuda: string }> = [
+  { campo: 'podeVerBi', titulo: 'Ver o BI Financeiro', ajuda: 'Receita, custos, despesas e resultado da empresa, mês a mês — o BI do balancete.' },
+  { campo: 'podeVerCertidoes', titulo: 'Ver certidões e alvarás', ajuda: 'Guia "Certidões e Alvarás" e quadro na tela inicial, com a última emissão de cada documento para baixar.' },
+]
+
+function CampoPainel({ valores, onToggle }: {
+  valores: Record<CampoDoPainel, boolean>
+  onToggle: (campo: CampoDoPainel, v: boolean) => void
+}) {
+  return <GrupoDeOpcoes titulo="Painel do cliente" opcoes={OPCOES_DO_PAINEL} valores={valores} onToggle={onToggle} />
+}
+
+/**
+ * Guia "Atendimento" do portal. Cada ação liberada à parte: há quem possa
+ * pedir serviço e não deva falar em nome da empresa numa reclamação. Sem
+ * nenhuma marcada, a guia nem aparece para a pessoa.
+ */
+type CampoDeAtendimento = 'podeSolicitarServicos' | 'podeRegistrarReclamacao' | 'podeRegistrarSugestao' | 'podeRegistrarElogio'
+const OPCOES_DE_ATENDIMENTO: Array<{ campo: CampoDeAtendimento; titulo: string; ajuda: string }> = [
+  { campo: 'podeSolicitarServicos', titulo: 'Solicitar serviços', ajuda: 'Pede serviços do catálogo; vira um orçamento no kanban da equipe.' },
+  { campo: 'podeRegistrarReclamacao', titulo: 'Registrar reclamações', ajuda: 'Cai em Qualidade › Reclamações, com prazo de retorno.' },
+  { campo: 'podeRegistrarSugestao', titulo: 'Registrar sugestões', ajuda: 'Cai em Qualidade › Sugestões.' },
+  { campo: 'podeRegistrarElogio', titulo: 'Registrar elogios', ajuda: 'Cai em Qualidade › Elogios.' },
+]
+
+function CampoAtendimento({ valores, onToggle }: {
+  valores: Record<CampoDeAtendimento, boolean>
+  onToggle: (campo: CampoDeAtendimento, v: boolean) => void
+}) {
+  return <GrupoDeOpcoes titulo="Atendimento" opcoes={OPCOES_DE_ATENDIMENTO} valores={valores} onToggle={onToggle} />
+}
+
+function GrupoDeOpcoes<C extends string>({ titulo, opcoes, valores, onToggle }: {
+  titulo: string
+  opcoes: Array<{ campo: C; titulo: string; ajuda: string }>
+  valores: Record<C, boolean>
+  onToggle: (campo: C, v: boolean) => void
+}) {
   return (
     <div>
-      <Label className="text-[13px] font-semibold">Painel do cliente</Label>
-      <label className="mt-1.5 flex cursor-pointer items-start gap-2 rounded-lg border border-border p-2.5">
-        <Checkbox checked={valor} onCheckedChange={v => onToggle(v === true)} className="mt-0.5" />
-        <span className="min-w-0">
-          <span className="block text-[13px] text-foreground">Ver o Dashboard Financeiro</span>
-          <span className="block text-[11px] text-muted-foreground">
-            Receita, custos, despesas e resultado da empresa, mês a mês — o BI do balancete.
-          </span>
-        </span>
-      </label>
+      <Label className="text-[13px] font-semibold">{titulo}</Label>
+      <div className="mt-1.5 divide-y divide-border rounded-lg border border-border">
+        {opcoes.map(o => (
+          <label key={o.campo} className="flex cursor-pointer items-start gap-2 p-2.5">
+            <Checkbox checked={valores[o.campo]} onCheckedChange={v => onToggle(o.campo, v === true)} className="mt-0.5" />
+            <span className="min-w-0">
+              <span className="block text-[13px] text-foreground">{o.titulo}</span>
+              <span className="block text-[11px] text-muted-foreground">{o.ajuda}</span>
+            </span>
+          </label>
+        ))}
+      </div>
     </div>
   )
 }

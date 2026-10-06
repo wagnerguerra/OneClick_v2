@@ -20,6 +20,9 @@ const path = require('path');
 const fs = require('fs');
 const net = require('net');
 const os = require('os');
+const { iniciarTunelEscritorio } = require('./tunel-escritorio');
+// Túnel do escritório (consultas de certidões que a VPS não alcança). Ver tunel-escritorio.js.
+let tunelEscritorio = null;
 const https = require('https');
 
 // Auto-updater — only required when packaged (dev runs sem o módulo)
@@ -1954,38 +1957,51 @@ function registerIpcHandlers() {
     let ok = 0, skipped = 0, failed = 0
     const errorsByMes = {}
 
+    // Matriz com filiais CONSOLIDADAS: o servidor manda `fontes` (matriz
+    // primeiro). Cada empresa do SCI é lida à parte e o mês sobe como um lote
+    // por empresa — quem soma é o servidor (consolidar-balancete.ts), num lugar
+    // só para este caminho e para o local. Sem `fontes`: só a matriz.
+    const fontes = Array.isArray(p.fontes) && p.fontes.length > 1 ? p.fontes.map(Number) : null
+    if (fontes) console.log(`[BiSync] Consolidando empresas SCI ${fontes.join(' + ')}`)
+
+    const lerSci = (emp, ref, dataIni, dataFim) => {
+      const r = spawnSync(
+        'python',
+        [sciScript, String(emp), dataIni, dataFim, '1', String(ref)],
+        {
+          cwd: path.dirname(sciScript),
+          encoding: 'buffer',
+          env: { ...process.env, PYTHONIOENCODING: 'utf-8', ...sciEnvOverride() },
+          timeout: 120000,
+          windowsHide: true,
+        },
+      )
+      if (r.error) throw new Error(r.error.message)
+      const stdout = (r.stdout || Buffer.from('')).toString('utf8').trim()
+      const stderr = (r.stderr || Buffer.from('')).toString('utf8').trim()
+      if (!stdout) throw new Error(stderr || 'Sem resposta do sci_balancete.py')
+      const parsed = JSON.parse(stdout)
+      if (parsed.sucesso === false) throw new Error(parsed.erro || 'SCI retornou sucesso=false')
+      return parsed.dados || []
+    }
+
     for (const ref of refs) {
       const { dataIni, dataFim } = biSyncPeriodoDoRef(ref)
       try {
-        const r = spawnSync(
-          'python',
-          [sciScript, String(prcodemp), dataIni, dataFim, '1', String(ref)],
-          {
-            cwd: path.dirname(sciScript),
-            encoding: 'buffer',
-            env: { ...process.env, PYTHONIOENCODING: 'utf-8', ...sciEnvOverride() },
-            timeout: 120000,
-            windowsHide: true,
-          },
-        )
-        if (r.error) throw new Error(r.error.message)
-        const stdout = (r.stdout || Buffer.from('')).toString('utf8').trim()
-        const stderr = (r.stderr || Buffer.from('')).toString('utf8').trim()
-        if (!stdout) throw new Error(stderr || 'Sem resposta do sci_balancete.py')
-
-        const parsed = JSON.parse(stdout)
-        if (parsed.sucesso === false) throw new Error(parsed.erro || 'SCI retornou sucesso=false')
-        const linhas = parsed.dados || []
-        if (linhas.length === 0) {
+        // Uma empresa que falha derruba o MÊS inteiro: um consolidado pela
+        // metade (só a matriz) seria um número errado com cara de certo.
+        const lotes = (fontes || [prcodemp]).map(emp => ({ prcodemp: emp, linhas: lerSci(emp, ref, dataIni, dataFim) }))
+        const total = lotes.reduce((n, l) => n + l.linhas.length, 0)
+        if (total === 0) {
           console.log(`[BiSync] ref=${ref}: 0 linhas — pulado.`)
           skipped++
           continue
         }
 
-        const up = await biSyncPost(baseUrl, '/api/bi-sync/upload-balancete', {
-          clienteId, ref, linhas, substituirExistentes: p.substituirExistentes !== false,
-        })
-        console.log(`[BiSync] ref=${ref}: ${up?.inserted ?? linhas.length} linha(s) enviada(s).`)
+        const up = await biSyncPost(baseUrl, '/api/bi-sync/upload-balancete', fontes
+          ? { clienteId, ref, linhas: [], lotes, substituirExistentes: p.substituirExistentes !== false }
+          : { clienteId, ref, linhas: lotes[0].linhas, substituirExistentes: p.substituirExistentes !== false })
+        console.log(`[BiSync] ref=${ref}: ${up?.inserted ?? total} linha(s) enviada(s)${fontes ? ` (${fontes.length} empresas)` : ''}.`)
         ok++
       } catch (e) {
         console.error(`[BiSync] ref=${ref} falhou: ${e.message}`)
@@ -3023,6 +3039,11 @@ function registerIpcHandlers() {
   // e voce publica a imagem do outro commit sem perceber. Esperar tambem nao e
   // zelo, e obrigacao: o push acabou de acontecer, entao a imagem daquele
   // commit quase certamente ainda nao existe quando o deploy chega aqui.
+  // Fila do GitHub Actions parada por mais que isto = problema do GitHub, nao
+  // do build (um job hospedado costuma comecar em segundos). Em 05/10/2026 um
+  // incidente deixou os jobs 13 min em "queued" e depois os cancelou.
+  const ACTIONS_PARADO_MS = 6 * 60 * 1000
+
   async function aguardaImagensDoSha(cfg, sha, emitir, nomeJob, tetoMs) {
     const teto = tetoMs || 25 * 60 * 1000
     const inicio = Date.now()
@@ -3034,7 +3055,7 @@ function registerIpcHandlers() {
       // 1) Acha o run daquele commit (uma vez; depois so reconsulta os jobs).
       if (!runId) {
         const r = await githubJson(`/actions/workflows/build-images.yml/runs?head_sha=${sha}&per_page=1`, cfg)
-        if (!r.ok) return { ok: false, error: `Nao foi possivel consultar o build das imagens no GitHub: ${r.error}` }
+        if (!r.ok) return { ok: false, actionsFora: true, error: `Nao foi possivel consultar o build das imagens no GitHub: ${r.error}` }
         const run = (r.data && r.data.workflow_runs && r.data.workflow_runs[0]) || null
         if (run) { runId = run.id; runUrl = run.html_url }
       }
@@ -3052,7 +3073,13 @@ function registerIpcHandlers() {
           const job = jobs.find(x => x.name === nomeJob)
           if (job && job.status === 'completed') {
             if (job.conclusion === 'success') return { ok: true, url: job.html_url || runUrl }
-            return { ok: false, error: `O job "${nomeJob}" terminou como "${job.conclusion}". Veja ${job.html_url || runUrl}` }
+            // Cancelado/sem runner e problema do GitHub; "failure" e o build
+            // quebrado de verdade — gerar aqui falharia igual, entao nao oferece.
+            const doGithub = ['cancelled', 'timed_out', 'startup_failure', 'stale'].includes(job.conclusion)
+            return { ok: false, actionsFora: doGithub, error: `O job "${nomeJob}" terminou como "${job.conclusion}". Veja ${job.html_url || runUrl}` }
+          }
+          if (job && job.status !== 'in_progress' && Date.now() - inicio > ACTIONS_PARADO_MS) {
+            return { ok: false, actionsFora: true, error: `O GitHub Actions nao comecou o job "${nomeJob}" em ${Math.round(ACTIONS_PARADO_MS / 60000)} min (ainda "${job.status}"). Veja ${job.html_url || runUrl}` }
           }
           // Run acabou e o job nem apareceu: cancelado, ou o nome mudou no
           // workflow. Falhar aqui e melhor que esperar o teto inteiro.
@@ -3072,6 +3099,9 @@ function registerIpcHandlers() {
       if (!anunciou && !runId) {
         emitir('- Aguardando o GitHub criar o build das imagens para este commit...')
         anunciou = true
+      }
+      if (!runId && Date.now() - inicio > ACTIONS_PARADO_MS) {
+        return { ok: false, actionsFora: true, error: `O GitHub Actions nao criou o build das imagens em ${Math.round(ACTIONS_PARADO_MS / 60000)} min.` }
       }
       // Primeiro minuto de 5 em 5s: um job em cache termina em ~30s, e um
       // intervalo de 15s desperdicava metade disso so esperando a proxima
@@ -3104,6 +3134,103 @@ function registerIpcHandlers() {
     )
   }
 
+  // -- Plano B: imagem gerada NESTA maquina quando o GitHub Actions falha --
+  //
+  // So entra por escolha explicita (botao na tela, depois de o Actions nao
+  // comecar ou ser cancelado). Repete o que o build-images.yml faz — mesmo
+  // Dockerfile, mesmos build-args, mesmas etiquetas `:latest` e `:<sha>` no
+  // ghcr — e o resto do deploy (pull + reetiqueta na VPS) segue identico.
+  // Constroi a partir de um worktree limpo DAQUELE commit: a pasta de trabalho
+  // costuma ter arquivos modificados que nao podem ir para producao.
+
+  function procExec(cmd, args, onLine, timeoutMs, cwd) {
+    return new Promise((resolve) => {
+      const proc = spawn(cmd, args, { cwd: cwd || projectRoot, windowsHide: true, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } })
+      // 'git' para o Abortar matar na hora (o handler so mata processo local desse tipo).
+      deployTrackProcess(proc, 'git')
+      let out = ''
+      let err = ''
+      let killed = false
+      const timer = timeoutMs ? setTimeout(() => { killed = true; try { proc.kill('SIGKILL') } catch {} }, timeoutMs) : null
+      const linhas = (d) => { if (onLine) d.toString().split(/\r?\n/).filter(Boolean).forEach(onLine) }
+      proc.stdout.on('data', (d) => { out += d.toString(); linhas(d) })
+      proc.stderr.on('data', (d) => { err += d.toString(); linhas(d) })
+      proc.on('close', (code) => { if (timer) clearTimeout(timer); resolve({ code: killed ? 124 : code, stdout: out, stderr: err, timedOut: killed }) })
+      proc.on('error', (e) => { if (timer) clearTimeout(timer); resolve({ code: 1, error: e.message, stdout: out, stderr: err }) })
+    })
+  }
+
+  /** O Docker desta maquina ja tem login no ghcr? (sem ele o push e recusado) */
+  function dockerLogadoNoGhcr() {
+    const ehGhcr = (k) => /(^|\/\/)ghcr\.io/.test(k)
+    try {
+      const c = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.docker', 'config.json'), 'utf8'))
+      if (c.auths && Object.keys(c.auths).some(ehGhcr)) return true
+      // Docker Desktop pode guardar a credencial SO no cofre do Windows, sem
+      // deixar a entrada em `auths` — pergunta direto ao ajudante de credencial.
+      if (c.credsStore) {
+        const r = spawnSync(`docker-credential-${c.credsStore}`, ['list'], { encoding: 'utf8', timeout: 15000, windowsHide: true })
+        if (r.status === 0 && r.stdout) return Object.keys(JSON.parse(r.stdout)).some(ehGhcr)
+      }
+    } catch { /* sem config ou ajudante: trata como sem login */ }
+    return false
+  }
+
+  /** Variavel do repositorio (vars.X do workflow); .deploy.local tem precedencia. */
+  async function variavelDoRepo(cfg, nome) {
+    if (cfg && cfg[nome]) return String(cfg[nome])
+    const r = await githubJson(`/actions/variables/${nome}`, cfg)
+    return r.ok && r.data && r.data.value ? String(r.data.value) : ''
+  }
+
+  // Do log do buildx, so o que diz em que passo esta e o que deu errado.
+  function linhaDeBuildRelevante(l) {
+    return /^#\d+ \[[^\]]+\]/.test(l) || /error|erro|failed|pushing manifest|naming to|exporting to image/i.test(l)
+  }
+
+  async function geraImagemNestaMaquina(cfg, servico, sha, emitir) {
+    const dono = ghcrDono(cfg)
+    if (!dono) return { code: 1, stderr: 'GHCR_OWNER nao configurado e nao foi possivel inferir pelo GITHUB_REPO.' }
+    const info = await procExec('docker', ['info', '--format', '{{.ServerVersion}}'], null, 30000)
+    if (info.code !== 0) return { code: 1, stderr: 'O Docker desta maquina nao esta rodando. Abra o Docker Desktop e tente de novo.' }
+    if (!dockerLogadoNoGhcr()) {
+      return { code: 1, stderr: `O Docker desta maquina nao tem login no ghcr. No terminal: docker login ghcr.io -u ${dono} (senha = token do GitHub com permissao write:packages).` }
+    }
+
+    const buildArgs = []
+    if (servico === 'api') {
+      buildArgs.push('--build-arg', `GIT_SHA=${sha}`)
+    } else {
+      for (const nome of ['NEXT_PUBLIC_API_URL', 'NEXT_PUBLIC_APP_URL']) {
+        const v = await variavelDoRepo(cfg, nome)
+        // Sem elas o web sairia apontando para lugar nenhum — melhor parar.
+        if (!v) return { code: 1, stderr: `Nao consegui ler a variavel ${nome} do GitHub. Coloque ${nome}=... no .deploy.local e tente de novo.` }
+        buildArgs.push('--build-arg', `${nome}=${v}`)
+      }
+    }
+
+    const dir = path.join(os.tmpdir(), `oneclick-build-${servico}-${sha.slice(0, 12)}`)
+    await gitExec(['worktree', 'remove', '--force', dir], null, 60000)
+    try { fs.rmSync(dir, { recursive: true, force: true }) } catch {}
+    const wt = await gitExec(['worktree', 'add', '--detach', dir, sha], null, 120000)
+    if (wt.code !== 0) return { code: 1, stderr: `Nao foi possivel preparar o commit ${sha.slice(0, 7)} para o build: ${(wt.stderr || '').slice(0, 200)}` }
+    try {
+      const base = `ghcr.io/${dono}/oneclick-${servico}`
+      emitir(`→ Gerando a imagem ${servico.toUpperCase()} nesta maquina (commit ${sha.slice(0, 7)})...`)
+      return await procExec('docker', [
+        'buildx', 'build', '--progress=plain',
+        '--file', `apps/${servico}/Dockerfile`,
+        ...buildArgs,
+        '--tag', `${base}:latest`, '--tag', `${base}:${sha}`,
+        // So le o cache do CI (exportar cache exige outro driver do buildx).
+        '--cache-from', `type=registry,ref=${base}:buildcache`,
+        '--push', '.',
+      ], (l) => { if (linhaDeBuildRelevante(l)) emitir(l.slice(0, 220)) }, 40 * 60 * 1000, dir)
+    } finally {
+      await gitExec(['worktree', 'remove', '--force', dir], null, 60000)
+    }
+  }
+
   // Progresso de camada do `docker pull` e ruido puro na tela do deploy.
   function linhaDePullRelevante(linha) {
     if (/^\s*$/.test(linha)) return false
@@ -3134,6 +3261,14 @@ function registerIpcHandlers() {
     err.progress = typeof progress === 'number' ? progress : undefined
     throw err
   }
+
+  // Sobe uma vez, depois que o projeto (e o .deploy.local) foi localizado.
+  if (!tunelEscritorio) {
+    try {
+      tunelEscritorio = iniciarTunelEscritorio({ obterConfig: readDeployConfig, sshArgs: sshCmd, log: deployDebugLog })
+    } catch (e) { deployDebugLog(`[túnel] não subiu: ${e.message}`) }
+  }
+  ipcMain.handle('tunel:status', async () => (tunelEscritorio ? tunelEscritorio.status() : { ativo: false, motivo: 'não iniciado' }))
 
   ipcMain.handle('deploy:read-debug-log', async () => {
     try {
@@ -3176,6 +3311,8 @@ function registerIpcHandlers() {
     deployRunning = true
     deployAbortRequested = false
     deployCurrentStep = 'init'
+    // Plano B (imagens geradas nesta maquina) — so por escolha explicita na tela.
+    const buildLocal = !!(payload && payload.buildLocal)
     // Emit inicial — prova ao renderer que o handler foi chamado.
     deployEmit(1, 'init', `→ Iniciando deploy (payload=${payload ? 'com mensagem' : 'sem mensagem'})`, 'info')
     try {
@@ -3370,14 +3507,27 @@ function registerIpcHandlers() {
       deployCurrentStep = 'build-api'
       let buildApi
       if (usaImagensDoGhcr(cfg)) {
-        deployEmit(28, 'build-api', '→ Aguardando o build da imagem da API no GitHub...', 'info')
-        const espera = await aguardaImagensDoSha(cfg, targetSha, (m) => deployEmit(30, 'build-api', m, 'info'), 'build-api')
-        if (!espera.ok) {
-          deployEmit(50, 'build-api', `✗ ${espera.error}`, 'err')
-          deployRunning = false
-          return { ok: false, error: espera.error }
+        if (buildLocal) {
+          deployEmit(28, 'build-api', '⚠ Plano B: imagem gerada nesta maquina (sem o gate do GitHub Actions)', 'warn')
+          const gerada = await geraImagemNestaMaquina(cfg, 'api', targetSha, (m) => deployEmit(32, 'build-api', m, 'info'))
+          deployCheckAbort('build-api', 34)
+          if (gerada.code !== 0) {
+            const motivo = motivoDaFalhaSsh(gerada, 'A imagem da API nao foi gerada nesta maquina')
+            deployEmit(50, 'build-api', `✗ ${motivo}`, 'err')
+            deployRunning = false
+            return { ok: false, error: motivo }
+          }
+          deployEmit(35, 'build-api', '✓ Imagem da API gerada e enviada ao ghcr', 'ok')
+        } else {
+          deployEmit(28, 'build-api', '→ Aguardando o build da imagem da API no GitHub...', 'info')
+          const espera = await aguardaImagensDoSha(cfg, targetSha, (m) => deployEmit(30, 'build-api', m, 'info'), 'build-api')
+          if (!espera.ok) {
+            deployEmit(50, 'build-api', `✗ ${espera.error}`, 'err')
+            deployRunning = false
+            return { ok: false, error: espera.error, actionsFora: !!espera.actionsFora }
+          }
+          deployEmit(35, 'build-api', '✓ Imagem da API pronta no GitHub', 'ok')
         }
-        deployEmit(35, 'build-api', '✓ Imagem da API pronta no GitHub', 'ok')
         deployEmit(38, 'build-api', '→ Baixando a imagem da API do ghcr...', 'info')
         buildApi = await puxaImagemDoGhcr(cfg, 'api', targetSha, (line) => {
           if (linhaDePullRelevante(line)) deployEmit(45, 'build-api', line, 'info')
@@ -3638,13 +3788,25 @@ function registerIpcHandlers() {
       deployCurrentStep = 'build-web'
       let buildWeb
       if (usaImagensDoGhcr(cfg)) {
-        const esperaWeb = await aguardaImagensDoSha(cfg, targetSha, (m) => deployEmit(70, 'build-web', m, 'info'), 'build-web')
-        if (!esperaWeb.ok) {
-          deployEmit(85, 'build-web', `✗ ${esperaWeb.error}`, 'err')
-          deployRunning = false
-          return { ok: false, error: esperaWeb.error }
+        if (buildLocal) {
+          const gerada = await geraImagemNestaMaquina(cfg, 'web', targetSha, (m) => deployEmit(71, 'build-web', m, 'info'))
+          deployCheckAbort('build-web', 72)
+          if (gerada.code !== 0) {
+            const motivo = motivoDaFalhaSsh(gerada, 'A imagem do Web nao foi gerada nesta maquina')
+            deployEmit(85, 'build-web', `✗ ${motivo}`, 'err')
+            deployRunning = false
+            return { ok: false, error: motivo }
+          }
+          deployEmit(72, 'build-web', '✓ Imagem do Web gerada e enviada ao ghcr', 'ok')
+        } else {
+          const esperaWeb = await aguardaImagensDoSha(cfg, targetSha, (m) => deployEmit(70, 'build-web', m, 'info'), 'build-web')
+          if (!esperaWeb.ok) {
+            deployEmit(85, 'build-web', `✗ ${esperaWeb.error}`, 'err')
+            deployRunning = false
+            return { ok: false, error: esperaWeb.error, actionsFora: !!esperaWeb.actionsFora }
+          }
+          deployEmit(72, 'build-web', '✓ Imagem do Web pronta no GitHub', 'ok')
         }
-        deployEmit(72, 'build-web', '✓ Imagem do Web pronta no GitHub', 'ok')
         deployEmit(74, 'build-web', '→ Baixando a imagem do Web do ghcr...', 'info')
         buildWeb = await puxaImagemDoGhcr(cfg, 'web', targetSha, (line) => {
           if (linhaDePullRelevante(line)) deployEmit(78, 'build-web', line, 'info')
@@ -4787,6 +4949,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('before-quit', async () => {
+  try { tunelEscritorio && tunelEscritorio.parar() } catch {}
   isQuitting = true;
   if (nfeWatcher) {
     try { await nfeWatcher.dispose(); } catch { /* */ }

@@ -1,4 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common'
+import { randomUUID } from 'crypto'
 import { prisma } from '@saas/db'
 import { EmailService } from '../common/email.service'
 import { CndService } from './cnd.service'
@@ -13,13 +14,30 @@ import { cndLogger, exigirEmpresa, limparDoc, PorEmpresa, dataIso } from './cnd-
 
 export type CertidaoTipo = 'federal' | 'estadual' | 'municipal' | 'trabalhista' | 'fgts' | 'cgu' | 'alvara_bombeiros' | 'alvara_funcionamento'
 
+/** Um passo da linha do tempo de uma certidão (o que a tela e o log mostram). */
+export interface CompilarPasso { hora: string; texto: string; nivel: 'info' | 'ok' | 'erro' }
+
 export interface CompilarItem {
   tipo: CertidaoTipo
   label: string
   status: 'pendente' | 'processando' | 'sucesso' | 'falha' | 'sem_pdf'
+  /** O que está acontecendo agora (ex.: "Resolvendo o captcha..."). */
+  etapa?: string
+  /** Mensagem para o usuário — já traduzida do erro técnico. */
   mensagem?: string
+  /** O erro técnico original, para quem precisar investigar. */
+  detalhe?: string
   situacao?: string | null
-  pdfBase64?: string | null
+  /** Registro gravado (para baixar o PDF pela rota `certidaoPdf`). */
+  registroId?: string | null
+  /** Chave da rota `certidaoPdf` (o alvará de funcionamento é `alvara_func`). */
+  registroTipo?: string
+  temPdf?: boolean
+  /** A certidão veio da base (ainda válida), sem nova consulta ao portal. */
+  reaproveitada?: boolean
+  /** Plano B quando a automação falha: o portal para emitir à mão. */
+  urlManual?: string | null
+  historico: CompilarPasso[]
 }
 
 export interface CompilarProgress {
@@ -28,8 +46,14 @@ export interface CompilarProgress {
   current: number
   total: number
   razaoSocial?: string
+  /** Clientes do cadastro com este documento (entra no relatório final e no e-mail). */
+  clientes?: Array<{ id: string; razaoSocial: string }>
   /** Documento compilado — o envio por e-mail só usa o progresso deste documento. */
   documento?: string
+  iniciadoEm?: string
+  concluidoEm?: string
+  /** Registro permanente desta compilação (cnd_exec_log). */
+  logId?: string
 }
 
 const LABELS: Record<CertidaoTipo, string> = {
@@ -80,6 +104,71 @@ function avisoDeFalha(r: unknown): string | undefined {
 
 interface ClienteDoc { id: string; razao_social: string; cidade: string | null }
 
+/** Tabela de cada tipo e a chave usada pela rota `certidaoPdf`. */
+const REGISTRO: Record<CertidaoTipo, { tabela: string; rota: string; portal: string }> = {
+  federal: { tabela: 'certidoes_cnd', rota: 'federal', portal: 'do SERPRO (Receita/PGFN)' },
+  estadual: { tabela: 'certidoes_cnd_estadual', rota: 'estadual', portal: 'da SEFAZ-ES' },
+  municipal: { tabela: 'certidoes_cnd_municipal', rota: 'municipal', portal: 'da prefeitura' },
+  trabalhista: { tabela: 'certidoes_cndt', rota: 'trabalhista', portal: 'do TST' },
+  fgts: { tabela: 'certidoes_crf_fgts', rota: 'fgts', portal: 'da Caixa' },
+  cgu: { tabela: 'certidoes_cgu', rota: 'cgu', portal: 'da CGU' },
+  alvara_bombeiros: { tabela: 'alvaras_bombeiros', rota: 'alvara_bombeiros', portal: 'do SIAT (Bombeiros)' },
+  alvara_funcionamento: { tabela: 'alvaras_funcionamento', rota: 'alvara_func', portal: 'da prefeitura' },
+}
+
+/** Portal de emissão manual (plano B) — o mesmo endereço que cada rotina automatiza. */
+const MUNICIPAL_MANUAL: Record<string, string> = {
+  VITORIA: 'https://tributario.vitoria.es.gov.br/Servicos/CertidaoNegativa/CertidaoNegativa.aspx',
+  'VILA VELHA': 'https://tributacao.vilavelha.es.gov.br/tbw/loginWeb.jsp?execobj=ServicosWebSite&tab=tabCertNegCont',
+  SERRA: 'https://tributacao.serra.es.gov.br:8080/tbserra/loginWeb.jsp?execobj=ServicosWebSite&tab=tabCertNegEmpresa',
+  CARIACICA: 'https://sistemas.cariacica.es.gov.br/tbw/loginWeb.jsp?execobj=ServicosWebSite&tab=tabCertNegCont',
+}
+const ALVARA_FUNC_MANUAL: Record<string, string> = {
+  'VILA VELHA': 'https://tributacao.vilavelha.es.gov.br/tbw/loginWeb.jsp?execobj=ServicosWebSite&tab=tabReemissaoAlvara',
+  SERRA: 'https://tributacao.serra.es.gov.br:8080/tbserra/loginWeb.jsp?execobj=ServicosWebSite&tab=tabReemissaoAlvara',
+  CARIACICA: 'https://sistemas.cariacica.es.gov.br/tbw/loginWeb.jsp?execobj=ServicosWebSite&tab=tabReemissaoAlvara',
+}
+export function urlEmissaoManual(tipo: CertidaoTipo, municipio: string): string | null {
+  const mun = municipio.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim()
+  switch (tipo) {
+    case 'federal': return 'https://servicos.receitafederal.gov.br/servico/certidoes/#/home'
+    case 'estadual': return 'https://s2-internet.sefaz.es.gov.br/certidao/cnd'
+    case 'municipal': return MUNICIPAL_MANUAL[mun] ?? null
+    case 'trabalhista': return 'https://cndt-certidao.tst.jus.br/gerarCertidao'
+    case 'fgts': return 'https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf'
+    case 'cgu': return 'https://certidoes.cgu.gov.br/'
+    case 'alvara_bombeiros': return 'https://siat.cb.es.gov.br/siat/f/n/alvarapublico'
+    case 'alvara_funcionamento': return ALVARA_FUNC_MANUAL[mun] ?? null
+    default: return null
+  }
+}
+
+const horaBrasilia = () => new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+
+/**
+ * Erro técnico → frase que o usuário entende. "Navigation timeout of 30000 ms
+ * exceeded" e "Waiting for selector `#mainForm\:txtInscricao1`" não dizem nada a
+ * quem está no balcão; o original fica em `detalhe` e no log.
+ */
+export function explicarErro(tipo: CertidaoTipo, msg: string): string {
+  const portal = REGISTRO[tipo].portal
+  if (/^O (portal|SERPRO)|^Configure |^Munic[ií]pio |^Selecione /.test(msg)) return msg // já está em português claro
+  if (/ERR_(INVALID_AUTH_CREDENTIALS|TUNNEL_CONNECTION_FAILED|PROXY_CONNECTION_FAILED|PROXY_AUTH_UNSUPPORTED)/.test(msg)) {
+    return `A conexão pelo escritório falhou (o portal ${portal} só responde por lá). Verifique se o Service Manager está aberto no escritório e tente de novo.`
+  }
+  if (/navigation timeout|tempo esgotado|timed? ?out|ETIMEDOUT|UND_ERR_CONNECT_TIMEOUT|fetch failed|ECONNREFUSED|ECONNRESET|ENOTFOUND|EAI_AGAIN|socket hang up/i.test(msg)) {
+    return `O portal ${portal} não respondeu. Ele pode estar fora do ar ou recusando conexões do servidor — tente de novo mais tarde.`
+  }
+  if (/waiting for selector|no element found|failed to find|not found for selector|cannot read properties of null/i.test(msg)) {
+    return `A página do portal ${portal} não abriu o formulário esperado. O acesso pode ter sido recusado ou o portal mudou.`
+  }
+  if (/\b403\b|forbidden|acesso negado|access denied/i.test(msg)) {
+    return `O portal ${portal} recusou o acesso do servidor.`
+  }
+  if (/captcha/i.test(msg)) return `Não foi possível resolver o captcha do portal ${portal}. ${msg}`
+  return msg
+}
+
 @Injectable()
 export class CompilarCertidoesService {
   constructor(
@@ -105,15 +194,90 @@ export class CompilarCertidoesService {
 
   getProgress(empresaId: string, userId: string | undefined): CompilarProgress {
     const p = this.progress.get(this.chave(exigirEmpresa(empresaId), userId))
-    return { ...p, items: p.items.map(i => ({ ...i })) }
+    return { ...p, clientes: p.clientes?.map(c => ({ ...c })), items: p.items.map(i => ({ ...i, historico: [...i.historico] })) }
+  }
+
+  /**
+   * Compilações já feitas (cnd_exec_log, tipo 'compilar'), com a linha do
+   * tempo de cada certidão — o "log" que sobrevive à rotação do Docker.
+   */
+  async historico(empresaId: string, limit = 20) {
+    exigirEmpresa(empresaId)
+    const rows = await prisma.$queryRawUnsafe<Array<{ id: string; nome_usuario: string | null; iniciado_em: Date; finalizado_em: Date | null; total: number; sucesso: number; falhas: number; status: string; itens: unknown }>>(
+      `SELECT id, nome_usuario, iniciado_em, finalizado_em, total, sucesso, falhas, status, itens
+       FROM cnd_exec_log WHERE empresa_id = $1 AND tipo = 'compilar' ORDER BY iniciado_em DESC LIMIT $2`,
+      empresaId, Math.min(Math.max(limit, 1), 100),
+    )
+    return rows.map(r => {
+      const it = (r.itens && typeof r.itens === 'object' && !Array.isArray(r.itens) ? r.itens : {}) as { documento?: string; clientes?: Array<{ id: string; razaoSocial: string }>; certidoes?: unknown[] }
+      return {
+        id: r.id, usuario: r.nome_usuario, iniciadoEm: r.iniciado_em.toISOString(), finalizadoEm: r.finalizado_em?.toISOString() ?? null,
+        total: r.total, sucesso: r.sucesso, falhas: r.falhas, status: r.status,
+        documento: it.documento ?? null, clientes: it.clientes ?? [], certidoes: it.certidoes ?? [],
+      }
+    })
+  }
+
+  /** Etapa que a rotina do portal está anunciando agora (quando ela anuncia). */
+  private etapaDoServico(empresaId: string, tipo: CertidaoTipo): string {
+    try {
+      switch (tipo) {
+        case 'trabalhista': return this.trabalhistaService.getConsultaEtapa(empresaId)
+        case 'fgts': return this.fgtsService.getConsultaEtapa(empresaId)
+        case 'cgu': return this.cguService.getConsultaEtapa(empresaId)
+        case 'municipal': return this.municipalService.getConsultaEtapa(empresaId)
+        case 'alvara_funcionamento': return this.alvaraFuncService.getConsultaEtapa(empresaId)
+        default: return ''
+      }
+    } catch { return '' }
+  }
+
+  private passo(item: CompilarItem, texto: string, nivel: CompilarPasso['nivel'] = 'info') {
+    item.etapa = texto
+    const ultimo = item.historico[item.historico.length - 1]
+    if (ultimo?.texto !== texto) item.historico.push({ hora: horaBrasilia(), texto, nivel })
+  }
+
+  /** Grava (ou atualiza) a compilação em cnd_exec_log — o log do Docker se perde na rotação. */
+  private async gravarLog(empresaId: string, userId: string | undefined, p: CompilarProgress): Promise<void> {
+    try {
+      const sucesso = p.items.filter(i => i.status === 'sucesso').length
+      const falhas = p.items.filter(i => i.status === 'falha').length
+      const itens = JSON.stringify({
+        documento: p.documento, clientes: p.clientes ?? [],
+        certidoes: p.items.map(i => ({ tipo: i.tipo, label: i.label, status: i.status, situacao: i.situacao ?? null, mensagem: i.mensagem ?? null, detalhe: i.detalhe ?? null, reaproveitada: !!i.reaproveitada, historico: i.historico })),
+      })
+      if (!p.logId) {
+        p.logId = randomUUID()
+        const nome = userId ? (await prisma.user.findUnique({ where: { id: userId }, select: { name: true } }).catch(() => null))?.name ?? null : null
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO cnd_exec_log (id, tipo, iniciado_por, nome_usuario, total, sucesso, falhas, status, itens, empresa_id)
+           VALUES ($1, 'compilar', $2, $3, $4, $5, $6, $7, $8::jsonb, $9)`,
+          p.logId, userId ?? null, nome, p.total, sucesso, falhas, p.status === 'done' ? 'done' : 'running', itens, empresaId,
+        )
+      } else {
+        await prisma.$executeRawUnsafe(
+          `UPDATE cnd_exec_log SET sucesso = $2, falhas = $3, status = $4, itens = $5::jsonb,
+             finalizado_em = CASE WHEN $4 = 'done' THEN NOW() ELSE finalizado_em END
+           WHERE id = $1 AND empresa_id = $6`,
+          p.logId, sucesso, falhas, p.status === 'done' ? 'done' : 'running', itens, empresaId,
+        )
+      }
+    } catch (e) {
+      logger.warn(`Não foi possível gravar o log da compilação: ${(e as Error).message}`)
+    }
   }
 
   private async buscarCliente(empresaId: string, doc: string): Promise<ClienteDoc | null> {
-    const rows = await prisma.$queryRawUnsafe<ClienteDoc[]>(
+    return (await this.buscarClientes(empresaId, doc))[0] || null
+  }
+
+  /** Todos os cadastros ativos desta empresa com o documento (o relatório lista os nomes). */
+  private async buscarClientes(empresaId: string, doc: string): Promise<ClienteDoc[]> {
+    return prisma.$queryRawUnsafe<ClienteDoc[]>(
       `SELECT id, razao_social, cidade FROM clientes
-       WHERE status = 'ATIVO' AND empresa_id = $1 AND ${docSql('documento')} = $2 LIMIT 1`, empresaId, doc,
+       WHERE status = 'ATIVO' AND empresa_id = $1 AND ${docSql('documento')} = $2 ORDER BY razao_social`, empresaId, doc,
     )
-    return rows[0] || null
   }
 
   /**
@@ -137,17 +301,21 @@ export class CompilarCertidoesService {
       // Estado montado antes do primeiro await: a tela já vê "running" na hora.
       progress = {
         status: 'running',
-        items: tipos.map(t => ({ tipo: t, label: LABELS[t], status: 'pendente' as const })),
+        items: tipos.map(t => ({ tipo: t, label: LABELS[t], status: 'pendente' as const, etapa: 'Aguardando a vez', historico: [] })),
         current: 0,
         total: tipos.length,
         documento: doc,
+        iniciadoEm: new Date().toISOString(),
       }
       this.progress.set(chave, progress)
 
-      const cli = await this.buscarCliente(empresaId, doc)
+      const clis = await this.buscarClientes(empresaId, doc)
+      const cli = clis[0] || null
       const clienteId = cli?.id
       const municipio = cli?.cidade || 'VITÓRIA'
       progress.razaoSocial = cli?.razao_social || doc
+      progress.clientes = clis.map(c => ({ id: c.id, razaoSocial: c.razao_social }))
+      await this.gravarLog(empresaId, userId, progress)
 
       for (let i = 0; i < tipos.length; i++) {
         const tipo = tipos[i]!
@@ -155,16 +323,24 @@ export class CompilarCertidoesService {
         progress.current = i + 1
         item.status = 'processando'
         await this.processarItem(empresaId, item, tipo, doc, municipio, clienteId, userId, forcarNova)
+        await this.gravarLog(empresaId, userId, progress)
       }
     } catch (e) {
       logger.error(`Falha ao compilar …${doc.slice(-4)}: ${(e as Error).message}`)
       if (progress) {
         for (const it of progress.items) {
-          if (it.status === 'pendente' || it.status === 'processando') { it.status = 'falha'; it.mensagem = (e as Error).message }
+          if (it.status === 'pendente' || it.status === 'processando') {
+            it.status = 'falha'; it.detalhe = (e as Error).message; it.mensagem = explicarErro(it.tipo, (e as Error).message)
+            this.passo(it, it.mensagem, 'erro')
+          }
         }
       }
     } finally {
-      if (progress) progress.status = 'done'
+      if (progress) {
+        progress.status = 'done'
+        progress.concluidoEm = new Date().toISOString()
+        await this.gravarLog(empresaId, userId, progress)
+      }
     }
   }
 
@@ -188,8 +364,12 @@ export class CompilarCertidoesService {
 
       item.status = 'processando'
       item.mensagem = undefined
-      item.pdfBase64 = undefined
+      item.detalhe = undefined
       item.situacao = undefined
+      item.registroId = undefined
+      item.temPdf = false
+      item.reaproveitada = false
+      this.passo(item, 'Nova tentativa solicitada')
       progress.status = 'running'
       progress.current = itemIndex + 1
 
@@ -198,9 +378,16 @@ export class CompilarCertidoesService {
     } catch (e) {
       logger.error(`Falha ao reprocessar ${tipo} de …${doc.slice(-4)}: ${(e as Error).message}`)
       const item = progress?.items[itemIndex]
-      if (item && item.status === 'processando') { item.status = 'falha'; item.mensagem = (e as Error).message }
+      if (item && item.status === 'processando') {
+        item.status = 'falha'; item.detalhe = (e as Error).message; item.mensagem = explicarErro(item.tipo, (e as Error).message)
+        this.passo(item, item.mensagem, 'erro')
+      }
     } finally {
-      if (progress) progress.status = 'done'
+      if (progress) {
+        progress.status = 'done'
+        progress.concluidoEm = new Date().toISOString()
+        await this.gravarLog(empresaId, userId, progress)
+      }
     }
   }
 
@@ -209,40 +396,76 @@ export class CompilarCertidoesService {
     empresaId: string, item: CompilarItem, tipo: CertidaoTipo, doc: string, municipio: string,
     clienteId: string | undefined, userId: string | undefined, forcarNova: boolean,
   ): Promise<void> {
+    item.registroTipo = REGISTRO[tipo].rota
+    item.urlManual = urlEmissaoManual(tipo, municipio)
+    let vigia: NodeJS.Timeout | undefined
     try {
-      let pdfBase64: string | null = null
+      let existente: { id: string; pdf: string } | null = null
       let aviso: string | undefined
 
       if (!forcarNova) {
         // Reaproveita certidão existente — só se ainda estiver válida.
-        pdfBase64 = await this.buscarExistente(empresaId, tipo, doc, municipio)
+        this.passo(item, 'Procurando certidão ainda válida na base')
+        existente = await this.buscarExistente(empresaId, tipo, doc, municipio)
+        if (existente) { item.reaproveitada = true; this.passo(item, 'Certidão válida encontrada — sem nova consulta ao portal', 'ok') }
       }
 
-      if (!pdfBase64) {
+      if (!existente) {
+        this.passo(item, tipo === 'federal' ? 'Consultando a API do SERPRO' : `Abrindo o portal ${REGISTRO[tipo].portal}`)
+        // A rotina do portal anuncia as próprias etapas ("Resolvendo captcha...");
+        // copia para o item enquanto ela roda.
+        vigia = setInterval(() => {
+          const e = this.etapaDoServico(empresaId, tipo)
+          if (e && !/^(conclu|idle)/i.test(e)) this.passo(item, e)
+        }, 700)
         const nova = await this.gerarNova(empresaId, tipo, doc, municipio, clienteId, userId)
-        pdfBase64 = nova.pdf
+        clearInterval(vigia); vigia = undefined
+        existente = nova.registro
         aviso = nova.aviso
       }
 
+      this.passo(item, 'Lendo o resultado')
       const situacao = await this.buscarSituacao(empresaId, tipo, doc, municipio)
       item.situacao = situacao
 
-      if (pdfBase64) {
+      if (existente) {
         item.status = 'sucesso'
-        item.pdfBase64 = pdfBase64
-        item.mensagem = aviso
-          ? `${situacao || 'Certidão anterior válida'} — a nova consulta falhou (${aviso}); mantida a certidão anterior`
-          : (situacao || 'PDF obtido com sucesso')
+        item.registroId = existente.id
+        item.temPdf = true
+        // A aba Legalização do cliente lê pelo cliente_id: certidão emitida por
+        // consulta avulsa (sem cliente) não aparecia lá. Vincula se estiver solta.
+        if (clienteId) {
+          await prisma.$executeRawUnsafe(
+            `UPDATE ${REGISTRO[tipo].tabela} SET cliente_id = $1 WHERE id = $2 AND empresa_id = $3 AND cliente_id IS NULL`,
+            clienteId, existente.id, empresaId,
+          ).catch(() => undefined)
+        }
+        if (aviso) {
+          item.detalhe = aviso
+          item.mensagem = `${situacao || 'Certidão anterior válida'} — a nova consulta falhou (${explicarErro(tipo, aviso)}); mantida a certidão anterior`
+        } else {
+          item.mensagem = situacao || 'PDF obtido com sucesso'
+        }
+        this.passo(item, item.reaproveitada ? `Pronta (${situacao || 'válida'})` : `Emitida (${situacao || 'PDF obtido'})`, 'ok')
       } else if (aviso) {
         item.status = 'falha'
-        item.mensagem = aviso
+        item.detalhe = aviso
+        item.mensagem = explicarErro(tipo, aviso)
+        this.passo(item, item.mensagem, 'erro')
       } else {
         item.status = 'sem_pdf'
         item.mensagem = situacao || 'Certidão emitida mas PDF não disponível'
+        this.passo(item, item.mensagem, 'erro')
       }
     } catch (e) {
       item.status = 'falha'
-      item.mensagem = (e as Error).message
+      item.detalhe = (e as Error).message
+      item.mensagem = explicarErro(tipo, (e as Error).message)
+      this.passo(item, item.mensagem, 'erro')
+      logger.warn(`${LABELS[tipo]} de …${doc.slice(-4)}: ${item.detalhe}`)
+    } finally {
+      if (vigia) clearInterval(vigia)
+      item.etapa = undefined
     }
   }
 
@@ -307,10 +530,10 @@ export class CompilarCertidoesService {
    * devolvia a última com sucesso, mesmo vencida — e a compilação mandava ao
    * cliente uma certidão vencida como se fosse atual.
    */
-  private async buscarExistente(empresaId: string, tipo: CertidaoTipo, doc: string, municipio: string): Promise<string | null> {
+  private async buscarExistente(empresaId: string, tipo: CertidaoTipo, doc: string, municipio: string): Promise<{ id: string; pdf: string } | null> {
     const umPdf = async (sql: string, ...params: unknown[]) => {
-      const rows = await prisma.$queryRawUnsafe<Array<{ pdf_base64: string | null }>>(sql, ...params).catch(() => [])
-      return rows[0]?.pdf_base64 || null
+      const rows = await prisma.$queryRawUnsafe<Array<{ id: string; pdf_base64: string | null }>>(sql.replace(/^\s*SELECT pdf_base64/, 'SELECT id, pdf_base64'), ...params).catch(() => [])
+      return rows[0]?.pdf_base64 ? { id: rows[0].id, pdf: rows[0].pdf_base64 } : null
     }
     switch (tipo) {
       case 'federal':
@@ -340,15 +563,15 @@ export class CompilarCertidoesService {
            AND COALESCE(data_consulta, created_at) >= NOW() - INTERVAL '${IDADE_MAX_SEM_VALIDADE.cgu} days' ORDER BY created_at DESC LIMIT 1`, empresaId, doc)
       case 'alvara_bombeiros': {
         // Validade gravada como texto: confere em código (data inválida/ausente = aceita, como antes).
-        const rows = await prisma.$queryRawUnsafe<Array<{ pdf_base64: string | null; data_fim_validade: string | null }>>(
-          `SELECT pdf_base64, data_fim_validade FROM alvaras_bombeiros WHERE empresa_id = $1 AND ${docSql('documento')} = $2 AND status = 'Regular'
+        const rows = await prisma.$queryRawUnsafe<Array<{ id: string; pdf_base64: string | null; data_fim_validade: string | null }>>(
+          `SELECT id, pdf_base64, data_fim_validade FROM alvaras_bombeiros WHERE empresa_id = $1 AND ${docSql('documento')} = $2 AND status = 'Regular'
            ORDER BY created_at DESC LIMIT 1`, empresaId, doc,
         ).catch(() => [])
         const r = rows[0]
         if (!r?.pdf_base64) return null
         const fim = dataIso(r.data_fim_validade)
         if (fim && fim < hojeBrasilia()) return null
-        return r.pdf_base64
+        return { id: r.id, pdf: r.pdf_base64 }
       }
       case 'alvara_funcionamento':
         return umPdf(
@@ -360,7 +583,7 @@ export class CompilarCertidoesService {
 
   private async gerarNova(
     empresaId: string, tipo: CertidaoTipo, doc: string, municipio: string, clienteId?: string, userId?: string,
-  ): Promise<{ pdf: string | null; aviso?: string }> {
+  ): Promise<{ registro: { id: string; pdf: string } | null; aviso?: string }> {
     let r: unknown
     switch (tipo) {
       case 'federal': {
@@ -391,18 +614,17 @@ export class CompilarCertidoesService {
         break
       case 'alvara_bombeiros': {
         // Alvará busca por razão social — precisamos do nome (cliente desta empresa)
-        if (clienteId) {
-          const cli = await prisma.cliente.findFirst({ where: { id: clienteId, empresaId }, select: { razaoSocial: true } })
-          if (cli?.razaoSocial) r = await this.alvaraService.consultar(empresaId, cli.razaoSocial, clienteId, userId)
-        }
+        if (!clienteId) throw new Error('O alvará dos Bombeiros é buscado pela razão social, e este documento não tem cliente cadastrado.')
+        const cli = await prisma.cliente.findFirst({ where: { id: clienteId, empresaId }, select: { razaoSocial: true } })
+        if (cli?.razaoSocial) r = await this.alvaraService.consultar(empresaId, cli.razaoSocial, clienteId, userId)
         break
       }
       case 'alvara_funcionamento':
         r = await this.alvaraFuncService.consultar(empresaId, doc, municipio, clienteId, userId)
         break
-      default: return { pdf: null }
+      default: return { registro: null }
     }
-    return { pdf: await this.buscarExistente(empresaId, tipo, doc, municipio), aviso: avisoDeFalha(r) }
+    return { registro: await this.buscarExistente(empresaId, tipo, doc, municipio), aviso: avisoDeFalha(r) }
   }
 
   /**
@@ -426,8 +648,8 @@ export class CompilarCertidoesService {
     const anexos: Array<{ item: CompilarItem; pdf: string }> = []
     for (const item of progress.items) {
       if (item.status !== 'sucesso') continue
-      const pdf = await this.buscarExistente(empresaId, item.tipo, doc, municipio)
-      if (pdf) anexos.push({ item, pdf })
+      const reg = await this.buscarExistente(empresaId, item.tipo, doc, municipio)
+      if (reg) anexos.push({ item, pdf: reg.pdf })
     }
     if (anexos.length === 0) throw new Error('Nenhum PDF disponível para envio')
 
@@ -454,7 +676,7 @@ export class CompilarCertidoesService {
     }
 
     const statusText = (item: CompilarItem) => {
-      if (item.status === 'falha') return `✗ ${item.mensagem || 'Falha na emissão'}`
+      if (item.status === 'falha') return `✗ Não emitida — ${item.mensagem || 'falha na emissão'}`
       if (item.status === 'sem_pdf') return `⚠ ${item.situacao || 'Sem PDF disponível'}`
       return item.situacao || 'Emitida'
     }
@@ -479,7 +701,8 @@ export class CompilarCertidoesService {
 
           <!-- Dados do cliente -->
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; margin-bottom: 20px;">
-            <p style="margin: 0 0 4px; font-size: 14px;"><strong style="color: #1e293b;">${esc(nome)}</strong></p>
+            ${(progress.clientes && progress.clientes.length > 0 ? progress.clientes.map(c => c.razaoSocial) : [nome])
+              .map(n => `<p style="margin: 0 0 4px; font-size: 14px;"><strong style="color: #1e293b;">${esc(n)}</strong></p>`).join('')}
             <p style="margin: 0; font-size: 13px; color: #64748b;">CNPJ: <strong>${esc(cnpjFormatado)}</strong></p>
           </div>
 

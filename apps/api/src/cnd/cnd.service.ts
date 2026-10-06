@@ -151,6 +151,22 @@ export type ResultadoConsultaCnd = RegistroCnd & {
 // Service
 // ============================================================
 
+/**
+ * Erro do GATEWAY do SERPRO (antes de chegar à API de CND): vem como
+ * { code, message, description } e não como { Status, Mensagem }. Sem isso a
+ * tela mostrava "Status ?" — foi o caso de 05/10/2026, assinatura inativa.
+ */
+function mensagemDoGateway(result: unknown): string | null {
+  if (!result || typeof result !== 'object') return null
+  const r = result as { code?: unknown; message?: unknown; description?: unknown }
+  if (!r.message && !r.description) return null
+  const texto = `${String(r.message ?? '').trim()} ${String(r.description ?? '').trim()}`.trim()
+  if (/subscription|not authorized|forbidden/i.test(texto)) {
+    return `O SERPRO recusou o acesso: a assinatura da API "Consulta CND" não está ativa para as credenciais configuradas (código ${String(r.code ?? '?')}). Verifique o contrato na Loja SERPRO.`
+  }
+  return `SERPRO: ${texto}${r.code ? ` (código ${String(r.code)})` : ''}`
+}
+
 @Injectable()
 export class CndService {
   private tokenCache: { accessToken: string; expiresAt: number } | null = null
@@ -411,7 +427,7 @@ export class CndService {
 
     // ── Falha (não emitida, erro do SERPRO ou falha de rede)
     const naoEmitida = !!result && (result.Status === 3 || result.Status === 4)
-    const erroMsg = erroChamada ?? (result?.Mensagem || `Status ${result?.Status ?? '?'}`)
+    const erroMsg = erroChamada ?? (result?.Mensagem || mensagemDoGateway(result) || `Status ${result?.Status ?? '?'}`)
 
     const anterior = await this.ultimaValida(empresaId, doc)
     if (anterior) {
@@ -447,12 +463,12 @@ export class CndService {
   async listarExecLogs(empresaId: string, limit = 20, offset = 0) {
     exigirEmpresa(empresaId)
     const countRows = await prisma.$queryRawUnsafe<Array<{ total: number }>>(
-      `SELECT COUNT(*)::int as total FROM cnd_exec_log WHERE empresa_id = $1`, empresaId,
+      `SELECT COUNT(*)::int as total FROM cnd_exec_log WHERE empresa_id = $1 AND tipo <> 'compilar'`, empresaId,
     )
     const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
       `SELECT id, tipo, iniciado_por, nome_usuario, iniciado_em, finalizado_em,
               total, sucesso, falhas, status, itens::text
-       FROM cnd_exec_log WHERE empresa_id = $1 ORDER BY iniciado_em DESC LIMIT $2 OFFSET $3`,
+       FROM cnd_exec_log WHERE empresa_id = $1 AND tipo <> 'compilar' ORDER BY iniciado_em DESC LIMIT $2 OFFSET $3`,
       empresaId, limit, offset,
     )
     return {

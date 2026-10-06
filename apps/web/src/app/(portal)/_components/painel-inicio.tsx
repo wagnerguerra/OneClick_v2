@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
-  AlertTriangle, ArrowRight, BarChart3, CalendarCheck, CheckCircle2, Clock, FileCheck2, Folder,
-  FolderOpen, LayoutGrid, LifeBuoy, Mail, Receipt, ShieldCheck, Upload, Users,
+  AlertTriangle, ArrowRight, BarChart3, CalendarCheck, CheckCircle2, Clock, Download, FileCheck2, Folder,
+  FolderOpen, LayoutGrid, LifeBuoy, Loader2, Mail, Receipt, ShieldCheck, Upload, Users,
 } from 'lucide-react'
 
 /**
@@ -134,7 +134,7 @@ const TOM = {
 } as const
 type Tom = keyof typeof TOM
 
-function Chip({ tom, children }: { tom: Tom; children: React.ReactNode }) {
+export function Chip({ tom, children }: { tom: Tom; children: React.ReactNode }) {
   return (
     <span className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${TOM[tom]}`}>
       {children}
@@ -143,8 +143,10 @@ function Chip({ tom, children }: { tom: Tom; children: React.ReactNode }) {
 }
 
 function Bloco({
-  icone: Icone, cor, titulo, subtitulo, acao, children,
+  icone: Icone, cor, titulo, subtitulo, acao, children, id,
 }: {
+  /** Âncora (ex.: o Acesso rápido leva ao quadro de certidões por #certidoes). */
+  id?: string
   icone: typeof Clock
   cor: string
   titulo: string
@@ -153,7 +155,7 @@ function Bloco({
   children: React.ReactNode
 }) {
   return (
-    <section className="anim-subir overflow-hidden rounded-2xl border border-[#e6ebf2] bg-white shadow-sm dark:border-[#1b2739] dark:bg-[#0e1726]">
+    <section id={id} className="anim-subir scroll-mt-24 overflow-hidden rounded-2xl border border-[#e6ebf2] bg-white shadow-sm dark:border-[#1b2739] dark:bg-[#0e1726]">
       <header className="flex items-center gap-3 border-b border-[#eef2f7] px-5 py-3.5 dark:border-[#1b2739]">
         <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${cor}`}>
           <Icone className="h-[18px] w-[18px]" />
@@ -520,14 +522,14 @@ export function BlocoDocumentos({ pasta, hoje, erro }: { pasta: Consulta<PastaDr
     <Bloco
       icone={FolderOpen}
       cor={TOM.azul}
-      titulo="Documentos recentes"
+      titulo="Arquivos recentes"
       subtitulo={pasta?.vinculada ? (pasta.nome ?? 'Pasta da sua empresa') : undefined}
-      acao={<VerTudo href="/portal/documentos">Abrir documentos</VerTudo>}
+      acao={<VerTudo href="/portal/documentos">Abrir arquivos</VerTudo>}
     >
       {pasta === undefined ? <Carregando linhas={4} /> : pasta === null ? <Falhou mensagem={erro} /> : !pasta.vinculada ? (
         <Vazio
           icone={FolderOpen}
-          titulo="Documentos indisponíveis"
+          titulo="Arquivos indisponíveis"
           texto={pasta.motivo ?? 'O escritório ainda não configurou a pasta de documentos da sua empresa.'}
         />
       ) : recentes.length === 0 ? (
@@ -568,6 +570,93 @@ export function BlocoDocumentos({ pasta, hoje, erro }: { pasta: Consulta<PastaDr
               </li>
             )
           })}
+        </ul>
+      )}
+    </Bloco>
+  )
+}
+
+// ── Certidões e alvarás ───────────────────────────────────────────────────
+
+/** Última emissão de cada certidão/alvará do cliente (só as emitidas com PDF). */
+export interface CertidaoPortal {
+  id: string
+  tipo: string
+  label: string
+  situacao: string | null
+  dataValidade: string | null
+  dataConsulta: string | null
+}
+
+/** Tom da situação: verde = sem pendência; âmbar = com efeito de negativa; vermelho = positiva/irregular. */
+export function tomDaSituacao(situacao: string | null): Tom {
+  const s = (situacao ?? '').toLowerCase()
+  if (/efeito/.test(s)) return 'ambar'
+  if (/positiva|irregular|^consta/.test(s)) return 'vermelho'
+  if (/negativa|nada consta|regular|emitid/.test(s)) return 'verde'
+  return 'cinza'
+}
+
+/** "Válida até" com o alerta de vencimento: vencida = vermelho; até 15 dias = âmbar. */
+export function Validade({ data, hoje }: { data: string | null; hoje: Date | null }) {
+  if (!data) return null
+  const [a, m, d] = data.slice(0, 10).split('-').map(Number)
+  const fim = new Date(a!, (m ?? 1) - 1, d ?? 1)
+  const texto = fim.toLocaleDateString('pt-BR')
+  if (!hoje) return <span className="text-[11.5px] text-slate-500 dark:text-slate-400">válida até {texto}</span>
+  const dias = diasAte(fim, hoje)
+  if (dias < 0) return <Chip tom="vermelho">vencida em {texto}</Chip>
+  if (dias <= 15) return <Chip tom="ambar">vence em {texto}</Chip>
+  return <span className="text-[11.5px] text-slate-500 tabular-nums dark:text-slate-400">válida até {texto}</span>
+}
+
+/**
+ * Quadro "Certidões e alvarás" — abaixo do calendário. Aparece só para quem tem
+ * a permissão `podeVerCertidoes` (e o módulo ligado na empresa): a página nem
+ * monta o bloco sem `certidoes` em `vinculo.modulos`.
+ */
+export function BlocoCertidoes({ lista, hoje, onBaixar }: {
+  lista: Consulta<CertidaoPortal[]>
+  hoje: Date | null
+  onBaixar: (c: CertidaoPortal) => Promise<void>
+}) {
+  const [baixando, setBaixando] = useState<string | null>(null)
+  const baixar = async (c: CertidaoPortal) => {
+    setBaixando(c.id)
+    try { await onBaixar(c) } finally { setBaixando(null) }
+  }
+  return (
+    <Bloco id="certidoes" icone={ShieldCheck} cor={TOM.verde} titulo="Certidões e alvarás" subtitulo="A última emissão de cada documento" acao={<VerTudo href="/portal/certidoes">Ver todas</VerTudo>}>
+      {lista === undefined ? <Carregando linhas={4} /> : lista === null ? <Falhou /> : lista.length === 0 ? (
+        <Vazio
+          icone={ShieldCheck}
+          titulo="Nenhuma certidão emitida ainda"
+          texto="Quando o escritório emitir as certidões e alvarás da sua empresa, eles aparecem aqui para baixar."
+        />
+      ) : (
+        <ul className="divide-y divide-[#eef2f7] dark:divide-[#1b2739]">
+          {lista.map((c) => (
+            <li key={`${c.tipo}:${c.id}`} className="flex items-center gap-3 px-5 py-2.5">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-semibold text-slate-900 dark:text-slate-100" title={c.label}>{c.label}</p>
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  {c.situacao && <Chip tom={tomDaSituacao(c.situacao)}>{c.situacao}</Chip>}
+                  <Validade data={c.dataValidade} hoje={hoje} />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => baixar(c)}
+                disabled={baixando === c.id}
+                title="Baixar o PDF"
+                aria-label={`Baixar ${c.label}`}
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[#e6ebf2] px-2.5 text-[12px] font-semibold text-[#1a6dff] transition-colors hover:bg-[#f7faff] disabled:opacity-60 dark:border-[#1b2739] dark:text-[#7db0ff] dark:hover:bg-[#16233a]"
+              >
+                {baixando === c.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                PDF
+              </button>
+            </li>
+          ))}
         </ul>
       )}
     </Bloco>
@@ -647,13 +736,13 @@ interface Recurso {
 }
 
 const RECURSOS: Recurso[] = [
-  { titulo: 'Documentos', icone: FolderOpen, cor: TOM.azul, href: '/portal/documentos', modulo: 'documentos' },
+  { titulo: 'Atendimento', icone: LifeBuoy, cor: 'bg-[#f2eefd] text-[#7c4dd1] dark:bg-[#1e1633] dark:text-[#b59af0]', href: '/portal/chamados', modulo: 'chamados' },
+  { titulo: 'BI Financeiro', icone: BarChart3, cor: 'bg-[#e8f6fb] text-[#0b87b5] dark:bg-[#0f2230] dark:text-[#6cc7ea]', href: '/portal/bi', modulo: 'bi' },
+  { titulo: 'Certidões e Alvarás', icone: FileCheck2, cor: 'bg-[#eef0fd] text-[#5b62d6] dark:bg-[#1a1d3a] dark:text-[#a3a8f0]', href: '/portal/certidoes', modulo: 'certidoes' },
+  { titulo: 'Arquivos', icone: FolderOpen, cor: TOM.azul, href: '/portal/documentos', modulo: 'documentos' },
   { titulo: 'Obrigações', icone: CalendarCheck, cor: TOM.verde, href: '/portal/obrigacoes', modulo: 'obrigacoes' },
-  { titulo: 'Dashboard Financeiro', icone: BarChart3, cor: 'bg-[#e8f6fb] text-[#0b87b5] dark:bg-[#0f2230] dark:text-[#6cc7ea]', href: '/portal/bi', modulo: 'bi' },
-  { titulo: 'Certidões', icone: FileCheck2, cor: 'bg-[#eef0fd] text-[#5b62d6] dark:bg-[#1a1d3a] dark:text-[#a3a8f0]', modulo: 'certidoes' },
   { titulo: 'Certificado digital', icone: ShieldCheck, cor: 'bg-[#fdeef5] text-[#c2477f] dark:bg-[#2a1320] dark:text-[#e98ab5]', modulo: 'certificado' },
   { titulo: 'Notas fiscais', icone: Receipt, cor: 'bg-[#e8f4f7] text-[#2b7f95] dark:bg-[#10242a] dark:text-[#7cc4d6]', modulo: 'notas' },
-  { titulo: 'Atendimento', icone: LifeBuoy, cor: 'bg-[#f2eefd] text-[#7c4dd1] dark:bg-[#1e1633] dark:text-[#b59af0]', modulo: 'chamados' },
 ]
 
 export function AcessoRapido({ liberados }: { liberados: Set<string> }) {

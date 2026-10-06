@@ -65,6 +65,58 @@ export class CaptchaService {
     throw new Error(`2Captcha timeout: ${rotulo} não resolvido em ${maxAttempts * 5}s`)
   }
 
+  /** Chamada à API v2 do 2Captcha (createTask/getTaskResult) — a chave nunca vai a log/erro. */
+  private async apiV2<T>(rota: string, apiKey: string, corpo: Record<string, unknown>): Promise<T & { errorId?: number; errorCode?: string; errorDescription?: string }> {
+    try {
+      const res = await fetch(`https://api.2captcha.com/${rota}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientKey: apiKey, ...corpo }), signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      })
+      return await res.json() as T & { errorId?: number; errorCode?: string; errorDescription?: string }
+    } catch (e) {
+      const err = e as Error
+      throw new Error(err.name === 'TimeoutError' ? `2Captcha não respondeu em ${FETCH_TIMEOUT_MS / 1000}s` : `2Captcha indisponível: ${err.message.split(apiKey).join('***')}`)
+    }
+  }
+
+  /**
+   * Resolve um CAPTCHA de grade de imagens ("escolha todas as cortinas"): o
+   * 2Captcha devolve QUAIS células clicar e o clique acontece no NOSSO
+   * navegador. É o caso do AWS WAF da CGU — o modo "token" (AmazonTaskProxyless)
+   * foi testado em 06/10/2026 e o portal recusa o token resolvido em outro
+   * navegador/IP (HTTP 405 "Human Verification").
+   * @param imagemBase64 - print da grade (PNG/JPG, sem prefixo data:)
+   * @param instrucao - o que procurar, em texto (ex.: "Select all images with buckets")
+   * @returns células (1 = canto superior esquerdo, da esquerda para a direita) + id para reportar erro
+   */
+  async resolveGrid(imagemBase64: string, instrucao: string, linhas: number, colunas: number): Promise<{ celulas: number[]; taskId: number }> {
+    const apiKey = await this.getApiKey()
+    const criada = await this.apiV2<{ taskId?: number }>('createTask', apiKey, {
+      task: { type: 'GridTask', body: imagemBase64, comment: instrucao, rows: linhas, columns: colunas },
+    })
+    if (criada.errorId || !criada.taskId) throw new Error(`2Captcha erro ao enviar (grade): ${criada.errorCode || criada.errorDescription || 'sem taskId'}`)
+    this.logger.log(`Grade enviada: ${criada.taskId}, aguardando resolução...`)
+    for (let i = 0; i < 36; i++) {
+      await new Promise(r => setTimeout(r, 5000))
+      const r = await this.apiV2<{ status?: string; solution?: { click?: number[] } }>('getTaskResult', apiKey, { taskId: criada.taskId })
+      if (r.errorId) throw new Error(`2Captcha erro: ${r.errorCode || r.errorDescription}`)
+      if (r.status === 'ready') {
+        const celulas = (r.solution?.click ?? []).filter(n => Number.isInteger(n) && n >= 1 && n <= linhas * colunas)
+        this.logger.log(`Grade ${criada.taskId} resolvida em ${(i + 1) * 5}s (${celulas.length} célula(s))`)
+        return { celulas, taskId: criada.taskId }
+      }
+    }
+    throw new Error('2Captcha timeout: grade não resolvida em 180s')
+  }
+
+  /** Reporta resposta errada da API v2 (o 2Captcha devolve o valor pago). */
+  async reportarIncorretoV2(taskId: number): Promise<void> {
+    try {
+      const apiKey = await this.getApiKey()
+      await this.apiV2('reportIncorrect', apiKey, { taskId })
+    } catch { /* reporte é cortesia; não derruba a consulta */ }
+  }
+
   /**
    * Resolve um Cloudflare Turnstile captcha via 2Captcha
    * @param sitekey - data-sitekey do widget Turnstile

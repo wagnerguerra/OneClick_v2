@@ -140,12 +140,18 @@ interface OrcamentoMensagem {
   parentId?: string | null
   acessoUsuarios?: string[]
   restritoFinanceiro?: boolean
+  /** Aparece para o cliente no portal (orçamento pedido pelo portal). */
+  visivelCliente?: boolean
+  /** Escrita pelo cliente no portal. */
+  viaPortal?: boolean
   usuario?: { id?: string; name: string; email?: string | null; image?: string | null } | null
 }
 
 interface Orcamento {
   id: string
   numero: number
+  /** INTERNO | PORTAL (pedido pelo cliente na guia Atendimento do portal). */
+  origem?: string
   token: string
   status: string
   /** Situação dos serviços executados (backend: servicos-do-orcamento.ts). */
@@ -3250,7 +3256,7 @@ export default function OrcamentoDetailPage() {
 
           {/* === TAB: MENSAGENS === */}
           <TabsContent value="mensagens" className="mt-0">
-            <MensagensCard orcamentoId={id} mensagens={orc.mensagens} usuarios={usuarios} onChange={fetchOrc} />
+            <MensagensCard orcamentoId={id} mensagens={orc.mensagens} usuarios={usuarios} onChange={fetchOrc} doPortal={orc.origem === 'PORTAL'} />
           </TabsContent>
 
         </div>
@@ -4350,6 +4356,16 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
                 (editada {editadoAbsoluto})
               </span>
             )}
+            {msg.viaPortal && (
+              <span className={cn('inline-flex items-center gap-1 text-[10px] rounded-full px-2 py-0.5 font-semibold', BADGE.sky)} title="Mensagem escrita pelo cliente no portal">
+                Cliente pelo portal
+              </span>
+            )}
+            {msg.visivelCliente && !msg.viaPortal && (
+              <span className={cn('inline-flex items-center gap-1 text-[10px] rounded-full px-2 py-0.5 font-semibold', BADGE.emerald)} title="O cliente lê esta mensagem no portal">
+                Visível ao cliente
+              </span>
+            )}
             {restritaIds.length > 0 && (
               <span
                 className={cn('inline-flex items-center gap-1 text-[10px] rounded-full px-2 py-0.5', BADGE.blue)}
@@ -4517,9 +4533,11 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
 // MensagensCard — mensagens internas com controle de visibilidade
 // ============================================================
 
-function MensagensCard({ orcamentoId, mensagens, usuarios = [], onChange, bare = false }: {
+function MensagensCard({ orcamentoId, mensagens, usuarios = [], onChange, bare = false, doPortal = false }: {
   orcamentoId: string
   mensagens: OrcamentoMensagem[]
+  /** Orçamento pedido pelo cliente no portal: dá para responder visível a ele. */
+  doPortal?: boolean
   usuarios?: Array<{ id: string; name: string; email: string | null; image: string | null }>
   onChange: () => void
   bare?: boolean
@@ -4528,6 +4546,7 @@ function MensagensCard({ orcamentoId, mensagens, usuarios = [], onChange, bare =
   const currentUserId = profile?.id
   const isMaster = profile?.isMaster ?? false
   const [novaMensagem, setNovaMensagem] = useState('')
+  const [visivelCliente, setVisivelCliente] = useState(false)
   const [notificarUsuarios, setNotificarUsuarios] = useState<string[]>([])
   const [restringirUsuarios, setRestringirUsuarios] = useState<string[]>([])
   const [enviando, setEnviando] = useState(false)
@@ -4565,8 +4584,10 @@ function MensagensCard({ orcamentoId, mensagens, usuarios = [], onChange, bare =
         mensagem: novaMensagem,
         notificarUsuarios: notificarUsuarios.length > 0 ? notificarUsuarios : undefined,
         acessoUsuarios: restringirUsuarios.length > 0 ? restringirUsuarios : undefined,
+        visivelCliente: doPortal && visivelCliente && restringirUsuarios.length === 0 ? true : undefined,
       })
       setNovaMensagem('')
+      setVisivelCliente(false)
       setNotificarUsuarios([])
       setRestringirUsuarios([])
       setNovaMsgModal(false)
@@ -4694,6 +4715,20 @@ function MensagensCard({ orcamentoId, mensagens, usuarios = [], onChange, bare =
                 placeholder="Escreva aqui o conteúdo da mensagem..."
               />
             </div>
+
+            {doPortal && (
+              <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border p-2.5">
+                <Checkbox checked={visivelCliente} disabled={restringirUsuarios.length > 0}
+                  onCheckedChange={v => setVisivelCliente(v === true)} className="mt-0.5" />
+                <span className="min-w-0">
+                  <span className="block text-[13px] font-medium text-foreground">Visível ao cliente no portal</span>
+                  <span className="block text-[11px] text-muted-foreground">
+                    Este orçamento foi pedido pelo cliente no portal. Marcado, ele lê a mensagem e pode responder por lá.
+                    {restringirUsuarios.length > 0 ? ' Indisponível em mensagem restrita a usuários.' : ''}
+                  </span>
+                </span>
+              </label>
+            )}
 
             {/* Restringir mensagem aos usuarios */}
             <div className="space-y-1.5">

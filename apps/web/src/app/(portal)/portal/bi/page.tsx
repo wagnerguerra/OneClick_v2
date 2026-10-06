@@ -31,20 +31,22 @@ export default function PortalBiPage() {
     kpis: (ano, meses) => (trpc.portal as any).bi.kpis.query({ clienteId, ano, meses }),
     analise: (ano, meses) => (trpc.portal as any).bi.analise.query({ clienteId, ano, meses }),
     matriz: ano => (trpc.portal as any).bi.matriz.query({ clienteId, ano }),
+    // Aviso "os números incluem a filial" quando o escritório consolidou o balancete.
+    consolidacao: ano => (trpc.portal as any).bi.consolidacao.query({ clienteId, ano }),
   }), [clienteId])
 
   return (
     <>
       <PortalPageHeader
-        titulo="Dashboard Financeiro"
+        titulo="BI Financeiro"
         subtitulo="Receita, custos, despesas e resultado da sua empresa, mês a mês."
       />
       {!vinculo ? null : !liberado ? (
         <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card px-6 py-14 text-center">
           <BarChart3 className="h-9 w-9 text-muted-foreground/60" />
-          <p className="text-sm font-semibold text-foreground">Dashboard não disponível</p>
+          <p className="text-sm font-semibold text-foreground">BI Financeiro não disponível</p>
           <p className="max-w-sm text-xs text-muted-foreground">
-            O acesso ao Dashboard Financeiro é liberado pelo escritório. Se você precisa dele,
+            O acesso ao BI Financeiro é liberado pelo escritório. Se você precisa dele,
             fale com a sua equipe.
           </p>
         </div>

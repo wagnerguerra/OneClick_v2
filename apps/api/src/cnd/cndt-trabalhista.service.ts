@@ -7,7 +7,9 @@ import {
   PorEmpresa, cndLogger, comNavegador, dataIso, exigirEmpresa, limparDoc, naFilaDoNavegador, precisaReconsultar,
 } from './cnd-comum'
 
-const CNDT_URL = 'https://cndt-certidao.tst.jus.br/gerarCertidao.faces'
+// Portal reescrito pelo TST em out/2026 (sem JSF): /gerarCertidao, captcha via
+// /api/captcha e o PDF devolvido direto pelo POST /api/certidao.
+const CNDT_URL = 'https://cndt-certidao.tst.jus.br/gerarCertidao'
 const log = cndLogger('CNDT')
 
 export interface CndtResult {
@@ -153,20 +155,45 @@ export class CndtTrabalhistaService {
     const etapa = (s: string) => this.consultaEtapa.set(empresaId, s)
     await page.setViewport({ width: 1200, height: 800 })
 
-    // CDP Fetch para interceptar o PDF (vem como attachment, não abre na aba).
-    const client = await page.createCDPSession()
-    await client.send('Fetch.enable', { patterns: [{ urlPattern: '*emissaoCertidao*', requestStage: 'Response' }] })
+    // O portal novo (out/2026) baixa o PDF com fetch → blob → link temporário
+    // (URL.createObjectURL). Uma cópia do blob é guardada na própria página no
+    // momento em que o link é criado. NÃO usar uma sessão CDP com Fetch.enable
+    // para interceptar: junto do page.authenticate do proxy do escritório, o
+    // Chromium falha com ERR_INVALID_AUTH_CREDENTIALS (reproduzido em produção,
+    // 06/10). O evento `response` abaixo fica de reserva (sem proxy funciona).
+    await page.evaluateOnNewDocument(() => {
+      const original = URL.createObjectURL.bind(URL)
+      URL.createObjectURL = (obj: Blob | MediaSource) => {
+        if (obj instanceof Blob) {
+          const leitor = new FileReader()
+          leitor.onload = () => { (window as unknown as { __pdfCndt?: string }).__pdfCndt = String(leitor.result).split(',')[1] || '' }
+          leitor.readAsDataURL(obj)
+        }
+        return original(obj)
+      }
+    })
+    // O clique do portal no link temporário vira download no disco do servidor: recusa.
+    const cdp = await page.createCDPSession()
+    await cdp.send('Page.setDownloadBehavior', { behavior: 'deny' }).catch(() => undefined)
+    const lerBlobDaPagina = async () => {
+      const b64 = await page.evaluate(() => (window as unknown as { __pdfCndt?: string }).__pdfCndt || '').catch(() => '')
+      if (!b64 || captura.pdf) return
+      const buf = Buffer.from(b64, 'base64')
+      if (buf.length > 100 && buf[0] === 0x25 && buf[1] === 0x50) {
+        captura.pdf = b64
+        log.log(`PDF capturado: ${buf.length} bytes`)
+      }
+    }
     const captura: { pdf: string | null } = { pdf: null }
-    client.on('Fetch.requestPaused', async (event) => {
+    page.on('response', async (r) => {
+      if (!/\/api\/certidao|emissaoCertidao/.test(r.url()) || captura.pdf) return
       try {
-        const body = await client.send('Fetch.getResponseBody', { requestId: event.requestId })
-        const buf = Buffer.from(body.body, body.base64Encoded ? 'base64' : 'utf8')
+        const buf = await r.buffer()
         if (buf.length > 100 && buf[0] === 0x25 && buf[1] === 0x50) {
           captura.pdf = buf.toString('base64')
           log.log(`PDF capturado: ${buf.length} bytes`)
         }
-      } catch { /* resposta sem corpo — segue */ }
-      await client.send('Fetch.continueRequest', { requestId: event.requestId }).catch(() => {})
+      } catch { /* resposta sem corpo (redirect/attachment) — segue */ }
     })
 
     // Alguns erros do portal saem em alert(); guarda o texto e fecha o diálogo
@@ -180,7 +207,8 @@ export class CndtTrabalhistaService {
     etapa('Página carregada')
 
     for (let tentativa = 1; tentativa <= 2; tentativa++) {
-      const captchaSrc = await page.evaluate(() => (document.getElementById('idImgBase64') as HTMLImageElement | null)?.src || '')
+      const captchaSrc = await page.evaluate(() =>
+        ((document.getElementById('captcha-imagem') || document.getElementById('idImgBase64')) as HTMLImageElement | null)?.src || '')
       const b64 = captchaSrc.match(/base64,\s*(.+)/)
       if (!b64) {
         if (tentativa === 1) throw new Error('Captcha não carregou na página')
@@ -193,13 +221,22 @@ export class CndtTrabalhistaService {
       // Valores como ARGUMENTO do evaluate — nunca interpolados no código
       // (o texto do captcha vem de terceiro e pode conter aspas).
       dialogos.length = 0
-      await page.evaluate((d: string, c: string) => {
-        (document.getElementById('gerarCertidaoForm:cpfCnpj') as HTMLInputElement).value = d
-        ;(document.getElementById('idCampoResposta') as HTMLInputElement).value = c
-        ;(document.getElementById('gerarCertidaoForm:btnEmitirCertidao') as HTMLElement).click()
-      }, doc, resposta)
+      if (await page.$('#botao-emitir')) {
+        // Portal novo: digita como uma pessoa (o app.js reage aos eventos de teclado).
+        await page.click('#cpfCnpj', { clickCount: 3 }); await page.keyboard.press('Backspace')
+        await page.type('#cpfCnpj', doc, { delay: 20 })
+        await page.click('#captcha-resposta', { clickCount: 3 }); await page.keyboard.press('Backspace')
+        await page.type('#captcha-resposta', resposta, { delay: 20 })
+        await page.click('#botao-emitir')
+      } else {
+        await page.evaluate((d: string, c: string) => {
+          (document.getElementById('gerarCertidaoForm:cpfCnpj') as HTMLInputElement).value = d
+          ;(document.getElementById('idCampoResposta') as HTMLInputElement).value = c
+          ;(document.getElementById('gerarCertidaoForm:btnEmitirCertidao') as HTMLElement).click()
+        }, doc, resposta)
+      }
       etapa('Aguardando resposta do TST...')
-      for (let t = 0; t < 24 && !captura.pdf; t++) await espera(500)
+      for (let t = 0; t < 24 && !captura.pdf; t++) { await espera(500); await lerBlobDaPagina() }
       await espera(captura.pdf ? 1000 : 0)
 
       etapa('Verificando resultado...')
@@ -213,8 +250,9 @@ export class CndtTrabalhistaService {
         if (tentativa < 2) {
           etapa('Captcha incorreto, tentando novamente...')
           log.warn(`Captcha incorreto para ${fim4(doc)}, nova tentativa`)
-          await page.evaluate(() => { (window as unknown as { loadCaptcha?: () => void }).loadCaptcha?.() })
-          await espera(3000)
+          // Novo captcha: o portal novo emite um a cada carga da página.
+          await page.goto(CNDT_URL, { waitUntil: 'networkidle2', timeout: 30000 })
+          await espera(1500)
           continue
         }
         return { sucesso: false, tipo: null, mensagem: 'Falha na emissão — captcha incorreto', pdfBase64: null }
@@ -276,7 +314,7 @@ export class CndtTrabalhistaService {
       emissao = await naFilaDoNavegador(() => comNavegador(async browser => {
         this.consultaEtapa.set(empresaId, 'Iniciando consulta...')
         return this.emitirNoPortal(empresaId, await browser.newPage(), doc)
-      }, { timeoutMs: 150_000 }))
+      }, { timeoutMs: 150_000, viaEscritorio: true })) // o TST não responde ao IP do servidor
     } finally {
       this.consultaEtapa.set(empresaId, '')
     }

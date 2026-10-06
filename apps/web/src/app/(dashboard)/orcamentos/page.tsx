@@ -77,6 +77,8 @@ interface OrcamentoRow {
   id: string
   numero: number
   status: string
+  /** INTERNO | PORTAL — PORTAL = pedido pelo cliente na guia Atendimento do portal. */
+  origem?: string
   /** Card destacado no quadro (todos veem; sobe para o topo da coluna). */
   destacadoEm?: string | null
   destacadoCor?: DestaqueCor | null
@@ -1822,6 +1824,9 @@ function KanbanCardContent({ orc, cliente, onDuplicar, onArquivar, onCancelar, o
           <span className="min-w-0 flex-1 cursor-help truncate text-[13px] font-semibold">{nomeCurto}</span>
         </DadosClienteTooltip>
         {ehExCliente(cliente) && <SeloExCliente />}
+        {orc.origem === 'PORTAL' && (
+          <span className={cn('shrink-0 rounded-full px-1.5 py-px text-[10px] font-semibold', BADGE.sky)} title="Pedido pelo cliente no portal">Portal</span>
+        )}
         <div className="flex shrink-0 items-center gap-1">
           <span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-foreground/80">#{orc.numero}</span>
           {aviso && (

@@ -12,7 +12,7 @@ import {
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { SURFACE, TEXT } from '@/lib/color-styles'
+import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
 import { STATUS_LABEL } from './manifestacao-page'
 import type { Config } from './tipos'
 import { NovaManifestacaoModal } from './nova-manifestacao'
@@ -109,6 +109,8 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
   const [salvando, setSalvando] = useState(false)
   const [novaMsg, setNovaMsg] = useState('')
   const [msgInterna, setMsgInterna] = useState(true)
+  // Registro feito pelo cliente no portal: mensagem sem "nota interna" aparece para ele lá.
+  const viaPortal = m?.canal === 'PORTAL'
   const [editando, setEditando] = useState(false)
   const [aba, setAba] = useState<'detalhes' | 'conversa' | 'arquivos'>('detalhes')
   const [enviandoArq, setEnviandoArq] = useState(false)
@@ -300,9 +302,13 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
               {m.mensagens?.length > 0 ? m.mensagens.map((msg: any) => (
                 <div key={msg.id} className={cn('rounded-lg border px-3 py-2',
                   msg.interna ? 'border-dashed border-border bg-muted/30' : 'border-border')}>
-                  <p className="mb-0.5 text-[11px] text-muted-foreground">
-                    {msg.interna ? 'Nota interna' : 'Visível a quem registrou'}
-                    {' · '}{new Date(msg.criadoEm).toLocaleString('pt-BR')}
+                  <p className="mb-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                    {msg.viaPortal ? (
+                      <span className={cn('rounded-full px-1.5 py-px font-semibold', BADGE.sky)}>Cliente pelo portal</span>
+                    ) : msg.interna ? 'Nota interna' : viaPortal ? (
+                      <span className={cn('rounded-full px-1.5 py-px font-semibold', BADGE.emerald)}>Visível ao cliente no portal</span>
+                    ) : 'Visível a quem registrou'}
+                    <span>· {new Date(msg.criadoEm).toLocaleString('pt-BR')}</span>
                   </p>
                   <TextoOuHtml texto={msg.texto} />
                 </div>
@@ -319,6 +325,10 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
                     <Checkbox checked={msgInterna} onCheckedChange={v => setMsgInterna(v === true)} />
                     Nota interna
                   </label>
+                  {/* Registro feito pelo portal: sem "nota interna", o cliente lê e responde lá. */}
+                  {viaPortal && !msgInterna && (
+                    <span className={cn('text-[11px] font-medium', TEXT.emerald)}>O cliente verá esta mensagem no portal</span>
+                  )}
                   <Button size="sm" variant="outline" className="gap-1.5"
                     onClick={enviarMensagem} disabled={!novaMsg.trim()}>
                     <Send className="h-3.5 w-3.5" /> Enviar

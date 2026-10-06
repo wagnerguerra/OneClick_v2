@@ -4080,8 +4080,15 @@ export class OrcamentoService {
     orcamentoId: string,
     userId: string,
     mensagem: string,
-    opts?: { acessoUsuarios?: string[]; notificarUsuarios?: string[]; restritoFinanceiro?: boolean; parentId?: string },
+    opts?: { acessoUsuarios?: string[]; notificarUsuarios?: string[]; restritoFinanceiro?: boolean; parentId?: string; visivelCliente?: boolean },
   ) {
+    // Visível ao cliente só em orçamento pedido pelo portal, e nunca numa
+    // mensagem restrita a usuários ou ao financeiro — ali a intenção é interna.
+    let visivelCliente = false
+    if (opts?.visivelCliente && !(opts.acessoUsuarios?.length) && !opts.restritoFinanceiro) {
+      const orc = await prisma.orcamento.findUnique({ where: { id: orcamentoId }, select: { origem: true } })
+      visivelCliente = orc?.origem === 'PORTAL'
+    }
     const created = await prisma.orcamentoMensagem.create({
       data: {
         orcamentoId,
@@ -4090,6 +4097,7 @@ export class OrcamentoService {
         acessoUsuarios: opts?.acessoUsuarios || [],
         restritoFinanceiro: opts?.restritoFinanceiro ?? false,
         parentId: opts?.parentId || null,
+        visivelCliente,
       },
     })
 

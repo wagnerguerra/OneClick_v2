@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { prisma } from '@saas/db'
+import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, portalSessaoProcedure, portalProcedure, portalModuloProcedure } from '../trpc/trpc.service'
 import type { PortalArquivosService } from './portal-arquivos.service'
 import type { GestaoArquivosDriveService } from '../gestao-arquivos/gestao-arquivos-drive.service'
@@ -9,6 +11,8 @@ import type { ConviteValido } from './portal-tipos'
 import { listarVinculos } from './portal-escopo'
 import { listarEquipe } from './portal-equipe'
 import { itensDoCalendario, type ItemDoCalendario } from './portal-calendario'
+import { certidoesDoCliente, pdfDaCertidao } from '../cnd/certidoes-do-cliente'
+import type { PortalAtendimentoService } from './portal-atendimento.service'
 
 /**
  * O router declara o que USA do serviço, em vez de importar a classe.
@@ -41,6 +45,7 @@ interface BiApi {
   balanceteKpis(clienteId: string, ano: number, meses?: string): Promise<unknown>
   balanceteAnalise(clienteId: string, ano: number, meses?: string): Promise<unknown>
   balanceteMatriz(clienteId: string, ano: number): Promise<unknown>
+  consolidacaoDoAno(clienteId: string, ano: number, empresaId: string | null): Promise<unknown>
 }
 
 /**
@@ -61,7 +66,10 @@ export function createPortalRouter(
   obrigacoesService: PortalObrigacoesService,
   contatoService: PortalContatoService,
   biService: BiApi,
+  atendimento?: PortalAtendimentoService,
 ) {
+  const semAtendimento = () => { throw new TRPCError({ code: 'NOT_FOUND', message: 'Atendimento indisponível.' }) }
+  const tipoSchema = z.enum(['SERVICO', 'RECLAMACAO', 'SUGESTAO', 'ELOGIO'])
   return router({
     /**
      * As empresas que este usuário enxerga.
@@ -256,6 +264,11 @@ export function createPortalRouter(
      * `portalProcedure` resolver o vínculo.
      */
     bi: router({
+      /** Meses consolidados com filiais — o aviso "valores incluem a filial" do BI do cliente. */
+      consolidacao: portalModuloProcedure('bi')
+        .input(z.object({ clienteId: z.string(), ano: z.number().int().min(2000).max(2100) }))
+        .query(({ ctx, input }) => biService.consolidacaoDoAno(ctx.portal.clienteId, input.ano, null)),
+
       anos: portalModuloProcedure('bi')
         .input(z.object({ clienteId: z.string() }))
         .query(({ ctx }) => biService.anosComBalancete(ctx.portal.clienteId)),
@@ -282,6 +295,76 @@ export function createPortalRouter(
           ano: z.number().int().min(2000).max(2100),
         }))
         .query(({ ctx, input }) => biService.balanceteMatriz(ctx.portal.clienteId, input.ano)),
+    }),
+
+    /**
+     * Certidões e alvarás — a última emissão de cada tipo, com o PDF.
+     *
+     * Mesmos dois portões do BI, resolvidos por `portalModuloProcedure`: o
+     * módulo `certidoes` liberado para a empresa e a permissão da pessoa
+     * (`podeVerCertidoes`), já descontada de `modulos`. Mesma consulta da aba
+     * Legalização (certidoes-do-cliente.ts), sempre do cliente do VÍNCULO.
+     */
+    /**
+     * Atendimento — solicitar serviços e registrar reclamações, sugestões e
+     * elogios. `portalModuloProcedure('chamados')` exige o módulo da empresa e
+     * ao menos uma das quatro permissões; o serviço confere a permissão
+     * ESPECÍFICA de cada ação e o recorte (ver portal-atendimento.service.ts).
+     */
+    atendimento: router({
+      permissoes: portalModuloProcedure('chamados')
+        .input(z.object({ clienteId: z.string() }))
+        .query(({ ctx }) => (atendimento ?? semAtendimento()).permissoes(ctx.portal)),
+
+      servicos: portalModuloProcedure('chamados')
+        .input(z.object({ clienteId: z.string() }))
+        .query(({ ctx }) => (atendimento ?? semAtendimento()).servicosDisponiveis(ctx.portal)),
+
+      solicitar: portalModuloProcedure('chamados')
+        .input(z.object({ clienteId: z.string(), servicoIds: z.array(z.string()).max(20).default([]), descricao: z.string().trim().min(10, 'Descreva o que você precisa (mínimo 10 caracteres).').max(5000) }))
+        .mutation(({ ctx, input }) => (atendimento ?? semAtendimento()).solicitarServico(ctx.portal, ctx.userId, input)),
+
+      registrar: portalModuloProcedure('chamados')
+        .input(z.object({
+          clienteId: z.string(),
+          tipo: z.enum(['RECLAMACAO', 'SUGESTAO', 'ELOGIO']),
+          titulo: z.string().trim().max(150).optional().nullable(),
+          descricao: z.string().trim().min(10, 'Conte com um pouco mais de detalhe (mínimo 10 caracteres).').max(5000),
+          dataOcorrido: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+        }))
+        .mutation(({ ctx, input }) => (atendimento ?? semAtendimento()).registrarManifestacao(ctx.portal, ctx.userId, input.tipo, input)),
+
+      listar: portalModuloProcedure('chamados')
+        .input(z.object({ clienteId: z.string(), tipo: tipoSchema }))
+        .query(({ ctx, input }) => (atendimento ?? semAtendimento()).listar(ctx.portal, ctx.userId, input.tipo)),
+
+      detalhe: portalModuloProcedure('chamados')
+        .input(z.object({ clienteId: z.string(), tipo: tipoSchema, id: z.string() }))
+        .query(({ ctx, input }) => (atendimento ?? semAtendimento()).detalhe(ctx.portal, ctx.userId, input.tipo, input.id)),
+
+      responder: portalModuloProcedure('chamados')
+        .input(z.object({ clienteId: z.string(), tipo: tipoSchema, id: z.string(), texto: z.string().trim().min(1).max(5000) }))
+        .mutation(({ ctx, input }) => (atendimento ?? semAtendimento()).responder(ctx.portal, ctx.userId, input.tipo, input.id, input.texto)),
+    }),
+
+    certidoes: router({
+      lista: portalModuloProcedure('certidoes')
+        .input(z.object({ clienteId: z.string() }))
+        .query(async ({ ctx }) => {
+          const cli = await prisma.cliente.findUnique({ where: { id: ctx.portal.clienteId }, select: { empresaId: true } })
+          if (!cli?.empresaId) return []
+          // Só o que o cliente pode usar: emitidas com PDF.
+          return (await certidoesDoCliente(cli.empresaId, ctx.portal.clienteId)).filter(c => c.sucesso && c.temPdf)
+        }),
+
+      pdf: portalModuloProcedure('certidoes')
+        .input(z.object({ clienteId: z.string(), tipo: z.string(), id: z.string() }))
+        .query(async ({ ctx, input }) => {
+          const cli = await prisma.cliente.findUnique({ where: { id: ctx.portal.clienteId }, select: { empresaId: true } })
+          if (!cli?.empresaId) return { pdfBase64: null }
+          // `clienteId` do vínculo na consulta: um id de certidão de OUTRO cliente não sai.
+          return { pdfBase64: await pdfDaCertidao(cli.empresaId, input.tipo, input.id, ctx.portal.clienteId) }
+        }),
     }),
 
     /**

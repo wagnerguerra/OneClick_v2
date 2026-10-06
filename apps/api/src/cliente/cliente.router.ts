@@ -1781,6 +1781,13 @@ export function createClienteRouter(
         podeExcluir: z.boolean().optional(),
         /** Dashboard Financeiro no portal — ver `ClienteUsuario.podeVerBi`. */
         podeVerBi: z.boolean().optional(),
+        /** Quadro de certidões no portal — ver `ClienteUsuario.podeVerCertidoes`. */
+        podeVerCertidoes: z.boolean().optional(),
+        /** Guia Atendimento do portal — ver `ClienteUsuario.podeSolicitarServicos` etc. */
+        podeSolicitarServicos: z.boolean().optional(),
+        podeRegistrarReclamacao: z.boolean().optional(),
+        podeRegistrarSugestao: z.boolean().optional(),
+        podeRegistrarElogio: z.boolean().optional(),
         telefone: z.string().nullish(),
         /**
          * Outras empresas do MESMO GRUPO que recebem o mesmo acesso.
@@ -1804,6 +1811,13 @@ export function createClienteRouter(
         podeExcluir: z.boolean().optional(),
         /** Dashboard Financeiro no portal — ver `ClienteUsuario.podeVerBi`. */
         podeVerBi: z.boolean().optional(),
+        /** Quadro de certidões no portal — ver `ClienteUsuario.podeVerCertidoes`. */
+        podeVerCertidoes: z.boolean().optional(),
+        /** Guia Atendimento do portal — ver `ClienteUsuario.podeSolicitarServicos` etc. */
+        podeSolicitarServicos: z.boolean().optional(),
+        podeRegistrarReclamacao: z.boolean().optional(),
+        podeRegistrarSugestao: z.boolean().optional(),
+        podeRegistrarElogio: z.boolean().optional(),
       }))
       .mutation(({ input }) => usuarios().atualizar(input)),
 

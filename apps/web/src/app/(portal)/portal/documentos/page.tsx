@@ -276,7 +276,7 @@ export default function PortalDocumentosPage() {
       />
 
       <PortalPageHeader
-        titulo="Documentos"
+        titulo="Arquivos"
         subtitulo="Guias e relatórios que o escritório publica, e os arquivos que você envia."
         acoes={podeEditar ? (
           <>

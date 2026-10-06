@@ -419,6 +419,9 @@ export default function BiCategoriasBalancetePage() {
     mesFim: new Date().getMonth() + 1, anoFim: new Date().getFullYear(),
     substituir: true,
   })
+  // Matriz com filiais: consolidar na matriz ou individualizar (pergunta obrigatória).
+  const [filiaisImport, setFiliaisImport] = useState<Array<{ clienteId: string; cnpj: string; razaoSocial: string; prcodemp: number }>>([])
+  const [modoFiliais, setModoFiliais] = useState<'CONSOLIDADO' | 'INDIVIDUAL' | null>(null)
   const [importarStatus, setImportarStatus] = useState<{
     running: boolean
     progress: number
@@ -812,7 +815,16 @@ export default function BiCategoriasBalancetePage() {
       substituir: true,
     })
     setImportarStatus({ running: false, progress: 0, message: '', log: [] })
+    setFiliaisImport([])
+    setModoFiliais(null)
     setImportarOpen(true)
+    // Filiais com a mesma raiz de CNPJ e ID SCI: a pergunta só aparece para matriz que tem.
+    trpc.bi.filiaisBalancete.query({ clienteId })
+      .then(r => {
+        setFiliaisImport(r.filiais)
+        setModoFiliais(r.modo === 'CONSOLIDADO' || r.modo === 'INDIVIDUAL' ? r.modo : null)
+      })
+      .catch(() => setFiliaisImport([]))
   }
 
   const handleImportarConfirmar = async () => {
@@ -822,6 +834,10 @@ export default function BiCategoriasBalancetePage() {
     const refFim = anoFim * 100 + mesFim
     if (refFim < refIni) {
       alerts.warning('Período inválido', 'O período "Até" deve ser igual ou posterior ao "De"')
+      return
+    }
+    if (filiaisImport.length > 0 && !modoFiliais) {
+      alerts.warning('Escolha como tratar as filiais', 'Esta matriz tem filiais: informe se os balancetes delas serão consolidados na matriz ou individualizados.')
       return
     }
 
@@ -835,7 +851,10 @@ export default function BiCategoriasBalancetePage() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clienteId, anoInicio, mesInicio, anoFim, mesFim, substituirExistentes: substituir }),
+        body: JSON.stringify({
+          clienteId, anoInicio, mesInicio, anoFim, mesFim, substituirExistentes: substituir,
+          ...(filiaisImport.length > 0 && modoFiliais ? { modoFiliais, filialIds: filiaisImport.map(f => f.clienteId) } : {}),
+        }),
       })
       if (!resp.ok) {
         const txt = await resp.text().catch(() => '')
@@ -1494,6 +1513,39 @@ export default function BiCategoriasBalancetePage() {
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   Se desmarcado, apenas contas/valores novos são adicionados. Personalizações do BI não são alteradas.
                 </p>
+
+                {filiaisImport.length > 0 && (
+                  <div className="mt-4 space-y-1.5" role="radiogroup" aria-label="Filiais">
+                    <Label className="text-[13px] font-semibold">Esta matriz tem {filiaisImport.length === 1 ? 'uma filial' : `${filiaisImport.length} filiais`}</Label>
+                    <ul className="space-y-0.5 text-[11.5px] text-muted-foreground">
+                      {filiaisImport.map(f => <li key={f.clienteId}>{f.razaoSocial} · CNPJ {formatCnpj(f.cnpj)} · ID SCI {f.prcodemp}</li>)}
+                    </ul>
+                    {([
+                      { v: 'CONSOLIDADO', t: 'Consolidar as filiais na matriz', d: 'Soma o balancete das filiais ao da matriz, conta a conta — igual ao balancete consolidado do contábil. O BI avisa que os valores estão consolidados.' },
+                      { v: 'INDIVIDUAL', t: 'Individualizar (cada filial no próprio BI)', d: 'A matriz recebe só o próprio balancete; cada filial é importada no BI dela.' },
+                    ] as const).map(o => (
+                      <button
+                        key={o.v}
+                        type="button"
+                        role="radio"
+                        aria-checked={modoFiliais === o.v}
+                        onClick={() => setModoFiliais(o.v)}
+                        className={cn(
+                          'flex w-full items-start gap-2.5 rounded-lg border p-2.5 text-left transition-colors',
+                          modoFiliais === o.v ? 'border-primary/50 bg-primary/10' : 'border-border hover:bg-muted/40',
+                        )}
+                      >
+                        <span className={cn('mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border', modoFiliais === o.v ? 'border-primary' : 'border-muted-foreground/50')}>
+                          {modoFiliais === o.v && <span className="h-2 w-2 rounded-full bg-primary" />}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-[13px] font-medium text-foreground">{o.t}</span>
+                          <span className="block text-[11px] text-muted-foreground">{o.d}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </>
             )}
 

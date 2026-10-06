@@ -1,8 +1,10 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import { limparCnpj } from '@saas/types'
 import { SciService, type SciBalanceteLinha } from '../cliente/sci.service'
 import { BiSyncEventsService } from './bi-sync-events.service'
 import { conferirBalanceteFecha } from './balancete-integridade'
+import { consolidarBalancetes, type LoteBalancete } from './consolidar-balancete'
 
 export interface RefreshJob {
   status: 'idle' | 'running' | 'done' | 'error'
@@ -11,6 +13,27 @@ export interface RefreshJob {
   log: string[]
   startedAt: Date
   completedAt?: Date
+  /**
+   * Importação CONSOLIDADA (matriz + filiais): as filiais somadas e quem pediu.
+   * O upload do Service Manager usa isto para gravar ClienteBiConsolidacao.
+   */
+  consolidacao?: ConsolidacaoDoJob
+  /** Meses que chegaram de fato consolidados (SM antigo ignora as filiais). */
+  mesesConsolidados?: number
+}
+
+/** Filial que entra na soma do BI da matriz. */
+export interface FilialDoBi {
+  clienteId: string
+  cnpj: string
+  razaoSocial: string
+  prcodemp: number
+}
+
+export interface ConsolidacaoDoJob {
+  filiais: FilialDoBi[]
+  userId: string | null
+  empresaId: string | null
 }
 
 interface RefreshStatusUpdate {
@@ -360,8 +383,15 @@ export class BiBalanceteService {
     anoFim: number
     mesFim: number
     substituirExistentes: boolean
+    /** Matriz + filiais somadas (modo CONSOLIDADO). Ausente = só `prcodemp`. */
+    consolidacao?: ConsolidacaoDoJob
   }) {
-    const { clienteId, prcodemp, anoInicio, mesInicio, anoFim, mesFim, substituirExistentes } = opts
+    const { clienteId, prcodemp, anoInicio, mesInicio, anoFim, mesFim, substituirExistentes, consolidacao } = opts
+    // Empresas do SCI a ler por mês: a matriz primeiro (nome/tipo das contas
+    // saem dela), depois as filiais.
+    const fontes = consolidacao && consolidacao.filiais.length > 0
+      ? [prcodemp, ...consolidacao.filiais.map(f => f.prcodemp)]
+      : null
     const refInicio = anoInicio * 100 + mesInicio
     const refFim = anoFim * 100 + mesFim
     // Mesma chave que getRefreshStatusByRange (clienteId_refInicio_refFim).
@@ -387,7 +417,10 @@ export class BiBalanceteService {
         message: `Aguardando o Service Manager processar ${refs.length} mês(es)...`,
         log: [`[${new Date().toLocaleTimeString('pt-BR')}] Pedido enviado ao Service Manager (${refs.length} meses)`],
         startedAt: new Date(),
+        consolidacao,
+        mesesConsolidados: 0,
       }
+      if (fontes) job.log.push(`[${new Date().toLocaleTimeString('pt-BR')}] Consolidando ${fontes.length - 1} filial(is) na matriz`)
       ;(job as any).totalMeses = refs.length
       ;(job as any).ok = 0
       ;(job as any).skipped = 0
@@ -396,7 +429,9 @@ export class BiBalanceteService {
       this.biSyncEvents.emit({
         type: 'balancete-import-request',
         clienteId,
-        payload: { prcodemp, refs, refInicio, refFim, substituirExistentes },
+        // `fontes`: SM novo lê cada empresa e sobe um lote por empresa; SM
+        // antigo ignora o campo e sobe só a matriz (o fim do job avisa).
+        payload: { prcodemp, refs, refInicio, refFim, substituirExistentes, ...(fontes ? { fontes } : {}) },
       })
       return { started: true, viaLauncher: true, job: { status: job.status, totalMeses: refs.length } }
     }
@@ -416,11 +451,13 @@ export class BiBalanceteService {
       message: `Iniciando importação de ${refs.length} mês(es)...`,
       log: [],
       startedAt: new Date(),
+      consolidacao,
+      mesesConsolidados: 0,
     }
     this.refreshJobs.set(jobKey, job)
 
     // Run in background (fallback local — só funciona onde a máquina alcança o SCI)
-    this.runImportJob(jobKey, clienteId, prcodemp, refs, substituirExistentes).catch((e) => {
+    this.runImportJob(jobKey, clienteId, fontes ?? [prcodemp], refs, substituirExistentes).catch((e) => {
       this.logger.error(`Import job failed: ${(e as Error).message}`)
     })
 
@@ -466,6 +503,12 @@ export class BiBalanceteService {
     job.message = result.erro
       ? `Falhou: ${result.erro}`
       : `Concluído: ${ok} importado(s), ${skipped} pulado(s), ${failed} falha(s)`
+    // Pediu-se consolidado e nenhum mês chegou consolidado: o Service Manager
+    // é anterior à consolidação e subiu só a matriz.
+    if (job.consolidacao && ok > 0 && !job.mesesConsolidados) {
+      job.message += ' — ATENÇÃO: o Service Manager está desatualizado e importou só a matriz, sem as filiais. Atualize o SM e importe de novo.'
+      job.log.push(`[${new Date().toLocaleTimeString('pt-BR')}] Service Manager sem suporte a consolidação: filiais não somadas`)
+    }
     const j = job as unknown as { ok?: number; skipped?: number; failed?: number; errorsByMes?: Record<number, string> }
     j.ok = ok; j.skipped = skipped; j.failed = failed
     if (result.errorsByMes) j.errorsByMes = result.errorsByMes
@@ -486,7 +529,7 @@ export class BiBalanceteService {
   private async runImportJob(
     jobKey: string,
     clienteId: string,
-    prcodemp: number,
+    fontes: number[],
     refs: number[],
     substituirExistentes: boolean,
   ) {
@@ -509,7 +552,12 @@ export class BiBalanceteService {
       let lastError = ''
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const linhas = await this.sciService.buscarBalanceteMes(prcodemp, dataIni, dataFim, ref)
+          // Uma empresa (caso comum) ou matriz + filiais (consolidado).
+          const lotes: LoteBalancete[] = []
+          for (const prcodemp of fontes) {
+            lotes.push({ prcodemp, linhas: await this.sciService.buscarBalanceteMes(prcodemp, dataIni, dataFim, ref) })
+          }
+          const linhas = lotes.flatMap(l => l.linhas)
 
           if (linhas.length === 0) {
             job.log.push(`[${new Date().toLocaleTimeString('pt-BR')}] ref=${ref}: 0 linhas retornadas (pulando)`)
@@ -519,7 +567,7 @@ export class BiBalanceteService {
           }
 
           // Persistir no banco
-          await this.persistirMes(clienteId, ref, linhas, substituirExistentes)
+          await this.gravarMes(clienteId, ref, lotes, substituirExistentes, job)
 
           job.log.push(`[${new Date().toLocaleTimeString('pt-BR')}] ref=${ref}: ${linhas.length} linhas importadas`)
           ok++
@@ -572,12 +620,58 @@ export class BiBalanceteService {
     ref: number,
     linhas: SciBalanceteLinha[],
     substituirExistentes = true,
+    /** SM com consolidação: um lote por empresa do SCI (matriz primeiro). */
+    lotes?: LoteBalancete[],
   ) {
-    if (!linhas || linhas.length === 0) {
+    const todos: LoteBalancete[] = lotes && lotes.length > 0 ? lotes : [{ prcodemp: 0, linhas: linhas ?? [] }]
+    const total = todos.reduce((n, l) => n + l.linhas.length, 0)
+    if (total === 0) {
       return { inserted: 0, skipped: true }
     }
-    await this.persistirMes(clienteId, ref, linhas, substituirExistentes)
-    return { inserted: linhas.length, skipped: false }
+    await this.gravarMes(clienteId, ref, todos, substituirExistentes, this.findRunningJobForRef(clienteId, ref))
+    return { inserted: total, skipped: false }
+  }
+
+  /**
+   * Grava o mês: com mais de um lote, CONSOLIDA (soma conta a conta) e registra
+   * em ClienteBiConsolidacao quais filiais entraram; com um lote só, grava a
+   * matriz e apaga o registro de consolidação daquele mês (o dado agora é só
+   * da matriz — o aviso do BI não pode continuar dizendo o contrário).
+   */
+  private async gravarMes(
+    clienteId: string, ref: number, lotes: LoteBalancete[], substituirExistentes: boolean, job: RefreshJob | null,
+  ) {
+    const periodo = String(ref)
+    if (lotes.length > 1) {
+      const matriz = await prisma.cliente.findUnique({ where: { id: clienteId }, select: { documento: true, empresaId: true } })
+      if (!matriz?.documento) throw new Error('Matriz sem CNPJ: não dá para consolidar as filiais.')
+      const consolidadas = consolidarBalancetes(matriz.documento, lotes)
+      await this.persistirMes(clienteId, ref, consolidadas, substituirExistentes)
+      const prcodemps = lotes.slice(1).map(l => l.prcodemp)
+      const filiais = job?.consolidacao?.filiais.filter(f => prcodemps.includes(f.prcodemp))
+        ?? await this.filiaisPorPrcodemp(clienteId, matriz.empresaId, prcodemps)
+      await prisma.clienteBiConsolidacao.upsert({
+        where: { clienteId_periodo: { clienteId, periodo } },
+        create: {
+          clienteId, periodo, filiais: filiais as unknown as object,
+          userId: job?.consolidacao?.userId ?? null, empresaId: matriz.empresaId ?? job?.consolidacao?.empresaId ?? null,
+        },
+        update: { filiais: filiais as unknown as object, userId: job?.consolidacao?.userId ?? null, criadoEm: new Date() },
+      })
+      if (job) job.mesesConsolidados = (job.mesesConsolidados ?? 0) + 1
+      return
+    }
+    await this.persistirMes(clienteId, ref, lotes[0]!.linhas, substituirExistentes)
+    await prisma.clienteBiConsolidacao.deleteMany({ where: { clienteId, periodo } })
+  }
+
+  /** Filiais (da mesma empresa) pelo ID SCI — quando o job em memória já não existe. */
+  private async filiaisPorPrcodemp(clienteId: string, empresaId: string | null, prcodemps: number[]): Promise<FilialDoBi[]> {
+    const rows = await prisma.cliente.findMany({
+      where: { idSistema: { in: prcodemps.map(String) }, id: { not: clienteId }, ...(empresaId ? { empresaId } : {}) },
+      select: { id: true, documento: true, razaoSocial: true, idSistema: true },
+    })
+    return rows.map(r => ({ clienteId: r.id, cnpj: r.documento ?? '', razaoSocial: r.razaoSocial, prcodemp: Number(r.idSistema) }))
   }
 
   private async persistirMes(
@@ -642,13 +736,14 @@ export class BiBalanceteService {
     // `cliente.idSistema` — um id digitado ou descoberto por CNPJ. Id errado no
     // cadastro importava o balancete de OUTRA empresa, em silêncio, sob o nome
     // do cliente certo.
-    const cnpjSci = String(linhas[0]?.CNPJ_EMPRESA ?? '').replace(/\D/g, '')
+    // limparCnpj, não /\D/g: o CNPJ alfanumérico tem letras.
+    const cnpjSci = limparCnpj(String(linhas[0]?.CNPJ_EMPRESA ?? ''))
     if (cnpjSci) {
       const cli = await prisma.cliente.findUnique({
         where: { id: clienteId },
         select: { documento: true, razaoSocial: true },
       }).catch(() => null)
-      const cnpjCliente = (cli?.documento ?? '').replace(/\D/g, '')
+      const cnpjCliente = limparCnpj(cli?.documento ?? '')
       if (cnpjCliente && cnpjCliente !== cnpjSci) {
         throw new Error(
           `O SCI devolveu o balancete do CNPJ ${cnpjSci}, mas o cliente `

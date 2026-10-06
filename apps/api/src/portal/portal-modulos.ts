@@ -24,7 +24,7 @@ export interface ModuloDoPortal {
 export const MODULOS_DO_PORTAL: readonly ModuloDoPortal[] = [
   {
     slug: 'documentos',
-    rotulo: 'Documentos',
+    rotulo: 'Arquivos',
     descricao: 'Pasta de arquivos do cliente: baixar o que o escritório publica e enviar os próprios documentos.',
     implementado: true,
     padrao: true,
@@ -41,7 +41,7 @@ export const MODULOS_DO_PORTAL: readonly ModuloDoPortal[] = [
   },
   {
     slug: 'bi',
-    rotulo: 'Dashboard Financeiro',
+    rotulo: 'BI Financeiro',
     descricao: 'Receita, custos, despesas e resultado da empresa, mês a mês — a DRE do balancete.',
     implementado: true,
     // Nasce LIGADO no nível da empresa porque o portão de verdade é outro: a
@@ -55,16 +55,21 @@ export const MODULOS_DO_PORTAL: readonly ModuloDoPortal[] = [
   {
     slug: 'chamados',
     rotulo: 'Atendimento',
-    descricao: 'Abertura e acompanhamento de chamados pelo portal, no lugar do WhatsApp.',
-    implementado: false,
-    padrao: false,
+    descricao: 'Solicitar serviços e registrar reclamações, sugestões e elogios pelo portal, com acompanhamento e conversa.',
+    implementado: true,
+    // Ligado na empresa (chave geral): o portão de verdade são as quatro
+    // permissões por usuário, todas desligadas ao nascer.
+    padrao: true,
   },
   {
     slug: 'certidoes',
-    rotulo: 'Certidões',
-    descricao: 'Situação e PDF da última emissão de cada certidão negativa.',
-    implementado: false,
-    padrao: false,
+    rotulo: 'Certidões e Alvarás',
+    descricao: 'Situação e PDF da última emissão de cada certidão negativa e alvará.',
+    implementado: true,
+    // Mesmo raciocínio do BI: ligado na empresa, e o portão de verdade é a
+    // permissão por usuário (`ClienteUsuario.podeVerCertidoes`), que nasce
+    // desligada. Desligar aqui tira o quadro do portal de todo mundo.
+    padrao: true,
   },
   {
     slug: 'certificado',
@@ -93,7 +98,21 @@ const PADRAO = new Map(MODULOS_DO_PORTAL.map(m => [m.slug, m.padrao]))
  */
 export interface PermissoesDoVinculo {
   podeVerBi: boolean
+  podeVerCertidoes: boolean
+  podeSolicitarServicos: boolean
+  podeRegistrarReclamacao: boolean
+  podeRegistrarSugestao: boolean
+  podeRegistrarElogio: boolean
 }
+
+/** As permissões que decidem módulos, tiradas de um vínculo (ou linha de ClienteUsuario). */
+export const permissoesDoPainel = (v: PermissoesDoVinculo): PermissoesDoVinculo => ({
+  podeVerBi: v.podeVerBi, podeVerCertidoes: v.podeVerCertidoes,
+  podeSolicitarServicos: v.podeSolicitarServicos,
+  podeRegistrarReclamacao: v.podeRegistrarReclamacao,
+  podeRegistrarSugestao: v.podeRegistrarSugestao,
+  podeRegistrarElogio: v.podeRegistrarElogio,
+})
 
 /**
  * Os módulos que ESTA pessoa alcança: os da empresa, menos os que exigem uma
@@ -110,6 +129,11 @@ export function modulosDoVinculo(
 ): string[] {
   const out = new Set(liberadosNaEmpresa)
   if (!permissoes.podeVerBi) out.delete('bi')
+  if (!permissoes.podeVerCertidoes) out.delete('certidoes')
+  // Atendimento: basta UMA das quatro ações para a guia aparecer; cada rota
+  // confere a ação específica (ver portal-atendimento.service.ts).
+  if (!permissoes.podeSolicitarServicos && !permissoes.podeRegistrarReclamacao
+    && !permissoes.podeRegistrarSugestao && !permissoes.podeRegistrarElogio) out.delete('chamados')
   return [...out]
 }
 
