@@ -2188,7 +2188,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
             <h4 className="font-semibold text-xs mb-1">Parâmetros</h4>
             <p className="text-[10px] text-muted-foreground mb-3">Parâmetros do contrato para acompanhamento no gráfico.</p>
             <div className="flex flex-col gap-2 w-full">
-              <Button type="button" size="sm" onClick={() => setShowParamModal(true)} style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }} className="w-full">→ Atualizar Parâmetros</Button>
+              <Button type="button" size="sm" onClick={() => setShowParamModal(true)} className="w-full">→ Atualizar Parâmetros</Button>
               <Button type="button" variant="outline" size="sm" onClick={() => setShowErpModal(true)} className="w-full"><ExternalLink className="h-3 w-3" /> Verificar no ERP</Button>
             </div>
           </div>

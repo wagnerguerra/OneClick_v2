@@ -9,9 +9,7 @@ import {
 import {
   Card, CardContent, Input, Button,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
-  cn,
 } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
 import { useState, useMemo, useEffect, useCallback, type ComponentType } from 'react'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { trpc } from '@/lib/trpc'
@@ -437,7 +435,7 @@ function ArticleRow({ artigo: a, isMaster, onEditar, onExcluir }: {
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onEditar}><Pencil className="mr-2 h-3.5 w-3.5" /> Editar</DropdownMenuItem>
               {a.fonte === 'banco' && (
-                <DropdownMenuItem onClick={onExcluir} className={cn(TEXT.rose, 'focus:text-rose-600 dark:focus:text-rose-400')}>
+                <DropdownMenuItem onClick={onExcluir} className="text-destructive focus:text-destructive">
                   <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
                 </DropdownMenuItem>
               )}

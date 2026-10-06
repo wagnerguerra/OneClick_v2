@@ -112,6 +112,12 @@ const CONTRATO_STATUS_LABEL: Record<string, string> = {
   // Não são status do enum de contrato, por isso não estão em @saas/types.
   VENCIDO: 'Vencido', SEM_VIGENCIA: 'Sem vigência informada',
 }
+/** Cor da fatia de contrato: status do enum + vigência da carteira (semáforo). */
+const CONTRATO_STATUS_COR: Record<string, string> = {
+  ...CONTRATO_STATUS_COLORS,
+  VENCIDO: '#ef4444',      // vermelho — o mesmo "Vencido" de Benefícios e Certificados
+  SEM_VIGENCIA: '#f59e0b', // âmbar — falta cadastrar a data de fim
+}
 
 const formatCurrency = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
@@ -259,7 +265,7 @@ export default function ComercialPage() {
   const ctPorStatus: any[] = ct?.porStatus ?? []
   const ctPie = ctPorStatus
     .filter((s) => (s.count ?? 0) > 0)
-    .map((s) => ({ name: CONTRATO_STATUS_LABEL[s.status] ?? s.status, value: s.count, fill: (CONTRATO_STATUS_COLORS as Record<string, string>)[s.status] ?? '#94a3b8' }))
+    .map((s) => ({ name: CONTRATO_STATUS_LABEL[s.status] ?? s.status, value: s.count, fill: CONTRATO_STATUS_COR[s.status] ?? '#94a3b8' }))
   const ctEvolucao: any[] = ct?.evolucaoMensal ?? []
   const aVencer: any[] = ct?.aVencer ?? []
 
@@ -768,7 +774,7 @@ function DetalheIndicadorModal({ coluna, periodo, onClose, onChanged }: {
   return (
     <Dialog open={!!coluna} onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="max-w-[min(1280px,95vw)]">
-        <DialogHeaderIcon icon={ListChecks} color="sky">
+        <DialogHeaderIcon icon={ListChecks}>
           <DialogTitle className="text-[15px]">{coluna?.rotulo}</DialogTitle>
           <DialogDescription className="text-[11px]">
             {itens ? `${itens.length} registro(s)` : 'Carregando…'} · {intervalo}

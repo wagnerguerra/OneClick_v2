@@ -1765,7 +1765,7 @@ export default function CaixaPostalPage() {
                   )}
                   <DropdownMenuItem onClick={fetchClientes} className="text-xs gap-2"><RefreshCw className="h-3.5 w-3.5" />Atualizar lista</DropdownMenuItem>
                   {canArchiveDelete && (
-                    <DropdownMenuItem onClick={handleLimparTudo} className="text-xs gap-2 text-red-600"><Trash2 className="h-3.5 w-3.5" />Limpar tudo</DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleLimparTudo} className="text-xs gap-2 text-destructive focus:text-destructive"><Trash2 className="h-3.5 w-3.5" />Limpar tudo</DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>

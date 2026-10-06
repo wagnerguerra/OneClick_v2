@@ -494,9 +494,9 @@ export default function ContratoDetailPage() {
             <TabsTrigger
               value="clausulas"
               variant="sliding"
+              count={contrato.snapshots.length}
             >
               <FileCheck2 className="h-3.5 w-3.5" /> Cláusulas
-              <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{contrato.snapshots.length}</Badge>
             </TabsTrigger>
             <TabsTrigger
               value="assinaturas"
@@ -508,9 +508,9 @@ export default function ContratoDetailPage() {
             <TabsTrigger
               value="timeline"
               variant="sliding"
+              count={contrato.eventos.length}
             >
               <History className="h-3.5 w-3.5" /> Timeline
-              <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{contrato.eventos.length}</Badge>
             </TabsTrigger>
           </SlidingTabsList>
         </div>

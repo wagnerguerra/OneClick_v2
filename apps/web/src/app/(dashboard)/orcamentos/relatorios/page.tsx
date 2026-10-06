@@ -149,9 +149,8 @@ export default function RelatoriosOrcamentosPage() {
               onClick={() => { setTab(t.key); router.replace(`/orcamentos/relatorios?tab=${t.key}`) }}
               className={cn(
                 'flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors whitespace-nowrap',
-                active ? 'text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+                active ? 'text-foreground border-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground'
               )}
-              style={active ? { borderBottomColor: PRIMARY } : undefined}
             >
               <Icon className="h-3.5 w-3.5" /> {t.label}
             </button>
