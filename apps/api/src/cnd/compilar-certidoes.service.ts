@@ -134,7 +134,7 @@ export function urlEmissaoManual(tipo: CertidaoTipo, municipio: string): string 
     case 'federal': return 'https://servicos.receitafederal.gov.br/servico/certidoes/#/home'
     case 'estadual': return 'https://s2-internet.sefaz.es.gov.br/certidao/cnd'
     case 'municipal': return MUNICIPAL_MANUAL[mun] ?? null
-    case 'trabalhista': return 'https://cndt-certidao.tst.jus.br/inicio.faces'
+    case 'trabalhista': return 'https://cndt-certidao.tst.jus.br/gerarCertidao'
     case 'fgts': return 'https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf'
     case 'cgu': return 'https://certidoes.cgu.gov.br/'
     case 'alvara_bombeiros': return 'https://siat.cb.es.gov.br/siat/f/n/alvarapublico'
@@ -153,6 +153,9 @@ const horaBrasilia = () => new Date().toLocaleTimeString('pt-BR', { timeZone: 'A
 export function explicarErro(tipo: CertidaoTipo, msg: string): string {
   const portal = REGISTRO[tipo].portal
   if (/^O (portal|SERPRO)|^Configure |^Munic[ií]pio |^Selecione /.test(msg)) return msg // já está em português claro
+  if (/ERR_(INVALID_AUTH_CREDENTIALS|TUNNEL_CONNECTION_FAILED|PROXY_CONNECTION_FAILED|PROXY_AUTH_UNSUPPORTED)/.test(msg)) {
+    return `A conexão pelo escritório falhou (o portal ${portal} só responde por lá). Verifique se o Service Manager está aberto no escritório e tente de novo.`
+  }
   if (/navigation timeout|tempo esgotado|timed? ?out|ETIMEDOUT|UND_ERR_CONNECT_TIMEOUT|fetch failed|ECONNREFUSED|ECONNRESET|ENOTFOUND|EAI_AGAIN|socket hang up/i.test(msg)) {
     return `O portal ${portal} não respondeu. Ele pode estar fora do ar ou recusando conexões do servidor — tente de novo mais tarde.`
   }

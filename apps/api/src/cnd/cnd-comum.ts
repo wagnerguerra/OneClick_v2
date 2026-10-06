@@ -95,9 +95,32 @@ export function dataIso(v: string | null | undefined): string | null {
  * esgotado. Antes, `browser.close()` ficava dentro do try: um portal que
  * travava deixava processos do Chromium acumulando na VPS.
  */
+type OpcoesNavegador = { timeoutMs?: number; ignorarTls?: boolean; disfarcarAutomacao?: boolean; viaEscritorio?: boolean }
+
+/** Erro de conexão com o proxy do escritório (túnel caindo/reconectando), não do portal. */
+export const ehErroDoProxy = (msg: string) =>
+  /ERR_(INVALID_AUTH_CREDENTIALS|TUNNEL_CONNECTION_FAILED|PROXY_CONNECTION_FAILED|PROXY_AUTH_UNSUPPORTED|EMPTY_RESPONSE|CONNECTION_RESET)/.test(msg)
+
 export async function comNavegador<T>(
   fn: (browser: import('puppeteer').Browser) => Promise<T>,
-  opts: { timeoutMs?: number; ignorarTls?: boolean; disfarcarAutomacao?: boolean; viaEscritorio?: boolean } = {},
+  opts: OpcoesNavegador = {},
+): Promise<T> {
+  try {
+    return await comNavegadorUmaVez(fn, opts)
+  } catch (e) {
+    // O túnel do escritório reconecta sozinho (cai e volta em ~45s): um erro
+    // de proxy na passagem por ele merece UMA nova tentativa — foi o caso da
+    // CNDT de 06/10, que falhou um minuto depois de uma reconexão.
+    if (!opts.viaEscritorio || !ehErroDoProxy((e as Error).message)) throw e
+    cndLogger('Proxy').warn(`Falha na conexão pelo escritório (${(e as Error).message.slice(0, 80)}) — nova tentativa em 8s`)
+    await new Promise(r => setTimeout(r, 8000))
+    return comNavegadorUmaVez(fn, opts)
+  }
+}
+
+async function comNavegadorUmaVez<T>(
+  fn: (browser: import('puppeteer').Browser) => Promise<T>,
+  opts: OpcoesNavegador,
 ): Promise<T> {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const puppeteer = require('puppeteer') as typeof import('puppeteer')

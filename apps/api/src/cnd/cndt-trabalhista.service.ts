@@ -7,7 +7,9 @@ import {
   PorEmpresa, cndLogger, comNavegador, dataIso, exigirEmpresa, limparDoc, naFilaDoNavegador, precisaReconsultar,
 } from './cnd-comum'
 
-const CNDT_URL = 'https://cndt-certidao.tst.jus.br/gerarCertidao.faces'
+// Portal reescrito pelo TST em out/2026 (sem JSF): /gerarCertidao, captcha via
+// /api/captcha e o PDF devolvido direto pelo POST /api/certidao.
+const CNDT_URL = 'https://cndt-certidao.tst.jus.br/gerarCertidao'
 const log = cndLogger('CNDT')
 
 export interface CndtResult {
@@ -155,7 +157,10 @@ export class CndtTrabalhistaService {
 
     // CDP Fetch para interceptar o PDF (vem como attachment, não abre na aba).
     const client = await page.createCDPSession()
-    await client.send('Fetch.enable', { patterns: [{ urlPattern: '*emissaoCertidao*', requestStage: 'Response' }] })
+    await client.send('Fetch.enable', { patterns: [
+      { urlPattern: '*/api/certidao*', requestStage: 'Response' }, // portal novo (out/2026)
+      { urlPattern: '*emissaoCertidao*', requestStage: 'Response' }, // portal JSF antigo
+    ] })
     const captura: { pdf: string | null } = { pdf: null }
     client.on('Fetch.requestPaused', async (event) => {
       try {
@@ -180,7 +185,8 @@ export class CndtTrabalhistaService {
     etapa('Página carregada')
 
     for (let tentativa = 1; tentativa <= 2; tentativa++) {
-      const captchaSrc = await page.evaluate(() => (document.getElementById('idImgBase64') as HTMLImageElement | null)?.src || '')
+      const captchaSrc = await page.evaluate(() =>
+        ((document.getElementById('captcha-imagem') || document.getElementById('idImgBase64')) as HTMLImageElement | null)?.src || '')
       const b64 = captchaSrc.match(/base64,\s*(.+)/)
       if (!b64) {
         if (tentativa === 1) throw new Error('Captcha não carregou na página')
@@ -193,11 +199,20 @@ export class CndtTrabalhistaService {
       // Valores como ARGUMENTO do evaluate — nunca interpolados no código
       // (o texto do captcha vem de terceiro e pode conter aspas).
       dialogos.length = 0
-      await page.evaluate((d: string, c: string) => {
-        (document.getElementById('gerarCertidaoForm:cpfCnpj') as HTMLInputElement).value = d
-        ;(document.getElementById('idCampoResposta') as HTMLInputElement).value = c
-        ;(document.getElementById('gerarCertidaoForm:btnEmitirCertidao') as HTMLElement).click()
-      }, doc, resposta)
+      if (await page.$('#botao-emitir')) {
+        // Portal novo: digita como uma pessoa (o app.js reage aos eventos de teclado).
+        await page.click('#cpfCnpj', { clickCount: 3 }); await page.keyboard.press('Backspace')
+        await page.type('#cpfCnpj', doc, { delay: 20 })
+        await page.click('#captcha-resposta', { clickCount: 3 }); await page.keyboard.press('Backspace')
+        await page.type('#captcha-resposta', resposta, { delay: 20 })
+        await page.click('#botao-emitir')
+      } else {
+        await page.evaluate((d: string, c: string) => {
+          (document.getElementById('gerarCertidaoForm:cpfCnpj') as HTMLInputElement).value = d
+          ;(document.getElementById('idCampoResposta') as HTMLInputElement).value = c
+          ;(document.getElementById('gerarCertidaoForm:btnEmitirCertidao') as HTMLElement).click()
+        }, doc, resposta)
+      }
       etapa('Aguardando resposta do TST...')
       for (let t = 0; t < 24 && !captura.pdf; t++) await espera(500)
       await espera(captura.pdf ? 1000 : 0)
@@ -213,8 +228,9 @@ export class CndtTrabalhistaService {
         if (tentativa < 2) {
           etapa('Captcha incorreto, tentando novamente...')
           log.warn(`Captcha incorreto para ${fim4(doc)}, nova tentativa`)
-          await page.evaluate(() => { (window as unknown as { loadCaptcha?: () => void }).loadCaptcha?.() })
-          await espera(3000)
+          // Novo captcha: o portal novo emite um a cada carga da página.
+          await page.goto(CNDT_URL, { waitUntil: 'networkidle2', timeout: 30000 })
+          await espera(1500)
           continue
         }
         return { sucesso: false, tipo: null, mensagem: 'Falha na emissão — captcha incorreto', pdfBase64: null }
