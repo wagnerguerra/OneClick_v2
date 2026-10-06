@@ -143,8 +143,10 @@ function Chip({ tom, children }: { tom: Tom; children: React.ReactNode }) {
 }
 
 function Bloco({
-  icone: Icone, cor, titulo, subtitulo, acao, children,
+  icone: Icone, cor, titulo, subtitulo, acao, children, id,
 }: {
+  /** Âncora (ex.: o Acesso rápido leva ao quadro de certidões por #certidoes). */
+  id?: string
   icone: typeof Clock
   cor: string
   titulo: string
@@ -153,7 +155,7 @@ function Bloco({
   children: React.ReactNode
 }) {
   return (
-    <section className="anim-subir overflow-hidden rounded-2xl border border-[#e6ebf2] bg-white shadow-sm dark:border-[#1b2739] dark:bg-[#0e1726]">
+    <section id={id} className="anim-subir scroll-mt-24 overflow-hidden rounded-2xl border border-[#e6ebf2] bg-white shadow-sm dark:border-[#1b2739] dark:bg-[#0e1726]">
       <header className="flex items-center gap-3 border-b border-[#eef2f7] px-5 py-3.5 dark:border-[#1b2739]">
         <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${cor}`}>
           <Icone className="h-[18px] w-[18px]" />
@@ -624,7 +626,7 @@ export function BlocoCertidoes({ lista, hoje, onBaixar }: {
     try { await onBaixar(c) } finally { setBaixando(null) }
   }
   return (
-    <Bloco icone={ShieldCheck} cor={TOM.verde} titulo="Certidões e alvarás" subtitulo="A última emissão de cada documento">
+    <Bloco id="certidoes" icone={ShieldCheck} cor={TOM.verde} titulo="Certidões e alvarás" subtitulo="A última emissão de cada documento">
       {lista === undefined ? <Carregando linhas={4} /> : lista === null ? <Falhou /> : lista.length === 0 ? (
         <Vazio
           icone={ShieldCheck}
@@ -737,7 +739,8 @@ const RECURSOS: Recurso[] = [
   { titulo: 'Documentos', icone: FolderOpen, cor: TOM.azul, href: '/portal/documentos', modulo: 'documentos' },
   { titulo: 'Obrigações', icone: CalendarCheck, cor: TOM.verde, href: '/portal/obrigacoes', modulo: 'obrigacoes' },
   { titulo: 'Dashboard Financeiro', icone: BarChart3, cor: 'bg-[#e8f6fb] text-[#0b87b5] dark:bg-[#0f2230] dark:text-[#6cc7ea]', href: '/portal/bi', modulo: 'bi' },
-  { titulo: 'Certidões', icone: FileCheck2, cor: 'bg-[#eef0fd] text-[#5b62d6] dark:bg-[#1a1d3a] dark:text-[#a3a8f0]', modulo: 'certidoes' },
+  // Sem página própria: o quadro "Certidões e alvarás" fica na página inicial, abaixo do calendário.
+  { titulo: 'Certidões', icone: FileCheck2, cor: 'bg-[#eef0fd] text-[#5b62d6] dark:bg-[#1a1d3a] dark:text-[#a3a8f0]', href: '/portal#certidoes', modulo: 'certidoes' },
   { titulo: 'Certificado digital', icone: ShieldCheck, cor: 'bg-[#fdeef5] text-[#c2477f] dark:bg-[#2a1320] dark:text-[#e98ab5]', modulo: 'certificado' },
   { titulo: 'Notas fiscais', icone: Receipt, cor: 'bg-[#e8f4f7] text-[#2b7f95] dark:bg-[#10242a] dark:text-[#7cc4d6]', modulo: 'notas' },
   { titulo: 'Atendimento', icone: LifeBuoy, cor: 'bg-[#f2eefd] text-[#7c4dd1] dark:bg-[#1e1633] dark:text-[#b59af0]', href: '/portal/chamados', modulo: 'chamados' },
