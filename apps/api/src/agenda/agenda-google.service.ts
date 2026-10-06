@@ -56,8 +56,11 @@ export class AgendaGoogleService {
     })
     const map = new Map(configs.map(c => [c.key, c.value]))
 
-    const clientId = map.get('GOOGLE_CALENDAR_CLIENT_ID') || process.env.GOOGLE_CALENDAR_CLIENT_ID || ''
-    const clientSecret = map.get('GOOGLE_CALENDAR_CLIENT_SECRET') || process.env.GOOGLE_CALENDAR_CLIENT_SECRET || ''
+    // Sem credenciais próprias da agenda, usa as do app OAuth geral (GOOGLE_CLIENT_*):
+    // em produção é o MESMO app do v1 (conferido por hash em 06/10/2026), então
+    // as conexões feitas no v1 seguem válidas e não há segredo a duplicar no .env.
+    const clientId = map.get('GOOGLE_CALENDAR_CLIENT_ID') || process.env.GOOGLE_CALENDAR_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || ''
+    const clientSecret = map.get('GOOGLE_CALENDAR_CLIENT_SECRET') || process.env.GOOGLE_CALENDAR_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || ''
     const redirectUri = map.get('GOOGLE_CALENDAR_REDIRECT_URI') || process.env.GOOGLE_CALENDAR_REDIRECT_URI || ''
 
     if (!clientId || !clientSecret) throw new Error('Google Agenda não configurado: falta o Client ID/Secret do aplicativo OAuth.')
