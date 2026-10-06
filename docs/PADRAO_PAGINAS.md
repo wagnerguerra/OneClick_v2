@@ -16,7 +16,9 @@ e copie a estrutura** — divergir dela é que gera trabalho depois.
 Padrões vizinhos, que continuam valendo: [`PADRAO_MODULOS.md`](PADRAO_MODULOS.md)
 (botões, variantes, tipografia), [`PADRAO_KANBAN_DND.md`](PADRAO_KANBAN_DND.md)
 (mecânica do arrasto), [`PADRAO_RESPONSIVIDADE.md`](PADRAO_RESPONSIVIDADE.md)
-(celular, tablet, notebook) e o `CLAUDE.md` (modais, tokens, cores de módulo).
+(celular, tablet, notebook), [`PADRAO_CORES_E_TEMA.md`](PADRAO_CORES_E_TEMA.md)
+(primária, cores com significado, campos) e o `CLAUDE.md` (modais, componentes).
+Exemplos vivos de tudo isso em `/admin/design-system`.
 
 ---
 
@@ -353,7 +355,9 @@ Modais seguem o `DialogHeaderIcon` obrigatório (ver `CLAUDE.md`).
 | `<PageHeader>` (capa sangrada) numa listagem | é de detalhe; gera a capa colorida que destoa de `/clientes` e `/crm` |
 | `p-4 md:p-6` no wrapper da página | o layout do dashboard já dá o padding — sai dobrado |
 | `<Card><CardHeader>` cru no detalhe | o padrão é `SectionCard`, com recolher e cabeçalho uniforme |
-| Botões de ação soltos na linha da tabela | a coluna Ações é dropdown `⋮` |
+| Botões de ação soltos na linha da tabela fora do padrão | a coluna Ações é dropdown `⋮` ou botões `soft-*` `icon-sm` — uma variação por tela (ver `/admin/design-system` → Tabelas) |
+| Cor do módulo em botão, aba, KPI, capa ou ícone | o conteúdo usa a primária; a cor do módulo é só indicador (ver `PADRAO_CORES_E_TEMA.md` §6) |
+| `bg-*`/`border-*` em campo de formulário | o campo herda o tema do `globals.css`; override destoa no dark |
 | Badge/chip em minúsculas no hero | os chips do hero são caixa alta |
 | Coluna Status na tabela | situação é badge na linha; o estado se gerencia no form |
 | Ação que só aparece no hover | some no celular — ver `PADRAO_RESPONSIVIDADE.md` §8 |

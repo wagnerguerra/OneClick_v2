@@ -17,7 +17,7 @@ Decisões firmes:
    - Bloco **Fiscal** → `nfe`, `sped`, `sped-merge`, `sci-consolidado`, `comparacao-planilhas`, `comparacao-nfse`, `sci-portal-nacional`, `nfse-pdf` (8)
    - Bloco **Contábil** → `gnre`, `extrato-edit` (2)
    - Futuras ferramentas de outras áreas entram no subitem "Ferramentas" do **bloco correspondente**.
-   Reaproveita a **cor do bloco** (`--mod-fiscal`/`--mod-contabil`); **não** cria slug/cor "ferramentas". ⚠️ Categoria (menu) ≠ arquitetura técnica: `gnre` é Contábil porém job-based; `nfse-pdf` é Fiscal porém browser-only.
+   Na sidebar, fica sob o bloco (cor do bloco); o conteúdo das telas usa a **primária** (`colorForArea` → `var(--color-primary)`, ver `PADRAO_CORES_E_TEMA.md` §6). ⚠️ Categoria (menu) ≠ arquitetura técnica: `gnre` é Contábil porém job-based; `nfse-pdf` é Fiscal porém browser-only.
 3. **RBAC por área:** uma permissão umbrella **por bloco** — `ferramentas-fiscal`, `ferramentas-contabil` (controla o subitem "Ferramentas" na sidebar daquele bloco), com **sub-permissões por ferramenta** (`writeSubProcedure('ferramentas-fiscal','sped','SPED → XLSX')`). Novas áreas = novo slug `ferramentas-<area>`.
 4. **Webapp coexiste** como backend de processamento (engines/workers/Docker seguem rodando). A UI Vite antiga é aposentada aos poucos.
 5. **Piloto primeiro:** bootar testes + integrar **SPED** ponta-a-ponta (no bloco Fiscal), validar o padrão, depois replicar.
@@ -210,7 +210,7 @@ SPED é o caso mais completo (upload + campos opcionais + pré-passo inspect + p
 7. **Wiring backend** (§1.1, 3 pontos) + registrar controller em `ferramentas.module.ts`. **Gate de boot** (HTTP 200) após.
 
 8. **Frontend** `apps/web/src/app/(dashboard)/ferramentas/fiscal/sped/page.tsx` (rota `/ferramentas/fiscal/sped`):
-   - **`<PageHeader>`** com cor do bloco (`var(--mod-fiscal)`), ícone/título; aba "Histórico" via `children`/`SlidingTabsList`.
+   - **`<PageHeader>`** com a primária (`colorForArea(area)` = `var(--color-primary)`), ícone/título; aba "Histórico" via `children`/`SlidingTabsList`.
    - Upload via `fetch + FormData` (`credentials:'include'`) → `/api/tools/sped/jobs` (ou `/be/tools/...` via rewrite); barra de progresso por **polling** de `GET status`; botão download (stream do OneClick).
    - Antes de enviar: chamar `inspect` p/ mostrar REGs presentes e seleção de `sheets` (preserva o `SpedHomePage.tsx`; manter coluna `_LINHA` no fluxo).
    - Aba **Histórico de jobs** (tabela padrão: `SortHead`, paginação server-side, ⋮). Modais com `DialogHeaderIcon`.
@@ -247,7 +247,7 @@ Para absorver a heterogeneidade do webapp sem `if/else` espalhado, definir um ma
 
 ```ts
 type ToolAdapter = {
-  area: 'fiscal' | 'contabil'                    // bloco/menu + slug RBAC (ferramentas-<area>) + cor (--mod-<area>)
+  area: 'fiscal' | 'contabil'                    // bloco/menu + slug RBAC (ferramentas-<area>); cor do conteúdo = primária
   // rota de criação relativa a /api/v1
   createPath: (id?: string) => string          // nfe: () => '/jobs'; sped: () => '/tools/sped/jobs'
   basePath: string                              // p/ status/download: '/jobs' ou '/tools/sped/jobs'

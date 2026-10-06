@@ -336,13 +336,15 @@ function TokensSection() {
         <Rule><strong>Tint/seleção</strong> → <code className="text-[11px]">bg-primary/10</code> (borda <code className="text-[11px]">border-primary/20…/50</code>) com texto <code className="text-[11px]">text-primary-on-surface</code></Rule>
         <Rule><strong>Inline/SVG</strong> (gráfico, color-mix) → <code className="text-[11px]">var(--color-primary)</code> em preenchimento; <code className="text-[11px]">var(--color-primary-on-surface)</code> em texto</Rule>
         <AntiRule>NÃO usar <code className="text-[11px]">text-primary</code> nem <code className="text-[11px]">{`style={{ color: 'var(--color-primary)' }}`}</code> para texto sobre superfície — some no dark</AntiRule>
+        <AntiRule>NÃO repetir a primária em <code className="text-[11px]">style</code> num <code className="text-[11px]">{`<Button>`}</code> — o padrão já é <code className="text-[11px]">bg-primary text-primary-foreground</code></AntiRule>
       </Card>
 
       <SubTitle>Exceções de tema</SubTitle>
       <Card className="p-4 space-y-2">
         <Rule><strong>Documento/papel</strong> (etiqueta, termo, prévia de impressão): cores claras FIXAS nos dois temas — <code className="text-[11px]">bg-white text-slate-900</code> na folha, e títulos com <code className="text-[11px]">color: inherit</code>. É papel, não tela.</Rule>
         <Rule><strong>Título sobre fundo colorido</strong>: o CSS global pinta <code className="text-[11px]">h1/h2/h3</code> com <code className="text-[11px]">--color-foreground</code>, o que vence a herança. Sobre faixa colorida, ponha <code className="text-[11px]">text-white</code> (ou a cor certa) <strong>no próprio título</strong>.</Rule>
-      </Card>
+        <Rule><strong>Tooltip é invertido</strong> (<code className="text-[11px]">bg-foreground text-background</code>): escuro no claro, claro no escuro. Cor dentro dele usa tom <code className="text-[11px]">-400</code> no claro e <code className="text-[11px]">-600</code> no <code className="text-[11px]">dark:</code>; neutro = <code className="text-[11px]">text-background/70</code>. O helper <code className="text-[11px]">TEXT</code> é para superfície normal</Rule>
+        <Rule><strong>Fora de classe</strong> (Recharts, SVG, <code className="text-[11px]">style</code>): <code className="text-[11px]">var(--color-&lt;token&gt;)</code>. Os nomes antigos (<code className="text-[11px]">var(--border)</code>, <code className="text-[11px]">hsl(var(--…))</code>) não existem e saem pretos no dark. Tooltip de gráfico = <code className="text-[11px]">{`<ChartTooltip>`}</code></Rule>      </Card>
 
       <SubTitle>Tipografia</SubTitle>
       <div className="rounded-md border border-border p-4 space-y-2 bg-card">
@@ -892,7 +894,7 @@ function TablesSection() {
       <Card className="p-4 space-y-2">
         <h4 className="text-[12px] font-bold">Regras</h4>
         <Rule>Toolbar: <code className="text-[11px]">border-b border-border/60 bg-muted/20 px-4 py-3</code></Rule>
-        <Rule>Filtros (Select/Input): <code className="text-[11px]">h-8 text-xs bg-card</code> (mais compacto que o padrão de form)</Rule>
+        <Rule>Filtros (Select/Input): <code className="text-[11px]">h-8 text-xs</code> (mais compacto que o padrão de form) — sem <code className="text-[11px]">bg-*</code>/<code className="text-[11px]">border-*</code> (ver <em>Formulários</em>)</Rule>
         <Rule>Coluna Ações: <code className="text-[11px]">{`<TableHead className="text-xs text-right">`}</code></Rule>
         <Rule>Dropdown: <code className="text-[11px]">{`<Button variant="ghost" size="icon-sm" className="h-7 w-7">`}</code> com <code className="text-[11px]">{`<MoreVertical className="h-4 w-4" />`}</code></Rule>
         <Rule>DropdownMenuContent: <code className="text-[11px]">align=&quot;end&quot; className=&quot;w-48&quot;</code></Rule>
@@ -1019,6 +1021,8 @@ function FormsSection() {
         <Rule><strong>Grid:</strong> <code className="text-[11px]">grid grid-cols-12 gap-3</code></Rule>
         <Rule><strong>Botões inline:</strong> <code className="text-[11px]">h-9</code> com ícones <code className="text-[11px]">h-4 w-4</code></Rule>
         <Rule><strong>Textarea:</strong> usar <code className="text-[11px]">{`<RichEditor>`}</code> (TipTap) — nunca textarea puro em forms de produção</Rule>
+        <Rule><strong>Fundo e borda:</strong> vêm da regra base do <code className="text-[11px]">globals.css</code> — vale para <code className="text-[11px]">input</code>, <code className="text-[11px]">textarea</code>, <code className="text-[11px]">select</code>, <code className="text-[11px]">Input</code>, <code className="text-[11px]">Textarea</code> e <code className="text-[11px]">SelectTrigger</code>. Combobox feito à mão leva <code className="text-[11px]">role=&quot;combobox&quot;</code></Rule>
+        <AntiRule>NUNCA <code className="text-[11px]">bg-*</code> (<code className="text-[11px]">bg-card</code>, <code className="text-[11px]">bg-background</code>, <code className="text-[11px]">bg-transparent</code>…) nem <code className="text-[11px]">border</code>/<code className="text-[11px]">border-*</code> no campo — destoa dos outros no dark. Exceção: <code className="text-[11px]">border-destructive</code> de erro de validação</AntiRule>
         <AntiRule>NUNCA <code className="text-[11px]">h-8 text-xs</code> — só em filtros de toolbar de tabela (outro contexto)</AntiRule>
         <AntiRule>NUNCA labels com <code className="text-[11px]">text-[10px]/text-[11px] font-medium text-muted-foreground</code></AntiRule>
       </Card>
@@ -1311,6 +1315,9 @@ async function handleDelete(id: string) {
         <Rule><code className="text-[11px]">{`<DialogBody>`}</code>: campos com padrão de form (h-9 text-sm, space-y-1.5)</Rule>
         <Rule><code className="text-[11px]">{`<DialogFooter>`}</code>: Cancelar (outline) à esquerda, Salvar/Confirmar à direita</Rule>
         <Rule>Confirmações destrutivas curtas: <code className="text-[11px]">alerts.confirm({`{ …, destructive: true }`})</code> ou <code className="text-[11px]">alerts.confirmDelete(nome)</code></Rule>
+        <Rule><strong>Quando é <code className="text-[11px]">destructive: true</code>:</strong> a ação é destrutiva (excluir, remover, apagar, revogar, desvincular, limpar dados) <strong>ou</strong> o gatilho que abre o Swal é vermelho (variant <code className="text-[11px]">destructive</code>/<code className="text-[11px]">soft-destructive</code>, <code className="text-[11px]">text-destructive</code>, ícone/texto vermelho — inclusive só no hover). O Swal fala a mesma cor do botão que o abriu</Rule>
+        <Rule>Uma função que atende gatilhos vermelhos e neutros recebe o <code className="text-[11px]">destructive</code> por parâmetro — só o vermelho passa <code className="text-[11px]">true</code></Rule>
+        <AntiRule><strong>Arquivar</strong> nunca é destrutivo — não passa <code className="text-[11px]">destructive</code></AntiRule>
         <Rule>Toast de sucesso: <code className="text-[11px]">alerts.success()</code> · Erro: <code className="text-[11px]">alerts.error()</code></Rule>
         <AntiRule>NUNCA mais usar <code className="text-[11px]">{`<DialogTitle className="flex items-center gap-2">`}</code> com ícone inline</AntiRule>
         <AntiRule>NUNCA criar variações próprias do header — sempre <code className="text-[11px]">DialogHeaderIcon</code></AntiRule>
@@ -1500,6 +1507,7 @@ function DetailPageSection() {
         <Rule>Controles de edição: só <code className="text-[11px]">isMaster</code>, posição <code className="text-[11px]">bottom-3 right-3 z-20</code>, hover-reveal</Rule>
         <Rule>SlidingTabsList controlado: <code className="text-[11px]">value</code>/<code className="text-[11px]">onValueChange</code> obrigatórios (defaultValue NÃO funciona)</Rule>
         <Rule>TabsTrigger: <code className="text-[11px]">variant=&quot;sliding&quot;</code> — a ativa SÓ muda a cor do texto (<code className="text-[11px]">primary-on-surface</code>); o pill que desliza é a indicação</Rule>
+        <Rule>Contador na aba (nº de anexos, mensagens…): prop <code className="text-[11px]">count</code> do <code className="text-[11px]">TabsTrigger</code> — só aparece quando &gt; 0; não monte o <code className="text-[11px]">Badge</code> à mão</Rule>
         <AntiRule>NÃO pintar a aba ativa com a cor do módulo nem repetir as classes <code className="text-[11px]">!text-*</code> à mão</AntiRule>
         <Rule>Cada tab tem ícone temático <code className="text-[11px]">h-3.5 w-3.5</code></Rule>
         <AntiRule>NÃO usar <code className="text-[11px]">{`<img object-cover>`}</code> (estica imagem) — sempre <code className="text-[11px]">{`<div>`}</code> com background</AntiRule>

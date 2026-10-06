@@ -3,15 +3,13 @@
 import type { ComponentType, ReactNode } from 'react'
 
 /**
- * PADRÃO ÚNICO de cabeçalho do sistema (páginas de detalhe / módulos).
+ * Cabeçalho de CAPA sangrada — usado só pelas Ferramentas e pelo FAQ.
+ * Listagens e detalhes usam a `PageHeaderBar` (ver docs/PADRAO_PAGINAS.md).
  *
  * Wrapper bleed-edge (sangra até as bordas via -mx/-mt) com capa em gradiente
- * da cor do módulo, ícone (componente lucide OU imagem de /materiais), título,
- * subtítulo opcional, breadcrumb opcional e ações à direita. Pills/abas podem
- * ir em `children` (renderizados abaixo, dentro da capa).
- *
- * SEMPRE use este componente para o cabeçalho — não recrie a capa na mão.
- * Documentado em CLAUDE.md ("Header de páginas de detalhe").
+ * da cor passada (a primária; no FAQ, a cor do artigo), ícone (componente
+ * lucide OU imagem de /materiais), título, subtítulo opcional, breadcrumb
+ * opcional e ações à direita. Pills/abas podem ir em `children`.
  */
 export function PageHeader({
   color,
@@ -24,7 +22,7 @@ export function PageHeader({
   children,
   bleed = true,
 }: {
-  /** Cor do módulo (hex ou var CSS) — usada na capa e no ícone. */
+  /** Cor da capa e do ícone (var CSS ou hex): `var(--color-primary)`; no FAQ, a cor do artigo. */
   color: string
   /** Ícone lucide. Ignorado se `iconImg` for informado. */
   icon?: ComponentType<{ className?: string }>

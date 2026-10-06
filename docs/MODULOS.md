@@ -107,6 +107,6 @@ Lista canônica dos módulos do SaaS ERP/CRM, agrupados por bloco. Referenciada 
 - Backup e Restore (`/backup-restore`, master)
 
 ## Cores por bloco (slugs de `module_colors`)
-`cadastros`, `comercial`, `corporativo`, `administrativo`, `legalizacao`, `trabalhista`, `fiscal`, `contabil`, `ti`, `qualidade`, `configuracoes`, `faq`, `perfil`.
+`cadastros`, `comercial`, `corporativo`, `administrativo`, `legalizacao`, `trabalhista`, `fiscal`, `contabil`, `ferramentas`, `ti`, `qualidade`, `configuracoes`, `ajuda`, `perfil` (fonte: `DEFAULT_MODULE_COLORS` em `apps/api/src/theme/theme.service.ts`).
 
-> Nota: os slugs de cor não são 1:1 com os grupos da sidebar. `corporativo` retinge rotas como `/dashboard`, `/meus-servicos`, `/minhas-obrigacoes` (ver `resolveSlug` em `apps/web/src/hooks/use-module-scope.ts`); `perfil` e `faq` têm cor própria. A **cobertura** de um passe segue o GRUPO da sidebar; a **cor/retint** de cada rota segue o `resolveSlug`.
+> A cor do bloco é só **indicador de módulo** — sidebar, widgets do dashboard, FAQ, grupos de permissão e nós do editor de fluxo. O conteúdo das telas usa a cor primária (ver `PADRAO_CORES_E_TEMA.md` §6). A **cobertura** de uma varredura por bloco segue o GRUPO da sidebar (`navigation.ts`).
