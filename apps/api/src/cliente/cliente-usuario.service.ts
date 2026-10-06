@@ -69,6 +69,11 @@ export interface VincularInput {
   podeVerBi?: boolean
   /** Quadro de certidões no portal. Ausente = desligado (default do schema). */
   podeVerCertidoes?: boolean
+  /** Guia Atendimento (quatro ações). Ausente = desligado. */
+  podeSolicitarServicos?: boolean
+  podeRegistrarReclamacao?: boolean
+  podeRegistrarSugestao?: boolean
+  podeRegistrarElogio?: boolean
   /**
    * Outras empresas do MESMO GRUPO que recebem o mesmo acesso.
    *
@@ -96,7 +101,7 @@ export class ClienteUsuarioService {
         podeVer: true,
         podeEditar: true,
         podeExcluir: true,
-        podeVerBi: true, podeVerCertidoes: true,
+        podeVerBi: true, podeVerCertidoes: true, podeSolicitarServicos: true, podeRegistrarReclamacao: true, podeRegistrarSugestao: true, podeRegistrarElogio: true,
         areas: true,
         ativo: true,
         criadoEm: true,
@@ -208,6 +213,10 @@ export class ClienteUsuarioService {
               ...(input.podeExcluir !== undefined ? { podeExcluir: input.podeExcluir } : {}),
               ...(input.podeVerBi !== undefined ? { podeVerBi: input.podeVerBi } : {}),
               ...(input.podeVerCertidoes !== undefined ? { podeVerCertidoes: input.podeVerCertidoes } : {}),
+              ...(input.podeSolicitarServicos !== undefined ? { podeSolicitarServicos: input.podeSolicitarServicos } : {}),
+              ...(input.podeRegistrarReclamacao !== undefined ? { podeRegistrarReclamacao: input.podeRegistrarReclamacao } : {}),
+              ...(input.podeRegistrarSugestao !== undefined ? { podeRegistrarSugestao: input.podeRegistrarSugestao } : {}),
+              ...(input.podeRegistrarElogio !== undefined ? { podeRegistrarElogio: input.podeRegistrarElogio } : {}),
             },
           })
         : await prisma.clienteUsuario.create({
@@ -221,6 +230,10 @@ export class ClienteUsuarioService {
               ...(input.podeExcluir !== undefined ? { podeExcluir: input.podeExcluir } : {}),
               ...(input.podeVerBi !== undefined ? { podeVerBi: input.podeVerBi } : {}),
               ...(input.podeVerCertidoes !== undefined ? { podeVerCertidoes: input.podeVerCertidoes } : {}),
+              ...(input.podeSolicitarServicos !== undefined ? { podeSolicitarServicos: input.podeSolicitarServicos } : {}),
+              ...(input.podeRegistrarReclamacao !== undefined ? { podeRegistrarReclamacao: input.podeRegistrarReclamacao } : {}),
+              ...(input.podeRegistrarSugestao !== undefined ? { podeRegistrarSugestao: input.podeRegistrarSugestao } : {}),
+              ...(input.podeRegistrarElogio !== undefined ? { podeRegistrarElogio: input.podeRegistrarElogio } : {}),
               criadoPorId: ctx.userId,
             },
           })
@@ -274,6 +287,10 @@ export class ClienteUsuarioService {
           ...(input.podeExcluir !== undefined ? { podeExcluir: input.podeExcluir } : {}),
           ...(input.podeVerBi !== undefined ? { podeVerBi: input.podeVerBi } : {}),
               ...(input.podeVerCertidoes !== undefined ? { podeVerCertidoes: input.podeVerCertidoes } : {}),
+              ...(input.podeSolicitarServicos !== undefined ? { podeSolicitarServicos: input.podeSolicitarServicos } : {}),
+              ...(input.podeRegistrarReclamacao !== undefined ? { podeRegistrarReclamacao: input.podeRegistrarReclamacao } : {}),
+              ...(input.podeRegistrarSugestao !== undefined ? { podeRegistrarSugestao: input.podeRegistrarSugestao } : {}),
+              ...(input.podeRegistrarElogio !== undefined ? { podeRegistrarElogio: input.podeRegistrarElogio } : {}),
           criadoPorId: ctx.userId,
         },
         select: { id: true },
@@ -331,6 +348,10 @@ export class ClienteUsuarioService {
             ...(input.podeExcluir !== undefined ? { podeExcluir: input.podeExcluir } : {}),
             ...(input.podeVerBi !== undefined ? { podeVerBi: input.podeVerBi } : {}),
               ...(input.podeVerCertidoes !== undefined ? { podeVerCertidoes: input.podeVerCertidoes } : {}),
+              ...(input.podeSolicitarServicos !== undefined ? { podeSolicitarServicos: input.podeSolicitarServicos } : {}),
+              ...(input.podeRegistrarReclamacao !== undefined ? { podeRegistrarReclamacao: input.podeRegistrarReclamacao } : {}),
+              ...(input.podeRegistrarSugestao !== undefined ? { podeRegistrarSugestao: input.podeRegistrarSugestao } : {}),
+              ...(input.podeRegistrarElogio !== undefined ? { podeRegistrarElogio: input.podeRegistrarElogio } : {}),
             criadoPorId: autorId,
           },
           // Já existia e estava desligado: religa com o acesso novo, em vez de
@@ -448,7 +469,7 @@ export class ClienteUsuarioService {
       where: { id: input.id },
       select: {
         userId: true, clienteId: true, nivel: true, areas: true,
-        podeVer: true, podeEditar: true, podeExcluir: true, podeVerBi: true, podeVerCertidoes: true,
+        podeVer: true, podeEditar: true, podeExcluir: true, podeVerBi: true, podeVerCertidoes: true, podeSolicitarServicos: true, podeRegistrarReclamacao: true, podeRegistrarSugestao: true, podeRegistrarElogio: true,
       },
     })
     if (!base) throw new TRPCError({ code: 'NOT_FOUND', message: 'Vínculo não encontrado.' })
@@ -501,6 +522,10 @@ export class ClienteUsuarioService {
               podeExcluir: base.podeExcluir,
               podeVerBi: base.podeVerBi,
               podeVerCertidoes: base.podeVerCertidoes,
+              podeSolicitarServicos: base.podeSolicitarServicos,
+              podeRegistrarReclamacao: base.podeRegistrarReclamacao,
+              podeRegistrarSugestao: base.podeRegistrarSugestao,
+              podeRegistrarElogio: base.podeRegistrarElogio,
               criadoPorId: autorId,
             },
           })
@@ -542,7 +567,7 @@ export class ClienteUsuarioService {
       orderBy: [{ ativo: 'desc' }, { cliente: { razaoSocial: 'asc' } }],
       select: {
         id: true, ativo: true, nivel: true, areas: true,
-        podeVer: true, podeEditar: true, podeExcluir: true, podeVerBi: true, podeVerCertidoes: true, criadoEm: true,
+        podeVer: true, podeEditar: true, podeExcluir: true, podeVerBi: true, podeVerCertidoes: true, podeSolicitarServicos: true, podeRegistrarReclamacao: true, podeRegistrarSugestao: true, podeRegistrarElogio: true, criadoEm: true,
         cliente: { select: { id: true, razaoSocial: true, grupo: true, status: true } },
       },
     })
@@ -584,7 +609,7 @@ export class ClienteUsuarioService {
   async atualizar(
     input: {
       id: string; nivel?: PortalNivel; areas?: string[]; ativo?: boolean
-      podeVer?: boolean; podeEditar?: boolean; podeExcluir?: boolean; podeVerBi?: boolean; podeVerCertidoes?: boolean
+      podeVer?: boolean; podeEditar?: boolean; podeExcluir?: boolean; podeVerBi?: boolean; podeVerCertidoes?: boolean; podeSolicitarServicos?: boolean; podeRegistrarReclamacao?: boolean; podeRegistrarSugestao?: boolean; podeRegistrarElogio?: boolean
     },
   ) {
     const atual = await prisma.clienteUsuario.findUnique({
@@ -612,6 +637,10 @@ export class ClienteUsuarioService {
         ...(input.podeExcluir !== undefined ? { podeExcluir: input.podeExcluir } : {}),
         ...(input.podeVerBi !== undefined ? { podeVerBi: input.podeVerBi } : {}),
               ...(input.podeVerCertidoes !== undefined ? { podeVerCertidoes: input.podeVerCertidoes } : {}),
+              ...(input.podeSolicitarServicos !== undefined ? { podeSolicitarServicos: input.podeSolicitarServicos } : {}),
+              ...(input.podeRegistrarReclamacao !== undefined ? { podeRegistrarReclamacao: input.podeRegistrarReclamacao } : {}),
+              ...(input.podeRegistrarSugestao !== undefined ? { podeRegistrarSugestao: input.podeRegistrarSugestao } : {}),
+              ...(input.podeRegistrarElogio !== undefined ? { podeRegistrarElogio: input.podeRegistrarElogio } : {}),
         ...(areas ? { areas } : {}),
         ...(input.ativo != null ? { ativo: input.ativo } : {}),
       },

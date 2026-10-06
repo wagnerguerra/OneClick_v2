@@ -1,5 +1,5 @@
 import { prisma } from '@saas/db'
-import { resolverLiberados, modulosDoVinculo } from './portal-modulos'
+import { permissoesDoPainel, resolverLiberados, modulosDoVinculo } from './portal-modulos'
 
 /**
  * Escopo do usuário externo — a peça que impede um cliente de ler o outro.
@@ -48,6 +48,11 @@ export interface VinculoPortal {
   podeVerBi: boolean
   /** Vê o quadro de certidões e alvarás. Já refletido em `modulos`. */
   podeVerCertidoes: boolean
+  /** Guia Atendimento: o que a pessoa pode abrir. Sem nenhuma, `chamados` sai de `modulos`. */
+  podeSolicitarServicos: boolean
+  podeRegistrarReclamacao: boolean
+  podeRegistrarSugestao: boolean
+  podeRegistrarElogio: boolean
   /**
    * Módulos que o master liberou para a empresa dona deste cliente, MENOS os
    * que exigem uma permissão que esta pessoa não tem (ver `modulosDoVinculo`).
@@ -123,6 +128,10 @@ export async function resolverVinculo(userId: string, clienteId: string): Promis
       podeExcluir: true,
       podeVerBi: true,
       podeVerCertidoes: true,
+      podeSolicitarServicos: true,
+      podeRegistrarReclamacao: true,
+      podeRegistrarSugestao: true,
+      podeRegistrarElogio: true,
       cliente: {
         select: {
           status: true,
@@ -159,7 +168,11 @@ export async function resolverVinculo(userId: string, clienteId: string): Promis
     podeExcluir: vinculo.podeExcluir,
     podeVerBi: vinculo.podeVerBi,
     podeVerCertidoes: vinculo.podeVerCertidoes,
-    modulos: modulosDoVinculo(resolverLiberados(excecoes), { podeVerBi: vinculo.podeVerBi, podeVerCertidoes: vinculo.podeVerCertidoes }),
+    podeSolicitarServicos: vinculo.podeSolicitarServicos,
+    podeRegistrarReclamacao: vinculo.podeRegistrarReclamacao,
+    podeRegistrarSugestao: vinculo.podeRegistrarSugestao,
+    podeRegistrarElogio: vinculo.podeRegistrarElogio,
+    modulos: modulosDoVinculo(resolverLiberados(excecoes), permissoesDoPainel(vinculo)),
     areas: intersecaoAreas(
       vinculo.areas,
       vinculo.cliente.servicosContratados.map(a => a.areaId),
@@ -199,6 +212,10 @@ export async function listarVinculos(
       podeExcluir: true,
       podeVerBi: true,
       podeVerCertidoes: true,
+      podeSolicitarServicos: true,
+      podeRegistrarReclamacao: true,
+      podeRegistrarSugestao: true,
+      podeRegistrarElogio: true,
       cliente: {
         select: {
           razaoSocial: true,
@@ -238,9 +255,13 @@ export async function listarVinculos(
     podeExcluir: v.podeExcluir,
     podeVerBi: v.podeVerBi,
     podeVerCertidoes: v.podeVerCertidoes,
+    podeSolicitarServicos: v.podeSolicitarServicos,
+    podeRegistrarReclamacao: v.podeRegistrarReclamacao,
+    podeRegistrarSugestao: v.podeRegistrarSugestao,
+    podeRegistrarElogio: v.podeRegistrarElogio,
     modulos: modulosDoVinculo(
       resolverLiberados(porEmpresa.get(v.cliente.empresaId ?? '') ?? []),
-      { podeVerBi: v.podeVerBi, podeVerCertidoes: v.podeVerCertidoes },
+      permissoesDoPainel(v),
     ),
     areas: intersecaoAreas(v.areas, v.cliente.servicosContratados.map(a => a.areaId)),
     razaoSocial: v.cliente.razaoSocial,

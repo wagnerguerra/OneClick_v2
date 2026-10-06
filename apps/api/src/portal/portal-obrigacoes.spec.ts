@@ -22,7 +22,7 @@ const vinculo = (over: Partial<VinculoPortal> = {}): VinculoPortal => ({
   podeVer: true,
   podeEditar: true,
   podeExcluir: false,
-  podeVerBi: false, podeVerCertidoes: false,
+  podeVerBi: false, podeVerCertidoes: false, podeSolicitarServicos: false, podeRegistrarReclamacao: false, podeRegistrarSugestao: false, podeRegistrarElogio: false,
   modulos: ['documentos', 'obrigacoes'],
   ...over,
 })

@@ -41,6 +41,7 @@ import { ClienteRelatorioService } from '../cliente/relatorio/relatorio.service'
 import { ClienteUsuarioService } from '../cliente/cliente-usuario.service'
 import { PortalConviteService } from '../portal/portal-convite.service'
 import { PortalContatoService } from '../portal/portal-contato.service'
+import { PortalAtendimentoService } from '../portal/portal-atendimento.service'
 import { PortalArquivosService } from '../portal/portal-arquivos.service'
 import { PortalEscritorioService } from '../portal/portal-escritorio.service'
 import { PortalObrigacoesService } from '../portal/portal-obrigacoes.service'
@@ -1025,7 +1026,10 @@ export class TrpcService {
       sqlConsole: createSqlConsoleRouter(this.sqlConsoleService),
       nota: createNotaRouter(this.notaService),
       whatsapp: createWhatsappRouter(this.whatsappService, this.whatsappCloudService),
-      portal: createPortalRouter(this.portalConviteService, this.portalArquivosService, this.gestaoArquivosDriveService, this.portalObrigacoesService, this.portalContatoService, this.biService),
+      portal: createPortalRouter(this.portalConviteService, this.portalArquivosService, this.gestaoArquivosDriveService, this.portalObrigacoesService, this.portalContatoService, this.biService,
+        // Atendimento do portal: monta-se aqui para não cruzar módulos Nest
+        // (orçamento e manifestação não são do ClienteModule, onde vive o portal).
+        new PortalAtendimentoService(this.orcamentoService, this.manifestacaoService, this.manifestacaoNotificacaoService, this.notificationService)),
       gestaoArquivos: createGestaoArquivosRouter(this.gestaoArquivosService, this.gestaoArquivosNotificacaoService, this.gestaoArquivosDriveService),
       faq: createFaqRouter(this.faqService),
       servico: createServicoRouter(this.servicoService),

@@ -55,9 +55,11 @@ export const MODULOS_DO_PORTAL: readonly ModuloDoPortal[] = [
   {
     slug: 'chamados',
     rotulo: 'Atendimento',
-    descricao: 'Abertura e acompanhamento de chamados pelo portal, no lugar do WhatsApp.',
-    implementado: false,
-    padrao: false,
+    descricao: 'Solicitar serviços e registrar reclamações, sugestões e elogios pelo portal, com acompanhamento e conversa.',
+    implementado: true,
+    // Ligado na empresa (chave geral): o portão de verdade são as quatro
+    // permissões por usuário, todas desligadas ao nascer.
+    padrao: true,
   },
   {
     slug: 'certidoes',
@@ -97,7 +99,20 @@ const PADRAO = new Map(MODULOS_DO_PORTAL.map(m => [m.slug, m.padrao]))
 export interface PermissoesDoVinculo {
   podeVerBi: boolean
   podeVerCertidoes: boolean
+  podeSolicitarServicos: boolean
+  podeRegistrarReclamacao: boolean
+  podeRegistrarSugestao: boolean
+  podeRegistrarElogio: boolean
 }
+
+/** As permissões que decidem módulos, tiradas de um vínculo (ou linha de ClienteUsuario). */
+export const permissoesDoPainel = (v: PermissoesDoVinculo): PermissoesDoVinculo => ({
+  podeVerBi: v.podeVerBi, podeVerCertidoes: v.podeVerCertidoes,
+  podeSolicitarServicos: v.podeSolicitarServicos,
+  podeRegistrarReclamacao: v.podeRegistrarReclamacao,
+  podeRegistrarSugestao: v.podeRegistrarSugestao,
+  podeRegistrarElogio: v.podeRegistrarElogio,
+})
 
 /**
  * Os módulos que ESTA pessoa alcança: os da empresa, menos os que exigem uma
@@ -115,6 +130,10 @@ export function modulosDoVinculo(
   const out = new Set(liberadosNaEmpresa)
   if (!permissoes.podeVerBi) out.delete('bi')
   if (!permissoes.podeVerCertidoes) out.delete('certidoes')
+  // Atendimento: basta UMA das quatro ações para a guia aparecer; cada rota
+  // confere a ação específica (ver portal-atendimento.service.ts).
+  if (!permissoes.podeSolicitarServicos && !permissoes.podeRegistrarReclamacao
+    && !permissoes.podeRegistrarSugestao && !permissoes.podeRegistrarElogio) out.delete('chamados')
   return [...out]
 }
 

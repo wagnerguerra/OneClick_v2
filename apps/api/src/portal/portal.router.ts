@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { prisma } from '@saas/db'
+import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, portalSessaoProcedure, portalProcedure, portalModuloProcedure } from '../trpc/trpc.service'
 import type { PortalArquivosService } from './portal-arquivos.service'
 import type { GestaoArquivosDriveService } from '../gestao-arquivos/gestao-arquivos-drive.service'
@@ -11,6 +12,7 @@ import { listarVinculos } from './portal-escopo'
 import { listarEquipe } from './portal-equipe'
 import { itensDoCalendario, type ItemDoCalendario } from './portal-calendario'
 import { certidoesDoCliente, pdfDaCertidao } from '../cnd/certidoes-do-cliente'
+import type { PortalAtendimentoService } from './portal-atendimento.service'
 
 /**
  * O router declara o que USA do serviço, em vez de importar a classe.
@@ -63,7 +65,10 @@ export function createPortalRouter(
   obrigacoesService: PortalObrigacoesService,
   contatoService: PortalContatoService,
   biService: BiApi,
+  atendimento?: PortalAtendimentoService,
 ) {
+  const semAtendimento = () => { throw new TRPCError({ code: 'NOT_FOUND', message: 'Atendimento indisponível.' }) }
+  const tipoSchema = z.enum(['SERVICO', 'RECLAMACAO', 'SUGESTAO', 'ELOGIO'])
   return router({
     /**
      * As empresas que este usuário enxerga.
@@ -294,6 +299,48 @@ export function createPortalRouter(
      * (`podeVerCertidoes`), já descontada de `modulos`. Mesma consulta da aba
      * Legalização (certidoes-do-cliente.ts), sempre do cliente do VÍNCULO.
      */
+    /**
+     * Atendimento — solicitar serviços e registrar reclamações, sugestões e
+     * elogios. `portalModuloProcedure('chamados')` exige o módulo da empresa e
+     * ao menos uma das quatro permissões; o serviço confere a permissão
+     * ESPECÍFICA de cada ação e o recorte (ver portal-atendimento.service.ts).
+     */
+    atendimento: router({
+      permissoes: portalModuloProcedure('chamados')
+        .input(z.object({ clienteId: z.string() }))
+        .query(({ ctx }) => (atendimento ?? semAtendimento()).permissoes(ctx.portal)),
+
+      servicos: portalModuloProcedure('chamados')
+        .input(z.object({ clienteId: z.string() }))
+        .query(({ ctx }) => (atendimento ?? semAtendimento()).servicosDisponiveis(ctx.portal)),
+
+      solicitar: portalModuloProcedure('chamados')
+        .input(z.object({ clienteId: z.string(), servicoIds: z.array(z.string()).max(20).default([]), descricao: z.string().trim().min(10, 'Descreva o que você precisa (mínimo 10 caracteres).').max(5000) }))
+        .mutation(({ ctx, input }) => (atendimento ?? semAtendimento()).solicitarServico(ctx.portal, ctx.userId, input)),
+
+      registrar: portalModuloProcedure('chamados')
+        .input(z.object({
+          clienteId: z.string(),
+          tipo: z.enum(['RECLAMACAO', 'SUGESTAO', 'ELOGIO']),
+          titulo: z.string().trim().max(150).optional().nullable(),
+          descricao: z.string().trim().min(10, 'Conte com um pouco mais de detalhe (mínimo 10 caracteres).').max(5000),
+          dataOcorrido: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+        }))
+        .mutation(({ ctx, input }) => (atendimento ?? semAtendimento()).registrarManifestacao(ctx.portal, ctx.userId, input.tipo, input)),
+
+      listar: portalModuloProcedure('chamados')
+        .input(z.object({ clienteId: z.string(), tipo: tipoSchema }))
+        .query(({ ctx, input }) => (atendimento ?? semAtendimento()).listar(ctx.portal, ctx.userId, input.tipo)),
+
+      detalhe: portalModuloProcedure('chamados')
+        .input(z.object({ clienteId: z.string(), tipo: tipoSchema, id: z.string() }))
+        .query(({ ctx, input }) => (atendimento ?? semAtendimento()).detalhe(ctx.portal, ctx.userId, input.tipo, input.id)),
+
+      responder: portalModuloProcedure('chamados')
+        .input(z.object({ clienteId: z.string(), tipo: tipoSchema, id: z.string(), texto: z.string().trim().min(1).max(5000) }))
+        .mutation(({ ctx, input }) => (atendimento ?? semAtendimento()).responder(ctx.portal, ctx.userId, input.tipo, input.id, input.texto)),
+    }),
+
     certidoes: router({
       lista: portalModuloProcedure('certidoes')
         .input(z.object({ clienteId: z.string() }))
