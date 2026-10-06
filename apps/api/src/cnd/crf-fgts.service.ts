@@ -201,6 +201,8 @@ export class CrfFgtsService {
       timeoutMs: 120_000,
       // O portal da Caixa já exigia --ignore-certificate-errors (cadeia TLS incompleta vista da VPS).
       ignorarTls: true,
+      // A Caixa devolve 403 ao IP do servidor (Hostinger): sai pelo escritório.
+      viaEscritorio: true,
     })
 
     let sucesso = false

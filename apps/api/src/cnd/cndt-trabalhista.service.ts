@@ -276,7 +276,7 @@ export class CndtTrabalhistaService {
       emissao = await naFilaDoNavegador(() => comNavegador(async browser => {
         this.consultaEtapa.set(empresaId, 'Iniciando consulta...')
         return this.emitirNoPortal(empresaId, await browser.newPage(), doc)
-      }, { timeoutMs: 150_000 }))
+      }, { timeoutMs: 150_000, viaEscritorio: true })) // o TST não responde ao IP do servidor
     } finally {
       this.consultaEtapa.set(empresaId, '')
     }

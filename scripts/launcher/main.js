@@ -20,6 +20,9 @@ const path = require('path');
 const fs = require('fs');
 const net = require('net');
 const os = require('os');
+const { iniciarTunelEscritorio } = require('./tunel-escritorio');
+// Túnel do escritório (consultas de certidões que a VPS não alcança). Ver tunel-escritorio.js.
+let tunelEscritorio = null;
 const https = require('https');
 
 // Auto-updater — only required when packaged (dev runs sem o módulo)
@@ -3246,6 +3249,14 @@ function registerIpcHandlers() {
     throw err
   }
 
+  // Sobe uma vez, depois que o projeto (e o .deploy.local) foi localizado.
+  if (!tunelEscritorio) {
+    try {
+      tunelEscritorio = iniciarTunelEscritorio({ obterConfig: readDeployConfig, sshArgs: sshCmd, log: deployDebugLog })
+    } catch (e) { deployDebugLog(`[túnel] não subiu: ${e.message}`) }
+  }
+  ipcMain.handle('tunel:status', async () => (tunelEscritorio ? tunelEscritorio.status() : { ativo: false, motivo: 'não iniciado' }))
+
   ipcMain.handle('deploy:read-debug-log', async () => {
     try {
       if (!fs.existsSync(deployDebugLogPath)) return { ok: true, content: '(arquivo vazio — nenhum deploy registrado)' }
@@ -4925,6 +4936,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('before-quit', async () => {
+  try { tunelEscritorio && tunelEscritorio.parar() } catch {}
   isQuitting = true;
   if (nfeWatcher) {
     try { await nfeWatcher.dispose(); } catch { /* */ }

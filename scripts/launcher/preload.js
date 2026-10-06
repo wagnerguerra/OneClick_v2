@@ -79,6 +79,7 @@ contextBridge.exposeInMainWorld('api', {
   deployStatus: () => ipcRenderer.invoke('deploy:status'),
   deployListPrs: () => ipcRenderer.invoke('deploy:list-prs'),
   deployExecute: (payload) => ipcRenderer.invoke('deploy:execute', payload),
+  tunelStatus: () => ipcRenderer.invoke('tunel:status'),
   deployAbort: () => ipcRenderer.invoke('deploy:abort'),
   deployReadDebugLog: () => ipcRenderer.invoke('deploy:read-debug-log'),
   deployResetFlag: () => ipcRenderer.invoke('deploy:reset-flag'),

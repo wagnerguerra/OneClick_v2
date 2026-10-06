@@ -97,7 +97,7 @@ export function dataIso(v: string | null | undefined): string | null {
  */
 export async function comNavegador<T>(
   fn: (browser: import('puppeteer').Browser) => Promise<T>,
-  opts: { timeoutMs?: number; ignorarTls?: boolean; disfarcarAutomacao?: boolean } = {},
+  opts: { timeoutMs?: number; ignorarTls?: boolean; disfarcarAutomacao?: boolean; viaEscritorio?: boolean } = {},
 ): Promise<T> {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const puppeteer = require('puppeteer') as typeof import('puppeteer')
@@ -107,7 +107,20 @@ export async function comNavegador<T>(
   if (opts.ignorarTls) args.push('--ignore-certificate-errors')
   // Portais atrás de WAF (CGU) nem renderizam com a marca de automação ligada.
   if (opts.disfarcarAutomacao) args.push('--disable-blink-features=AutomationControlled')
+  // Portais que bloqueiam o IP do servidor (Caixa, TST): saem pela internet do
+  // escritório, pelo túnel que o Service Manager mantém. Túnel fora → direto.
+  const proxy = opts.viaEscritorio ? await proxyDoEscritorio() : null
+  if (proxy) args.push(`--proxy-server=${proxy.servidor}`)
   const browser = await puppeteer.launch({ headless: true, args })
+  if (proxy) {
+    // Toda página nova se autentica no proxy (ele recusa quem não tem a senha).
+    const novaPagina = browser.newPage.bind(browser)
+    browser.newPage = async (...a: Parameters<typeof novaPagina>) => {
+      const page = await novaPagina(...a)
+      await page.authenticate({ username: proxy.usuario, password: proxy.senha })
+      return page
+    }
+  }
   const teto = opts.timeoutMs ?? 180_000
   let timer: NodeJS.Timeout | undefined
   try {
@@ -119,6 +132,29 @@ export async function comNavegador<T>(
     if (timer) clearTimeout(timer)
     await browser.close().catch(() => { try { browser.process()?.kill('SIGKILL') } catch { /* já morreu */ } })
   }
+}
+
+/**
+ * Proxy do escritório (CND_PROXY_ESCRITORIO = http://usuario:senha@host:porta),
+ * só se estiver respondendo agora — o túnel depende da máquina do escritório
+ * estar ligada com o Service Manager aberto.
+ */
+export async function proxyDoEscritorio(): Promise<{ servidor: string; usuario: string; senha: string } | null> {
+  const bruto = process.env.CND_PROXY_ESCRITORIO
+  if (!bruto) return null
+  let url: URL
+  try { url = new URL(bruto) } catch { cndLogger('Proxy').warn('CND_PROXY_ESCRITORIO inválido'); return null }
+  const porta = Number(url.port || 80)
+  const ok = await new Promise<boolean>((resolve) => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const net = require('net') as typeof import('net')
+    const s = net.connect({ host: url.hostname, port: porta, timeout: 3000 })
+    s.once('connect', () => { s.destroy(); resolve(true) })
+    s.once('timeout', () => { s.destroy(); resolve(false) })
+    s.once('error', () => resolve(false))
+  })
+  if (!ok) { cndLogger('Proxy').warn('Túnel do escritório fora do ar — consultando direto do servidor'); return null }
+  return { servidor: `${url.protocol}//${url.hostname}:${porta}`, usuario: decodeURIComponent(url.username), senha: decodeURIComponent(url.password) }
 }
 
 /**

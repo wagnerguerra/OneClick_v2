@@ -34,6 +34,7 @@ interface ItemProgresso {
   tipo: string; label: string; status: string
   etapa?: string; mensagem?: string; detalhe?: string; situacao?: string | null
   registroId?: string | null; registroTipo?: string; temPdf?: boolean; reaproveitada?: boolean
+  urlManual?: string | null
   historico?: Passo[]
 }
 interface Progresso {
@@ -295,6 +296,12 @@ export function CompilarDialog({ open, onOpenChange, onConcluido }: { open: bool
                     {item.temPdf && item.registroId && (
                       <Button variant="outline" size="sm" className="h-7 shrink-0 gap-1 px-2 text-[11px]" disabled={baixando === i} onClick={() => baixar(i, item)}>
                         {baixando === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}PDF
+                      </Button>
+                    )}
+                    {/* Plano B: quando a automação não consegue, emite-se à mão no portal. */}
+                    {(item.status === 'falha' || item.status === 'sem_pdf') && item.urlManual && (
+                      <Button asChild variant="outline" size="sm" className="h-7 shrink-0 gap-1 px-2 text-[11px]" title="Abre o portal oficial para emitir manualmente">
+                        <a href={item.urlManual} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3 w-3" />Emitir manualmente</a>
                       </Button>
                     )}
                     {(item.status === 'falha' || item.status === 'sem_pdf') && (

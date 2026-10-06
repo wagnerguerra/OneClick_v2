@@ -35,6 +35,8 @@ export interface CompilarItem {
   temPdf?: boolean
   /** A certidão veio da base (ainda válida), sem nova consulta ao portal. */
   reaproveitada?: boolean
+  /** Plano B quando a automação falha: o portal para emitir à mão. */
+  urlManual?: string | null
   historico: CompilarPasso[]
 }
 
@@ -112,6 +114,33 @@ const REGISTRO: Record<CertidaoTipo, { tabela: string; rota: string; portal: str
   cgu: { tabela: 'certidoes_cgu', rota: 'cgu', portal: 'da CGU' },
   alvara_bombeiros: { tabela: 'alvaras_bombeiros', rota: 'alvara_bombeiros', portal: 'do SIAT (Bombeiros)' },
   alvara_funcionamento: { tabela: 'alvaras_funcionamento', rota: 'alvara_func', portal: 'da prefeitura' },
+}
+
+/** Portal de emissão manual (plano B) — o mesmo endereço que cada rotina automatiza. */
+const MUNICIPAL_MANUAL: Record<string, string> = {
+  VITORIA: 'https://tributario.vitoria.es.gov.br/Servicos/CertidaoNegativa/CertidaoNegativa.aspx',
+  'VILA VELHA': 'https://tributacao.vilavelha.es.gov.br/tbw/loginWeb.jsp?execobj=ServicosWebSite&tab=tabCertNegCont',
+  SERRA: 'https://tributacao.serra.es.gov.br:8080/tbserra/loginWeb.jsp?execobj=ServicosWebSite&tab=tabCertNegEmpresa',
+  CARIACICA: 'https://sistemas.cariacica.es.gov.br/tbw/loginWeb.jsp?execobj=ServicosWebSite&tab=tabCertNegCont',
+}
+const ALVARA_FUNC_MANUAL: Record<string, string> = {
+  'VILA VELHA': 'https://tributacao.vilavelha.es.gov.br/tbw/loginWeb.jsp?execobj=ServicosWebSite&tab=tabReemissaoAlvara',
+  SERRA: 'https://tributacao.serra.es.gov.br:8080/tbserra/loginWeb.jsp?execobj=ServicosWebSite&tab=tabReemissaoAlvara',
+  CARIACICA: 'https://sistemas.cariacica.es.gov.br/tbw/loginWeb.jsp?execobj=ServicosWebSite&tab=tabReemissaoAlvara',
+}
+export function urlEmissaoManual(tipo: CertidaoTipo, municipio: string): string | null {
+  const mun = municipio.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim()
+  switch (tipo) {
+    case 'federal': return 'https://servicos.receitafederal.gov.br/servico/certidoes/#/home'
+    case 'estadual': return 'https://s2-internet.sefaz.es.gov.br/certidao/cnd'
+    case 'municipal': return MUNICIPAL_MANUAL[mun] ?? null
+    case 'trabalhista': return 'https://cndt-certidao.tst.jus.br/inicio.faces'
+    case 'fgts': return 'https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf'
+    case 'cgu': return 'https://certidoes.cgu.gov.br/'
+    case 'alvara_bombeiros': return 'https://siat.cb.es.gov.br/siat/f/n/alvarapublico'
+    case 'alvara_funcionamento': return ALVARA_FUNC_MANUAL[mun] ?? null
+    default: return null
+  }
 }
 
 const horaBrasilia = () => new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })
@@ -365,6 +394,7 @@ export class CompilarCertidoesService {
     clienteId: string | undefined, userId: string | undefined, forcarNova: boolean,
   ): Promise<void> {
     item.registroTipo = REGISTRO[tipo].rota
+    item.urlManual = urlEmissaoManual(tipo, municipio)
     let vigia: NodeJS.Timeout | undefined
     try {
       let existente: { id: string; pdf: string } | null = null
