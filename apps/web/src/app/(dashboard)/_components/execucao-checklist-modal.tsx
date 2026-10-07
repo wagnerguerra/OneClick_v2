@@ -9,6 +9,7 @@ import {
   Button, Input, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Collapsible, CollapsibleTrigger, CollapsibleContent,
+  Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { FILL, TEXT } from '@/lib/color-styles'
@@ -957,28 +958,76 @@ function ChecklistEmCards({
 
   return (
     <div className="space-y-4">
-      {/* Trilha: um ponto por passo (verde = concluído, âmbar = ignorado, anel = em foco). */}
-      <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Passos do checklist">
-        {passos.map((p, i) => {
-          const foco = p.id === passoId
-          return (
-            <button
-              key={p.id}
-              type="button"
-              role="tab"
-              aria-selected={foco}
-              onClick={() => onIr(p.id)}
-              title={`${i + 1}. ${p.etapaNome} · ${p.passoNome}${p.concluido ? ' (concluído)' : p.ignorado ? ' (ignorado)' : ''}`}
-              className={cn(
-                'h-2.5 rounded-full transition-all',
-                foco ? 'w-6' : 'w-2.5',
-                p.concluido ? FILL.emerald : p.ignorado ? FILL.amber : 'bg-muted-foreground/25 hover:bg-muted-foreground/40',
-              )}
-              style={foco && !p.concluido && !p.ignorado ? { backgroundColor: accentColor } : undefined}
-            />
-          )
-        })}
-      </div>
+      {/* Trilha dos passos: faixa com respiro (as bolinhas não encostam nas
+          bordas), contagem à esquerda e prévia no hover — o passo e os próximos. */}
+      <TooltipProvider delayDuration={120}>
+        <div className="rounded-xl border border-border bg-muted/30 px-4 py-3">
+          <div className="mb-2.5 flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
+            <span className="font-semibold uppercase tracking-wide">Andamento</span>
+            <span className="tabular-nums">
+              {passos.filter(p => p.concluido || p.ignorado).length} de {passos.length} fechado{passos.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Passos do checklist">
+            {passos.map((p, i) => {
+              const foco = p.id === passoId
+              const situacao = p.concluido ? 'Concluído' : p.ignorado ? 'Ignorado' : bloqueados.has(p.id) ? 'Bloqueado' : 'Em aberto'
+              const proximos = passos.slice(i + 1).filter(x => !x.concluido && !x.ignorado).slice(0, 3)
+              return (
+                <Tooltip key={p.id}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={foco}
+                      aria-label={`Passo ${i + 1}: ${p.passoNome} (${situacao})`}
+                      onClick={() => onIr(p.id)}
+                      className="flex h-6 items-center justify-center rounded-full px-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span
+                        className={cn(
+                          'block h-2.5 rounded-full transition-all duration-200',
+                          foco ? 'w-7' : 'w-2.5 hover:scale-125',
+                          p.concluido ? FILL.emerald : p.ignorado ? FILL.amber : 'bg-muted-foreground/30',
+                        )}
+                        style={foco && !p.concluido && !p.ignorado ? { backgroundColor: accentColor } : undefined}
+                      />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[260px] space-y-1.5 p-3 text-xs">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
+                      Passo {i + 1} de {passos.length} · {p.etapaNome}
+                    </p>
+                    <p className="font-semibold leading-snug">{p.passoNome}</p>
+                    <p className={cn(
+                      'text-[11px] font-medium',
+                      p.concluido ? TEXT.emerald : p.ignorado ? TEXT.amber : 'opacity-80',
+                    )}>
+                      {situacao}{p.concluido && p.concluidoPorUsuario?.name ? ` por ${p.concluidoPorUsuario.name}` : ''}
+                      {!p.obrigatorio && !p.concluido && !p.ignorado ? ' · opcional' : ''}
+                    </p>
+                    {p.observacao && (
+                      <p className="line-clamp-2 text-[11px] italic opacity-80">“{p.observacao}”</p>
+                    )}
+                    {proximos.length > 0 && (
+                      <div className="border-t border-border/60 pt-1.5">
+                        <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide opacity-70">Em seguida</p>
+                        <ul className="space-y-0.5">
+                          {proximos.map(x => (
+                            <li key={x.id} className="truncate text-[11px]">
+                              {passos.indexOf(x) + 1}. {x.passoNome}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              )
+            })}
+          </div>
+        </div>
+      </TooltipProvider>
 
       {fim || !passo ? (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-muted/30 px-6 py-10 text-center">
