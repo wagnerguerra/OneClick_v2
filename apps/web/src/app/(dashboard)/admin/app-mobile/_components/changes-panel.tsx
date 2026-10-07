@@ -69,7 +69,7 @@ export const PROPOSED_CHANGES: ProposedChange[] = [
     area: 'Identidade visual',
     titulo: 'Nova identidade visual (azul + coral + amarelo, bottom tab bar)',
     descricao:
-      'Aplica a nova paleta (azul vibrante primário, acentos coral e amarelo), barra de navegacao inferior, card hero com anel de progresso e estilo de cards arredondados, conforme referencia aprovada.',
+      'Aplica a nova paleta (azul vibrante primário, acentos coral e amarelo), barra de navegação inferior, card hero com anel de progresso e estilo de cards arredondados, conforme referência aprovada.',
     status: 'processada',
   },
 ]

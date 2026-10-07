@@ -16,7 +16,7 @@ export interface ImportStep {
 }
 
 function StepIcon({ status }: { status: ImportStepStatus }) {
-  if (status === 'running') return <Loader2 className="h-4 w-4 shrink-0 mt-0.5 text-emerald-500 animate-spin" />
+  if (status === 'running') return <Loader2 className="h-4 w-4 shrink-0 mt-0.5 text-primary animate-spin" />
   if (status === 'done') return <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-emerald-500" />
   if (status === 'error') return <XCircle className="h-4 w-4 shrink-0 mt-0.5 text-rose-500" />
   return <Circle className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground/40" />
@@ -38,7 +38,7 @@ export function ImportStatusModal({
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o && done) onClose() }}>
       <DialogContent className="sm:max-w-[460px]" hideClose={!done}>
-        <DialogHeaderIcon icon={Download} color="emerald">
+        <DialogHeaderIcon icon={Download}>
           <DialogTitle>Importando do OneClick</DialogTitle>
           <DialogDescription>Trazendo o cadastro legado via Service Manager.</DialogDescription>
         </DialogHeaderIcon>

@@ -10,17 +10,15 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
-const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
-// Tom escurecido p/ preenchimento sólido com texto branco (robusto p/ qualquer cor do bloco em prod).
-const MODULE_FILL = 'color-mix(in srgb, var(--mod-trabalhista, #a3e635) 50%, black)'
-const MESES = ['', 'Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+const PRIMARY = 'var(--color-primary)'
+const MESES = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
 function fmtComp(ref: number): string {
   const ano = Math.floor(ref / 100), mes = ref % 100
   return mes === 13 ? `13o/${ano}` : `${String(mes).padStart(2, '0')}/${ano}`
 }
 function labelMes(mes: number): string {
-  return mes === 13 ? '13o salario' : `${String(mes).padStart(2, '0')} · ${MESES[mes] ?? mes}`
+  return mes === 13 ? '13o salário' : `${String(mes).padStart(2, '0')} · ${MESES[mes] ?? mes}`
 }
 const brl = (n: unknown) =>
   typeof n === 'number'
@@ -268,7 +266,7 @@ export default function FolhaBiPage() {
 
           <Button size="sm" variant="success" className="h-9" onClick={sincronizar}
             disabled={!clienteId || pedindo || temAlgumAtivo || intervaloInvalido || excedeLimite || competencias.length === 0}
-            title="Pede ao Service Manager que busque este período no SCI">
+            title="Busca este período no SCI">
             {temAlgumAtivo || pedindo
               ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sincronizando…</>
               : <><RefreshCw className="h-3.5 w-3.5" /> Sincronizar{competencias.length > 1 ? ` ${competencias.length} meses` : ''}</>}
@@ -326,12 +324,28 @@ export default function FolhaBiPage() {
       {clientes.length === 0 && !erroClientes && !loading && (
         <Card className="border-dashed p-6">
           <div className="flex items-start gap-3">
-            <Database className="mt-0.5 h-5 w-5 shrink-0" style={{ color: MODULE_COLOR }} />
+            <Database className="mt-0.5 h-5 w-5 shrink-0" style={{ color: PRIMARY }} />
             <div className="space-y-1">
               <p className="font-medium text-foreground">Nenhum cliente elegível</p>
               <p className="text-sm text-muted-foreground">
                 A lista traz os clientes <b>mensais</b> com <b>ID SCI</b> preenchido no cadastro. Sem o ID SCI não há
                 como localizar a empresa no Firebird.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Cliente sem nenhuma competencia sincronizada e sem pedido: sem isto a
+          tela ficava em branco abaixo da barra, parecendo que nao carregou. */}
+      {clienteSel && !loading && compsComDados.length === 0 && lote.total === 0 && (
+        <Card className="border-dashed p-6">
+          <div className="flex items-start gap-3">
+            <Database className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+            <div className="space-y-1">
+              <p className="font-medium text-foreground">Nenhuma competência sincronizada para este cliente</p>
+              <p className="text-sm text-muted-foreground">
+                Escolha o período acima e clique em <b>Sincronizar</b> — a folha é buscada no SCI e aparece aqui.
               </p>
             </div>
           </div>
@@ -365,7 +379,7 @@ export default function FolhaBiPage() {
                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Proventos</p>
                     <div className="grid gap-3 sm:grid-cols-3">
                       <Stat label="Proventos (verbas)" value={brl(resumo.proventos_matriz)} />
-                      <Stat label="Autonomos / RPA" value={brl(resumo.rpa_bruto)} />
+                      <Stat label="Autônomos / RPA" value={brl(resumo.rpa_bruto)} />
                       <Stat label="Total de proventos da folha" value={brl(resumo.total_proventos_folha)} strong />
                     </div>
                   </div>
@@ -374,13 +388,13 @@ export default function FolhaBiPage() {
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Descontos</p>
                       <div className="grid gap-3 sm:grid-cols-3">
                         <Stat label="Descontos (verbas)" value={brl(resumo.descontos_matriz)} />
-                        <Stat label="Autonomos / RPA" value={brl(resumo.rpa_descontos)} />
+                        <Stat label="Autônomos / RPA" value={brl(resumo.rpa_descontos)} />
                         <Stat label="Total de descontos da folha" value={brl(resumo.total_descontos_folha)} strong />
                       </div>
                     </div>
                   )}
                   {(autonomos?.n != null || autonomos?.sest_senat != null) && (
-                    <p className="text-xs text-muted-foreground">Autonomos: {autonomos.n ?? '—'} · SEST/SENAT {brl(autonomos.sest_senat)}</p>
+                    <p className="text-xs text-muted-foreground">Autônomos: {autonomos.n ?? '—'} · SEST/SENAT {brl(autonomos.sest_senat)}</p>
                   )}
                 </Card>
                 <Resumo empresa={snap.empresa} refNum={row.ref} />
@@ -390,31 +404,31 @@ export default function FolhaBiPage() {
             {row && !loadingSnap && snap && view === 'matriz' && (
               matriz
                 ? <Matriz m={matriz} empresa={snap.empresa} refNum={row.ref} nonce={groupingNonce} onConfig={() => setConfigOpen(true)} />
-                : <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Esta competencia nao tem verbas no cache.</Card>
+                : <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Esta competência não tem verbas no cache.</Card>
             )}
 
             {row && !loadingSnap && snap && view === 'inss' && (
               snap.inss
                 ? <Inss inss={snap.inss} />
-                : <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Esta competencia nao tem INSS no cache.</Card>
+                : <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Esta competência não tem INSS no cache.</Card>
             )}
 
             {row && !loadingSnap && snap && view === 'fgts' && (
               snap.fgts
                 ? <Fgts fgts={snap.fgts} comp={snap.competencia} />
-                : <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Esta competencia nao tem FGTS no cache.</Card>
+                : <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Esta competência não tem FGTS no cache.</Card>
             )}
 
             {row && !loadingSnap && snap && view === 'irrf' && (
               snap.irrf
                 ? <Irrf irrf={snap.irrf} />
-                : <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Esta competencia nao tem IRRF no cache.</Card>
+                : <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Esta competência não tem IRRF no cache.</Card>
             )}
 
             {row && !loadingSnap && snap && view === 'provisoes' && (
               snap.provisoes
                 ? <Provisoes provisoes={snap.provisoes} empresa={snap.empresa} refNum={row.ref} />
-                : <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Esta competencia nao tem provisoes no cache.</Card>
+                : <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Esta competência não tem provisões no cache.</Card>
             )}
           </div>
 
@@ -422,7 +436,7 @@ export default function FolhaBiPage() {
             {lote.total > 1 && (
               <Card className="p-3 text-sm">
                 <div className="flex items-center gap-2">
-                  <Loader2 className={cn('h-4 w-4 shrink-0', lote.ativos > 0 && 'animate-spin')} style={{ color: MODULE_COLOR }} />
+                  <Loader2 className={cn('h-4 w-4 shrink-0', lote.ativos > 0 && 'animate-spin')} style={{ color: PRIMARY }} />
                   <span className="font-medium text-foreground">
                     {lote.concluidos} de {lote.total} sincronizadas
                   </span>
@@ -438,10 +452,10 @@ export default function FolhaBiPage() {
               <Card className={cn('p-3 text-sm', jobDaSelecao.status === 'ERRO' && 'border-rose-500/40')}>
                 <div className="flex items-start gap-2">
                   {jobAtivo
-                    ? <><Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" style={{ color: MODULE_COLOR }} />
+                    ? <><Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" style={{ color: PRIMARY }} />
                         <span className="text-foreground">
                           {jobDaSelecao.status === 'PENDENTE'
-                            ? 'Na fila — aguardando o Service Manager que roda perto do SCI.'
+                            ? 'Na fila — a busca no SCI começa em instantes.'
                             : 'Consultando o SCI…'}
                         </span></>
                     : jobDaSelecao.status === 'CONCLUIDO'
@@ -724,13 +738,13 @@ function Matriz({ m, empresa, refNum, onConfig, nonce }: { m: any; empresa: numb
         <div className="mb-1.5 font-semibold text-foreground">Reconciliação de {lbl} com a folha</div>
         {temCompl ? (
           <>
-            <ReconRow label={`Folha normal (mes)`} value={brl(totalGeral - compl)} />
+            <ReconRow label={`Folha normal (mês)`} value={brl(totalGeral - compl)} />
             <ReconRow label={`+ Folha complementar${fmtRefs(complRefs)}`} value={brl(compl)} />
           </>
         ) : (
           <ReconRow label={`Total de ${lbl} (verbas)`} value={brl(totalGeral)} />
         )}
-        <ReconRow label={`+ Autonomos / RPA${rpa.n ? ` (${rpa.n})` : ''}`} value={brl(rpaVal)} />
+        <ReconRow label={`+ Autônomos / RPA${rpa.n ? ` (${rpa.n})` : ''}`} value={brl(rpaVal)} />
         {!isProv && rpa.entidades > 0 && (
           <div className="flex justify-between pl-3 text-xs text-muted-foreground"><span>dos quais SEST/SENAT (transportador)</span><span>{brl(rpa.entidades)}</span></div>
         )}
@@ -751,7 +765,7 @@ function GuiaCard({ label, value, accent, big, sub }: { label: string; value?: n
       style={{ borderLeft: `4px solid ${accent}` }}>
       <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
       {/* Valor tingido pelo accent, mas puxado para o foreground p/ legibilidade:
-          o lime do módulo puro fica claro demais sobre o card branco no light. Como
+          o accent puro pode não contrastar o bastante sobre o card. Como
           --color-foreground é escuro no light e claro no dark, um único color-mix
           serve aos dois temas (escurece no claro, clareia no escuro). A borda
           esquerda segue com o accent puro (vívido). */}
@@ -803,41 +817,41 @@ function Inss({ inss }: { inss: any }) {
     <div className="space-y-4">
       {/* ===== Cards da guia ===== */}
       <div className="flex flex-wrap gap-3">
-        <GuiaCard big accent={MODULE_COLOR}
-          label={ded ? 'INSS a recolher (liquido)' : 'INSS total — guia'}
+        <GuiaCard big accent={PRIMARY}
+          label={ded ? 'INSS a recolher (líquido)' : 'INSS total — guia'}
           value={ded ? g.liquido : g.bruta}
-          sub={ded ? `guia ${brl(g.bruta)} − deducoes FPAS ${brl(g.deducoes)}` : 'empregado + patronal (CPP + GILRAT + Terceiros)'} />
+          sub={ded ? `guia ${brl(g.bruta)} − deduções FPAS ${brl(g.deducoes)}` : 'empregado + patronal (CPP + GILRAT + Terceiros)'} />
         <GuiaCard label="INSS empregado (descontado)" value={g.emp} accent="#8a7bd8" />
-        <GuiaCard label="Patronal (CPP)" value={g.patronal} accent={MODULE_COLOR} sub={pct(al.patronal)} />
-        <GuiaCard label="GILRAT" value={g.gilrat} accent={MODULE_COLOR} sub={`RAT ${pct(al.rat)} × FAP ${al.fap ?? '—'} = ${pct(al.gilrat)}`} />
-        <GuiaCard label="Terceiros / Outras Entidades" value={g.terc} accent={MODULE_COLOR} sub={pct(al.terc)} />
-        {g.ratApo > 0.005 && <GuiaCard label="Adicional RAT (Apos. Especial)" value={g.ratApo} accent={MODULE_COLOR} sub={`sobre base ${brl(g.ratApoBase)}`} />}
-        {g.aut > 0.005 && <GuiaCard label="Autonomos (RPA)" value={g.aut} accent="#8a7bd8" sub={`retido + CPP 20% + SEST/SENAT · ${aut.n} autonomo(s)`} />}
+        <GuiaCard label="Patronal (CPP)" value={g.patronal} accent={PRIMARY} sub={pct(al.patronal)} />
+        <GuiaCard label="GILRAT" value={g.gilrat} accent={PRIMARY} sub={`RAT ${pct(al.rat)} × FAP ${al.fap ?? '—'} = ${pct(al.gilrat)}`} />
+        <GuiaCard label="Terceiros / Outras Entidades" value={g.terc} accent={PRIMARY} sub={pct(al.terc)} />
+        {g.ratApo > 0.005 && <GuiaCard label="Adicional RAT (Apos. Especial)" value={g.ratApo} accent={PRIMARY} sub={`sobre base ${brl(g.ratApoBase)}`} />}
+        {g.aut > 0.005 && <GuiaCard label="Autônomos (RPA)" value={g.aut} accent="#8a7bd8" sub={`retido + CPP 20% + SEST/SENAT · ${aut.n} autônomo(s)`} />}
       </div>
 
       {/* ===== Deducoes FPAS ===== */}
       {ded && (
-        <Card className="p-4 text-sm" style={{ borderLeft: `3px solid ${MODULE_COLOR}` }}>
-          <b className="text-foreground">Deducoes do FPAS (reembolso ao empregador).</b>{' '}
-          <span className="text-muted-foreground">Salario-familia e salario-maternidade sao adiantados pela empresa e abatidos da guia.</span>
+        <Card className="p-4 text-sm" style={{ borderLeft: `3px solid ${PRIMARY}` }}>
+          <b className="text-foreground">Deduções do FPAS (reembolso ao empregador).</b>{' '}
+          <span className="text-muted-foreground">Salário-família e salário-maternidade são adiantados pela empresa e abatidos da guia.</span>
           <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 tabular-nums">
             <span className="text-muted-foreground">Guia bruta <b className="text-foreground">{brl(g.bruta)}</b></span>
-            {g.dedFam > 0.005 && <span className="text-muted-foreground">− salario-familia <b className="text-foreground">{brl(g.dedFam)}</b></span>}
-            {g.dedMat > 0.005 && <span className="text-muted-foreground">− salario-maternidade <b className="text-foreground">{brl(g.dedMat)}</b></span>}
-            <span className="font-semibold" style={{ color: MODULE_COLOR }}>= INSS a recolher {brl(g.liquido)}</span>
+            {g.dedFam > 0.005 && <span className="text-muted-foreground">− salário-família <b className="text-foreground">{brl(g.dedFam)}</b></span>}
+            {g.dedMat > 0.005 && <span className="text-muted-foreground">− salário-maternidade <b className="text-foreground">{brl(g.dedMat)}</b></span>}
+            <span className="font-semibold" style={{ color: PRIMARY }}>= INSS a recolher {brl(g.liquido)}</span>
           </div>
           {dedColabs.length > 0 && (
             <div className="mt-2">
               <button onClick={() => setDedOpen((v) => !v)} className="text-xs text-muted-foreground hover:text-foreground">
                 <span className="mr-1 opacity-60">{dedOpen ? '▾' : '▸'}</span>
-                {dedColabs.length} colaborador(es) com salario-familia/maternidade{dedOpen ? '' : ' — clique para detalhar'}
+                {dedColabs.length} colaborador(es) com salário-família/maternidade{dedOpen ? '' : ' — clique para detalhar'}
               </button>
               {dedOpen && (
                 <table className="mt-2 w-full max-w-lg border-collapse text-xs">
                   <thead><tr className="border-b border-border text-[11px]">
                     <th className="px-2 py-1 text-left font-semibold text-foreground">Colaborador</th>
-                    <th className="px-2 py-1 text-right font-semibold text-foreground">Salario-familia</th>
-                    <th className="px-2 py-1 text-right font-semibold text-foreground">Salario-maternidade</th>
+                    <th className="px-2 py-1 text-right font-semibold text-foreground">Salário-família</th>
+                    <th className="px-2 py-1 text-right font-semibold text-foreground">Salário-maternidade</th>
                   </tr></thead>
                   <tbody>
                     {dedColabs.map((d, i) => (
@@ -862,13 +876,13 @@ function Inss({ inss }: { inss: any }) {
 
       <p className="text-xs text-muted-foreground">
         Patronal {pct(al.patronal)} · GILRAT {pct(al.gilrat)} (RAT {pct(al.rat)} × FAP {al.fap ?? '—'}) · Terceiros {pct(al.terc)}
-        {al.fpas != null && <> · FPAS {al.fpas}</>}. O INSS do empregado e o valor descontado (nao recalculado).
+        {al.fpas != null && <> · FPAS {al.fpas}</>}. O INSS do empregado é o valor descontado (não recalculado).
       </p>
 
       {concom && (
-        <Card className="p-3 text-xs text-muted-foreground" style={{ borderLeft: `3px solid ${MODULE_COLOR}` }}>
-          <b className="text-foreground">Simples Nacional — atividade concomitante (Anexo III/IV).</b> Patronal e GILRAT incidem so sobre a
-          proporcao da receita do <b className="text-foreground">Anexo IV</b>: {brl(concom.r4)} ÷ {brl(concom.r4 + concom.rd)} ={' '}
+        <Card className="p-3 text-xs text-muted-foreground" style={{ borderLeft: `3px solid ${PRIMARY}` }}>
+          <b className="text-foreground">Simples Nacional — atividade concomitante (Anexo III/IV).</b> Patronal e GILRAT incidem só sobre a
+          proporção da receita do <b className="text-foreground">Anexo IV</b>: {brl(concom.r4)} ÷ {brl(concom.r4 + concom.rd)} ={' '}
           <b className="text-foreground">{(concom.prop * 100).toFixed(4).replace('.', ',')}%</b>. Terceiros = isento (LC 123).
         </Card>
       )}
@@ -876,7 +890,7 @@ function Inss({ inss }: { inss: any }) {
       {/* ===== Composicao patronal (matriz Fixas × Variaveis) ===== */}
       <div>
         <h3 className="mb-1.5 text-sm font-semibold text-foreground">
-          Composicao patronal <span className="font-normal text-muted-foreground">= {brl(g.patronalTot)}</span>
+          Composição patronal <span className="font-normal text-muted-foreground">= {brl(g.patronalTot)}</span>
         </h3>
         <Card className="overflow-hidden p-0 dark:bg-accent">
           <div className="nice-scrollbar overflow-x-auto">
@@ -886,7 +900,7 @@ function Inss({ inss }: { inss: any }) {
                   <th rowSpan={2} className="sticky left-0 z-10 bg-muted/60 dark:bg-card px-2.5 py-1.5 text-left font-semibold text-foreground">Centro / Colaborador</th>
                   <th rowSpan={2} className="border-r border-border px-2.5 py-1.5 text-right font-semibold text-foreground">INSS empreg.</th>
                   <th colSpan={4} className="px-2.5 py-1 text-center font-semibold text-foreground">Fixas contratuais</th>
-                  <th colSpan={4} className="border-l border-border px-2.5 py-1 text-center font-semibold text-foreground">Variaveis</th>
+                  <th colSpan={4} className="border-l border-border px-2.5 py-1 text-center font-semibold text-foreground">Variáveis</th>
                   <th colSpan={3} className="border-l border-border px-2.5 py-1 text-center font-semibold text-foreground">Totais (DARF)</th>
                   <th rowSpan={2} className="border-l border-border px-2.5 py-1.5 text-right font-semibold text-foreground">Total patronal</th>
                 </tr>
@@ -935,7 +949,7 @@ function Inss({ inss }: { inss: any }) {
               <table className="w-full border-collapse text-xs">
                 <thead><tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
                   <th className="px-2.5 py-1.5 text-left font-semibold text-foreground">Fundo / Entidade</th>
-                  <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">Aliquota</th>
+                  <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">Alíquota</th>
                   <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">Valor</th>
                 </tr></thead>
                 <tbody>
@@ -959,12 +973,12 @@ function Inss({ inss }: { inss: any }) {
 
         {aut.linhas.length > 0 && (
           <div className="min-w-[420px] flex-[2]">
-            <h3 className="mb-1.5 text-sm font-semibold text-foreground">Autonomos (RPA) <span className="font-normal text-muted-foreground">= {brl(g.aut)}</span></h3>
+            <h3 className="mb-1.5 text-sm font-semibold text-foreground">Autônomos (RPA) <span className="font-normal text-muted-foreground">= {brl(g.aut)}</span></h3>
             <Card className="overflow-hidden p-0 dark:bg-accent">
               <div className="nice-scrollbar overflow-x-auto">
                 <table className="w-full border-collapse text-xs">
                   <thead><tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
-                    <th className="px-2.5 py-1.5 text-left font-semibold text-foreground">Autonomo</th>
+                    <th className="px-2.5 py-1.5 text-left font-semibold text-foreground">Autônomo</th>
                     <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">Base</th>
                     <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">Retido (11%)</th>
                     <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">CPP (20%)</th>
@@ -1049,10 +1063,10 @@ function Fgts({ fgts, comp }: { fgts: any; comp?: string }) {
     <div className="space-y-4">
       {/* ===== Cards da guia ===== */}
       <div className="flex flex-wrap gap-3">
-        <GuiaCard big accent={MODULE_COLOR}
+        <GuiaCard big accent={PRIMARY}
           label={is13 ? 'Guia de 13º (anual) — FGTS' : 'Guia mensal — FGTS'} value={g.guia}
-          sub={`${is13 ? 'folha de 13º' : 'competencia'} ${comp ?? ''}${show13 && !is13 ? ' · inclui 13º (adto + rescisao)' : ''}`} />
-        {resc && <GuiaCard label="Guia(s) rescisoria(s) — FGTS" value={resc.total?.total} accent="#e0808a"
+          sub={`${is13 ? 'folha de 13º' : 'competência'} ${comp ?? ''}${show13 && !is13 ? ' · inclui 13º (adto + rescisão)' : ''}`} />
+        {resc && <GuiaCard label="Guia(s) rescisória(s) — FGTS" value={resc.total?.total} accent="#e0808a"
           sub={`${resc.n} desligamento(s) · sem justa causa / acordo / antecipado`} />}
       </div>
 
@@ -1061,7 +1075,7 @@ function Fgts({ fgts, comp }: { fgts: any; comp?: string }) {
         <Card className="overflow-hidden p-0 dark:bg-accent md:max-w-lg">
           <table className="w-full border-collapse text-xs">
             <thead><tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
-              <th className="px-2.5 py-1.5 text-left font-semibold text-foreground">Aliquota</th>
+              <th className="px-2.5 py-1.5 text-left font-semibold text-foreground">Alíquota</th>
               <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">Colaboradores</th>
               <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">Base FGTS</th>
               <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">FGTS</th>
@@ -1083,11 +1097,11 @@ function Fgts({ fgts, comp }: { fgts: any; comp?: string }) {
       {/* ===== Composicao da guia mensal (matriz Fixas x Variaveis) ===== */}
       <div>
         <h3 className="mb-1 text-sm font-semibold text-foreground">
-          Composicao da guia {is13 ? 'de 13º' : 'mensal'} <span className="font-normal text-muted-foreground">= {brl(g.guia)}</span>
+          Composição da guia {is13 ? 'de 13º' : 'mensal'} <span className="font-normal text-muted-foreground">= {brl(g.guia)}</span>
         </h3>
         {show13 && (
           <p className="mb-1.5 text-xs text-muted-foreground">
-            Fixas + Variaveis = {brl(g.mensal)} + 13º (adto + rescisao na mensal) = {brl(g.t13)} = <b className="text-foreground">{brl(g.guia)}</b>
+            Fixas + Variáveis = {brl(g.mensal)} + 13º (adto + rescisão na mensal) = {brl(g.t13)} = <b className="text-foreground">{brl(g.guia)}</b>
             {' '}· o 13º só tem guia própria na folha integral de dezembro.
           </p>
         )}
@@ -1098,7 +1112,7 @@ function Fgts({ fgts, comp }: { fgts: any; comp?: string }) {
                 <tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
                   <th rowSpan={2} className="sticky left-0 z-10 bg-muted/60 dark:bg-card px-2.5 py-1.5 text-left font-semibold text-foreground">Centro / Colaborador</th>
                   <th colSpan={3} className="px-2.5 py-1 text-center font-semibold text-foreground">Fixas contratuais</th>
-                  <th colSpan={3} className="border-l border-border px-2.5 py-1 text-center font-semibold text-foreground">Variaveis</th>
+                  <th colSpan={3} className="border-l border-border px-2.5 py-1 text-center font-semibold text-foreground">Variáveis</th>
                   {show13 && <th rowSpan={2} className="border-l border-border px-2.5 py-1.5 text-right font-semibold text-foreground">13º</th>}
                   <th rowSpan={2} className="border-l border-border px-2.5 py-1.5 text-right font-semibold text-foreground">Guia mensal</th>
                 </tr>
@@ -1141,10 +1155,10 @@ function Fgts({ fgts, comp }: { fgts: any; comp?: string }) {
       {resc && resc.centros?.length > 0 && (
         <div>
           <h3 className="mb-1 text-sm font-semibold text-foreground">
-            Guia(s) rescisoria(s) <span className="font-normal text-muted-foreground">= {brl(resc.total?.total)}</span>
+            Guia(s) rescisória(s) <span className="font-normal text-muted-foreground">= {brl(resc.total?.total)}</span>
           </h3>
           <p className="mb-1.5 text-xs text-muted-foreground">
-            GRRF: FGTS do mês da rescisao, 13º e indenizatório saem da mensal e entram aqui, junto do compensatório (multa 40% s/ justa causa · 20% acordo).
+            GRRF: FGTS do mês da rescisão, 13º e indenizatório saem da mensal e entram aqui, junto do compensatório (multa 40% s/ justa causa · 20% acordo).
             Antecipado (até o dia 9): soma também o FGTS do mês anterior.
           </p>
           <Card className="overflow-hidden p-0 dark:bg-accent">
@@ -1153,9 +1167,9 @@ function Fgts({ fgts, comp }: { fgts: any; comp?: string }) {
                 <thead><tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
                   <th className="sticky left-0 z-10 bg-muted/60 dark:bg-card px-2.5 py-1.5 text-left font-semibold text-foreground">Centro / Colaborador</th>
                   <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">Data</th>
-                  <th className={th}>Mês anterior</th><th className={th}>Mês da rescisao</th><th className={th}>13º</th>
+                  <th className={th}>Mês anterior</th><th className={th}>Mês da rescisão</th><th className={th}>13º</th>
                   <th className={th}>Indenizatório</th><th className={th}>Adto 13º</th><th className={th}>Compensatório</th>
-                  <th className="border-l border-border px-2.5 py-1.5 text-right font-semibold text-foreground">Guia rescisoria</th>
+                  <th className="border-l border-border px-2.5 py-1.5 text-right font-semibold text-foreground">Guia rescisória</th>
                 </tr></thead>
                 <tbody>
                   {resc.centros.map((ce: any) => (
@@ -1226,9 +1240,9 @@ function Irrf({ irrf }: { irrf: any }) {
       </tr>
       {co.resc13?.valor > 0.005 && (
         <tr className="border-b border-border bg-muted/10">
-          <td className="sticky left-0 z-10 bg-card dark:bg-accent group-hover:bg-muted/30 py-0.5 pl-10 pr-2.5 text-[10px] text-muted-foreground">↳ desdobra Rescisao</td>
+          <td className="sticky left-0 z-10 bg-card dark:bg-accent group-hover:bg-muted/30 py-0.5 pl-10 pr-2.5 text-[10px] text-muted-foreground">↳ desdobra Rescisão</td>
           <td />
-          <td colSpan={nCols} className="px-2.5 py-0.5 text-right text-[11px] text-muted-foreground">Rescisao {brl(co.resc?.valor)} · 13º Rescisao {brl(co.resc13?.valor)}</td>
+          <td colSpan={nCols} className="px-2.5 py-0.5 text-right text-[11px] text-muted-foreground">Rescisão {brl(co.resc?.valor)} · 13º Rescisão {brl(co.resc13?.valor)}</td>
           <td className="border-l border-border" />
         </tr>
       )}
@@ -1239,9 +1253,9 @@ function Irrf({ irrf }: { irrf: any }) {
     <div className="space-y-4">
       {/* ===== Cards da guia ===== */}
       <div className="flex flex-wrap gap-3">
-        <GuiaCard big accent={MODULE_COLOR} label="Guia IRRF — DARF 0561" value={irrf.guia0561}
-          sub={`${irrf.nComRetencao} colaborador(es) com retencao · apuracao pela data de pagamento`} />
-        {irrf.guia0588 > 0.005 && <GuiaCard accent="#8a7bd8" label="Guia IRRF — DARF 0588 (Autonomos)" value={irrf.guia0588} sub={`${aut.n} autonomo(s) · RPA`} />}
+        <GuiaCard big accent={PRIMARY} label="Guia IRRF — DARF 0561" value={irrf.guia0561}
+          sub={`${irrf.nComRetencao} colaborador(es) com retenção · apuração pela data de pagamento`} />
+        {irrf.guia0588 > 0.005 && <GuiaCard accent="#8a7bd8" label="Guia IRRF — DARF 0588 (Autônomos)" value={irrf.guia0588} sub={`${aut.n} autônomo(s) · RPA`} />}
       </div>
 
       {/* ===== Flags ===== */}
@@ -1297,12 +1311,12 @@ function Irrf({ irrf }: { irrf: any }) {
       {/* ===== Autonomos — DARF 0588 ===== */}
       {aut.linhas.length > 0 && (
         <div>
-          <h3 className="mb-1 text-sm font-semibold text-foreground">IRRF Autonomos — DARF 0588 <span className="font-normal text-muted-foreground">= {brl(aut.total)}</span></h3>
-          <p className="mb-1.5 text-xs text-muted-foreground">Recibo de pagamento a autonomo (terceiros) — codigo 0588, distinto do 0561 dos empregados. Apuracao pela data de pagamento.</p>
+          <h3 className="mb-1 text-sm font-semibold text-foreground">IRRF Autônomos — DARF 0588 <span className="font-normal text-muted-foreground">= {brl(aut.total)}</span></h3>
+          <p className="mb-1.5 text-xs text-muted-foreground">Recibo de pagamento a autônomo (terceiros) — código 0588, distinto do 0561 dos empregados. Apuração pela data de pagamento.</p>
           <Card className="overflow-hidden p-0 dark:bg-accent md:max-w-lg">
             <table className="w-full border-collapse text-xs">
               <thead><tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
-                <th className="px-2.5 py-1.5 text-left font-semibold text-foreground">Autonomo</th>
+                <th className="px-2.5 py-1.5 text-left font-semibold text-foreground">Autônomo</th>
                 <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">Base</th>
                 <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">IRRF</th>
               </tr></thead>
@@ -1400,12 +1414,12 @@ function ConfigAgrupamento({ onClose, onChanged }: { onClose: () => void; onChan
       <div className="flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
-            <Settings2 className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+            <Settings2 className="h-4 w-4" style={{ color: PRIMARY }} />
             <h3 className="text-sm font-semibold text-foreground">Configurar agrupamento de verbas</h3>
           </div>
           <div className="flex items-center gap-2">
             {msg && <span className="text-xs text-muted-foreground">{msg}</span>}
-            <button onClick={aplicar} disabled={busy} className="rounded-lg px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50" style={{ backgroundColor: MODULE_FILL }}>Aplicar (resolver)</button>
+            <Button variant="success" size="xs" onClick={aplicar} disabled={busy}>Aplicar (resolver)</Button>
             <Button variant="outline" size="icon-xs" onClick={onClose}><X /></Button>
           </div>
         </div>
@@ -1416,10 +1430,9 @@ function ConfigAgrupamento({ onClose, onChanged }: { onClose: () => void; onChan
             <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Esquemas</div>
             {(snap?.esquemas ?? []).map((e: any) => (
               <button key={e.id} onClick={() => { setSelEsq(e.id); setSelGrupo(null) }}
-                className={cn('mb-1 rounded-md px-2 py-1.5 text-left', e.id === selEsq ? 'text-white' : 'text-foreground hover:bg-muted/40')}
-                style={e.id === selEsq ? { backgroundColor: MODULE_FILL } : undefined}>
+                className={cn('mb-1 rounded-md px-2 py-1.5 text-left', e.id === selEsq ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted/40')}>
                 <div className="truncate">{e.nome}</div>
-                <div className={cn('text-[10px]', e.id === selEsq ? 'text-white/70' : 'text-muted-foreground')}>{e.escopo}{e.ativo ? '' : ' · inativo'}</div>
+                <div className={cn('text-[10px]', e.id === selEsq ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{e.escopo}{e.ativo ? '' : ' · inativo'}</div>
               </button>
             ))}
             <div className="mt-2 space-y-1 border-t border-border pt-2">
@@ -1536,7 +1549,7 @@ function Provisoes({ provisoes, empresa, refNum }: { provisoes: any; empresa: nu
     <div className="space-y-4">
       <div className="flex w-fit flex-wrap gap-1 rounded-lg bg-muted/40 dark:bg-accent/50 p-1 text-xs">
         <SubPill active={vista === 'resumo'} onClick={() => setVista('resumo')} label="Resumo (mês × acum.)" />
-        <SubPill active={vista === 'ferias'} onClick={() => setVista('ferias')} label="Rel. Ferias detalhado" />
+        <SubPill active={vista === 'ferias'} onClick={() => setVista('ferias')} label="Rel. Férias detalhado" />
         <SubPill active={vista === 'decimo'} onClick={() => setVista('decimo')} label="Rel. 13o detalhado" />
       </div>
 
@@ -1546,7 +1559,7 @@ function Provisoes({ provisoes, empresa, refNum }: { provisoes: any; empresa: nu
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <GuiaCard accent={MODULE_COLOR} label={`Provisão de ${tlabel} · do mês`} value={d.total?.mes?.total} sub="1/12 avos + acerto (custo do mês)" />
+        <GuiaCard accent={PRIMARY} label={`Provisão de ${tlabel} · do mês`} value={d.total?.mes?.total} sub="1/12 avos + acerto (custo do mês)" />
         <GuiaCard accent="#8a7bd8" label={`Provisão de ${tlabel} · acumulado`} value={d.total?.acum?.total} sub="saldo provisionado" />
       </div>
 
@@ -1560,8 +1573,8 @@ function Provisoes({ provisoes, empresa, refNum }: { provisoes: any; empresa: nu
                 <th colSpan={5} className="border-l-2 border-border px-2.5 py-1 text-center font-semibold text-foreground">Acumulado (saldo)</th>
               </tr>
               <tr className="border-b border-border bg-muted/40 dark:bg-card text-[10px] text-muted-foreground">
-                <th className={th}>Fixo</th><th className={th}>Variavel</th><th className={th}>FGTS</th><th className={th}>INSS+terc</th><th className={th}>Total</th>
-                <th className={cn(th, 'border-l-2 border-border')}>Fixo</th><th className={th}>Variavel</th><th className={th}>FGTS</th><th className={th}>INSS+terc</th><th className={th}>Total</th>
+                <th className={th}>Fixo</th><th className={th}>Variável</th><th className={th}>FGTS</th><th className={th}>INSS+terc</th><th className={th}>Total</th>
+                <th className={cn(th, 'border-l-2 border-border')}>Fixo</th><th className={th}>Variável</th><th className={th}>FGTS</th><th className={th}>INSS+terc</th><th className={th}>Total</th>
               </tr>
             </thead>
             <tbody>
@@ -1593,8 +1606,8 @@ function Provisoes({ provisoes, empresa, refNum }: { provisoes: any; empresa: nu
       </Card>
 
       <p className="text-xs text-muted-foreground">
-        <b className="text-foreground">Do mês</b> = custo provisionado na competencia (1/12 avos + acerto). <b className="text-foreground">Acumulado</b> = saldo provisionado (Provisao − Pago).
-        Principal em Fixo (salario+adicionais) × Variavel (medias); FGTS e INSS+terceiros como total.
+        <b className="text-foreground">Do mês</b> = custo provisionado na competência (1/12 avos + acerto). <b className="text-foreground">Acumulado</b> = saldo provisionado (Provisão − Pago).
+        Principal em Fixo (salário+adicionais) × Variável (médias); FGTS e INSS+terceiros como total.
       </p>
       </>)}
     </div>
@@ -1609,14 +1622,14 @@ const PROV_CFG: Record<string, any> = {
     mov: [
       { id: 'ini', h: '(=) Saldo inicial da conta', bold: true },
       { id: 'acerto', h: '(+) Acerto', lines: [5] },
-      { id: 'transf', h: '(+) Acerto transferencia', lines: [6] },
-      { id: 'trib', h: '(+) Acerto tributacao', lines: [9] },
-      { id: 'avos', h: '(+) 1/12 avos do mes', lines: [4] },
-      { id: 'pago', h: '(−) Pago / baixado no mes' },
+      { id: 'transf', h: '(+) Acerto transferência', lines: [6] },
+      { id: 'trib', h: '(+) Acerto tributação', lines: [9] },
+      { id: 'avos', h: '(+) 1/12 avos do mês', lines: [4] },
+      { id: 'pago', h: '(−) Pago / baixado no mês' },
       { id: 'fim', h: '(=) Saldo final da conta', bold: true, lines: [3] },
     ],
     pagoMinus: ['ini', 'avos', 'acerto', 'transf', 'trib'],
-    linhas: [{ l: 0, label: 'Férias', bold: true }, { l: 1, label: 'Pago' }, { l: 3, label: 'Saldo', bold: true }, { l: 4, label: '1/12 avos' }, { l: 5, label: 'Acerto' }, { l: 6, label: 'Acerto transf.' }, { l: 9, label: 'Acerto tributacao' }, { l: 8, label: 'Acerto pagto' }, { l: 14, label: 'Acerto pag.transf.' }, { l: 11, label: 'Baixa de pagto' }],
+    linhas: [{ l: 0, label: 'Férias', bold: true }, { l: 1, label: 'Pago' }, { l: 3, label: 'Saldo', bold: true }, { l: 4, label: '1/12 avos' }, { l: 5, label: 'Acerto' }, { l: 6, label: 'Acerto transf.' }, { l: 9, label: 'Acerto tributação' }, { l: 8, label: 'Acerto pagto' }, { l: 14, label: 'Acerto pag.transf.' }, { l: 11, label: 'Baixa de pagto' }],
     cols: [['ferias', 'Férias'], ['abono', 'Abono'], ['fgts', 'FGTS'], ['inss', 'INSS'], ['terc', 'Terc'], ['rat', 'RAT'], ['rat_apo', 'RAT Apo'], ['pis', 'PIS'], ['total', 'Provisão']],
     periodo: true,
     ext: { fimL: [3], provL: [4], acertosL: [5, 6, 9], prin: (r: any, n: any) => n(r.ferias) + n(r.abono), principalLabel: 'Férias' },
@@ -1628,15 +1641,15 @@ const PROV_CFG: Record<string, any> = {
     mov: [
       { id: 'ini', h: '(=) Saldo inicial da conta', bold: true },
       { id: 'acerto', h: '(+) Acerto', lines: [7] },
-      { id: 'transf', h: '(+) Acerto transferencia', lines: [8] },
+      { id: 'transf', h: '(+) Acerto transferência', lines: [8] },
       { id: 'transfEmp', h: '(+) Acerto transf. empresas', lines: [9] },
-      { id: 'trib', h: '(+) Acerto tributacao', lines: [10] },
-      { id: 'avos', h: '(+) 1/12 avos do mes', lines: [6] },
-      { id: 'pago', h: '(−) Pago / baixado no mes' },
+      { id: 'trib', h: '(+) Acerto tributação', lines: [10] },
+      { id: 'avos', h: '(+) 1/12 avos do mês', lines: [6] },
+      { id: 'pago', h: '(−) Pago / baixado no mês' },
       { id: 'fim', h: '(=) Saldo final da conta', bold: true, lines: [5] },
     ],
     pagoMinus: ['ini', 'avos', 'acerto', 'transf', 'transfEmp', 'trib'],
-    linhas: [{ l: 0, label: '13º salário', bold: true }, { l: 1, label: 'Pago' }, { l: 5, label: 'Saldo', bold: true }, { l: 6, label: '1/12 avos' }, { l: 7, label: 'Acerto' }, { l: 8, label: 'Acerto transf.' }, { l: 9, label: 'Acerto transf.emp.' }, { l: 10, label: 'Acerto tributacao' }, { l: 11, label: 'Acerto pagto' }, { l: 12, label: 'Acerto pag.transf.' }, { l: 13, label: 'Ac.pag.transf.emp.' }, { l: 19, label: 'Baixa de pagto' }],
+    linhas: [{ l: 0, label: '13º salário', bold: true }, { l: 1, label: 'Pago' }, { l: 5, label: 'Saldo', bold: true }, { l: 6, label: '1/12 avos' }, { l: 7, label: 'Acerto' }, { l: 8, label: 'Acerto transf.' }, { l: 9, label: 'Acerto transf.emp.' }, { l: 10, label: 'Acerto tributação' }, { l: 11, label: 'Acerto pagto' }, { l: 12, label: 'Acerto pag.transf.' }, { l: 13, label: 'Ac.pag.transf.emp.' }, { l: 19, label: 'Baixa de pagto' }],
     cols: [['principal', '13º salário'], ['fgts', 'FGTS'], ['inss', 'INSS'], ['terc', 'Terc'], ['rat', 'RAT'], ['rat_apo', 'RAT Apo'], ['pis', 'PIS'], ['total', 'Provisão']],
     periodo: false,
     ext: { fimL: [5], provL: [6], acertosL: [7, 8, 9, 10], prin: (r: any, n: any) => n(r.principal), principalLabel: '13º salário' },
@@ -1710,8 +1723,8 @@ function RelatorioProvisao({ empresa, refNum, tipo }: { empresa: number; refNum:
       .sort((a, b) => (a.label === 'Sem Centro de Custo' ? 1 : b.label === 'Sem Centro de Custo' ? -1 : a.label.localeCompare(b.label)))
   }, [colabs])
 
-  if (loading) return <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Carregando relatorio detalhado…</Card>
-  if (!rows.length) return <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Sem provisao de {tipo === 'ferias' ? 'ferias' : '13o'} nesta competencia.</Card>
+  if (loading) return <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Carregando relatório detalhado…</Card>
+  if (!rows.length) return <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Sem provisão de {tipo === 'ferias' ? 'férias' : '13o'} nesta competência.</Card>
 
   const movGeral = movimento(rows)
   const ext = extrato(rows)
@@ -1736,8 +1749,8 @@ function RelatorioProvisao({ empresa, refNum, tipo }: { empresa: number; refNum:
         return (
           <div key={pk || 'u'} className="mb-2">
             <div className="mb-1 text-[11px] text-muted-foreground">
-              {cfg.periodo && <b className="text-foreground">Periodo aquisitivo {dt(r0?.ini_per_aquis)} a {dt(r0?.dt_venc)}</b>}
-              {r0 && <>{cfg.periodo ? ' · ' : ''}medias {brl(n(r0.medias))} · base INSS {brl(n(r0.base_inss))}{cfg.periodo ? ` · faltas ${n(r0.faltas)}` : ''}{r0.rescisao ? ' · rescisao' : ''}</>}
+              {cfg.periodo && <b className="text-foreground">Período aquisitivo {dt(r0?.ini_per_aquis)} a {dt(r0?.dt_venc)}</b>}
+              {r0 && <>{cfg.periodo ? ' · ' : ''}médias {brl(n(r0.medias))} · base INSS {brl(n(r0.base_inss))}{cfg.periodo ? ` · faltas ${n(r0.faltas)}` : ''}{r0.rescisao ? ' · rescisão' : ''}</>}
             </div>
             <div className="nice-scrollbar overflow-x-auto">
               <table className="border-collapse text-[11px]">
@@ -1784,8 +1797,7 @@ function RelatorioProvisao({ empresa, refNum, tipo }: { empresa: number; refNum:
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3 text-xs">
         <Button variant="outline" size="xs" onClick={() => { setPorCentro((v) => !v); setExp(new Set()) }}
-          style={porCentro ? { backgroundColor: MODULE_FILL } : undefined}
-          className={porCentro ? 'border-transparent text-white hover:text-white' : undefined}>Agrupar por centro de custo</Button>
+          className={porCentro ? 'border-transparent bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground' : undefined}>Agrupar por centro de custo</Button>
         <Button variant="outline" size="xs" onClick={() => setExp(new Set([...colabs.map((c) => `c${c.cod}`), ...centros.map((c) => `ce:${c.label}`)]))}>Expandir tudo</Button>
         <Button variant="outline" size="xs" onClick={() => setExp(new Set())}>Recolher</Button>
         <span className="text-[11px] text-muted-foreground">clique num {porCentro ? 'centro/colaborador' : 'colaborador'} p/ abrir o movimento da conta (saldo final → demais valores)</span>
@@ -1793,7 +1805,7 @@ function RelatorioProvisao({ empresa, refNum, tipo }: { empresa: number; refNum:
 
       {data?.prevRefFaltando && (
         <Card className="p-3 text-xs text-muted-foreground" style={{ borderLeft: '3px solid #e0808a' }}>
-          ⚠ Saldo inicial indisponivel (mes anterior nao carregado no cache); aparece zerado. Importe a competencia anterior p/ o razao fechar.
+          ⚠ Saldo inicial indisponível (mês anterior não carregado no cache); aparece zerado. Importe a competência anterior p/ o razão fechar.
         </Card>
       )}
 
@@ -1864,15 +1876,15 @@ function RelatorioProvisao({ empresa, refNum, tipo }: { empresa: number; refNum:
 
       {/* Extrato (linguagem simples) */}
       <div>
-        <h3 className="mb-1 text-sm font-semibold text-foreground">Como a provisao se movimentou no mes</h3>
+        <h3 className="mb-1 text-sm font-semibold text-foreground">Como a provisão se movimentou no mês</h3>
         <Card className="overflow-hidden p-0 dark:bg-accent lg:max-w-xl">
           <table className="w-full border-collapse text-xs">
             <thead><tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
-              <th className="px-2.5 py-1.5 text-left font-semibold text-foreground">Movimentacao da provisao</th>
+              <th className="px-2.5 py-1.5 text-left font-semibold text-foreground">Movimentação da provisão</th>
               <th className={th}>{cfg.ext.principalLabel}</th><th className={th}>Encargos</th><th className={th}>Total</th>
             </tr></thead>
             <tbody>
-              {[['ini', 'Saldo no inicio do mes', true], ['prov', '(+) Provisao do mes (1/12 avos)', false], ['acertos', '(+/−) Acertos do mes', false], ['pago', '(−) Pago / baixado no mes', false], ['fim', '(=) Saldo no fim do mes', true]].map(([id, h, bold]: any) => (
+              {[['ini', 'Saldo no início do mês', true], ['prov', '(+) Provisão do mês (1/12 avos)', false], ['acertos', '(+/−) Acertos do mês', false], ['pago', '(−) Pago / baixado no mês', false], ['fim', '(=) Saldo no fim do mês', true]].map(([id, h, bold]: any) => (
                 <tr key={id} className={cn('border-b border-border/60', bold && 'bg-muted/20')}>
                   <td className={cn('px-2.5 py-1', bold ? 'font-semibold text-foreground' : 'text-muted-foreground')}>{h}</td>
                   <td className={cn(tdN, 'text-muted-foreground')}>{cell(ext[id as keyof typeof ext].prin)}</td>
@@ -1884,7 +1896,7 @@ function RelatorioProvisao({ empresa, refNum, tipo }: { empresa: number; refNum:
           </table>
         </Card>
         <p className="mt-1.5 text-[11px] text-muted-foreground lg:max-w-xl">
-          No mes — custo reconhecido: <b className="text-foreground">{brl(ext.prov.tot + ext.acertos.tot)}</b> · pago/baixado: <b className="text-foreground">{brl(-ext.pago.tot)}</b> · variacao do saldo: <b className="text-foreground">{brl(ext.fim.tot - ext.ini.tot)}</b> (de {brl(ext.ini.tot)} para {brl(ext.fim.tot)}). Encargos = FGTS + INSS + Terc/RAT/RAT Apo + PIS.
+          No mês — custo reconhecido: <b className="text-foreground">{brl(ext.prov.tot + ext.acertos.tot)}</b> · pago/baixado: <b className="text-foreground">{brl(-ext.pago.tot)}</b> · variação do saldo: <b className="text-foreground">{brl(ext.fim.tot - ext.ini.tot)}</b> (de {brl(ext.ini.tot)} para {brl(ext.fim.tot)}). Encargos = FGTS + INSS + Terc/RAT/RAT Apo + PIS.
         </p>
       </div>
     </div>
@@ -2020,7 +2032,7 @@ function Resumo({ empresa, refNum }: { empresa: number; refNum: number }) {
   const pct = (x: number) => `${x.toFixed(1).replace('.', ',')}%`
   const lbl3 = ult3.map(mesYY), corP = ['#9aa7b4', '#5a8fd8', CHART.fixo]
 
-  if (loading) return <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Carregando indicadores e graficos…</Card>
+  if (loading) return <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Carregando indicadores e gráficos…</Card>
   if (!resumo.length) return <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Sem dados de resumo p/ esta empresa.</Card>
 
   const kpis = [
@@ -2140,8 +2152,7 @@ function Selecao({ label, value, onChange, className, children }: {
 function Pill({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: any; label: string }) {
   return (
     <button onClick={onClick}
-      className={cn('flex items-center gap-1.5 rounded-md px-3 py-1 text-sm', active ? 'text-white' : 'text-muted-foreground hover:text-foreground')}
-      style={active ? { backgroundColor: MODULE_FILL } : undefined}>
+      className={cn('flex items-center gap-1.5 rounded-md px-3 py-1 text-sm', active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
       <Icon className="h-3.5 w-3.5" /> {label}
     </button>
   )
@@ -2150,8 +2161,7 @@ function Pill({ active, onClick, icon: Icon, label }: { active: boolean; onClick
 function SubPill({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
   return (
     <button onClick={onClick}
-      className={cn('rounded-md px-3 py-1 font-medium', active ? 'text-white' : 'text-muted-foreground hover:text-foreground')}
-      style={active ? { backgroundColor: MODULE_FILL } : undefined}>
+      className={cn('rounded-md px-3 py-1 font-medium', active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
       {label}
     </button>
   )
@@ -2159,7 +2169,7 @@ function SubPill({ active, onClick, label }: { active: boolean; onClick: () => v
 
 function Stat({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
-    <div className="rounded-lg border border-border bg-muted/50 dark:bg-accent p-3" style={strong ? { backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 10%, transparent)` } : undefined}>
+    <div className="rounded-lg border border-border bg-muted/50 dark:bg-accent p-3" style={strong ? { backgroundColor: `color-mix(in srgb, ${PRIMARY} 10%, transparent)` } : undefined}>
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className={cn('mt-1 tabular-nums text-foreground', strong ? 'text-lg font-semibold' : 'text-base font-medium')}>{value}</p>
     </div>

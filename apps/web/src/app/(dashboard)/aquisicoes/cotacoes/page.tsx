@@ -86,7 +86,7 @@ export default function CotacoesPage() {
     const ok = await alerts.confirm({
       title: `Excluir a cotação #${c.code}?`,
       text: 'Ela sai da lista. Os pedidos já gerados não são afetados.',
-      icon: 'warning', confirmText: 'Excluir',
+      icon: 'warning', confirmText: 'Excluir', destructive: true,
     })
     if (!ok) return
     try { await (trpc.compra as any).deleteCotacao.mutate({ id: c.id }); carregar() }
@@ -125,6 +125,10 @@ export default function CotacoesPage() {
       <Card>
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
+            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
+            </Select>
             <Select value={status || '__all__'} onValueChange={(v) => { setStatus(v === '__all__' ? '' : v); setPage(1) }}>
               <SelectTrigger className="h-8 w-[190px] text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
               <SelectContent>
@@ -132,12 +136,8 @@ export default function CotacoesPage() {
                 {STATUS_OPCOES.map((s) => <SelectItem key={s} value={s}>{STATUS_COTACAO_LABELS[s]}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
-            </Select>
           </div>
-          <div className="sm:w-72">
+          <div className="w-full sm:w-[272px]">
             <Input placeholder="Buscar por nº ou título..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>

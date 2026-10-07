@@ -354,6 +354,9 @@ const GROUP_SLUG: Record<string, string> = {
   'Cadastros': 'cadastros', 'Comercial': 'comercial', 'Administrativo': 'administrativo',
   'Legalização': 'legalizacao', 'Trabalhista': 'trabalhista', 'Fiscal': 'fiscal',
   'Contábil': 'contabil', 'TI': 'ti', 'Qualidade': 'qualidade', 'Configurações': 'configuracoes',
+  // Não é bloco da sidebar, mas é grupo de permissões (MODULE_GROUPS) e tem cor
+  // própria no design-system (--mod-ferramentas).
+  'Ferramentas': 'ferramentas',
 }
 
 /** Cor do grupo como CSS var (`var(--mod-<slug>, <fallback hex>)`) — assim abas,
@@ -363,6 +366,34 @@ export function groupColorVar(label: string): string {
   const fallback = GROUP_HEX[label] ?? DEFAULT_HEX
   const slug = GROUP_SLUG[label]
   return slug ? `var(--mod-${slug}, ${fallback})` : fallback
+}
+
+/** Cor de módulo de um bloco da sidebar (pelo label) como CSS var, ou null
+ *  quando o label não é um bloco com cor de módulo. */
+export function groupModuleColorVar(label: string | null | undefined): string | null {
+  return label && GROUP_SLUG[label] ? groupColorVar(label) : null
+}
+
+/**
+ * Bloco da sidebar de uma rota que EXISTE de verdade no menu (item publicado,
+ * não `wip`) e cujo bloco tem cor de módulo. Match exato, depois pelo primeiro
+ * segmento. Devolve null quando a rota não é uma página do sistema ou o bloco
+ * não tem cor (ex.: Ajuda). Usado pelo FAQ p/ derivar a cor do artigo do slug.
+ */
+export function getModuleGroupForRoute(href: string): { label: string; cor: string } | null {
+  const pathClean = href.split('?')[0]!.split('#')[0]!
+  const buscar = (alvo: string) => {
+    for (const group of navigation) {
+      if (!GROUP_SLUG[group.label]) continue
+      for (const item of group.items) {
+        const casou = [item, ...(item.subItems ?? [])].some(i => i.href === alvo && !i.wip)
+        if (casou) return { label: group.label, cor: groupColorVar(group.label) }
+      }
+    }
+    return null
+  }
+  const segments = pathClean.split('/').filter(Boolean)
+  return buscar(pathClean) ?? (segments.length > 0 ? buscar(`/${segments[0]}`) : null)
 }
 
 /**

@@ -6,11 +6,11 @@ import {
   Button, Input, Checkbox, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
-import { SURFACE, TEXT } from '@/lib/color-styles'
+import { FILL, SURFACE, TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { alerts } from '@/lib/alerts'
 import { limparCnpj } from '@/lib/masks'
-import { MODULE_COLOR, LoteItemIcon, formatDoc, documentoValido } from '../_lib/ui'
+import { PRIMARY, LoteItemIcon, formatDoc, documentoValido } from '../_lib/ui'
 
 // ============================================================
 // Seletor de cliente (lista com busca + escolha única)
@@ -42,7 +42,7 @@ export function ClientePicker({ clientes, carregando, selecionado, onSelect, vaz
             className={cn('flex w-full items-center gap-2 border-b px-3 py-1.5 text-left text-xs last:border-b-0 hover:bg-muted/40',
               selecionado === c.id && 'bg-muted/60 font-medium')}>
             <span className={cn('h-3 w-3 shrink-0 rounded-full border', selecionado === c.id ? 'border-[5px]' : 'border-border')}
-              style={selecionado === c.id ? { borderColor: MODULE_COLOR } : undefined} />
+              style={selecionado === c.id ? { borderColor: PRIMARY } : undefined} />
             <span className="min-w-0 flex-1 truncate">{c.razaoSocial}</span>
             <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{formatDoc(c.documento)}</span>
           </button>
@@ -317,7 +317,7 @@ export function LoteDialog({
                 <span className="font-medium tabular-nums">{prog.current} / {prog.total}</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-muted">
-                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: MODULE_COLOR }} />
+                <div className={cn('h-full rounded-full transition-all duration-500', FILL.emerald)} style={{ width: `${pct}%` }} />
               </div>
             </div>
             {rodando && prog.currentCliente && (

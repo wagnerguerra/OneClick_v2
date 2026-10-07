@@ -15,7 +15,7 @@ import {
   Play, Pause, FileText, Layers, GitBranch, History, ListChecks,
   GripVertical, Clock, ChevronRight, ChevronDown, Network, Repeat, Zap, Type, Check, Search, Users,
   Bell, Mail, CircleDollarSign, AlignLeft, Info, Settings, CalendarDays, Lock, Unlock, ShieldCheck, Database, HelpCircle,
-  StickyNote, Link as LinkIcon, Paperclip,
+  StickyNote, Link as LinkIcon, Paperclip, X,
 } from 'lucide-react'
 import Link from 'next/link'
 import {
@@ -36,8 +36,7 @@ import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
 // Rótulos dos tipos de chamado — serviço interno declara quais atende, e o
 // seletor de serviço do HelpDesk filtra por isso.
 import { HELPDESK_TIPO_LABELS } from '@saas/types'
-import { FluxoEditor, type FluxoNode, type FluxoEdge } from './_components/fluxo-editor'
-import { FluxoAssistant } from './_components/fluxo-assistant'
+import { FluxoDoServico } from './_components/fluxo-do-servico'
 import { MateriaisSection, type Material } from './_components/materiais-section'
 import { NotificacoesSection } from './_components/notificacoes-section'
 import { PassoEmailsSection } from './_components/passo-emails-section'
@@ -46,7 +45,7 @@ import { PassoCamposClienteSection } from './_components/passo-campos-cliente-se
 import { FeixeDeLinhas } from '@/components/ui/feixe-de-linhas'
 import { useTheme } from '@/hooks/use-theme'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // Emerald (Cadastros / Serviços)
+const PRIMARY = 'var(--color-primary)'
 
 /** Formata centavos em string BRL "1.234,56" (sem prefixo R$, que vem do adornment). */
 function formatBRLFromCents(cents: number): string {
@@ -79,6 +78,59 @@ interface Passo {
   emailsCount?: number
   lembretesCount?: number
   camposClienteCount?: number
+  /** Sub-etapa (opcional) da mesma etapa. null = passo direto na etapa. */
+  subEtapaId: string | null
+}
+
+/** Sub-etapa: agrupamento opcional de passos dentro da etapa (um nível). */
+interface SubEtapa {
+  id: string
+  nome: string
+  ordem: number
+}
+
+/**
+ * Ordem de exibição (e de execução) dos passos de uma etapa com sub-etapas:
+ * passos diretos primeiro, depois cada sub-etapa na ordem dela. Estável dentro
+ * de cada grupo — preserva a ordem atual do array. Espelha o servidor
+ * (apps/api/src/servico/servico-sub-etapa.ts).
+ */
+function agruparPassos(passos: Passo[], subEtapas: SubEtapa[]): Passo[] {
+  const pos = new Map(subEtapas.slice().sort((a, b) => a.ordem - b.ordem).map((s, i) => [s.id, i]))
+  const grupo = (p: Passo) => (p.subEtapaId && pos.has(p.subEtapaId) ? pos.get(p.subEtapaId)! : -1)
+  return passos.map((p, i) => ({ p, i })).sort((a, b) => grupo(a.p) - grupo(b.p) || a.i - b.i).map(x => x.p)
+}
+
+/** Prefixo dos ids de cabeçalho de grupo na lista arrastável de uma etapa. */
+const GRP = 'grp:'
+const GRP_DIRETO = `${GRP}__direto`
+
+/**
+ * Lista plana arrastável de UMA etapa: cabeçalhos de grupo + passos, na ordem
+ * de exibição. Sem sub-etapas é só a lista de passos (como antes). Com
+ * sub-etapas: "Direto na etapa" (alvo, não arrastável) + passos diretos, e para
+ * cada sub-etapa o cabeçalho (arrastável — leva os passos junto) + os passos dela.
+ */
+function itensArrastaveis(passos: Passo[], subEtapas: SubEtapa[]): string[] {
+  if (subEtapas.length === 0) return passos.map(p => p.dndId)
+  const subs = subEtapas.slice().sort((a, b) => a.ordem - b.ordem)
+  const ids = new Set(subs.map(x => x.id))
+  const out = [GRP_DIRETO, ...passos.filter(p => !p.subEtapaId || !ids.has(p.subEtapaId)).map(p => p.dndId)]
+  for (const se of subs) out.push(`${GRP}${se.id}`, ...passos.filter(p => p.subEtapaId === se.id).map(p => p.dndId))
+  return out
+}
+
+/** Cabeçalhos imediatamente antes de um passo na lista plana. */
+function cabecalhosAntes(flat: string[], dndId: string): string[] {
+  const out: string[] = []
+  for (let k = flat.indexOf(dndId) - 1; k >= 0 && flat[k]!.startsWith(GRP); k--) out.unshift(flat[k]!)
+  return out
+}
+/** Cabeçalhos depois do último passo (sub-etapas vazias no fim, etapa sem passos). */
+function cabecalhosNoFim(flat: string[]): string[] {
+  const out: string[] = []
+  for (let k = flat.length - 1; k >= 0 && flat[k]!.startsWith(GRP); k--) out.unshift(flat[k]!)
+  return out
 }
 
 /** Parseia formatos amigáveis ("1h 30m", "45m", "2h", "1.5h", "90") em minutos totais.
@@ -163,6 +215,8 @@ interface Etapa {
   nome: string
   ordem: number
   passos: Passo[]
+  /** Sub-etapas da etapa, em ordem. */
+  subEtapas: SubEtapa[]
   /** Materiais de apoio anexados a esta etapa no template. */
   materiais?: Material[]
 }
@@ -409,16 +463,6 @@ export default function ServicoDetailPage() {
   const [encObservacao, setEncObservacao] = useState('')
   const [encSaving, setEncSaving] = useState(false)
 
-  // Fluxo (DAG)
-  const [fluxoData, setFluxoData] = useState<{ nodes: FluxoNode[]; edges: FluxoEdge[] } | null>(null)
-  /** Bumpa a cada refetch — força o FluxoEditor a re-montar com os novos dados
-   *  via `key={fluxoVersion}`. Evita full page reload ao adicionar/remover
-   *  blocos, mantendo o usuário na aba Fluxo. */
-  const [fluxoVersion, setFluxoVersion] = useState(0)
-  const [fluxoLoading, setFluxoLoading] = useState(false)
-  /** Assistente guiado de fluxo (Fase 2) — abre pela aba Fluxo ou via ?assistente=fluxo. */
-  const [assistOpen, setAssistOpen] = useState(false)
-
   // ── Loaders ────────────────────────────────────────────────
 
   const fetchServico = useCallback(async () => {
@@ -478,12 +522,13 @@ export default function ServicoDetailPage() {
           setVencimentosMensais(mapa)
         })
         .catch(() => {})
-      const etapasFromServer = (s.etapas || []).map((et: { id: string; nome: string; ordem: number; materiais?: Material[]; passos: Array<{ id: string; nome: string; ordem: number; obrigatorio: boolean; permiteIgnorar?: boolean; slaHoras: number | null; slaMinutos?: number | null; dependeDoPassoId?: string | null; materiais?: Material[]; _count?: { emailTemplates?: number; lembretes?: number; camposCliente?: number } }> }) => ({
+      const etapasFromServer = (s.etapas || []).map((et: { id: string; nome: string; ordem: number; materiais?: Material[]; subEtapas?: SubEtapa[]; passos: Array<{ id: string; nome: string; ordem: number; obrigatorio: boolean; permiteIgnorar?: boolean; slaHoras: number | null; slaMinutos?: number | null; dependeDoPassoId?: string | null; subEtapaId?: string | null; materiais?: Material[]; _count?: { emailTemplates?: number; lembretes?: number; camposCliente?: number } }> }) => ({
         id: et.id,
         nome: et.nome,
         ordem: et.ordem,
         materiais: et.materiais ?? [],
-        passos: (et.passos || []).map(p => {
+        subEtapas: (et.subEtapas ?? []).map(se => ({ id: se.id, nome: se.nome, ordem: se.ordem })),
+        passos: agruparPassos((et.passos || []).map(p => {
           // slaMinutos é a fonte canônica; fallback pra slaHoras * 60 em registros antigos
           const min = p.slaMinutos ?? (p.slaHoras != null ? p.slaHoras * 60 : null)
           return {
@@ -499,8 +544,9 @@ export default function ServicoDetailPage() {
             emailsCount: p._count?.emailTemplates ?? 0,
             lembretesCount: p._count?.lembretes ?? 0,
             camposClienteCount: p._count?.camposCliente ?? 0,
+            subEtapaId: p.subEtapaId ?? null,
           }
-        }),
+        }), (et.subEtapas ?? []).map(se => ({ id: se.id, nome: se.nome, ordem: se.ordem }))),
       }))
       setEtapas(etapasFromServer)
       // Inicia todas as etapas existentes colapsadas — usuário expande quando quiser editar.
@@ -579,6 +625,7 @@ export default function ServicoDetailPage() {
       text: `"${v.titulo}" deixa de ser oferecida ao lançar este serviço num orçamento. Itens já lançados com ela não mudam.`,
       icon: 'warning',
       confirmText: 'Excluir',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -619,40 +666,29 @@ export default function ServicoDetailPage() {
     }
   }, [])
 
-  const fetchFluxo = useCallback(async (opts?: { silent?: boolean }) => {
-    // silent=true → refetch sem mostrar spinner (usado após add/remove de bloco
-    // pra não tirar o canvas da tela e dar a impressão de page reload)
-    if (!opts?.silent) setFluxoLoading(true)
-    try {
-      const data = await (trpc.servico as any).getFluxo.query({ id })
-      setFluxoData(data)
-    } catch (e) {
-      console.warn('Falha ao carregar fluxo:', (e as Error).message)
-    } finally {
-      if (!opts?.silent) setFluxoLoading(false)
-    }
-  }, [id])
 
   useEffect(() => { fetchServico(); fetchEncadeamentos(); fetchTodosServicos(); fetchAreas(); fetchTodosGrupos(); fetchUsuariosForSelect(); fetchVariacoes() }, [fetchServico, fetchEncadeamentos, fetchTodosServicos, fetchAreas, fetchTodosGrupos, fetchUsuariosForSelect, fetchVariacoes])
 
-  useEffect(() => {
-    // Lazy-load Fluxo ao abrir a aba
-    if (activeTab === 'fluxo' && !fluxoData && !fluxoLoading) {
-      fetchFluxo()
-    }
-  }, [activeTab, fluxoData, fluxoLoading, fetchFluxo])
 
   // Hand-off do wizard de cadastro: ?assistente=fluxo abre a aba Fluxo já com o
   // assistente guiado. Lê via window (evita exigir <Suspense> de useSearchParams).
   useEffect(() => {
     if (typeof window === 'undefined') return
     const sp = new URLSearchParams(window.location.search)
+    // O assistente monta a CADEIA, que agora mora em /servicos/[id]/cadeia.
     if (sp.get('assistente') === 'fluxo') {
-      setActiveTab('fluxo')
-      setAssistOpen(true)
-      window.history.replaceState(null, '', `/servicos/${id}`)
+      router.replace(`/servicos/${id}/cadeia?assistente=fluxo`)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /** Do fluxo para a edição: abre "Etapas e passos" e foca o passo clicado. */
+  const irParaPasso = useCallback((dndId: string) => {
+    setActiveTab('etapas')
+    setTimeout(() => {
+      const el = passoInputRefs.current.get(dndId)
+      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus() }
+    }, 120)
   }, [])
 
   // ── Salvar Visão geral ────────────────────────────────────
@@ -751,6 +787,7 @@ export default function ServicoDetailPage() {
       nome: '',
       ordem: prev.length,
       passos: [],
+      subEtapas: [],
       // armazena chave local pra ref de foco
       ...({ __draftKey: draftKey } as unknown as object),
     } as Etapa])
@@ -784,6 +821,7 @@ export default function ServicoDetailPage() {
       title: 'Remover etapa',
       text: 'Todos os passos desta etapa serão removidos junto.',
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -874,18 +912,142 @@ export default function ServicoDetailPage() {
     void etapaIdx
   }
 
+  /**
+   * Arraste dentro de uma etapa — passos e sub-etapas na MESMA lista:
+   * - cabeçalho de sub-etapa: move a sub-etapa inteira (com os passos);
+   * - passo solto sobre um cabeçalho: entra naquele grupo (vale para sub-etapa
+   *   vazia e para "Direto na etapa");
+   * - passo entre passos: adota o grupo do cabeçalho mais próximo acima.
+   */
   function handlePassosDragEnd(etapaIdx: number, e: DragEndEvent) {
     const { active, over } = e
     if (!over || active.id === over.id) return
     const etapa = etapas[etapaIdx]
     if (!etapa) return
-    const oldIdx = etapa.passos.findIndex(p => p.dndId === active.id)
-    const newIdx = etapa.passos.findIndex(p => p.dndId === over.id)
+    const aId = String(active.id)
+    const oId = String(over.id)
+    const flat = itensArrastaveis(etapa.passos, etapa.subEtapas)
+    const oldIdx = flat.indexOf(aId)
+    const newIdx = flat.indexOf(oId)
     if (oldIdx === -1 || newIdx === -1) return
-    const reordered = arrayMove(etapa.passos, oldIdx, newIdx).map((p, i) => ({ ...p, ordem: i }))
+
+    // ── Sub-etapa arrastada: reordena os cabeçalhos (o "Direto" fica sempre no topo).
+    if (aId.startsWith(GRP)) {
+      const cabecalhos = flat.filter(x => x.startsWith(GRP) && x !== GRP_DIRETO)
+      const de = cabecalhos.indexOf(aId)
+      // Alvo: o cabeçalho do grupo onde caiu (passo → grupo dele; "Direto" → topo).
+      let alvoCab = oId
+      if (!oId.startsWith(GRP)) {
+        for (let k = newIdx; k >= 0; k--) { if (flat[k]!.startsWith(GRP)) { alvoCab = flat[k]!; break } }
+      }
+      const para = alvoCab === GRP_DIRETO ? 0 : cabecalhos.indexOf(alvoCab)
+      if (de === -1 || para === -1 || de === para) return
+      const novaOrdem = arrayMove(cabecalhos, de, para).map(c => c.slice(GRP.length))
+      const subEtapas = etapa.subEtapas.map(se => ({ ...se, ordem: novaOrdem.indexOf(se.id) }))
+      const passos = agruparPassos(etapa.passos, subEtapas).map((p, i) => ({ ...p, ordem: i }))
+      setEtapas(prev => prev.map((x, i) => i === etapaIdx ? { ...x, subEtapas, passos } : x))
+      void Promise.all(subEtapas.map(se => (trpc.servico as any).updateSubEtapa.mutate({ id: se.id, ordem: se.ordem })))
+        .then(() => reordenarPassos(etapaIdx, passos.map(p => p.id).filter((x): x is string => !!x)))
+        .catch((err: Error) => { alerts.error('Erro ao reordenar sub-etapas', err.message); void fetchServico() })
+      return
+    }
+
+    // ── Passo arrastado.
+    const passoMovido = etapa.passos.find(p => p.dndId === aId)
+    if (!passoMovido) return
+    let novaLista: string[]
+    let novoGrupo: string | null
+    if (oId.startsWith(GRP)) {
+      // Solto sobre um cabeçalho: vai para o começo daquele grupo.
+      novoGrupo = oId === GRP_DIRETO ? null : oId.slice(GRP.length)
+      const semEle = flat.filter(x => x !== aId)
+      const pos = semEle.indexOf(oId) + 1
+      novaLista = [...semEle.slice(0, pos), aId, ...semEle.slice(pos)]
+    } else {
+      novaLista = arrayMove(flat, oldIdx, newIdx)
+      const i = novaLista.indexOf(aId)
+      let cab: string | null = null
+      for (let k = i - 1; k >= 0; k--) { if (novaLista[k]!.startsWith(GRP)) { cab = novaLista[k]!; break } }
+      novoGrupo = !cab || cab === GRP_DIRETO ? null : cab.slice(GRP.length)
+      if (etapa.subEtapas.length === 0) novoGrupo = passoMovido.subEtapaId
+    }
+    const porDnd = new Map(etapa.passos.map(p => [p.dndId, p]))
+    const ordenados = novaLista.filter(x => !x.startsWith(GRP)).map(x => porDnd.get(x)!)
+      .map(p => (p.dndId === aId ? { ...p, subEtapaId: novoGrupo } : p))
+    const reordered = agruparPassos(ordenados, etapa.subEtapas).map((p, i) => ({ ...p, ordem: i }))
     setEtapas(prev => prev.map((x, i) => i === etapaIdx ? { ...x, passos: reordered } : x))
-    const ids = reordered.map(p => p.id).filter((x): x is string => !!x)
-    void reordenarPassos(etapaIdx, ids)
+    const mudouGrupo = novoGrupo !== passoMovido.subEtapaId
+    if (mudouGrupo && passoMovido.id) {
+      void (trpc.servico as any).updatePasso.mutate({ id: passoMovido.id, data: { subEtapaId: novoGrupo } })
+        .catch((err: Error) => { alerts.error('Erro ao mover passo', err.message); void fetchServico() })
+    }
+    void reordenarPassos(etapaIdx, reordered.map(p => p.id).filter((x): x is string => !!x))
+  }
+
+  // ── Sub-etapas ──────────────────────────────────────────────
+  // Agrupamento OPCIONAL de passos dentro da etapa. Excluir a sub-etapa devolve
+  // os passos para a etapa (o servidor faz SetNull) — nada é apagado.
+
+  async function addSubEtapa(etapaIdx: number) {
+    const etapa = etapas[etapaIdx]
+    if (!etapa?.id) return
+    const nome = await alerts.input({
+      title: 'Nova sub-etapa',
+      text: `Agrupa passos dentro de "${etapa.nome}". Ex.: Junta Comercial, Receita Federal.`,
+      inputPlaceholder: 'Nome da sub-etapa',
+      confirmText: 'Criar',
+      required: true,
+    })
+    if (!nome?.trim()) return
+    try {
+      const nova = await (trpc.servico as any).addSubEtapa.mutate({ etapaId: etapa.id, nome: nome.trim(), ordem: etapa.subEtapas.length }) as SubEtapa
+      setEtapas(prev => prev.map((x, i) => i === etapaIdx ? { ...x, subEtapas: [...x.subEtapas, { id: nova.id, nome: nova.nome, ordem: nova.ordem }] } : x))
+    } catch (err) { alerts.error('Erro ao criar sub-etapa', (err as Error).message) }
+  }
+
+  async function renomearSubEtapa(etapaIdx: number, subId: string, nome: string) {
+    const v = nome.trim()
+    const atual = etapas[etapaIdx]?.subEtapas.find(x => x.id === subId)
+    if (!v || !atual || atual.nome === v) return
+    setEtapas(prev => prev.map((x, i) => i === etapaIdx ? { ...x, subEtapas: x.subEtapas.map(se => se.id === subId ? { ...se, nome: v } : se) } : x))
+    try { await (trpc.servico as any).updateSubEtapa.mutate({ id: subId, nome: v }) }
+    catch (err) { alerts.error('Erro ao renomear sub-etapa', (err as Error).message); void fetchServico() }
+  }
+
+  async function excluirSubEtapa(etapaIdx: number, sub: SubEtapa) {
+    const qtd = etapas[etapaIdx]?.passos.filter(p => p.subEtapaId === sub.id).length ?? 0
+    const ok = await alerts.confirm({
+      title: 'Excluir sub-etapa',
+      text: qtd > 0
+        ? `"${sub.nome}" tem ${qtd} passo${qtd > 1 ? 's' : ''}. Eles NÃO serão apagados: voltam para a etapa, sem sub-etapa.`
+        : `Excluir "${sub.nome}"?`,
+      icon: 'warning',
+      destructive: true,
+    })
+    if (!ok) return
+    try {
+      await (trpc.servico as any).deleteSubEtapa.mutate({ id: sub.id })
+      setEtapas(prev => prev.map((x, i) => {
+        if (i !== etapaIdx) return x
+        const subEtapas = x.subEtapas.filter(se => se.id !== sub.id)
+        return { ...x, subEtapas, passos: agruparPassos(x.passos.map(p => p.subEtapaId === sub.id ? { ...p, subEtapaId: null } : p), subEtapas) }
+      }))
+    } catch (err) { alerts.error('Erro ao excluir sub-etapa', (err as Error).message) }
+  }
+
+  async function definirSubEtapaDoPasso(etapaIdx: number, passoId: string, subEtapaId: string | null) {
+    setEtapas(prev => prev.map((x, i) => i === etapaIdx
+      ? { ...x, passos: agruparPassos(x.passos.map(p => p.id === passoId ? { ...p, subEtapaId } : p), x.subEtapas) }
+      : x))
+    try {
+      await (trpc.servico as any).updatePasso.mutate({ id: passoId, data: { subEtapaId } })
+      const etapa = etapas[etapaIdx]
+      if (etapa) {
+        const ids = agruparPassos(etapa.passos.map(p => p.id === passoId ? { ...p, subEtapaId } : p), etapa.subEtapas)
+          .map(p => p.id).filter((x): x is string => !!x)
+        await reordenarPassos(etapaIdx, ids)
+      }
+    } catch (err) { alerts.error('Erro ao mover passo', (err as Error).message); void fetchServico() }
   }
 
   // Refs dos inputs de nome dos passos — chaveado por dndId (sempre presente,
@@ -912,8 +1074,9 @@ export default function ServicoDetailPage() {
       ? {
           ...e,
           passos: [...e.passos, {
-            // id ausente = draft
+            // id ausente = draft (entra direto na etapa, sem sub-etapa)
             dndId,
+            subEtapaId: null,
             nome: '',
             ordem: e.passos.length,
             obrigatorio: true,
@@ -964,6 +1127,7 @@ export default function ServicoDetailPage() {
       title: 'Remover passo',
       text: 'Este passo será excluído da etapa.',
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     // 1) Marca o passo como "em saída" — CSS faz fade + collapse.
@@ -1036,7 +1200,6 @@ export default function ServicoDetailPage() {
       }
       setEncModalOpen(false)
       await fetchEncadeamentos()
-      setFluxoData(null) // força refetch do fluxo na próxima abertura
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
     } finally {
@@ -1049,12 +1212,12 @@ export default function ServicoDetailPage() {
       title: 'Remover sucessor',
       text: `O sucessor "${enc.servicoDestino.nome}" será desvinculado deste serviço.`,
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     try {
       await (trpc.servico as any).removeEncadeamento.mutate({ id: enc.id })
       await fetchEncadeamentos()
-      setFluxoData(null)
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
     }
@@ -1098,7 +1261,7 @@ export default function ServicoDetailPage() {
             registro, e a trilha volta a ser só trilha. */}
         <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
           <div className="relative overflow-hidden">
-            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR} 0%, var(--color-primary) 100%)` }} />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${PRIMARY} 0%, var(--color-primary) 100%)` }} />
             {/* Feixe de linhas do modelo. Entra ENTRE o gradiente e o véu escuro:
                 por cima do véu ele brigaria com o texto branco; por baixo do
                 gradiente, não apareceria. As linhas são brancas porque o fundo
@@ -1112,7 +1275,7 @@ export default function ServicoDetailPage() {
                 <div className="flex items-end gap-4">
                   <div className="relative shrink-0">
                     <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-card shadow-lg ring-4 ring-white/50">
-                      <ListChecks className="h-10 w-10" style={{ color: MODULE_COLOR }} />
+                      <ListChecks className="h-10 w-10" style={{ color: PRIMARY }} />
                     </div>
                   </div>
                   <div className="min-w-0">
@@ -1140,7 +1303,7 @@ export default function ServicoDetailPage() {
                         </span>
                       )}
                       {disponivelOrcamento && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-emerald-200 ring-1 ring-white/25 backdrop-blur">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur">
                           Em orçamentos
                         </span>
                       )}
@@ -1300,7 +1463,7 @@ export default function ServicoDetailPage() {
                           'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                           active ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-white dark:hover:bg-accent hover:text-foreground',
                         )}
-                        style={active ? { backgroundColor: MODULE_COLOR } : undefined}
+                        style={active ? { backgroundColor: PRIMARY } : undefined}
                       >
                         <Icon className="h-3.5 w-3.5 shrink-0" />
                         <span>{p.label}</span>
@@ -1507,8 +1670,7 @@ export default function ServicoDetailPage() {
                   <div className="space-y-4 px-5 py-4" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
                     <div className="flex items-center justify-between border-b border-border pb-2 -mx-5 px-5">
                       <h4 className="text-[13px] font-semibold text-foreground">Responsáveis</h4>
-                      <Button onClick={salvarVisao} disabled={saving} size="sm" className="gap-1.5"
-                        style={{ backgroundColor: MODULE_COLOR }}>
+                      <Button variant="success" onClick={salvarVisao} disabled={saving} size="sm" className="gap-1.5">
                         {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                         Salvar
                       </Button>
@@ -1721,7 +1883,7 @@ export default function ServicoDetailPage() {
                           id="disp-orc"
                           checked={disponivelOrcamento}
                           onCheckedChange={setDisponivelOrcamento}
-                          className={cn(disponivelOrcamento && 'bg-emerald-600')}
+                          variant="success"
                         />
                         <Label htmlFor="disp-orc" className="text-[13px] font-medium cursor-pointer select-none">
                           Disponibilizar para inclusão em orçamentos
@@ -1733,7 +1895,8 @@ export default function ServicoDetailPage() {
                           id="entrada-cliente"
                           checked={entradaNovoCliente}
                           onCheckedChange={setEntradaNovoCliente}
-                          className={cn('mt-0.5', entradaNovoCliente && 'bg-emerald-600')}
+                          variant="success"
+                          className="mt-0.5"
                         />
                         <Label htmlFor="entrada-cliente" className="text-[13px] font-medium cursor-pointer select-none leading-snug">
                           Serviço de entrada de novo cliente
@@ -1985,7 +2148,7 @@ export default function ServicoDetailPage() {
 
                 {/* Rodapé fixo com botão Salvar — vale pra qualquer pill */}
                 <div className="mt-auto border-t border-border px-5 py-3 bg-card flex justify-end">
-                  <Button onClick={salvarVisao} disabled={saving} className="gap-1.5" style={{ backgroundColor: MODULE_COLOR }}>
+                  <Button variant="success" onClick={salvarVisao} disabled={saving} className="gap-1.5">
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Salvar alterações
                   </Button>
@@ -2163,8 +2326,39 @@ export default function ServicoDetailPage() {
                         Cada passo recebe uma classe de fundo baseada no "trilho"
                         (nível na cadeia de dependência). Passos no mesmo trilho
                         rodam em paralelo e compartilham a cor. */}
+                    {/* Sub-etapas: agrupamento opcional dos passos desta etapa. */}
+                    {et.id && (
+                      <div className="ml-7 mb-2 flex flex-wrap items-center gap-1.5">
+                        <span className="text-[11px] font-semibold text-muted-foreground">Sub-etapas:</span>
+                        {et.subEtapas.length === 0 && (
+                          <span className="text-[11px] text-muted-foreground/80">nenhuma — os passos ficam direto na etapa</span>
+                        )}
+                        {et.subEtapas.slice().sort((a, b) => a.ordem - b.ordem).map((se) => {
+                          const qtd = et.passos.filter(pp => pp.subEtapaId === se.id).length
+                          return (
+                            <span key={se.id} className="inline-flex items-center gap-0.5 rounded-md border border-border bg-muted/40 py-0.5 pl-1.5 pr-0.5">
+                              <Layers className="h-3 w-3 text-muted-foreground" />
+                              <input
+                                defaultValue={se.nome}
+                                onBlur={e => { void renomearSubEtapa(ei, se.id, e.target.value) }}
+                                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                                aria-label="Nome da sub-etapa"
+                                className="w-[9rem] bg-transparent px-1 text-[11px] font-medium text-foreground focus:outline-none"
+                              />
+                              <span className="text-[10px] tabular-nums text-muted-foreground" title="Passos nesta sub-etapa">{qtd}</span>
+                              <Button variant="ghost" size="icon-xs" className="h-5 w-5 text-destructive opacity-60 hover:opacity-100" onClick={() => { void excluirSubEtapa(ei, se) }} title="Excluir sub-etapa (os passos voltam para a etapa)">
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </span>
+                          )
+                        })}
+                        <Button variant="ghost" size="sm" className="h-6 gap-1 text-[11px] text-muted-foreground" onClick={() => { void addSubEtapa(ei) }}>
+                          <Plus className="h-3 w-3" /> Sub-etapa
+                        </Button>
+                      </div>
+                    )}
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(ev) => handlePassosDragEnd(ei, ev)}>
-                      <SortableContext items={et.passos.map(p => p.dndId)} strategy={verticalListSortingStrategy}>
+                      <SortableContext items={itensArrastaveis(et.passos, et.subEtapas)} strategy={verticalListSortingStrategy}>
                     <div className="ml-7 space-y-1.5">
                       {(() => {
                         const passoLayers = computePassoLayers(et.passos)
@@ -2173,6 +2367,10 @@ export default function ServicoDetailPage() {
                           const layerCls = getLayerBgClass(layer)
                           return (
                         <Fragment key={p.dndId}>
+                        {/* Cabeçalhos de grupo que vêm logo antes deste passo na lista arrastável */}
+                        {cabecalhosAntes(itensArrastaveis(et.passos, et.subEtapas), p.dndId).map(c => (
+                          <CabecalhoGrupo key={c} id={c} etapa={et} />
+                        ))}
                         <SortablePasso id={p.dndId} layerClass={layerCls} exiting={!!p.id && exitingPassoIds.has(p.id)}>
                           <SortablePassoHandle numero={pi + 1} />
                           <div className="flex items-center gap-2 min-w-0">
@@ -2229,6 +2427,9 @@ export default function ServicoDetailPage() {
                                   </button>
                                 ) : null
                               })()}
+                      {cabecalhosNoFim(itensArrastaveis(et.passos, et.subEtapas)).map(c => (
+                        <CabecalhoGrupo key={c} id={c} etapa={et} />
+                      ))}
                               {p.id && (() => {
                                 const links = (p.materiais ?? []).filter(m => m.tipo === 'LINK').length
                                 return links > 0 ? (
@@ -2404,6 +2605,20 @@ export default function ServicoDetailPage() {
                                 })))}
                               />
                             )}
+                            {p.id && et.subEtapas.length > 0 && (
+                              <select
+                                value={p.subEtapaId ?? ''}
+                                onChange={e => { void definirSubEtapaDoPasso(ei, p.id!, e.target.value || null) }}
+                                title="Sub-etapa do passo"
+                                aria-label="Sub-etapa do passo"
+                                className="h-8 max-w-[10rem] shrink-0 rounded-md border border-input bg-background px-1.5 text-[11px] text-foreground"
+                              >
+                                <option value="">Sem sub-etapa</option>
+                                {et.subEtapas.slice().sort((a, b) => a.ordem - b.ordem).map(se => (
+                                  <option key={se.id} value={se.id}>{se.nome}</option>
+                                ))}
+                              </select>
+                            )}
                           </div>
                           <Input
                             type="text"
@@ -2470,53 +2685,19 @@ export default function ServicoDetailPage() {
 
         {/* ── TAB: Fluxo (DAG) ── */}
         <TabsContent value="fluxo" className="mt-4">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-[11px] text-muted-foreground">
-              Monte o fluxo por perguntas guiadas ou edite os blocos diretamente no canvas.
-            </p>
-            <Button variant="success" size="sm" onClick={() => setAssistOpen(true)} className="gap-1.5">
-              <Zap className="h-4 w-4" /> Montar com assistente
-            </Button>
-          </div>
+          {/* Fluxo DO PRÓPRIO serviço. A cadeia completa (sucessores, perguntas,
+              blocos) fica em /servicos/[id]/cadeia — ⋮ do /servicos, só em
+              serviços que são início de cadeia. */}
           <Card>
             <CardContent className="p-4">
-              {fluxoLoading || !fluxoData ? (
-                <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Calculando fluxo...
-                </div>
-              ) : (
-                <FluxoEditor
-                  key={fluxoVersion}
-                  rootId={id}
-                  nodes={fluxoData.nodes}
-                  edges={fluxoData.edges}
-                  onChanged={async () => {
-                    // Re-busca fluxo silenciosamente; mantém aba ativa e estado
-                    // do resto da página. Bumpar a versão força o editor a
-                    // re-montar com os nodes/edges atualizados.
-                    await fetchFluxo({ silent: true })
-                    setFluxoVersion(v => v + 1)
-                  }}
-                />
-              )}
+              <FluxoDoServico
+                etapas={etapas}
+                onEditarEtapas={() => setActiveTab('etapas')}
+                onEditarPasso={irParaPasso}
+              />
             </CardContent>
           </Card>
         </TabsContent>
-
-        {/* Assistente guiado de fluxo (Fase 2) */}
-        <FluxoAssistant
-          open={assistOpen}
-          onOpenChange={setAssistOpen}
-          servicoId={id}
-          servicoNome={nome}
-          servicos={todosServicos}
-          onApplied={async () => {
-            await fetchServico()
-            await fetchFluxo({ silent: true })
-            setFluxoVersion(v => v + 1)
-            await fetchEncadeamentos()
-          }}
-        />
 
         {/* ── TAB: Sucessores ── */}
         <TabsContent value="encadeamento" className="mt-4">
@@ -2541,7 +2722,7 @@ export default function ServicoDetailPage() {
                 <div className="space-y-2">
                   {encadeamentos.map(enc => (
                     <div key={enc.id} className="flex items-center gap-3 rounded-lg border bg-card p-3 hover:shadow-sm transition-shadow">
-                      <div className={cn('shrink-0 flex h-8 w-8 items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-xs font-bold', TEXT.emerald)}>
+                      <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary-on-surface">
                         {enc.ordem + 1}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -2549,7 +2730,7 @@ export default function ServicoDetailPage() {
                           <button
                             type="button"
                             onClick={() => router.push(`/servicos/${enc.servicoDestinoId}`)}
-                            className="text-sm font-semibold truncate hover:text-emerald-600 hover:underline text-left"
+                            className="text-sm font-semibold truncate hover:text-primary-on-surface hover:underline text-left"
                           >
                             {enc.servicoDestino.nome}
                           </button>
@@ -2608,7 +2789,7 @@ export default function ServicoDetailPage() {
                     texto e o valor padrão dele.
                   </p>
                 </div>
-                <Button onClick={abrirNovaVariacao} size="sm" className="gap-1.5 shrink-0" style={{ backgroundColor: MODULE_COLOR }}>
+                <Button variant="success" onClick={abrirNovaVariacao} size="sm" className="gap-1.5 shrink-0">
                   <Plus className="h-3.5 w-3.5" /> Nova variação
                 </Button>
               </div>
@@ -2688,7 +2869,7 @@ export default function ServicoDetailPage() {
                     notas ou documentação automática quando este serviço for executado.
                   </p>
                 </div>
-                <Button onClick={salvarVisao} disabled={saving} size="sm" className="gap-1.5 shrink-0" style={{ backgroundColor: MODULE_COLOR }}>
+                <Button variant="success" onClick={salvarVisao} disabled={saving} size="sm" className="gap-1.5 shrink-0">
                   {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                   Salvar alterações
                 </Button>
@@ -2719,7 +2900,7 @@ export default function ServicoDetailPage() {
       {/* Modal de Encadeamento (Adicionar/Editar) */}
       <Dialog open={encModalOpen} onOpenChange={setEncModalOpen}>
         <DialogContent className="sm:max-w-[560px]">
-          <DialogHeaderIcon icon={Network} color="violet">
+          <DialogHeaderIcon icon={Network} color={editingEnc ? 'sky' : 'emerald'}>
             <DialogTitle>{editingEnc ? 'Editar sucessor' : 'Adicionar sucessor'}</DialogTitle>
             <DialogDescription>Configure o serviço que será criado após este.</DialogDescription>
           </DialogHeaderIcon>
@@ -2769,7 +2950,7 @@ export default function ServicoDetailPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEncModalOpen(false)} disabled={encSaving}>Cancelar</Button>
-            <Button onClick={salvarEncadeamento} disabled={encSaving} className="gap-1.5" style={{ backgroundColor: MODULE_COLOR }}>
+            <Button onClick={salvarEncadeamento} disabled={encSaving} className="gap-1.5" variant="success">
               {encSaving && <Loader2 className="h-4 w-4 animate-spin" />}
               {editingEnc ? 'Salvar' : 'Adicionar'}
             </Button>
@@ -2815,8 +2996,7 @@ export default function ServicoDetailPage() {
             <Button variant="outline" size="sm" onClick={() => setVarModalOpen(false)} disabled={varSalvando}>
               Cancelar
             </Button>
-            <Button onClick={salvarVariacao} disabled={varSalvando} size="sm" className="gap-1.5"
-              style={{ backgroundColor: MODULE_COLOR }}>
+            <Button variant="success" onClick={salvarVariacao} disabled={varSalvando} size="sm" className="gap-1.5">
               {varSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar
             </Button>
@@ -2894,6 +3074,57 @@ function SortableEtapaHandle() {
     >
       <GripVertical className="h-4 w-4" />
     </button>
+  )
+}
+
+/** Cabeçalho de grupo (sub-etapa ou "Direto na etapa") na lista arrastável da etapa. */
+function CabecalhoGrupo({ id, etapa }: { id: string; etapa: { passos: Array<{ subEtapaId: string | null }>; subEtapas: Array<{ id: string; nome: string }> } }) {
+  const direto = id === GRP_DIRETO
+  const subId = direto ? null : id.slice(GRP.length)
+  const nome = direto ? 'Direto na etapa' : (etapa.subEtapas.find(x => x.id === subId)?.nome ?? 'Sub-etapa')
+  const qtd = etapa.passos.filter(p => (direto ? !p.subEtapaId : p.subEtapaId === subId)).length
+  return <SortableGrupo id={id} nome={nome} qtd={qtd} fixo={direto} />
+}
+
+/**
+ * Cabeçalho arrastável de sub-etapa: arrastar pela alça move a sub-etapa com os
+ * passos; soltar um passo sobre ele coloca o passo no grupo (também quando está
+ * vazio). "Direto na etapa" (`fixo`) é só alvo — não se arrasta.
+ */
+function SortableGrupo({ id, nome, qtd, fixo }: { id: string; nome: string; qtd: number; fixo?: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } = useSortable({
+    id, disabled: fixo ? { draggable: true } : undefined,
+  })
+  const style: React.CSSProperties = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'flex items-center gap-1.5 rounded px-1 pt-2 pb-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground',
+        isOver && 'bg-muted/60',
+      )}
+    >
+      {fixo ? (
+        <span className="w-4" aria-hidden />
+      ) : (
+        <button
+          type="button"
+          {...(attributes as unknown as React.HTMLAttributes<HTMLButtonElement>)}
+          {...(listeners as unknown as React.HTMLAttributes<HTMLButtonElement>)}
+          className="cursor-grab text-muted-foreground/50 hover:text-muted-foreground active:cursor-grabbing"
+          title="Arrastar a sub-etapa (leva os passos junto)"
+          aria-label={`Arrastar a sub-etapa ${nome}`}
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+      )}
+      <Layers className="h-3 w-3" />
+      <span className={cn(fixo && 'normal-case font-medium')}>{nome}</span>
+      <span className="font-normal normal-case tabular-nums text-muted-foreground/70">· {qtd} passo{qtd !== 1 ? 's' : ''}</span>
+      <span className="h-px flex-1 bg-border" aria-hidden />
+      {qtd === 0 && !fixo && <span className="font-normal normal-case text-muted-foreground/70">solte um passo aqui</span>}
+    </div>
   )
 }
 

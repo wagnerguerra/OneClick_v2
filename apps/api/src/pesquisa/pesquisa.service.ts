@@ -23,7 +23,7 @@ export class PesquisaService {
 
   async getByToken(token: string) {
     const pesquisa = await prisma.pesquisaSatisfacao.findUnique({ where: { token } })
-    if (!pesquisa) throw new Error('Pesquisa nao encontrada')
+    if (!pesquisa) throw new Error('Pesquisa não encontrada')
 
     // Enriquecer com dados de cliente, orcamento e empresa para a pagina publica
     const cliente = pesquisa.clienteId
@@ -77,8 +77,8 @@ export class PesquisaService {
 
   async responder(input: ResponderPesquisaInput) {
     const pesquisa = await prisma.pesquisaSatisfacao.findUnique({ where: { token: input.token } })
-    if (!pesquisa) throw new Error('Pesquisa nao encontrada')
-    if (pesquisa.respondidaEm) throw new Error('Esta pesquisa ja foi respondida')
+    if (!pesquisa) throw new Error('Pesquisa não encontrada')
+    if (pesquisa.respondidaEm) throw new Error('Esta pesquisa já foi respondida')
 
     return prisma.pesquisaSatisfacao.update({
       where: { token: input.token },
@@ -111,7 +111,7 @@ export class PesquisaService {
       where: { id: orcamentoId },
       select: { id: true, clienteId: true, empresaId: true },
     })
-    if (!orc) throw new Error('Orcamento nao encontrado')
+    if (!orc) throw new Error('Orçamento não encontrado')
 
     return prisma.pesquisaSatisfacao.create({
       data: {
@@ -124,7 +124,7 @@ export class PesquisaService {
 
   async enviarPorEmail(id: string, destinatarios?: string[]) {
     const pesquisa = await prisma.pesquisaSatisfacao.findUnique({ where: { id } })
-    if (!pesquisa) throw new Error('Pesquisa nao encontrada')
+    if (!pesquisa) throw new Error('Pesquisa não encontrada')
 
     const cliente = pesquisa.clienteId
       ? await prisma.cliente.findUnique({ where: { id: pesquisa.clienteId }, select: { razaoSocial: true, email: true } }).catch(() => null)
@@ -144,7 +144,7 @@ export class PesquisaService {
     } else if (cliente?.email) {
       emails.add(cliente.email)
     }
-    if (emails.size === 0) throw new Error('Nenhum destinatario informado')
+    if (emails.size === 0) throw new Error('Nenhum destinatário informado')
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const link = `${baseUrl}/pesquisa/${pesquisa.token}`
@@ -158,9 +158,9 @@ export class PesquisaService {
       <body style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f5f5f5;">
         <div style="background: #fff; border-radius: 8px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
           ${empresa?.logoUrl ? `<div style="text-align:center; margin-bottom: 24px;"><img src="${empresa.logoUrl}" alt="${empresaNome}" style="max-height: 60px;" /></div>` : ''}
-          <h2 style="color: #fb7185; margin: 0 0 16px 0; font-size: 22px;">Sua opiniao e muito importante</h2>
+          <h2 style="color: #fb7185; margin: 0 0 16px 0; font-size: 22px;">Sua opinião é muito importante</h2>
           <p style="color: #444; line-height: 1.6;">Prezado(a) <strong>${clienteNome}</strong>,</p>
-          <p style="color: #444; line-height: 1.6;">Concluimos o atendimento da proposta ${numeroOrc} e gostariamos de saber sua experiencia. A pesquisa leva menos de 1 minuto e e fundamental para melhorarmos continuamente nossos servicos.</p>
+          <p style="color: #444; line-height: 1.6;">Concluímos o atendimento da proposta ${numeroOrc} e gostaríamos de saber sua experiência. A pesquisa leva menos de 1 minuto e é fundamental para melhorarmos continuamente nossos serviços.</p>
           <div style="text-align: center; margin: 32px 0;">
             <a href="${link}" style="display: inline-block; background: #fb7185; color: #fff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600;">Responder pesquisa</a>
           </div>
@@ -173,7 +173,7 @@ export class PesquisaService {
 
     await this.emailService.sendMail({
       to: [...emails],
-      subject: `Pesquisa de Satisfacao ${numeroOrc} - ${empresaNome}`,
+      subject: `Pesquisa de Satisfação ${numeroOrc} - ${empresaNome}`,
       html,
     })
 

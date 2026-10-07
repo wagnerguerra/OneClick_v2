@@ -6,10 +6,11 @@ import {
 } from 'lucide-react'
 import { Badge } from '@saas/ui'
 import { ArticleShell } from '../_components/article-shell'
+import { corDoArtigo } from '../_components/articles-catalog'
 import { Section, Step, Callout, QuickLink, DefRow } from '../_components/article-blocks'
 
-const MODULO_COLOR = 'var(--mod-legalizacao, #e879f9)' // fuchsia (Legalização — Certificados)
-const FAQ_COLOR = 'var(--mod-ajuda, #0891b2)'
+const MODULO_COLOR = corDoArtigo('gestao-certificados')
+const FAQ_COLOR = 'var(--color-primary)'
 
 export default function FaqGestaoCertificadosPage() {
   return (

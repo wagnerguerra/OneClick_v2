@@ -76,7 +76,9 @@ export const SERVICO_CATEGORIA_LABELS: Record<ServicoCategoria, string> = {
 }
 
 export const createServicoSchema = z.object({
-  nome: z.string().min(1, 'Nome e obrigatorio'),
+  // trim: tab/espaço nas pontas jogava o serviço para o topo da ordem alfabética
+  // (12 nomes da Central em 07/10/2026 — limpos por prisma/sql/trim_nomes_servicos.sql).
+  nome: z.string().trim().min(1, 'Nome e obrigatorio'),
   descricao: z.string().optional().nullable(),
   slaHoras: z.coerce.number().min(0).optional().nullable(),
   /** Área do serviço (id de Area). Antes era `categoria` (nome livre). Única — a
@@ -320,7 +322,17 @@ export const createServicoPassoSchema = z.object({
   dependeDoPassoId: z.string().optional().nullable(),
   permiteAnexo: z.boolean().default(false),
   permiteIgnorar: z.boolean().default(false),
+  /** Sub-etapa (opcional) da MESMA etapa — null = passo direto na etapa. */
+  subEtapaId: z.string().optional().nullable(),
 })
+
+/** Sub-etapa: agrupamento opcional de passos dentro de uma etapa (um nível). */
+export const createServicoSubEtapaSchema = z.object({
+  etapaId: z.string(),
+  nome: z.string().trim().min(1, 'Nome obrigatório').max(200),
+  ordem: z.coerce.number().int().min(0).default(0),
+})
+export type CreateServicoSubEtapaInput = z.infer<typeof createServicoSubEtapaSchema>
 
 /**
  * Modelo de e-mail vinculado a um passo do template. Disparado quando o

@@ -38,6 +38,7 @@ import { PainelPreview } from '@/components/kanban/painel-preview'
 import { alerts } from '@/lib/alerts'
 import { mensagemErro } from '@/lib/errors'
 import { moedaParaNumero, masks } from '@/lib/masks'
+import { coresTipoEvento } from '@/lib/event-type-colors'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { useAutoHideScrollbar } from '@/hooks/use-autohide-scrollbar'
 import { AcoesTab, type AcaoCrm } from './_components/acoes-tab'
@@ -109,7 +110,7 @@ function ConversaIATab({ oportunidadeId }: { oportunidadeId: string }) {
             <div
               className={cn('rounded-2xl px-3 py-2 max-w-[85%] text-xs leading-relaxed whitespace-pre-wrap',
                 m.role === 'user' ? 'text-white rounded-br-sm' : 'bg-muted border rounded-bl-sm')}
-              style={m.role === 'user' ? { background: MODULE_COLOR } : undefined}
+              style={m.role === 'user' ? { background: PRIMARY } : undefined}
             >
               {m.conteudo}
             </div>
@@ -144,7 +145,7 @@ interface Stats {
 
 interface ClienteSelect { id: string; razaoSocial: string }
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 // Rascunho da "Nova Oportunidade" — persistido no navegador para não perder o
 // que o usuário digitou caso o Sheet feche (clique fora) antes de salvar.
@@ -433,8 +434,8 @@ export default function CrmPage() {
       // Confirmacao ao mover para Declinio
       if (isDecl) {
         const ok = await alerts.confirm({
-          title: 'Mover para Declinio',
-          text: `Esta oportunidade ficara em Declinio por ${declinioDias} dias e sera arquivada automaticamente apos este periodo.`,
+          title: 'Mover para Declínio',
+          text: `Esta oportunidade ficará em Declínio por ${declinioDias} dias e será arquivada automaticamente após este período.`,
           confirmText: 'Confirmar',
           icon: 'warning',
         })
@@ -446,7 +447,7 @@ export default function CrmPage() {
         const result = await (trpc.crm as any).moverEtapa.mutate({ id: cardId, etapaId: targetEtapaId }) as { orcamentoCriado?: { id: string; numero: number } | null }
         await fetchAll(true)
         if (result.orcamentoCriado) {
-          alerts.success('Orcamento criado', `Orcamento #${result.orcamentoCriado.numero} gerado automaticamente`)
+          alerts.success('Orçamento criado', `Orçamento #${result.orcamentoCriado.numero} gerado automaticamente`)
         }
       } catch {
         fetchAll(true)
@@ -689,7 +690,7 @@ export default function CrmPage() {
   }
 
   const handleCreate = async () => {
-    if (!form.titulo.trim()) { alerts.warning('Campo obrigatorio', 'Informe o titulo da oportunidade'); return }
+    if (!form.titulo.trim()) { alerts.warning('Campo obrigatório', 'Informe o título da oportunidade'); return }
 
     // Verificar se cliente ja existe
     try {
@@ -697,8 +698,8 @@ export default function CrmPage() {
       const check = await (trpc.crm as any).checkCliente.query({ cpfCnpj: form.cpfCnpj.trim() || undefined, razaoSocial: nomeCheck || undefined }) as { exists: boolean; cliente?: { id: string; razaoSocial: string; documento: string; situacao: string; isLead: boolean } }
       if (check.exists && check.cliente) {
         const ok = await alerts.confirm({
-          title: 'Cliente ja cadastrado',
-          text: `"${check.cliente.razaoSocial}" (${check.cliente.documento || 'sem documento'}) ja esta cadastrado com situacao "${check.cliente.situacao}". Deseja vincular esta oportunidade ao cliente existente?`,
+          title: 'Cliente já cadastrado',
+          text: `"${check.cliente.razaoSocial}" (${check.cliente.documento || 'sem documento'}) já está cadastrado com situação "${check.cliente.situacao}". Deseja vincular esta oportunidade ao cliente existente?`,
           confirmText: 'Sim, vincular',
           icon: 'info',
         })
@@ -781,7 +782,7 @@ export default function CrmPage() {
       }
       // Notificar se orcamento foi criado automaticamente
       if (result.orcamentoCriado) {
-        alerts.success('Orcamento criado', `Orcamento #${result.orcamentoCriado.numero} gerado automaticamente`)
+        alerts.success('Orçamento criado', `Orçamento #${result.orcamentoCriado.numero} gerado automaticamente`)
       }
     } catch (e) {
       alerts.error('Erro', mensagemErro(e, 'Falha ao mover oportunidade'))
@@ -882,7 +883,7 @@ export default function CrmPage() {
     if (!ok) return
     try {
       await (trpc.crm as any).delete.mutate({ id })
-      alerts.success('Oportunidade excluida')
+      alerts.success('Oportunidade excluída')
       setDetailOpen(false)
       fetchAll()
     } catch (e) {
@@ -973,7 +974,7 @@ export default function CrmPage() {
 
   const removeArquivo = async (arquivoId: string, fileName: string) => {
     if (!detail) return
-    const ok = await alerts.confirm({ title: 'Excluir arquivo', text: `Remover "${fileName}"?`, confirmText: 'Excluir', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Excluir arquivo', text: `Remover "${fileName}"?`, confirmText: 'Excluir', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.crm as any).removeArquivo.mutate({ id: arquivoId })
@@ -1045,7 +1046,7 @@ export default function CrmPage() {
                 {filtrosAtivos > 0 && (
                   <span
                     className="ml-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white"
-                    style={{ backgroundColor: MODULE_COLOR }}
+                    style={{ backgroundColor: PRIMARY }}
                   >
                     {filtrosAtivos}
                   </span>
@@ -1067,7 +1068,7 @@ export default function CrmPage() {
                   className="gap-2 text-[13px]"
                 >
                   <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center">
-                    {filtroResponsavel === op.valor && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: MODULE_COLOR }} />}
+                    {filtroResponsavel === op.valor && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: PRIMARY }} />}
                   </span>
                   <span className="truncate">{op.rotulo}</span>
                 </DropdownMenuItem>
@@ -1081,7 +1082,7 @@ export default function CrmPage() {
                   className="gap-2 text-[13px]"
                 >
                   <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center">
-                    {filtroIdade === f.chave && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: MODULE_COLOR }} />}
+                    {filtroIdade === f.chave && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: PRIMARY }} />}
                   </span>
                   <span className="truncate">{f.rotulo}</span>
                 </DropdownMenuItem>
@@ -1165,13 +1166,13 @@ export default function CrmPage() {
                 <TrendingUp className="h-4 w-4 mr-2" /> Funil de Vendas
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push('/crm/relatorios?tab=desempenho')}>
-                <Target className="h-4 w-4 mr-2" /> Desempenho por Responsavel
+                <Target className="h-4 w-4 mr-2" /> Desempenho por Responsável
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push('/crm/relatorios?tab=origem')}>
                 <ArrowRight className="h-4 w-4 mr-2" /> Oportunidades por Origem
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push('/crm/relatorios?tab=tempo')}>
-                <Clock className="h-4 w-4 mr-2" /> Tempo Medio por Etapa
+                <Clock className="h-4 w-4 mr-2" /> Tempo Médio por Etapa
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -1202,7 +1203,7 @@ export default function CrmPage() {
             <Table>
               <TableHeader>
                 <TableRow className="whitespace-nowrap">
-                  <TableHead>Titulo</TableHead>
+                  <TableHead>Título</TableHead>
                   <TableHead className="w-[140px]">Etapa</TableHead>
                   <TableHead className="hidden md:table-cell w-[180px]">Cliente</TableHead>
                   <TableHead className="hidden lg:table-cell w-[100px]">Criado</TableHead>
@@ -1235,7 +1236,7 @@ export default function CrmPage() {
                           <DropdownMenuItem onClick={() => router.push(`/crm/${op.id}/imprimir`)}>
                             <Printer className="h-3.5 w-3.5 mr-2" /> Imprimir
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(op.id, op.titulo)}>
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDelete(op.id, op.titulo)}>
                             <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -1321,7 +1322,7 @@ export default function CrmPage() {
                   return (
                     <button key={e.id} onClick={() => setForm(f => ({ ...f, etapaId: e.id }))}
                       className={cn('relative flex items-center justify-center text-[11px] font-medium py-2 transition-all flex-1 min-w-0', idx > 0 && 'pl-3', isActive || isPast ? 'text-white' : 'text-muted-foreground hover:text-foreground', !isActive && 'cursor-pointer')}
-                      style={{ backgroundColor: isActive || isPast ? MODULE_COLOR : 'var(--color-muted)', opacity: isActive ? 1 : isPast ? 0.7 : 1, clipPath: idx === 0 ? 'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%)' : idx < arr.length - 1 ? 'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%, 8px 50%)' : 'polygon(0 0, 100% 0, 100% 100%, 0 100%, 8px 50%)' }}
+                      style={{ backgroundColor: isActive || isPast ? PRIMARY : 'var(--color-muted)', opacity: isActive ? 1 : isPast ? 0.7 : 1, clipPath: idx === 0 ? 'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%)' : idx < arr.length - 1 ? 'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%, 8px 50%)' : 'polygon(0 0, 100% 0, 100% 100%, 0 100%, 8px 50%)' }}
                     >
                       <span className="truncate px-1">{e.nome.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase())}</span>
                     </button>
@@ -1332,7 +1333,7 @@ export default function CrmPage() {
             {/* Titulo */}
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Oportunidade *</label>
-              <Input value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} placeholder="Titulo da oportunidade" className="h-9 text-sm" />
+              <Input value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} placeholder="Título da oportunidade" className="h-9 text-sm" />
             </div>
             {/* CPF/CNPJ + Empresa/Cliente — CNPJ válido dispara auto-complete da razão via Receita */}
             <div className="grid grid-cols-12 gap-3">
@@ -1538,7 +1539,7 @@ export default function CrmPage() {
                       <TemperaturaBadge temperatura={detail.temperatura} score={detail.score} />
                       {detail.origem === 'lead-ia' && <span className="inline-flex items-center gap-1 font-medium text-muted-foreground"><Sparkles className="h-3 w-3" /> Captado pela IA</span>}
                       {valorDetalhe > 0 && (
-                        <span className="rounded-md px-1.5 py-0.5 font-semibold tabular-nums" style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 12%, transparent)`, color: MODULE_COLOR }}>
+                        <span className="rounded-md bg-primary/10 px-1.5 py-0.5 font-semibold tabular-nums text-primary-on-surface">
                           {valorDetalhe.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </span>
                       )}
@@ -1581,7 +1582,7 @@ export default function CrmPage() {
                   { key: 'interacoes' as const, label: `Interações (${detail.interacoes?.length ?? 0})`, icon: PhoneCall },
                   { key: 'mensagens' as const, label: `Anotações (${detail.mensagens.length})`, icon: MessageSquare },
                   { key: 'arquivos' as const, label: `Arquivos (${detail.arquivos.length})`, icon: Paperclip },
-                  { key: 'historico' as const, label: 'Historico', icon: History },
+                  { key: 'historico' as const, label: 'Histórico', icon: History },
                 ]).map(tab => (
                   <button
                     key={tab.key}
@@ -1589,10 +1590,9 @@ export default function CrmPage() {
                     className={cn(
                       'flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
                       detailTab === tab.key
-                        ? 'text-white shadow-sm'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
                         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                     )}
-                    style={detailTab === tab.key ? { backgroundColor: MODULE_COLOR } : undefined}
                   >
                     <tab.icon className="h-3.5 w-3.5" />
                     {tab.label}
@@ -1618,7 +1618,7 @@ export default function CrmPage() {
                     acoes={tarefasCrm}
                     carregando={tarefasLoading}
                     meuId={profile?.id}
-                    moduleColor={MODULE_COLOR}
+                    moduleColor={PRIMARY}
                     onChanged={refreshTarefasCrm}
                   />
                 )}
@@ -1629,7 +1629,6 @@ export default function CrmPage() {
                     oportunidadeId={detail.id}
                     interacoes={detail.interacoes ?? []}
                     contatoPadrao={detail.contatoNome}
-                    moduleColor={MODULE_COLOR}
                     onChanged={recarregarDetalhe}
                   />
                 )}
@@ -1660,7 +1659,7 @@ export default function CrmPage() {
                         }}
                       />
                       <div className="flex justify-end">
-                        <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={addMensagem} disabled={saving || !novaMensagemPura}>
+                        <Button variant="success" size="sm" onClick={addMensagem} disabled={saving || !novaMensagemPura}>
                           <Send className="h-4 w-4 mr-1.5" />
                           Registrar anotação
                         </Button>
@@ -1795,13 +1794,13 @@ export default function CrmPage() {
       <Dialog open={configModal} onOpenChange={setConfigModal}>
         <DialogContent className="max-w-[400px]">
           <DialogHeaderIcon icon={Settings2} color="slate">
-            <DialogTitle className="text-[15px]">Configuracoes do CRM</DialogTitle>
+            <DialogTitle className="text-[15px]">Configurações do CRM</DialogTitle>
             <DialogDescription className="text-[11px]">Ajuste o comportamento do pipeline</DialogDescription>
           </DialogHeaderIcon>
           <DialogBody className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Dias em Declinio antes de arquivar</label>
-              <p className="text-[11px] text-muted-foreground mb-2">Oportunidades movidas para Declinio serao arquivadas automaticamente apos este periodo.</p>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Dias em Declínio antes de arquivar</label>
+              <p className="text-[11px] text-muted-foreground mb-2">Oportunidades movidas para Declínio serão arquivadas automaticamente após este período.</p>
               <div className="flex items-center gap-2">
                 <Input
                   type="number"
@@ -1816,13 +1815,13 @@ export default function CrmPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setConfigModal(false)}>Cancelar</Button>
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={async () => {
+            <Button variant="success" size="sm" onClick={async () => {
               try {
                 await (trpc.crm as any).saveConfig.mutate({ key: 'declinio_dias', value: String(declinioDias) })
-                alerts.success('Salvo', 'Configuracao atualizada')
+                alerts.success('Salvo', 'Configuração atualizada')
                 setConfigModal(false)
               } catch (e) {
-                alerts.error('Erro', mensagemErro(e, 'Falha ao salvar configuracao'))
+                alerts.error('Erro', mensagemErro(e, 'Falha ao salvar configuração'))
               }
             }}>
               Salvar
@@ -1992,7 +1991,7 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
                   !isActive && 'cursor-pointer',
                 )}
                 style={{
-                  backgroundColor: isActive || isPast ? MODULE_COLOR : 'var(--color-muted)',
+                  backgroundColor: isActive || isPast ? PRIMARY : 'var(--color-muted)',
                   opacity: isActive ? 1 : isPast ? 0.7 : 1,
                   clipPath: idx === 0
                     ? 'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%)'
@@ -2137,7 +2136,7 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
       {(() => {
         const agendaEventos = (detail as unknown as { agendaEventos?: Array<{
           id: string; titulo: string; data: string; horaInicio: string | null; diaInteiro: boolean
-          tipo: { nome: string; cor: string } | null
+          tipo: { nome: string; cor: string; corBorda?: string | null } | null
         }> }).agendaEventos ?? []
         if (agendaEventos.length === 0) return null
         return (
@@ -2157,7 +2156,8 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
                     href={`/agenda?verEvento=${ev.id}`}
                     className="flex items-center gap-2.5 rounded-md border border-border px-2.5 py-2 hover:bg-muted/40 transition-colors"
                   >
-                    <span className="h-7 w-1.5 rounded-full shrink-0" style={{ backgroundColor: ev.tipo?.cor || '#818cf8' }} />
+                    {/* Mesma cor da borda do evento na agenda (coresTipoEvento().borda). */}
+                    <span className="h-7 w-1.5 rounded-full shrink-0" style={{ backgroundColor: ev.tipo ? coresTipoEvento(ev.tipo, false).borda : '#818cf8' }} />
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-medium truncate">{ev.titulo}</p>
                       <p className="text-[11px] text-muted-foreground tabular-nums">
@@ -2437,7 +2437,7 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
               <TooltipTrigger asChild>
                 <span
                   className="inline-flex max-w-[110px] cursor-help items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold"
-                  // Cor inline (fundo = a cor com ~10% de alfa): em classe, o vermelho sofre o retint do módulo.
+                  // Cor inline (fundo = a cor com ~10% de alfa): a cor do aviso vem em hex.
                   style={{ backgroundColor: `${aviso.cor}1A`, color: aviso.cor }}
                   onClick={e => e.stopPropagation()}
                   onPointerDown={e => e.stopPropagation()}
@@ -2471,7 +2471,7 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
                   <DropdownMenuItem onClick={() => routerCard.push(`/crm/${op.id}/imprimir`)}>
                     <Printer className="mr-2 h-3.5 w-3.5" /> Imprimir
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive" onClick={() => onDelete(op.id, op.titulo)}>
+                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onDelete(op.id, op.titulo)}>
                     <Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -2496,7 +2496,7 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
         <LinhaCard icone={Target}>
           <span className="truncate">{op.titulo}</span>
           {valor > 0 && (
-            <span className="ml-auto shrink-0 pl-2 font-semibold tabular-nums" style={{ color: MODULE_COLOR }}>
+            <span className="ml-auto shrink-0 pl-2 font-semibold tabular-nums text-primary-on-surface">
               {valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </span>
           )}

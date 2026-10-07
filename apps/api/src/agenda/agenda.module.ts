@@ -9,6 +9,8 @@ import { AgendaLembreteService } from './agenda-lembrete.service'
 import { AgendaTarefaService } from './agenda-tarefa.service'
 import { AgendaLembreteEventsService } from './agenda-lembrete-events.service'
 import { AgendaLembreteController } from './agenda-lembrete.controller'
+import { AgendaGoogleController } from './agenda-google.controller'
+import { AgendaGoogleScheduler } from './agenda-google.scheduler'
 import { EmailService } from '../common/email.service'
 import { NotificationModule } from '../notification/notification.module'
 import { AuthModule } from '../auth/auth.module'
@@ -17,8 +19,8 @@ import { ClienteObrigacaoModule } from '../cliente-obrigacao/cliente-obrigacao.m
 
 @Module({
   imports: [NotificationModule, AuthModule, PushModule, ClienteObrigacaoModule],
-  controllers: [AgendaLembreteController],
-  providers: [AgendaService, EmailService, AgendaGoogleService, AgendaConfigService, AgendaSalaService, AgendaDisparoService, AgendaEmailTemplateService, AgendaLembreteService, AgendaLembreteEventsService, AgendaTarefaService],
+  controllers: [AgendaLembreteController, AgendaGoogleController],
+  providers: [AgendaService, EmailService, AgendaGoogleService, AgendaConfigService, AgendaSalaService, AgendaDisparoService, AgendaEmailTemplateService, AgendaLembreteService, AgendaLembreteEventsService, AgendaTarefaService, AgendaGoogleScheduler],
   exports: [AgendaService, AgendaGoogleService, AgendaConfigService, AgendaSalaService, AgendaDisparoService, AgendaLembreteService, AgendaTarefaService],
 })
 export class AgendaModule {}

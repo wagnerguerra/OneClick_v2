@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Plus, Trash2, Search, Loader2, MoreVertical, Pencil, Calendar, Save, X,
+  Plus, Trash2, Search, Loader2, MoreVertical, Pencil, Save, X,
   Filter, List, LayoutGrid,
 } from 'lucide-react'
 import {
@@ -14,7 +14,8 @@ import {
   cn,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
+import { TituloGrupo } from './titulo-grupo'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import {
@@ -22,8 +23,6 @@ import {
   UFS_BRASIL,
   type FeriadoTipo,
 } from '@saas/types'
-
-const MODULE_COLOR = 'var(--mod-configuracoes, #f97316)' // Orange — Configurações
 
 interface Feriado {
   id: string
@@ -118,7 +117,7 @@ function DiaTooltip({ feriados, posicaoTopo }: { feriados: Feriado[]; posicaoTop
                 </p>
               )}
               {!f.recorrente && (
-                <p className={cn('text-[9px]', TEXT.amber)}>⚠ Apenas neste ano</p>
+                <p className={cn('text-[11px] font-medium', TEXT.amber)}>⚠ Apenas neste ano</p>
               )}
             </div>
           )
@@ -178,7 +177,7 @@ function MesCalendario({
     <div
       className={cn(
         'rounded-lg border bg-card p-3.5 shadow-sm transition-shadow hover:shadow-md',
-        isMesAtual ? 'border-orange-300 ring-1 ring-orange-200/50' : 'border-border/60',
+        isMesAtual ? 'border-primary/40 ring-1 ring-primary/20' : 'border-border/60',
       )}
     >
       {/* Header do mês */}
@@ -186,7 +185,7 @@ function MesCalendario({
         <h5
           className={cn(
             'text-[13px] font-bold tracking-tight',
-            isMesAtual ? TEXT.orange : 'text-foreground',
+            isMesAtual ? 'text-primary-on-surface' : 'text-foreground',
           )}
         >
           {MESES_PT[mes]}
@@ -247,7 +246,7 @@ function MesCalendario({
                 </span>
               )}
               {multi && (
-                <span className="absolute -top-1 -right-1 z-20 h-4 w-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center shadow ring-2 ring-white pointer-events-none">
+                <span className="absolute -top-1 -right-1 z-20 h-4 w-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center shadow ring-2 ring-card pointer-events-none">
                   {c.feriados.length}
                 </span>
               )}
@@ -268,8 +267,10 @@ function MesCalendario({
                   isFds ? 'text-foreground/40' : 'text-foreground/80',
                   'hover:bg-muted hover:border-border/60',
                 ),
-            isToday && !tem && 'bg-orange-500 text-white font-bold shadow-sm border-orange-500',
-            isToday && tem && 'ring-2 ring-orange-500 ring-offset-1 z-10',
+            isToday && !tem && 'bg-primary text-primary-foreground font-bold shadow-sm border-primary',
+            // Hoje + feriado: anel da primária com folga na cor do CARD (o offset
+            // padrão do Tailwind é branco e virava um contorno branco no dark).
+            isToday && tem && 'ring-2 ring-primary ring-offset-1 ring-offset-card z-10',
           )
 
           return (
@@ -457,6 +458,7 @@ export function CalendarioSection() {
       text: 'Os registros serão removidos do calendário. Essa ação não pode ser desfeita.',
       confirmText: 'Excluir',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -473,11 +475,9 @@ export function CalendarioSection() {
     <div className="flex flex-col h-full">
       {/* Header com título + ações */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-hairline">
-        <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-muted-foreground" /> Calendário de feriados
-        </h4>
+        <TituloGrupo grupo="Calendário">Calendário de feriados</TituloGrupo>
         <div className="flex items-center gap-2">
-          {/* Toggle de visualização */}
+          {/* Toggle de visualização — monocromático (bg-foreground), igual ao Lista/Kanban do HelpDesk */}
           <div className="flex items-center rounded border border-border/60 bg-card overflow-hidden">
             <button
               type="button"
@@ -485,9 +485,8 @@ export function CalendarioSection() {
               title="Visualização em tabela"
               className={cn(
                 'flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium transition-colors',
-                view === 'tabela' ? 'text-white' : 'text-muted-foreground hover:text-foreground',
+                view === 'tabela' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
               )}
-              style={view === 'tabela' ? { backgroundColor: MODULE_COLOR } : undefined}
             >
               <List className="h-3.5 w-3.5" />Tabela
             </button>
@@ -497,14 +496,13 @@ export function CalendarioSection() {
               title="Visualização em calendário (12 meses)"
               className={cn(
                 'flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium transition-colors border-l border-border/60',
-                view === 'calendario' ? 'text-white' : 'text-muted-foreground hover:text-foreground',
+                view === 'calendario' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
               )}
-              style={view === 'calendario' ? { backgroundColor: MODULE_COLOR } : undefined}
             >
               <LayoutGrid className="h-3.5 w-3.5" />Calendário
             </button>
           </div>
-          <Button size="sm" onClick={abrirNovo} style={{ backgroundColor: MODULE_COLOR, color: 'white' }}>
+          <Button size="sm" onClick={abrirNovo}>
             <Plus className="h-4 w-4" />Novo feriado
           </Button>
         </div>
@@ -573,8 +571,8 @@ export function CalendarioSection() {
 
           {/* Barra de bulk delete */}
           {selected.size > 0 && (
-            <div className={cn('flex items-center justify-between border-b px-4 py-2', SURFACE.amber)}>
-              <span className="text-xs font-medium text-amber-900 dark:text-amber-200">
+            <div className="flex items-center justify-between border-b border-primary/20 bg-primary/10 px-4 py-2">
+              <span className="text-xs font-medium text-primary-on-surface">
                 {selected.size} item{selected.size > 1 ? 's' : ''} selecionado{selected.size > 1 ? 's' : ''}
               </span>
               <div className="flex items-center gap-2">
@@ -614,7 +612,7 @@ export function CalendarioSection() {
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-10">
                     <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin text-orange-500" />
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
                       Carregando feriados...
                     </div>
                   </TableCell>
@@ -852,7 +850,7 @@ export function CalendarioSection() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               <X className="h-4 w-4" />Cancelar
             </Button>
-            <Button onClick={salvar} disabled={saving} style={{ backgroundColor: MODULE_COLOR, color: 'white' }}>
+            <Button variant="success" onClick={salvar} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {editing ? 'Salvar' : 'Cadastrar'}
             </Button>

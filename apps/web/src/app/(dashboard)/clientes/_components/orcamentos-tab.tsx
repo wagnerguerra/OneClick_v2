@@ -5,7 +5,7 @@ import { cn } from '@saas/ui'
 import { OrcamentosLegadoSection } from '@/components/orcamento/orcamentos-legado-section'
 import { OrcamentosNovoSection } from '@/components/orcamento/orcamentos-novo-section'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
+const PRIMARY = 'var(--color-primary)'
 
 /**
  * Aba "Orçamentos" do cliente, dividida em duas: os do SISTEMA NOVO e os
@@ -34,7 +34,7 @@ export function OrcamentosTab({ clienteId }: { clienteId?: string }) {
                   'px-3 py-1 rounded text-xs font-medium transition-colors',
                   active ? 'text-white shadow-sm' : 'text-muted-foreground hover:text-foreground',
                 )}
-                style={active ? { backgroundColor: MODULE_COLOR } : undefined}
+                style={active ? { backgroundColor: PRIMARY } : undefined}
               >
                 {t.label}
               </button>

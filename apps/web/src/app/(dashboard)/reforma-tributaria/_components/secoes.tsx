@@ -42,12 +42,14 @@ const EIXO = {
   tick: { fontSize: 11, fill: 'var(--color-muted-foreground)' },
 } as const
 
-/** A cor do IVA é a mesma em toda a tela: é o cenário novo. */
-const COR_IVA = '#22d3ee'
-const COR_ATUAL = '#0f172a'
-// Versão temática do "atual" para PRIMEIRO PLANO (fatia de pizza, legenda, ícone):
-// a #0f172a fixa some no dark. `--color-foreground` é escuro no claro e claro no
-// escuro → sempre legível. (A #0f172a segue nos FUNDOS de barra/gradiente c/ texto branco.)
+/**
+ * A dupla da comparação, igual em toda a tela: o cenário NOVO (IVA) é a cor
+ * primária do tema; o sistema ATUAL é o neutro do tema (`foreground`, escuro no
+ * claro e claro no escuro). Em classe: novo = `bg-primary`/`text-primary-on-surface`,
+ * atual = `bg-foreground text-background`. As constantes abaixo são para o SVG
+ * dos gráficos.
+ */
+const COR_IVA = 'var(--color-primary)'
 const COR_ATUAL_GRAF = 'var(--color-foreground)'
 const COR_NEUTRA = '#cbd5e1'
 
@@ -106,7 +108,7 @@ export interface ItemComposicao {
 function Titulo({ eyebrow, titulo, descricao }: { eyebrow: string; titulo: string; descricao: string }) {
   return (
     <div className="mb-5">
-      <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: COR_IVA }}>{eyebrow}</p>
+      <p className="text-[11px] font-bold uppercase tracking-wider text-primary-on-surface">{eyebrow}</p>
       <h2 className="mt-0.5 text-xl font-bold tracking-tight text-foreground">{titulo}</h2>
       <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{descricao}</p>
     </div>
@@ -129,7 +131,7 @@ function CampoMoeda({ label, valor, onChange, className }: {
     <div>
       {label && <Label className="text-[13px] font-semibold">{label}</Label>}
       <div className={cn('relative', label && 'mt-1.5')}>
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold" style={{ color: COR_IVA }}>R$</span>
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-primary-on-surface">R$</span>
         <input
           inputMode="numeric"
           value={texto}
@@ -155,7 +157,7 @@ function CampoPercentual({ label, valor, onChange, disabled }: {
     <div>
       <Label className="text-[13px] font-semibold">{label}</Label>
       <div className="relative mt-1.5">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold" style={{ color: COR_IVA }}>%</span>
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-primary-on-surface">%</span>
         <Input
           type="number" step="0.01" min="0" max="100" disabled={disabled}
           value={Number.isFinite(valor) ? valor : 0}
@@ -195,7 +197,7 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
         descricao="Informe os dados da empresa e ajuste as alíquotas. Tudo nas outras abas é calculado a partir daqui."
       />
 
-      <Card className="mb-5 border-t-2 p-5" style={{ borderTopColor: COR_IVA }}>
+      <Card className="mb-5 border-t-2 border-t-primary p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h3 className="text-[13px] font-semibold text-foreground">Dados da empresa</h3>
           <span className="text-[11px] text-muted-foreground">usado em todas as simulações</span>
@@ -301,10 +303,7 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
             <CampoPercentual label="CBS — Federal" valor={p.cbs} onChange={(v) => onChange({ cbs: v })} />
             <CampoPercentual label="IBS — Estadual/Municipal" valor={p.ibs} onChange={(v) => onChange({ ibs: v })} />
           </div>
-          <div
-            className="mt-5 flex items-center justify-between rounded-lg px-4 py-3 text-white"
-            style={{ background: `linear-gradient(135deg, ${COR_ATUAL}, #134e5e)` }}
-          >
+          <div className="mt-5 flex items-center justify-between rounded-lg bg-primary/10 px-4 py-3 text-foreground">
             <span className="text-sm font-semibold">Total IVA</span>
             <span className="text-lg font-bold tabular-nums">{porcento(totalIva)}</span>
           </div>
@@ -339,7 +338,7 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
           DAS, ou seja, já está paga dentro da guia. Sair do Simples é passar a
           recolher INSS patronal por fora — sem este campo, isso não aparecia
           em lugar nenhum da simulação. */}
-      <Card className="mt-5 border-t-2 p-5" style={{ borderTopColor: COR_IVA }}>
+      <Card className="mt-5 border-t-2 border-t-primary p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h3 className="text-[13px] font-semibold text-foreground">Folha de pagamento e CPP</h3>
           <span className="text-[11px] text-muted-foreground">decide a comparação entre Simples e Presumido</span>
@@ -401,10 +400,7 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
             />
           </div>
         </div>
-        <div
-          className="mt-4 flex items-center justify-between rounded-lg px-4 py-3 text-white"
-          style={{ background: `linear-gradient(135deg, ${COR_ATUAL}, #134e5e)` }}
-        >
+        <div className="mt-4 flex items-center justify-between rounded-lg bg-primary/10 px-4 py-3 text-foreground">
           <span className="text-sm font-semibold">CPP total · 20% patronal + RAT×FAP + terceiros</span>
           <span className="text-lg font-bold tabular-nums">{porcento(aliquotaCpp(p))}</span>
         </div>
@@ -681,18 +677,18 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
         <div className="overflow-x-auto nice-scrollbar">
           <table className="w-full min-w-[900px]">
             <thead>
-              <tr className="text-white" style={{ background: `linear-gradient(90deg, ${COR_ATUAL}, #14343f)` }}>
+              <tr className="bg-muted text-foreground">
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Item</th>
                 {colunas.map(l => (
                   <th
                     key={l.chave}
-                    className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider"
-                    style={l.chave === 'IVA' ? { background: COR_IVA, color: COR_ATUAL } : undefined}
+                    className={cn('px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider',
+                      l.chave === 'IVA' && 'bg-primary text-primary-foreground')}
                   >
                     <span className="inline-flex items-center gap-1.5">
                       {l.rotulo}
                       {l.chave === atual.chave && (
-                        <Badge className="h-4 border-0 px-1.5 text-[9px]" style={{ background: COR_IVA, color: COR_ATUAL }}>
+                        <Badge className="h-4 border-0 bg-primary px-1.5 text-[9px] text-primary-foreground">
                           atual
                         </Badge>
                       )}
@@ -738,13 +734,12 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
                 {colunas.map(l => <Celula key={l.chave} forte>{reaisOuTraco(l.totalNominal)}</Celula>)}
               </tr>
 
-              <tr className="text-white" style={{ background: `linear-gradient(90deg, ${COR_ATUAL}, #14343f)` }}>
+              <tr className="bg-muted text-foreground">
                 <td className="px-4 py-3 text-sm font-semibold">Total efetivo</td>
                 {colunas.map(l => (
                   <td
                     key={l.chave}
-                    className="px-4 py-3 text-right text-sm font-bold tabular-nums"
-                    style={l.chave === 'IVA' ? { color: COR_IVA } : undefined}
+                    className={cn('px-4 py-3 text-right text-sm font-bold tabular-nums', l.chave === 'IVA' && 'text-primary-on-surface')}
                   >
                     {/* Coluna parcial: o total existe mas é um PISO. O "a partir
                         de" evita que um número incompleto passe por fechado. */}
@@ -983,7 +978,7 @@ export function SecaoTransicao({ p, onChange }: {
               <span className="text-muted-foreground">→</span>
               {/* O "nova" precisa dizer de QUE ano estamos falando: as
                   alíquotas do IVA só chegam ao regime pleno em 2033. */}
-              <span style={{ color: COR_IVA }}>{porcentoOuTraco(iva.aliquotaEfetiva)}</span>
+              <span className="text-primary-on-surface">{porcentoOuTraco(iva.aliquotaEfetiva)}</span>
               <span className="text-[11px] font-normal text-muted-foreground">em {p.anoBase}</span>
             </div>
           </div>
@@ -994,12 +989,12 @@ export function SecaoTransicao({ p, onChange }: {
         <div className="overflow-x-auto nice-scrollbar">
           <table className="w-full min-w-[720px]">
             <thead>
-              <tr className="text-white" style={{ background: `linear-gradient(90deg, ${COR_ATUAL}, #14343f)` }}>
+              <tr className="bg-muted text-foreground">
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Ano</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider">Sistema antigo</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider">IBS (novo)</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider">CBS (novo)</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider" style={{ background: COR_IVA, color: COR_ATUAL }}>
+                <th className="bg-primary px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-primary-foreground">
                   Total a pagar
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider">vs hoje</th>
@@ -1068,7 +1063,7 @@ export function SecaoTransicao({ p, onChange }: {
               <YAxis {...EIXO} tickFormatter={reaisCurto} width={78} />
               <Tooltip content={<ChartTooltip format={(v) => reais(Number(v))} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Line type="monotone" dataKey="sistemaAntigo" name="Sistema antigo" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="sistemaAntigo" name="Sistema antigo" stroke={COR_ATUAL_GRAF} strokeWidth={2} dot={{ r: 3 }} />
               <Line type="monotone" dataKey="ibs" name="IBS (novo)" stroke={COR_IVA} strokeWidth={2} dot={{ r: 3 }} />
               <Line type="monotone" dataKey="cbs" name="CBS (novo)" stroke="#84cc16" strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>
@@ -1213,18 +1208,13 @@ export function SecaoVisaoGeral({ p, cliente }: {
 
   return (
     <>
-      <div
-        className="mb-5 overflow-hidden rounded-2xl px-7 py-8 text-white"
-        style={{ background: `linear-gradient(120deg, ${COR_ATUAL} 0%, #0d3b47 60%, #0e5568 100%)` }}
-      >
-        {/* `text-white` explícito: o global de tipografia define
-            `h1,h2,h3 { color: var(--color-foreground) }`, que vence a herança do
-            container. No modo claro isso pintava o título de preto sobre a capa
-            escura, e ele sumia. */}
-        <h2 className="max-w-3xl text-2xl font-bold leading-snug tracking-tight text-white">
+      {/* Capa adaptativa ao tema: tint leve da primária sobre o fundo + texto em
+          tokens (nunca cor sólida + text-white, que não acompanha o dark). */}
+      <div className="mb-5 overflow-hidden rounded-2xl border border-primary/20 bg-primary/10 px-7 py-8 text-foreground">
+        <h2 className="max-w-3xl text-2xl font-bold leading-snug tracking-tight text-foreground">
           O impacto da reforma em {cliente ? <>uma empresa de {ROTULO_ATIVIDADE[p.atividade].toLowerCase()}</> : 'uma empresa'}
         </h2>
-        <p className="mt-2 max-w-2xl text-sm text-white/75">
+        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
           Comparação entre a carga tributária de hoje e o novo regime (IBS/CBS), considerando o perfil da
           atividade e os dados informados na simulação.
         </p>
@@ -1236,7 +1226,7 @@ export function SecaoVisaoGeral({ p, cliente }: {
             cliente?.cidade && cliente?.uf ? `${cliente.cidade} · ${cliente.uf}` : null,
             ROTULO_REGIME[p.regime],
           ].filter(Boolean).map((t, i) => (
-            <span key={i} className="rounded-full border border-white/25 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide">
+            <span key={i} className="rounded-full border border-primary/30 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-primary-on-surface">
               {t}
             </span>
           ))}
@@ -1244,11 +1234,11 @@ export function SecaoVisaoGeral({ p, cliente }: {
       </div>
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl px-4 py-4 text-white" style={{ background: COR_ATUAL }}>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">Imposto hoje · efetivo</p>
+        <div className="rounded-xl bg-foreground px-4 py-4 text-background">
+          <p className="text-[10px] font-bold uppercase tracking-wider opacity-70">Imposto hoje · efetivo</p>
           <p className="mt-1 text-xl font-bold tabular-nums">{reaisOuTraco(hoje)}</p>
         </div>
-        <div className="rounded-xl px-4 py-4" style={{ background: COR_IVA, color: COR_ATUAL }}>
+        <div className="rounded-xl bg-primary px-4 py-4 text-primary-foreground">
           <p className="text-[10px] font-bold uppercase tracking-wider opacity-70">Pós-reforma · {p.anoBase}</p>
           <p className="mt-1 text-xl font-bold tabular-nums">{reaisOuTraco(depois)}</p>
         </div>
@@ -1258,7 +1248,7 @@ export function SecaoVisaoGeral({ p, cliente }: {
             {diferenca === null ? '—' : `${alivio ? '−' : '+'}${reais(Math.abs(diferenca))}`}
           </p>
         </Card>
-        <div className={cn('rounded-xl px-4 py-4', diferenca === null ? 'bg-muted text-muted-foreground' : alivio ? 'bg-lime-300 text-slate-900' : 'bg-rose-200 text-rose-950')}>
+        <div className={cn('rounded-xl border px-4 py-4', diferenca === null ? 'border-transparent bg-muted text-muted-foreground' : alivio ? BADGE.emerald : BADGE.rose)}>
           <p className="text-[10px] font-bold uppercase tracking-wider opacity-70">Variação</p>
           <p className="mt-1 text-xl font-bold tabular-nums">{porcentoOuTraco(variacao)}</p>
         </div>
@@ -1452,11 +1442,8 @@ export function SecaoCalculadora({ p, op, onChange }: {
       />
 
       <Card className="mb-5 flex gap-3 bg-muted/30 p-4">
-        <span
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white"
-          style={{ background: COR_IVA }}
-        >
-          <HelpCircle className="h-4 w-4" style={{ color: COR_ATUAL }} />
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+          <HelpCircle className="h-4 w-4" />
         </span>
         <div className="space-y-1 text-xs text-muted-foreground">
           <p className="text-[13px] font-semibold text-foreground">Onde achar esses dados na NF-e</p>
@@ -1490,10 +1477,7 @@ export function SecaoCalculadora({ p, op, onChange }: {
               <span className="font-semibold tabular-nums">{porcento(r.aliquotaEfetiva)}</span>
             </div>
           </div>
-          <div
-            className="mt-3 flex items-center justify-between rounded-lg px-4 py-3 text-white"
-            style={{ background: `linear-gradient(135deg, ${COR_ATUAL}, #134e5e)` }}
-          >
+          <div className="mt-3 flex items-center justify-between rounded-lg bg-primary/10 px-4 py-3 text-foreground">
             <span className="text-sm font-semibold">Valor a recolher</span>
             <span className="text-lg font-bold tabular-nums">{reais(r.aRecolher)}</span>
           </div>
@@ -1526,7 +1510,7 @@ export function SecaoCalculadora({ p, op, onChange }: {
                 faturamento. Dá para ajustar só para esta operação.
               </p>
               <div className="relative mt-1.5">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold" style={{ color: COR_IVA }}>%</span>
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-primary-on-surface">%</span>
                 <Input
                   type="number" min="0" max="100" step="0.01" value={op.despesasCreditaveis}
                   onChange={(e) => onChange({ despesasCreditaveis: Number(e.target.value) })}
@@ -1550,10 +1534,7 @@ export function SecaoCalculadora({ p, op, onChange }: {
               <span className="text-muted-foreground">(+) IBS/CBS a destacar</span>
               <span className="font-semibold tabular-nums">{reais(r.destacado)}</span>
             </div>
-            <div
-              className="mt-2 flex items-center justify-between rounded-lg px-4 py-3"
-              style={{ background: COR_IVA, color: COR_ATUAL }}
-            >
+            <div className="mt-2 flex items-center justify-between rounded-lg bg-primary px-4 py-3 text-primary-foreground">
               <span className="text-sm font-semibold">Total da nota fiscal</span>
               <span className="text-lg font-bold tabular-nums">{reais(r.totalNota)}</span>
             </div>

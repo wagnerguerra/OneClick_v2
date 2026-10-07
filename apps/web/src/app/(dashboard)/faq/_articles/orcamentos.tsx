@@ -7,12 +7,13 @@ import {
 } from 'lucide-react'
 import { Badge } from '@saas/ui'
 import { ArticleShell } from '../_components/article-shell'
+import { corDoArtigo } from '../_components/articles-catalog'
 import {
   Section, Step, Callout, CasoPratico, QuickLink, DefRow, FlagRow, CascadeRow,
 } from '../_components/article-blocks'
 
-const MODULO_COLOR = 'var(--mod-comercial, #fb7185)'
-const FAQ_COLOR = 'var(--mod-ajuda, #0891b2)'
+const MODULO_COLOR = corDoArtigo('orcamentos')
+const FAQ_COLOR = 'var(--color-primary)'
 
 export default function FaqOrcamentosPage() {
   return (
@@ -473,7 +474,7 @@ export default function FaqOrcamentosPage() {
               <>
                 Menu (⋮) → <strong>Duplicar</strong>. Cria um novo orçamento em NOVO com os mesmos
                 itens, descontos, contatos e textos — mas <strong>sem</strong> as datas, decisões, processos
-                criados ou pesquisa. Numero novo, token novo, tudo zerado.
+                criados ou pesquisa. Número novo, token novo, tudo zerado.
                 <br /><br />
                 Útil pra cliente que pediu &quot;a mesma proposta do mês passado&quot; ou pra criar variações
                 (proposta A, B, C) durante negociação.

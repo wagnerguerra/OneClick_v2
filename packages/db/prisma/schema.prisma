@@ -5459,9 +5459,28 @@ model ServicoEtapa {
   servico   Servico           @relation(fields: [servicoId], references: [id], onDelete: Cascade)
   passos    ServicoPasso[]
   materiais ServicoMaterial[] @relation("EtapaMateriais")
+  subEtapas ServicoSubEtapa[]
 
   @@index([servicoId])
   @@map("servico_etapas")
+}
+
+/// Sub-etapa (07/10/2026): agrupamento OPCIONAL de passos dentro de uma etapa
+/// — ex.: etapa "Juntada de documentos" → sub-etapa "Junta Comercial". Um
+/// nível só. Excluir a sub-etapa devolve os passos para a etapa (SetNull).
+model ServicoSubEtapa {
+  id        String   @id @default(cuid())
+  etapaId   String   @map("etapa_id")
+  nome      String
+  ordem     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  etapa  ServicoEtapa   @relation(fields: [etapaId], references: [id], onDelete: Cascade)
+  passos ServicoPasso[]
+
+  @@index([etapaId])
+  @@map("servico_sub_etapas")
 }
 
 model ServicoPasso {
@@ -5489,8 +5508,11 @@ model ServicoPasso {
   // Quando true, o usuário pode "pular" este passo durante a execução.
   // Passos ignorados desbloqueiam os próximos sem terem sido concluídos.
   permiteIgnorar   Boolean @default(false) @map("permite_ignorar")
+  /// Sub-etapa (opcional) da MESMA etapa. Null = passo direto na etapa.
+  subEtapaId       String? @map("sub_etapa_id")
 
   etapa             ServicoEtapa                @relation(fields: [etapaId], references: [id], onDelete: Cascade)
+  subEtapa          ServicoSubEtapa?            @relation(fields: [subEtapaId], references: [id], onDelete: SetNull)
   dependeDoPasso    ServicoPasso?               @relation("ServicoPassoDependencia", fields: [dependeDoPassoId], references: [id], onDelete: SetNull)
   passosDependentes ServicoPasso[]              @relation("ServicoPassoDependencia")
   materiais         ServicoMaterial[]           @relation("PassoMateriais")
@@ -5499,6 +5521,7 @@ model ServicoPasso {
   camposCliente     ServicoPassoCampoCliente[]
 
   @@index([etapaId])
+  @@index([subEtapaId])
   @@map("servico_passos")
 }
 
@@ -6145,6 +6168,8 @@ model ServicoExecucaoPasso {
   execucaoId           String    @map("execucao_id")
   passoId              String    @map("passo_id")
   etapaNome            String    @map("etapa_nome")
+  /// Snapshot da sub-etapa do template (null = passo direto na etapa / execução antiga).
+  subEtapaNome         String?   @map("sub_etapa_nome")
   passoNome            String    @map("passo_nome")
   ordem                Int
   // Snapshot do flag de obrigatoriedade do template no momento da criação.

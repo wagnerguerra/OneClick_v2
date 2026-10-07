@@ -459,7 +459,7 @@ function VinculoEditor({ mode, passoId, initial, catalogo, usedKeys, onCancel, o
           <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>
             <X className="h-3 w-3 mr-1" /> Cancelar
           </Button>
-          <Button size="sm" className="bg-sky-600 text-white hover:bg-sky-700" onClick={handleSave} disabled={saving}>
+          <Button size="sm" variant="success" onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
             Salvar
           </Button>

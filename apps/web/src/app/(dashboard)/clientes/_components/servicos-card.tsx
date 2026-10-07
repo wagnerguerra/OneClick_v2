@@ -117,12 +117,12 @@ export function ServicosCard({ clienteId, registrarSalvar }: {
           observacoes: r.observacoes,
         })),
       })
-      if (!silencioso) await alerts.success('Salvo', 'Servicos atualizados com sucesso.')
+      if (!silencioso) await alerts.success('Salvo', 'Serviços atualizados com sucesso.')
       setDirty(false)
       fetchData()
     } catch (e) {
       if (silencioso) throw e
-      alerts.error('Erro', (e as Error).message || 'Nao foi possivel salvar os servicos.')
+      alerts.error('Erro', (e as Error).message || 'Não foi possível salvar os serviços.')
     } finally { setSaving(false) }
   }
 
@@ -163,11 +163,11 @@ export function ServicosCard({ clienteId, registrarSalvar }: {
 
   function openParametros(row: AreaRow) {
     if (!row.contratado) {
-      alerts.error('Area nao contratada', 'Marque a area como contratada antes de gerenciar parametros.')
+      alerts.error('Área não contratada', 'Marque a área como contratada antes de gerenciar parâmetros.')
       return
     }
     if (!row.clienteAreaContratadaId) {
-      alerts.error('Salve primeiro', 'Salve os servicos antes de gerenciar parametros.')
+      alerts.error('Salve primeiro', 'Salve os serviços antes de gerenciar parâmetros.')
       return
     }
     setParamDialog({ open: true, row })
@@ -176,7 +176,7 @@ export function ServicosCard({ clienteId, registrarSalvar }: {
   function openEncerramento(index: number) {
     const row = rows[index]
     if (!row?.contratado) {
-      alerts.error('Area nao contratada', 'Marque a area como contratada antes de definir encerramento.')
+      alerts.error('Área não contratada', 'Marque a área como contratada antes de definir encerramento.')
       return
     }
     setEncerrDialog({ open: true, index })
@@ -185,7 +185,7 @@ export function ServicosCard({ clienteId, registrarSalvar }: {
   if (loading) {
     return (
       <Card className="p-8 flex items-center justify-center gap-2 text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin" /> Carregando servicos...
+        <Loader2 className="h-5 w-5 animate-spin" /> Carregando serviços...
       </Card>
     )
   }
@@ -194,8 +194,8 @@ export function ServicosCard({ clienteId, registrarSalvar }: {
     return (
       <Card className="p-8 text-center text-muted-foreground">
         <Briefcase className="h-8 w-8 mx-auto mb-2 opacity-40" />
-        <p className="text-sm">Nenhuma area cadastrada para esta empresa.</p>
-        <p className="text-xs mt-1">Cadastre areas no modulo de Areas primeiro.</p>
+        <p className="text-sm">Nenhuma área cadastrada para esta empresa.</p>
+        <p className="text-xs mt-1">Cadastre áreas no módulo de Áreas primeiro.</p>
       </Card>
     )
   }
@@ -208,9 +208,9 @@ export function ServicosCard({ clienteId, registrarSalvar }: {
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <div>
               <h4 className="text-sm font-semibold flex items-center gap-2">
-                <Briefcase className={cn('h-4 w-4', TEXT.emerald)} /> Servicos Contratados
+                <Briefcase className="h-4 w-4 text-primary" /> Serviços Contratados
               </h4>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Gerencie as areas contratadas, responsaveis e parametros.</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Gerencie as áreas contratadas, responsáveis e parâmetros.</p>
             </div>
           </div>
 
@@ -241,11 +241,11 @@ export function ServicosCard({ clienteId, registrarSalvar }: {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[220px]">Area contratada</TableHead>
-                <TableHead>Responsavel</TableHead>
+                <TableHead className="w-[220px]">Área contratada</TableHead>
+                <TableHead>Responsável</TableHead>
                 <TableHead>Substituto(a)</TableHead>
                 <TableHead className="w-[60px] text-center">Peso</TableHead>
-                <TableHead className="w-[80px] text-center">Acoes</TableHead>
+                <TableHead className="w-[80px] text-center">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -295,7 +295,7 @@ export function ServicosCard({ clienteId, registrarSalvar }: {
                           ))}
                           {row.responsavelId && !areaUsers.find(u => u.id === row.responsavelId) && (
                             <SelectItem value={row.responsavelId}>
-                              {row.responsavelNome || row.responsavelId} (fora da area)
+                              {row.responsavelNome || row.responsavelId} (fora da área)
                             </SelectItem>
                           )}
                         </SelectContent>
@@ -319,7 +319,7 @@ export function ServicosCard({ clienteId, registrarSalvar }: {
                           ))}
                           {row.substitutoId && !areaUsers.find(u => u.id === row.substitutoId) && (
                             <SelectItem value={row.substitutoId}>
-                              {row.substitutoNome || row.substitutoId} (fora da area)
+                              {row.substitutoNome || row.substitutoId} (fora da área)
                             </SelectItem>
                           )}
                         </SelectContent>
@@ -352,8 +352,8 @@ export function ServicosCard({ clienteId, registrarSalvar }: {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-52">
                           <DropdownMenuItem onClick={() => openParametros(row)}>
-                            <Settings className="h-4 w-4" /> Gerenciar Parametros
-                          </DropdownMenuItem>
+                            <Settings className="h-4 w-4" /> Gerenciar Parâmetros
+</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => openEncerramento(i)}>
                             <CalendarOff className="h-4 w-4" /> Rotina de Encerramento
                           </DropdownMenuItem>
@@ -370,8 +370,8 @@ export function ServicosCard({ clienteId, registrarSalvar }: {
         {/* Footer info */}
         <div className="border-t border-border/60 bg-muted/20 px-5 py-2.5">
           <p className="text-[11px] text-muted-foreground">
-            {rows.filter(r => r.contratado).length} de {rows.length} areas contratadas
-            {dirty && <span className={cn('ml-2 font-medium', TEXT.amber)}>Alteracoes nao salvas</span>}
+            {rows.filter(r => r.contratado).length} de {rows.length} áreas contratadas
+            {dirty && <span className={cn('ml-2 font-medium', TEXT.amber)}>Alterações não salvas</span>}
           </p>
         </div>
         </MioloColapsavel>
@@ -450,7 +450,7 @@ function ParametrosDialog({ open, onClose, clienteAreaContratadaId, areaNome, cl
   async function handleSave() {
     const valid = params.filter(p => p.nome.trim())
     if (valid.length === 0 && params.length > 0) {
-      alerts.error('Erro', 'Preencha o nome de todos os parametros.')
+      alerts.error('Erro', 'Preencha o nome de todos os parâmetros.')
       return
     }
     setSaving(true)
@@ -459,7 +459,7 @@ function ParametrosDialog({ open, onClose, clienteAreaContratadaId, areaNome, cl
         clienteAreaContratadaId,
         params: valid.map(p => ({ tipo: p.tipo, nome: p.nome, descricao: p.descricao || '', valor: p.valor })),
       })
-      await alerts.success('Salvo', 'Parametros atualizados.')
+      await alerts.success('Salvo', 'Parâmetros atualizados.')
       onClose()
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
@@ -480,7 +480,7 @@ function ParametrosDialog({ open, onClose, clienteAreaContratadaId, areaNome, cl
     if (!copiarSelected) return
     const ok = await alerts.confirm({
       title: 'Copiar estrutura',
-      text: 'Isso substituira todos os parametros atuais desta area. Deseja continuar?',
+      text: 'Isso substituirá todos os parâmetros atuais desta área. Deseja continuar?',
       confirmText: 'Copiar',
       icon: 'warning',
     })
@@ -509,8 +509,8 @@ function ParametrosDialog({ open, onClose, clienteAreaContratadaId, areaNome, cl
   if (!tipos.includes('Geral')) tipos.push('Geral')
 
   const VALOR_LABELS: Record<number, string> = {
-    0: 'Irrelevante', 0.5: 'Muito Baixa', 1: 'Baixa', 1.5: 'Baixa-Media',
-    2: 'Media-Baixa', 2.5: 'Media', 3: 'Media-Alta', 3.5: 'Alta-Media',
+    0: 'Irrelevante', 0.5: 'Muito Baixa', 1: 'Baixa', 1.5: 'Baixa-Média',
+    2: 'Média-Baixa', 2.5: 'Média', 3: 'Média-Alta', 3.5: 'Alta-Média',
     4: 'Alta', 4.5: 'Muito Alta', 5: 'Muito Importante',
   }
 
@@ -518,9 +518,9 @@ function ParametrosDialog({ open, onClose, clienteAreaContratadaId, areaNome, cl
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="max-w-[700px]">
         <DialogHeaderIcon icon={Settings} color="violet">
-          <DialogTitle>Parametros — {areaNome}</DialogTitle>
+          <DialogTitle>Parâmetros — {areaNome}</DialogTitle>
           <DialogDescription>
-            Media geral: <span className={cn('font-semibold', TEXT.emerald)}>{calcMedia}</span> | {params.length} parametro(s)
+            Média geral: <span className={cn('font-semibold', TEXT.emerald)}>{calcMedia}</span> | {params.length} parâmetro(s)
           </DialogDescription>
         </DialogHeaderIcon>
 
@@ -547,13 +547,13 @@ function ParametrosDialog({ open, onClose, clienteAreaContratadaId, areaNome, cl
                             <Input
                               value={p.nome}
                               onChange={e => updateParam(p._index, { nome: e.target.value })}
-                              placeholder="Nome do parametro"
+                              placeholder="Nome do parâmetro"
                               className="h-7 text-xs border-0 p-0 focus-visible:ring-0 shadow-none"
                             />
                             <Input
                               value={p.descricao || ''}
                               onChange={e => updateParam(p._index, { descricao: e.target.value })}
-                              placeholder="Descricao (opcional)"
+                              placeholder="Descrição (opcional)"
                               className="h-6 text-[10px] text-muted-foreground border-0 p-0 focus-visible:ring-0 shadow-none"
                             />
                           </div>
@@ -563,7 +563,7 @@ function ParametrosDialog({ open, onClose, clienteAreaContratadaId, areaNome, cl
                               min={0} max={5} step={0.5}
                               value={p.valor}
                               onChange={e => updateParam(p._index, { valor: parseFloat(e.target.value) })}
-                              className="w-full h-1.5 accent-emerald-600"
+                              className="w-full h-1.5 accent-[var(--color-primary)]"
                             />
                             <div className="text-[10px] text-muted-foreground mt-0.5">
                               {p.valor} — {VALOR_LABELS[p.valor] || ''}
@@ -588,7 +588,7 @@ function ParametrosDialog({ open, onClose, clienteAreaContratadaId, areaNome, cl
                   </SelectContent>
                 </Select>
                 <Button variant="outline" size="sm" onClick={addParam} className="gap-1.5">
-                  <Plus className="h-3.5 w-3.5" /> Adicionar parametro
+                  <Plus className="h-3.5 w-3.5" /> Adicionar parâmetro
                 </Button>
                 <div className="flex-1" />
                 <Button variant="outline" size="sm" onClick={openCopiarEstrutura} className="gap-1.5">
@@ -602,7 +602,7 @@ function ParametrosDialog({ open, onClose, clienteAreaContratadaId, areaNome, cl
         <DialogFooter>
           <Button variant="success" size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Salvar Parametros
+            Salvar Parâmetros
           </Button>
           <DialogClose asChild>
             <Button variant="outline" size="sm">Cancelar</Button>
@@ -615,14 +615,14 @@ function ParametrosDialog({ open, onClose, clienteAreaContratadaId, areaNome, cl
         <Dialog open={copiarOpen} onOpenChange={(o) => { if (!o) setCopiarOpen(false) }}>
           <DialogContent className="max-w-md">
             <DialogHeaderIcon icon={Copy} color="sky">
-              <DialogTitle>Copiar estrutura de parametros</DialogTitle>
-              <DialogDescription>Selecione o cliente de origem. Os parametros atuais serao substituidos.</DialogDescription>
+              <DialogTitle>Copiar estrutura de parâmetros</DialogTitle>
+              <DialogDescription>Selecione o cliente de origem. Os parâmetros atuais serão substituídos.</DialogDescription>
             </DialogHeaderIcon>
             <DialogBody>
               {copiarLoading ? (
                 <div className="py-4 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></div>
               ) : copiarClientes.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">Nenhum cliente com parametros encontrado.</p>
+                <p className="text-sm text-muted-foreground py-4 text-center">Nenhum cliente com parâmetros encontrado.</p>
               ) : (
                 <Select value={copiarSelected || '__none__'} onValueChange={(v) => setCopiarSelected(v === '__none__' ? '' : v)}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione um cliente" /></SelectTrigger>
@@ -675,7 +675,7 @@ function EncerramentoDialog({ open, onClose, row, onSave }: {
       <DialogContent className="max-w-md">
         <DialogHeaderIcon icon={CalendarOff} color="amber">
           <DialogTitle>Rotina de Encerramento — {row.areaNome}</DialogTitle>
-          <DialogDescription>Defina a data e observacoes do encerramento desta area.</DialogDescription>
+          <DialogDescription>Defina a data e observações do encerramento desta área.</DialogDescription>
         </DialogHeaderIcon>
 
         <DialogBody className="space-y-4">
@@ -684,7 +684,7 @@ function EncerramentoDialog({ open, onClose, row, onSave }: {
             <Input type="date" value={data} onChange={e => setData(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label>Observacoes</Label>
+            <Label>Observações</Label>
             <Textarea
               value={obs}
               onChange={e => setObs(e.target.value)}

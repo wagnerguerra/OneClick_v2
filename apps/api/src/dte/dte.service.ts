@@ -260,7 +260,7 @@ export class DteService {
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
 
         this.log('info', 'Popup aberto — navegando para login...')
-        this.syncProgress.currentCliente = 'Login Acesso Cidadao...'
+        this.syncProgress.currentCliente = 'Login Acesso Cidadão...'
         await page.goto(AGENCIA_VIRTUAL_URL, { waitUntil: 'networkidle2', timeout: NAV_TIMEOUT })
         await SLEEP(2000)
 
@@ -333,7 +333,7 @@ export class DteService {
       // Verificar autenticação
       if (page.url().includes('login')) {
         this.log('error', 'Falha na autenticacao — sessao nao foi salva no profile')
-        throw new Error('Falha na autenticacao. Sessao expirada ou certificado nao selecionado.')
+        throw new Error('Falha na autenticação. Sessão expirada ou certificado não selecionado.')
       }
 
       this.log('success', 'Autenticado! URL: ' + page.url().slice(0, 80))
@@ -461,7 +461,7 @@ export class DteService {
           if (!cli.vizUrl) {
             this.log('error', `  URL de visualizacao nao encontrada`)
             this.syncProgress.items[i]!.status = 'erro'
-            this.syncProgress.items[i]!.erro = 'URL nao encontrada'
+            this.syncProgress.items[i]!.erro = 'URL não encontrada'
             this.syncProgress.erros++
             continue
           }

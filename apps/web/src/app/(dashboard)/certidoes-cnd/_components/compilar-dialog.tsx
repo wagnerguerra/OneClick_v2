@@ -7,13 +7,13 @@ import {
   Button, Checkbox, Input, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { FILL, TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
 import { limparCnpj } from '@/lib/masks'
-import { MODULE_COLOR, LoteItemIcon, formatDoc, documentoValido } from '../_lib/ui'
+import { LoteItemIcon, formatDoc, documentoValido } from '../_lib/ui'
 import { carregarClientesMensais } from '../_lib/api'
 import { ClientePicker, type ClienteOpcao } from './dialogs'
 
@@ -236,7 +236,7 @@ export function CompilarDialog({ open, onOpenChange, onConcluido }: { open: bool
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 <p className="text-sm font-medium tabular-nums">{prog?.current ?? 0}/{prog?.total ?? tipos.size}</p>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: MODULE_COLOR }} /></div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted"><div className={cn('h-full rounded-full transition-all', FILL.emerald)} style={{ width: `${pct}%` }} /></div>
               {prog?.razaoSocial && (
                 <p className="text-xs text-muted-foreground">{prog.razaoSocial} · <span className="font-mono">{formatDoc(docLimpo)}</span></p>
               )}
@@ -270,7 +270,7 @@ export function CompilarDialog({ open, onOpenChange, onConcluido }: { open: bool
                 <div key={c.id || c.razaoSocial} className="flex items-center gap-2">
                   <p className="min-w-0 flex-1 truncate text-sm font-semibold">{c.razaoSocial}</p>
                   {c.id && (
-                    <Link href={`/clientes/${c.id}`} target="_blank" className={cn('inline-flex shrink-0 items-center gap-1 text-[11px] font-medium hover:underline', TEXT.sky)}>
+                    <Link href={`/clientes/${c.id}`} target="_blank" className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-primary-on-surface hover:underline">
                       Abrir cadastro<ExternalLink className="h-3 w-3" />
                     </Link>
                   )}

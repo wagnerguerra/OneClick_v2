@@ -100,7 +100,7 @@ export default function NaoConformidadesPage() {
     const ok = await alerts.confirm({
       title: `Excluir a NC ${r.legacyId ? `#${r.legacyId}` : ''}?`,
       text: 'O registro sai das listagens (ações, mensagens e histórico vão junto).',
-      icon: 'warning', confirmText: 'Excluir',
+      icon: 'warning', confirmText: 'Excluir', destructive: true,
     })
     if (!ok) return
     try {
@@ -143,6 +143,10 @@ export default function NaoConformidadesPage() {
       <Card>
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
+            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
+            </Select>
             <Select value={fSituacao || '__all__'} onValueChange={(v) => { setFSituacao(v === '__all__' ? '' : v); setPage(1) }}>
               <SelectTrigger className="h-8 w-[170px] text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
               <SelectContent>
@@ -177,12 +181,8 @@ export default function NaoConformidadesPage() {
                 Limpar ({filtrosAtivos})
               </Button>
             )}
-            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
-            </Select>
           </div>
-          <div className="max-w-xs w-full sm:w-auto">
+          <div className="w-full sm:w-[272px]">
             <Input placeholder="Buscar por fato gerador ou cliente..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
@@ -198,7 +198,7 @@ export default function NaoConformidadesPage() {
               <TableHead className="hidden sm:table-cell w-[95px]">Registro</TableHead>
               <TableHead className="hidden sm:table-cell w-[95px]">Prazo</TableHead>
               <TableHead className="w-[85px] text-center">Ações plano</TableHead>
-              <TableHead className="w-[90px] text-right">Ações</TableHead>
+              <TableHead className="w-[104px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

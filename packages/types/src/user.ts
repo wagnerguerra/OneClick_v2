@@ -365,6 +365,12 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
       group: 'Execução',
       observacao: 'Uso na fase de implantação do módulo — permite finalizar a execução mesmo com passos obrigatórios em aberto.',
     },
+    {
+      key: 'checklist_em_cards',
+      label: 'Executar o checklist em cards (um passo por vez, avançando ao concluir)',
+      group: 'Visualização',
+      observacao: 'Preferência de exibição, não de acesso: o checklist abre um passo por vez, com a observação à vista, e passa ao próximo quando o passo é concluído. O master também segue a marcação.',
+    },
   ],
   acessorias: [
     {

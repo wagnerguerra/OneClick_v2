@@ -229,6 +229,7 @@ export function CopiarEstruturaModal({
                   simulação e travava o botão de novo, sem dizer por quê. */}
               <Button
                 size="sm"
+                variant="success"
                 onClick={() => executar(false)}
                 disabled={escolhidos.size === 0 || processando}
                 className="gap-1.5"

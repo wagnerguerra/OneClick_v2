@@ -65,7 +65,7 @@ export function createBillingRouter(stripeService: StripeService) {
     createCheckoutSession: protectedProcedure
       .input(z.object({ stripePriceId: z.string().min(1) }))
       .mutation(async ({ ctx, input }) => {
-        if (!ctx.tenantId) throw new Error('Tenant nao encontrado')
+        if (!ctx.tenantId) throw new Error('Tenant não encontrado')
         const url = await stripeService.createCheckoutSession(ctx.tenantId, input.stripePriceId)
         return { url }
       }),
@@ -73,7 +73,7 @@ export function createBillingRouter(stripeService: StripeService) {
     // Criar sessao do portal de billing do Stripe
     createPortalSession: protectedProcedure
       .mutation(async ({ ctx }) => {
-        if (!ctx.tenantId) throw new Error('Tenant nao encontrado')
+        if (!ctx.tenantId) throw new Error('Tenant não encontrado')
         const url = await stripeService.createPortalSession(ctx.tenantId)
         return { url }
       }),
@@ -81,7 +81,7 @@ export function createBillingRouter(stripeService: StripeService) {
     // Cancelar assinatura (ao final do periodo)
     cancelSubscription: protectedProcedure
       .mutation(async ({ ctx }) => {
-        if (!ctx.tenantId) throw new Error('Tenant nao encontrado')
+        if (!ctx.tenantId) throw new Error('Tenant não encontrado')
         await stripeService.cancelSubscription(ctx.tenantId)
         return { ok: true }
       }),
@@ -89,7 +89,7 @@ export function createBillingRouter(stripeService: StripeService) {
     // Reativar assinatura (desfazer cancelamento)
     reactivateSubscription: protectedProcedure
       .mutation(async ({ ctx }) => {
-        if (!ctx.tenantId) throw new Error('Tenant nao encontrado')
+        if (!ctx.tenantId) throw new Error('Tenant não encontrado')
         await stripeService.reactivateSubscription(ctx.tenantId)
         return { ok: true }
       }),

@@ -81,11 +81,10 @@ function haQuanto(iso: string): string {
 
 interface ValoresInteracao { tipo: TipoInteracao; resultado: ResultadoInteracao; dataHora: string; contato: string; resumo: string }
 
-function FormInteracao({ inicial, editando, salvando, moduleColor, onSalvar, onCancelar }: {
+function FormInteracao({ inicial, editando, salvando, onSalvar, onCancelar }: {
   inicial: ValoresInteracao
   editando: boolean
   salvando: boolean
-  moduleColor: string
   onSalvar: (v: ValoresInteracao) => Promise<boolean>
   onCancelar?: () => void
 }) {
@@ -164,7 +163,7 @@ function FormInteracao({ inicial, editando, salvando, moduleColor, onSalvar, onC
 
       <div className="flex justify-end gap-2">
         {onCancelar && <Button size="sm" variant="outline" onClick={onCancelar} disabled={salvando}>Cancelar</Button>}
-        <Button size="sm" style={{ backgroundColor: moduleColor }} className="text-white" onClick={salvar} disabled={salvando || vazio}>
+        <Button size="sm" variant="success" onClick={salvar} disabled={salvando || vazio}>
           {salvando ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Send className="h-4 w-4 mr-1.5" />}
           {editando ? 'Salvar interação' : 'Registrar interação'}
         </Button>
@@ -173,12 +172,11 @@ function FormInteracao({ inicial, editando, salvando, moduleColor, onSalvar, onC
   )
 }
 
-export function InteracoesTab({ oportunidadeId, interacoes, contatoPadrao, moduleColor, onChanged }: {
+export function InteracoesTab({ oportunidadeId, interacoes, contatoPadrao, onChanged }: {
   oportunidadeId: string
   interacoes: InteracaoCrm[]
   /** Contato do card — sugestão para o "Com quem". */
   contatoPadrao?: string | null
-  moduleColor: string
   /** Recarrega o card (a lista vem no getById). */
   onChanged: () => Promise<void> | void
 }) {
@@ -210,7 +208,7 @@ export function InteracoesTab({ oportunidadeId, interacoes, contatoPadrao, modul
   }
 
   const excluir = async (i: InteracaoCrm) => {
-    const ok = await alerts.confirm({ title: 'Excluir interação?', text: `${tipoInfo(i.tipo).rotulo} de ${new Date(i.dataHora).toLocaleString('pt-BR')} será removida.`, confirmText: 'Excluir', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Excluir interação?', text: `${tipoInfo(i.tipo).rotulo} de ${new Date(i.dataHora).toLocaleString('pt-BR')} será removida.`, confirmText: 'Excluir', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.crm as any).interacoes.delete.mutate({ id: i.id })
@@ -226,7 +224,6 @@ export function InteracoesTab({ oportunidadeId, interacoes, contatoPadrao, modul
         inicial={{ tipo: 'LIGACAO', resultado: 'EM_ANDAMENTO', dataHora: paraInputLocal(new Date()), contato: contatoPadrao ?? '', resumo: '' }}
         editando={false}
         salvando={salvando && !editandoId}
-        moduleColor={moduleColor}
         onSalvar={v => salvar(v)}
       />
 
@@ -249,7 +246,6 @@ export function InteracoesTab({ oportunidadeId, interacoes, contatoPadrao, modul
                   inicial={{ tipo: i.tipo, resultado: i.resultado ?? 'EM_ANDAMENTO', dataHora: paraInputLocal(new Date(i.dataHora)), contato: i.contato ?? '', resumo: i.resumo }}
                   editando
                   salvando={salvando}
-                  moduleColor={moduleColor}
                   onSalvar={v => salvar(v, i.id)}
                   onCancelar={() => setEditandoId(null)}
                 />
@@ -278,7 +274,7 @@ export function InteracoesTab({ oportunidadeId, interacoes, contatoPadrao, modul
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => setEditandoId(i.id)}><Edit2 className="h-3.5 w-3.5 mr-2" />Editar</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => excluir(i)} className={TEXT.rose}><Trash2 className="h-3.5 w-3.5 mr-2" />Excluir</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => excluir(i)} className="text-destructive focus:text-destructive"><Trash2 className="h-3.5 w-3.5 mr-2" />Excluir</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>

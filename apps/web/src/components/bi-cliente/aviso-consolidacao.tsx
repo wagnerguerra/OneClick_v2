@@ -60,7 +60,7 @@ export function AvisoConsolidacao({ periodos, publico }: { periodos: PeriodoCons
           <ul className="mt-1 list-disc pl-4">
             {lista.map(f => <li key={f.cnpj}>{f.razaoSocial} — CNPJ {formatCnpj(f.cnpj)}</li>)}
           </ul>
-          {publico === 'interno' && <p className="mt-1 text-muted-foreground">Para separar, reimporte o período escolhendo “Individualizar”.</p>}
+          {publico === 'interno' && <p className="mt-1 text-background/70">Para separar, reimporte o período escolhendo “Individualizar”.</p>}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

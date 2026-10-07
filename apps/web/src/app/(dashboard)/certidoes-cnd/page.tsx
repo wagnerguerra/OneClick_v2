@@ -64,8 +64,8 @@ export default function CertidoesCndPage() {
           indicatorClassName="!bg-card !shadow-md"
         >
           {ABAS.map(({ v, Icon, label }) => (
-            <TabsTrigger key={v} value={v}
-              className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-2 !text-xs !font-semibold !text-foreground/60 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-foreground gap-1.5 leading-none !items-center whitespace-nowrap">
+            <TabsTrigger key={v} value={v} variant="sliding"
+              className="!py-2 leading-none !items-center whitespace-nowrap">
               <Icon className="h-3.5 w-3.5" />{label}
             </TabsTrigger>
           ))}

@@ -820,7 +820,7 @@ export function createClienteRouter(
       .query(async ({ input, ctx }) => {
         const cliente = await clienteService.getById(input.clienteId, ctx.isMaster, ctx.empresaId)
         const cnpj = (cliente.documento || '').replace(/\D/g, '')
-        if (cnpj.length !== 14) throw new Error('Apenas clientes CNPJ podem obter parametros do SCI.')
+        if (cnpj.length !== 14) throw new Error('Apenas clientes CNPJ podem obter parâmetros do SCI.')
         // Métricas via SCI local; se indisponível (ex.: VPS sem python/Firebird),
         // cai pra ponte do Launcher — igual ao buscarMetricasSci.
         const periodo = sciService.periodoSugerido()

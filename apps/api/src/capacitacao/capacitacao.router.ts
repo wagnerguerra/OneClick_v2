@@ -47,7 +47,7 @@ export function createCapacitacaoRouter(service: CapacitacaoService) {
         return service.getById(input.id, ctx.empresaId)
       }),
 
-    criar: writeSubProcedure(MODULE, 'solicitar', 'Solicitar capacitacoes')
+    criar: writeSubProcedure(MODULE, 'solicitar', 'Solicitar capacitações')
       .input(criarCapacitacaoSchema)
       .mutation(({ input, ctx }) => service.criar(input, ctx.userId, ctx.empresaId)),
 
@@ -63,7 +63,7 @@ export function createCapacitacaoRouter(service: CapacitacaoService) {
       .input(autorizarCapacitacaoSchema)
       .mutation(({ input, ctx }) => service.autorizar(input, ctx.userId, ctx.empresaId)),
 
-    avaliar: writeSubProcedure(MODULE, 'avaliar', 'Avaliar a eficacia')
+    avaliar: writeSubProcedure(MODULE, 'avaliar', 'Avaliar a eficácia')
       .input(avaliarCapacitacaoSchema)
       .mutation(({ input, ctx }) => service.avaliar(input, ctx.userId, ctx.empresaId)),
 
@@ -75,7 +75,7 @@ export function createCapacitacaoRouter(service: CapacitacaoService) {
       .input(z.object({ id: z.string(), motivo: z.string().min(1, 'Diga o motivo.') }))
       .mutation(({ input, ctx }) => service.cancelar(input.id, ctx.userId, input.motivo, ctx.empresaId)),
 
-    excluir: deleteSubProcedure(MODULE, 'excluir', 'Excluir capacitacoes')
+    excluir: deleteSubProcedure(MODULE, 'excluir', 'Excluir capacitações')
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => service.excluir(input.id, ctx.empresaId)),
 

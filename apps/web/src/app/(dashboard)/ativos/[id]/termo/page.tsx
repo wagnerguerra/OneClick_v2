@@ -69,8 +69,9 @@ export default function TermoResponsabilidadePage() {
           line-height: 1.6;
           color: #1e293b;
         }
-        .termo h1 { font-size: 18pt; text-align: center; font-weight: bold; text-transform: uppercase; margin-bottom: 24px; }
-        .termo h2 { font-size: 12pt; font-weight: bold; margin-top: 16px; margin-bottom: 8px; }
+        /* color: inherit — o global pinta h1/h2 com o texto do TEMA; no dark sumiria no papel branco. */
+        .termo h1 { font-size: 18pt; text-align: center; font-weight: bold; text-transform: uppercase; margin-bottom: 24px; color: inherit; }
+        .termo h2 { font-size: 12pt; font-weight: bold; margin-top: 16px; margin-bottom: 8px; color: inherit; }
         .termo p { margin-bottom: 8px; text-align: justify; }
         .termo table { width: 100%; border-collapse: collapse; margin: 12px 0; }
         .termo table td { padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: top; }
@@ -89,7 +90,7 @@ export default function TermoResponsabilidadePage() {
             o papel começa no próprio termo. */}
         <PageHeaderBar className="no-print" actions={
           <>
-            <Button onClick={() => window.print()} className="gap-1.5 bg-sky-600 hover:bg-sky-700 text-white">
+            <Button onClick={() => window.print()} className="gap-1.5">
               <Printer className="h-4 w-4" /> Imprimir
             </Button>
             <BackButton href={`/ativos/${params.id}`} label="Voltar" />

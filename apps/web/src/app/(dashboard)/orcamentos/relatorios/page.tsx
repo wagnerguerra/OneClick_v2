@@ -25,8 +25,9 @@ import {
   PieChart, Pie, Cell, Legend, LabelList,
 } from 'recharts'
 import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
+import { ORCAMENTO_STATUS_COLORS } from '@saas/types'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 type OrcOut = inferRouterOutputs<AppRouter>['orcamento']
 type FunilData = OrcOut['reportFunil']
@@ -41,10 +42,7 @@ const STATUS_LABELS: Record<string, string> = {
   LIBERADO: 'Liberado', FINALIZADO: 'Finalizado', ENCERRADO: 'Encerrado',
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  NOVO: '#818cf8', A_ENVIAR: '#94a3b8', ENVIADO: '#3b82f6', APROVADO: '#10b981',
-  LIBERADO: '#059669', FINALIZADO: '#1e293b', ENCERRADO: '#ef4444',
-}
+const STATUS_COLORS: Record<string, string> = ORCAMENTO_STATUS_COLORS
 
 const TABS = [
   { key: 'indicadores', label: 'Indicadores', icon: Activity },
@@ -59,10 +57,10 @@ const TABS = [
 type TabKey = typeof TABS[number]['key']
 
 const PERIODOS: Array<{ value: string; label: string; dias?: number }> = [
-  { value: '30', label: 'Ultimos 30 dias', dias: 30 },
-  { value: '90', label: 'Ultimos 90 dias', dias: 90 },
-  { value: '180', label: 'Ultimos 180 dias', dias: 180 },
-  { value: '365', label: 'Ultimo ano', dias: 365 },
+  { value: '30', label: 'Últimos 30 dias', dias: 30 },
+  { value: '90', label: 'Últimos 90 dias', dias: 90 },
+  { value: '180', label: 'Últimos 180 dias', dias: 180 },
+  { value: '365', label: 'Último ano', dias: 365 },
   { value: 'all', label: 'Todos os tempos' },
 ]
 
@@ -151,9 +149,8 @@ export default function RelatoriosOrcamentosPage() {
               onClick={() => { setTab(t.key); router.replace(`/orcamentos/relatorios?tab=${t.key}`) }}
               className={cn(
                 'flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors whitespace-nowrap',
-                active ? 'text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+                active ? 'text-foreground border-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground'
               )}
-              style={active ? { borderBottomColor: MODULE_COLOR } : undefined}
             >
               <Icon className="h-3.5 w-3.5" /> {t.label}
             </button>
@@ -234,7 +231,7 @@ function FunilTab({ funil }: { funil: FunilData }) {
 
       {/* BarChart */}
       <Card className="p-5">
-        <h3 className="text-sm font-semibold mb-4">Distribuicao</h3>
+        <h3 className="text-sm font-semibold mb-4">Distribuição</h3>
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={dadosChart}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
@@ -256,7 +253,7 @@ function AtrasadosTab({ atrasados }: { atrasados: AtrasadosData }) {
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <StatCard label={`Aguardando envio (>${atrasados.diasEnvioConfig}d)`} value={String(atrasados.aguardandoEnvio.length)} icon={Clock} cor="#f59e0b" />
-        <StatCard label={`Aguardando aprovacao (>${atrasados.diasAprovacaoConfig}d)`} value={String(atrasados.aguardandoAprovacao.length)} icon={AlertTriangle} cor="#ef4444" />
+        <StatCard label={`Aguardando aprovação (>${atrasados.diasAprovacaoConfig}d)`} value={String(atrasados.aguardandoAprovacao.length)} icon={AlertTriangle} cor="#ef4444" />
       </div>
 
       <Card>
@@ -293,7 +290,7 @@ function AtrasadosTab({ atrasados }: { atrasados: AtrasadosData }) {
 
       <Card>
         <div className="px-5 py-3 border-b border-border/60">
-          <h3 className="text-sm font-semibold">Aguardando aprovacao do cliente</h3>
+          <h3 className="text-sm font-semibold">Aguardando aprovação do cliente</h3>
         </div>
         <Table>
           <TableHeader>
@@ -336,7 +333,7 @@ function DesempenhoTab({ data }: { data: DesempenhoData }) {
   return (
     <div className="space-y-4">
       <Card className="p-5">
-        <h3 className="text-sm font-semibold mb-4">Desempenho por responsavel</h3>
+        <h3 className="text-sm font-semibold mb-4">Desempenho por responsável</h3>
         {data.length === 0 ? (
           <p className="text-xs text-muted-foreground italic text-center py-6">Nenhum dado no período</p>
         ) : (
@@ -358,7 +355,7 @@ function DesempenhoTab({ data }: { data: DesempenhoData }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Responsavel</TableHead>
+              <TableHead>Responsável</TableHead>
               <TableHead className="w-[80px] text-center">Total</TableHead>
               <TableHead className="w-[100px] text-center">Aprovados</TableHead>
               <TableHead className="w-[100px] text-center">Encerrados</TableHead>
@@ -406,11 +403,11 @@ function DesempenhoTab({ data }: { data: DesempenhoData }) {
 
 function TempoTab({ data }: { data: TempoData }) {
   const items = [
-    { label: 'Criacao -> Envio', d: data.criacaoAteEnvio, cor: '#818cf8' },
-    { label: 'Envio -> Aprovacao', d: data.envioAteAprovacao, cor: '#3b82f6' },
-    { label: 'Aprovacao -> Liberacao', d: data.aprovacaoAteLiberacao, cor: '#10b981' },
-    { label: 'Liberacao -> Finalizacao', d: data.liberacaoAteFinalizacao, cor: '#059669' },
-    { label: 'Criacao -> Finalizacao (total)', d: data.criacaoAteFinalizacao, cor: '#fb7185', destaque: true },
+    { label: 'Criação -> Envio', d: data.criacaoAteEnvio, cor: '#818cf8' },
+    { label: 'Envio -> Aprovação', d: data.envioAteAprovacao, cor: '#3b82f6' },
+    { label: 'Aprovação -> Liberação', d: data.aprovacaoAteLiberacao, cor: '#10b981' },
+    { label: 'Liberação -> Finalização', d: data.liberacaoAteFinalizacao, cor: '#059669' },
+    { label: 'Criação -> Finalização (total)', d: data.criacaoAteFinalizacao, cor: '#fb7185', destaque: true },
   ]
   const max = Math.max(...items.map(i => i.d.dias), 1)
 
@@ -450,7 +447,7 @@ function AreaTab({ data }: { data: AreaData }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <Card className="p-5">
-        <h3 className="text-sm font-semibold mb-4">Distribuicao por area</h3>
+        <h3 className="text-sm font-semibold mb-4">Distribuição por área</h3>
         {data.length === 0 ? (
           <p className="text-xs text-muted-foreground italic text-center py-6">Nenhum dado</p>
         ) : (
@@ -470,7 +467,7 @@ function AreaTab({ data }: { data: AreaData }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Area</TableHead>
+              <TableHead>Área</TableHead>
               <TableHead className="w-[70px] text-center">Qtd</TableHead>
               <TableHead className="w-[80px] text-center">Conversão</TableHead>
               <TableHead className="w-[140px] text-right">Valor</TableHead>
@@ -548,7 +545,7 @@ function SatisfacaoTab({ data }: { data: PesquisaData | null }) {
           <h4 className="text-sm font-semibold mb-3 flex items-center gap-2"><MessageSquare className="h-4 w-4" /> Comentários ({data.comentarios.length})</h4>
           <div className="space-y-2 max-h-[360px] overflow-y-auto nice-scrollbar">
             {data.comentarios.map((c: { texto: string }, i: number) => (
-              <p key={i} className="text-sm border-l-2 pl-3 py-1 text-muted-foreground" style={{ borderColor: MODULE_COLOR }}>{c.texto}</p>
+              <p key={i} className="text-sm border-l-2 pl-3 py-1 text-muted-foreground" style={{ borderColor: PRIMARY }}>{c.texto}</p>
             ))}
           </div>
         </Card>
@@ -557,7 +554,7 @@ function SatisfacaoTab({ data }: { data: PesquisaData | null }) {
   )
 }
 
-function StatCard({ label, value, icon: Icon, cor = MODULE_COLOR }: { label: string; value: string; icon: ElementType; cor?: string }) {
+function StatCard({ label, value, icon: Icon, cor = PRIMARY }: { label: string; value: string; icon: ElementType; cor?: string }) {
   return (
     <Card className="p-4 flex items-center gap-3">
       <div className="h-10 w-10 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: `${cor}18` }}>

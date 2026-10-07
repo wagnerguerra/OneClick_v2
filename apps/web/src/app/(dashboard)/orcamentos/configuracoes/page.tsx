@@ -16,7 +16,7 @@ import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { IA_SUGESTOES_PADRAO, type IaSugestao } from '@/components/orcamento/ia-sugestoes-padrao'
 import { ROTEIRO_SOLICITACAO_ORCAMENTO, roteiroEfetivo } from '@/components/orcamento/roteiro-solicitacao'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 interface ConfigState {
   solicitanteResponsavel: boolean
@@ -172,7 +172,7 @@ export default function OrcamentosConfiguracoesPage() {
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
           {activeTab !== 'areas' && activeTab !== 'modelos' && activeTab !== 'pesquisa' && activeTab !== 'ia' && (
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={handleSave} disabled={saving}>
+            <Button size="sm" variant="success" className="gap-1.5" onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar
             </Button>
@@ -213,7 +213,7 @@ export default function OrcamentosConfiguracoesPage() {
                       ? 'text-white shadow-sm'
                       : 'text-muted-foreground hover:bg-white/60 dark:hover:bg-white/5 hover:text-foreground',
                   )}
-                  style={active ? { backgroundColor: MODULE_COLOR } : undefined}
+                  style={active ? { backgroundColor: PRIMARY } : undefined}
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0" />
                   {tab.label}
@@ -350,7 +350,7 @@ export default function OrcamentosConfiguracoesPage() {
                   <div className="col-span-12 border-t border-border pt-4 mt-1 space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground block">Descontos</label>
                     <label className="flex items-start gap-2 cursor-pointer select-none">
-                      <Checkbox checked={config.apenasDescontoItem} onCheckedChange={v => setConfig(c => ({ ...c, apenasDescontoItem: v === true }))} accentColor="var(--mod-comercial, #fb7185)" className="mt-0.5" />
+                      <Checkbox checked={config.apenasDescontoItem} onCheckedChange={v => setConfig(c => ({ ...c, apenasDescontoItem: v === true }))} accentColor="var(--color-primary)" className="mt-0.5" />
                       <span className="text-[11px] text-muted-foreground">
                         <strong className="text-foreground font-medium">Usar apenas desconto por item.</strong> Marcado, o desconto é aplicado item a item (só serviços) e o desconto geral do orçamento fica desativado. Desmarcado, o desconto por item e o desconto geral <strong className="text-foreground font-medium">somam</strong>.
                       </span>
@@ -375,7 +375,7 @@ export default function OrcamentosConfiguracoesPage() {
                     <Input value={config.emailLiberacao} onChange={e => setConfig(c => ({ ...c, emailLiberacao: e.target.value }))} placeholder="emails separados por vírgula" className="h-9 text-sm w-full" />
                     <p className="text-[11px] text-muted-foreground">Avisados quando um orçamento é liberado para execução.</p>
                     <label className="flex items-start gap-2 mt-1.5 cursor-pointer select-none">
-                      <Checkbox checked={config.notificarExecutorLiberacao} onCheckedChange={v => setConfig(c => ({ ...c, notificarExecutorLiberacao: v === true }))} accentColor="var(--mod-comercial, #fb7185)" className="mt-0.5" />
+                      <Checkbox checked={config.notificarExecutorLiberacao} onCheckedChange={v => setConfig(c => ({ ...c, notificarExecutorLiberacao: v === true }))} accentColor="var(--color-primary)" className="mt-0.5" />
                       <span className="text-[11px] text-muted-foreground">Também notificar os <strong className="text-foreground font-medium">responsáveis pela execução</strong> dos serviços (conforme a "Atribuição de responsáveis" de cada serviço na aba Visão geral).</span>
                     </label>
                   </div>
@@ -598,7 +598,7 @@ function AreasConfigTab() {
       </div>
 
       <div className="flex justify-end pt-2">
-        <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={salvar} disabled={saving}>
+        <Button size="sm" variant="success" className="gap-1.5" onClick={salvar} disabled={saving}>
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar áreas
         </Button>
       </div>
@@ -655,7 +655,7 @@ function ModelosPropostaTab() {
   }
 
   async function remover(m: ModeloProposta) {
-    const ok = await alerts.confirm({ title: 'Excluir modelo', text: `Excluir o modelo "${m.titulo}"?`, confirmText: 'Excluir', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Excluir modelo', text: `Excluir o modelo "${m.titulo}"?`, confirmText: 'Excluir', icon: 'warning', destructive: true })
     if (!ok) return
     try { await (trpc.orcamento as any).excluirModeloProposta.mutate({ id: m.id }); carregar() }
     catch (e) { alerts.error('Erro', (e as Error).message) }
@@ -669,7 +669,7 @@ function ModelosPropostaTab() {
         <p className="text-[12px] text-muted-foreground max-w-xl">
           Cadastre modelos de proposta (o texto que vai ao cliente). O assistente de IA usa os modelos <strong>ativos</strong> como referência de estilo, tom e estrutura ao redigir. Sem nenhum modelo ativo, a IA aprende com as propostas já enviadas.
         </p>
-        <Button size="sm" onClick={() => setEdit({ _new: true, ativo: true })} style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5 shrink-0">
+        <Button size="sm" onClick={() => setEdit({ _new: true, ativo: true })} style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5 shrink-0">
           <Plus className="h-4 w-4" /> Novo modelo
         </Button>
       </div>
@@ -694,7 +694,7 @@ function ModelosPropostaTab() {
 
       <Dialog open={!!edit} onOpenChange={o => !o && setEdit(null)}>
         <DialogContent className="max-w-2xl">
-          <DialogHeaderIcon icon={Sparkles} color="rose">
+          <DialogHeaderIcon icon={Sparkles} color={edit?._new ? 'emerald' : 'sky'}>
             <DialogTitle>{edit?._new ? 'Novo modelo de proposta' : 'Editar modelo'}</DialogTitle>
             <DialogDescription>Texto de referência que a IA usa pra aprender o padrão das propostas.</DialogDescription>
           </DialogHeaderIcon>
@@ -727,7 +727,7 @@ function ModelosPropostaTab() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEdit(null)}>Cancelar</Button>
-            <Button onClick={salvar} disabled={saving} style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5">
+            <Button onClick={salvar} disabled={saving} variant="success" className="gap-1.5">
               {saving && <Loader2 className="h-4 w-4 animate-spin" />} Salvar
             </Button>
           </DialogFooter>
@@ -807,7 +807,7 @@ function IaSugestoesTab() {
       </div>
 
       <div className="flex justify-end">
-        <Button onClick={salvar} disabled={saving} style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5">
+        <Button onClick={salvar} disabled={saving} variant="success" className="gap-1.5">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar sugestões
         </Button>
       </div>
@@ -929,7 +929,7 @@ function PesquisaConfigTab() {
       </div>
 
       <div className="flex justify-end">
-        <Button size="sm" onClick={salvar} disabled={saving} style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5">
+        <Button size="sm" onClick={salvar} disabled={saving} variant="success" className="gap-1.5">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} {temRespostas ? 'Salvar (nova versão)' : 'Salvar'}
         </Button>
       </div>

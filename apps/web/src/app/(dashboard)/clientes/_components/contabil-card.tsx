@@ -161,9 +161,9 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
   }
 
   async function handleAddCategory() {
-    const conta = prompt('Codigo da conta (ex: 99.01):')
+    const conta = prompt('Código da conta (ex: 99.01):')
     if (!conta) return
-    const nome = prompt('Nome de exibicao:') || conta
+    const nome = prompt('Nome de exibição:') || conta
     setCategorias(prev => [...prev, {
       id: '', conta, nomeSci: '', nomeExibicao: nome,
       parentConta: null, nivel: conta.split('.').length,
@@ -177,7 +177,7 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
       const result = await (trpc.cliente as any).biGetLink.query({ clienteId })
       setLinkToken(result.token)
       await navigator.clipboard?.writeText(`${window.location.origin}/bi/${result.token}`)
-      await alerts.success('Link copiado', 'O link publico do BI foi copiado para a area de transferencia.')
+      await alerts.success('Link copiado', 'O link público do BI foi copiado para a área de transferência.')
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
@@ -214,8 +214,8 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
             type="text"
             value={cat.nomeExibicao}
             onChange={e => updateCat(cat.conta, { nomeExibicao: e.target.value })}
-            className="flex-1 min-w-0 text-[11px] bg-transparent border-0 px-1 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 rounded"
-            title="Nome de exibicao"
+            className="flex-1 min-w-0 text-[11px] bg-transparent border-0 px-1 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary/30 rounded"
+            title="Nome de exibição"
           />
 
           {/* Ordem */}
@@ -223,7 +223,7 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
             type="number"
             value={cat.ordem}
             onChange={e => updateCat(cat.conta, { ordem: Number(e.target.value) })}
-            className="shrink-0 w-[50px] text-[10px] text-center bg-transparent border border-border/30 rounded px-1 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-500/30"
+            className="shrink-0 w-[50px] text-[10px] text-center bg-transparent border border-border/30 rounded px-1 py-1 focus:outline-none focus:ring-1 focus:ring-primary/30"
             title="Ordem"
           />
 
@@ -272,11 +272,11 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <div>
             <h4 className="text-sm font-semibold flex items-center gap-2">
-              <Calculator className={cn('h-4 w-4', TEXT.emerald)} /> BI — Contas do Balancete
+              <Calculator className="h-4 w-4 text-primary" /> BI — Contas do Balancete
             </h4>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              {categorias.length} contas | {periodos.length} periodo(s) importado(s)
-              {dirty && <span className={cn('ml-2 font-medium', TEXT.amber)}>Alteracoes nao salvas</span>}
+              {categorias.length} contas | {periodos.length} período(s) importado(s)
+              {dirty && <span className={cn('ml-2 font-medium', TEXT.amber)}>Alterações não salvas</span>}
             </p>
           </div>
         </div>
@@ -290,7 +290,7 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
           >
             <ExternalLink className="h-3.5 w-3.5" /> Versão expandida
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={handleGetLink} className="gap-1" title="Link publico do BI">
+          <Button type="button" variant="outline" size="sm" onClick={handleGetLink} className="gap-1" title="Link público do BI">
             <Link2 className="h-3.5 w-3.5" /> Link BI
           </Button>
           {canManageFiscal && <Button type="button" variant="outline" size="sm" onClick={handleAddCategory} className="gap-1" title="Criar categoria virtual">
@@ -376,7 +376,7 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
         </p>
         {periodos.length > 0 && (
           <p className="text-[11px] text-muted-foreground">
-            Periodos: {periodos.map(p => p.periodo).join(', ')}
+            Períodos: {periodos.map(p => p.periodo).join(', ')}
           </p>
         )}
       </div>

@@ -72,6 +72,9 @@ export const servicoDa = {
   async etapa(id: string) {
     return (await prisma.servicoEtapa.findUnique({ where: { id }, select: { servicoId: true } }))?.servicoId ?? null
   },
+  async subEtapa(id: string) {
+    return (await prisma.servicoSubEtapa.findUnique({ where: { id }, select: { etapa: { select: { servicoId: true } } } }))?.etapa.servicoId ?? null
+  },
   async passo(id: string) {
     return (await prisma.servicoPasso.findUnique({ where: { id }, select: { etapa: { select: { servicoId: true } } } }))?.etapa.servicoId ?? null
   },

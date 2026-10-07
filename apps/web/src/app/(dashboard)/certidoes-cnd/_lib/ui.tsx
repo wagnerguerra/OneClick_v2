@@ -20,8 +20,11 @@ import { masks, limparCnpj } from '@/lib/masks'
  * com uma cor e um detalhe diferente. Aqui fica uma versão de cada.
  */
 
-/** Cor do módulo Legalização (dinâmica, editável no design system). */
-export const MODULE_COLOR = 'var(--mod-legalizacao, #d946ef)'
+/**
+ * Primária do tema — destaque da tela (seleção, pílula ativa). A cor do módulo
+ * Legalização NÃO entra no conteúdo (ver /admin/design-system → Tokens & cores).
+ */
+export const PRIMARY = 'var(--color-primary)'
 
 export const MUNICIPIOS = [
   { value: 'VITÓRIA', label: 'Vitória' },
@@ -116,7 +119,8 @@ export function LoteItemIcon({ status }: { status: string }) {
 
 /** Hex de status para o anel/ícone dos indicadores (estilo inline — `*_COR`). */
 export const STATUS_COR = {
-  modulo: MODULE_COLOR,
+  // Indicador "Total"/"Todas": primária legível sobre a superfície (anel, ícone e tint).
+  primaria: 'var(--color-primary-on-surface)',
   emerald: '#10b981',
   amber: '#f59e0b',
   red: '#ef4444',
@@ -192,7 +196,7 @@ export function ListToolbar({ limit, setLimit, search, setSearch, placeholder = 
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span className="hidden sm:inline">Exibir</span>
         <Select value={String(limit)} onValueChange={v => setLimit(Number(v))}>
-          <SelectTrigger className="h-8 w-[68px] bg-card text-xs"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-8 w-[68px] text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>{LIMITES.map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
         </Select>
         <span className="hidden sm:inline">registros</span>

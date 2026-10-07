@@ -30,7 +30,6 @@ const TABS: PillTab[] = [
   { key: 'info',     label: 'Informações Gerais',  icon: FileText },
 ]
 
-const MODULE_COLOR = 'var(--mod-configuracoes, #f97316)'
 
 /* ── Tipos ─────────────────────────────────────────────── */
 
@@ -206,11 +205,10 @@ function StripeSettingsPageInner() {
                   <button
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key)}
-                    style={isActive ? { backgroundColor: MODULE_COLOR } : undefined}
                     className={cn(
                       'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                       isActive
-                        ? 'text-white shadow-sm'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
                         : 'text-muted-foreground hover:bg-white dark:hover:bg-white/5',
                     )}
                   >
@@ -712,10 +710,7 @@ function TabInfo() {
               { step: '5', label: 'Renovações e cobranças são automáticas via Stripe Billing' },
             ].map((item) => (
               <div key={item.step} className="flex items-center gap-3">
-                <div
-                  className="flex items-center justify-center h-6 w-6 rounded-full text-white text-[10px] font-bold shrink-0"
-                  style={{ backgroundColor: MODULE_COLOR }}
-                >
+                <div className="flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-[10px] font-bold shrink-0">
                   {item.step}
                 </div>
                 <p className="text-xs text-foreground">{item.label}</p>
@@ -739,12 +734,12 @@ function TabInfo() {
               className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent transition-colors group"
             >
               <div>
-                <p className="text-xs font-medium text-foreground group-hover:text-[var(--mod-configuracoes,#f97316)] transition-colors">
+                <p className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
                   {item.label}
                 </p>
                 <p className="text-[11px] text-muted-foreground">{item.description}</p>
               </div>
-              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground group-hover:text-[var(--mod-configuracoes,#f97316)] shrink-0 transition-colors" />
+              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0 transition-colors" />
             </a>
           ))}
         </div>

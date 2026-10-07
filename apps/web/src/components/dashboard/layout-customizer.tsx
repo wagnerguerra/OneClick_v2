@@ -100,7 +100,7 @@ export function LayoutCustomizer() {
                   {SKINS.map((s) => (
                     <OpcaoCard key={s.key} ativo={prefs.skin === s.key} onClick={() => set('skin', s.key)} alinhado="start">
                       <span className="flex items-center gap-2">
-                        <span className="h-3.5 w-3.5 rounded-full ring-2 ring-white/70 dark:ring-black/40" style={{ backgroundColor: s.cor }} />
+                        <span className="h-3.5 w-3.5 rounded-full ring-2 ring-white/70 dark:ring-black/40" style={{ backgroundColor: `var(--skin-${s.key})` }} />
                         <span className="text-sm font-medium">{s.nome}</span>
                       </span>
                       <span className="text-xs text-muted-foreground">{s.descricao}</span>
@@ -119,7 +119,7 @@ export function LayoutCustomizer() {
                       onClick={() => aplicarPreset(k)}
                       className={cn(
                         'rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
-                        presetAtivo === k ? 'border-primary bg-primary/10 text-primary' : 'border-border text-foreground hover:bg-muted',
+                        presetAtivo === k ? 'border-primary bg-primary/10 text-primary-on-surface' : 'border-border text-foreground hover:bg-muted',
                       )}
                     >
                       {PRESETS[k].nome}
@@ -182,7 +182,7 @@ function OpcaoCard({ ativo, onClick, children, alinhado = 'center' }: { ativo: b
       className={cn(
         'relative flex flex-col gap-1 rounded-lg border px-3 py-2.5 text-left transition-colors',
         alinhado === 'center' ? 'items-center' : 'items-start',
-        ativo ? 'border-primary bg-primary/10 text-primary' : 'border-border text-foreground hover:bg-muted',
+        ativo ? 'border-primary bg-primary/10 text-primary-on-surface' : 'border-border text-foreground hover:bg-muted',
       )}
     >
       {ativo && <Check className="absolute right-2 top-2 h-3.5 w-3.5" />}

@@ -99,6 +99,7 @@ export function ProjetoSidebar({ projetoId, canWrite }: Props) {
       title: 'Remover anexo?',
       text: 'O arquivo será desvinculado do projeto.',
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     try {

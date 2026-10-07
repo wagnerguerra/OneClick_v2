@@ -19,7 +19,7 @@ import { alerts } from '@/lib/alerts'
 import { CAPACITACAO_STATUS_LABEL, CAPACITACAO_AMBITO_LABEL } from '@saas/types'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+const PRIMARY = 'var(--color-primary)'
 const PAGE_SIZES = [10, 20, 50]
 
 export const STATUS_COLORS: Record<string, string> = {
@@ -103,7 +103,7 @@ export default function CapacitacoesPage() {
     const ok = await alerts.confirm({
       title: `Excluir "${c.titulo}"?`,
       text: `A capacitação e os seus ${c._count.participantes} participante(s) serão apagados.`,
-      icon: 'warning', confirmText: 'Excluir',
+      icon: 'warning', confirmText: 'Excluir', destructive: true,
     })
     if (!ok) return
     try {
@@ -146,6 +146,10 @@ export default function CapacitacoesPage() {
       <Card>
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
+            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
+            </Select>
             <Select value={status || '__all__'} onValueChange={(v) => { setStatus(v === '__all__' ? '' : v); setPage(1) }}>
               <SelectTrigger className="h-8 w-[190px] text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
               <SelectContent>
@@ -165,7 +169,7 @@ export default function CapacitacoesPage() {
                 resposta a isso. */}
             <Button variant={vencidas ? 'default' : 'outline'} size="xs"
               className={vencidas ? 'text-white' : ''}
-              style={vencidas ? { backgroundColor: MODULE_COLOR } : undefined}
+              style={vencidas ? { backgroundColor: PRIMARY } : undefined}
               onClick={() => { setVencidas((v) => !v); setPage(1) }}>
               <AlertTriangle className="h-3.5 w-3.5" />Avaliação vencida
             </Button>
@@ -174,12 +178,8 @@ export default function CapacitacoesPage() {
                 Limpar ({filtrosAtivos})
               </Button>
             )}
-            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
-            </Select>
           </div>
-          <div className="max-w-xs w-full sm:w-auto">
+          <div className="w-full sm:w-[272px]">
             <Input placeholder="Buscar por título, instrutor..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
@@ -193,7 +193,7 @@ export default function CapacitacoesPage() {
               <TableHead className="hidden sm:table-cell w-[110px]">Data</TableHead>
               <TableHead className="hidden md:table-cell w-[80px] text-center">Partic.</TableHead>
               <TableHead className="w-[180px]">Situação</TableHead>
-              <TableHead className="w-[90px] text-right">Ações</TableHead>
+              <TableHead className="w-[104px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

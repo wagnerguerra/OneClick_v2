@@ -1093,7 +1093,7 @@ export class OrcamentoService {
       },
       })
     })
-    await this.addEvento(orc.id, userId, 'created', null, null, 'Orcamento criado')
+    await this.addEvento(orc.id, userId, 'created', null, null, 'Orçamento criado')
     if (input.descontoPct || input.descontoValor) {
       await this.recalcularTotais(orc.id)
     }
@@ -1714,7 +1714,7 @@ export class OrcamentoService {
 
   async duplicar(id: string, userId?: string, empresaId?: string) {
     const original = await prisma.orcamento.findUnique({ where: { id }, include: { itens: true } })
-    if (!original) throw new Error('Orcamento nao encontrado')
+    if (!original) throw new Error('Orçamento não encontrado')
 
     // O numero tem que ser alocado igual ao `create`: advisory lock por empresa
     // + max(numeroInicial, ultimo + 1).
@@ -1794,7 +1794,7 @@ export class OrcamentoService {
       }
     }
 
-    await this.addEvento(novo.id, userId, 'created', null, null, `Duplicado do orcamento #${original.numero}`)
+    await this.addEvento(novo.id, userId, 'created', null, null, `Duplicado do orçamento #${original.numero}`)
     this.emitEvent('kanban', { orcamentoId: novo.id, empresaId: novo.empresaId, actorUserId: userId })
     return novo
   }
@@ -2475,8 +2475,8 @@ export class OrcamentoService {
 
   async paralizar(id: string, motivo: string, userId?: string) {
     const orc = await prisma.orcamento.findUnique({ where: { id } })
-    if (!orc) throw new Error('Orcamento nao encontrado')
-    if (orc.paralizado) throw new Error('Orcamento ja esta paralizado')
+    if (!orc) throw new Error('Orçamento não encontrado')
+    if (orc.paralizado) throw new Error('Orçamento já está paralisado')
 
     const updated = await prisma.orcamento.update({
       where: { id },
@@ -2487,21 +2487,21 @@ export class OrcamentoService {
         paralizadoMotivo: motivo,
       },
     })
-    await this.addEvento(id, userId, 'paralizacao', null, null, `Orcamento paralizado: ${motivo}`)
+    await this.addEvento(id, userId, 'paralizacao', null, null, `Orçamento paralisado: ${motivo}`)
     this.emitEvent('kanban', { orcamentoId: id, empresaId: updated.empresaId, actorUserId: userId })
     return updated
   }
 
   async retomar(id: string, userId?: string) {
     const orc = await prisma.orcamento.findUnique({ where: { id } })
-    if (!orc) throw new Error('Orcamento nao encontrado')
-    if (!orc.paralizado) throw new Error('Orcamento nao esta paralizado')
+    if (!orc) throw new Error('Orçamento não encontrado')
+    if (!orc.paralizado) throw new Error('Orçamento não está paralisado')
 
     const updated = await prisma.orcamento.update({
       where: { id },
       data: { paralizado: false, paralizadoEm: null, paralizadoPor: null, paralizadoMotivo: null },
     })
-    await this.addEvento(id, userId, 'retomada', null, null, 'Orcamento retomado')
+    await this.addEvento(id, userId, 'retomada', null, null, 'Orçamento retomado')
     this.emitEvent('kanban', { orcamentoId: id, empresaId: updated.empresaId, actorUserId: userId })
     return updated
   }
@@ -2936,21 +2936,21 @@ export class OrcamentoService {
 
   async trocarResponsavel(id: string, responsavelId: string | null, userId?: string) {
     const orc = await prisma.orcamento.findUnique({ where: { id } })
-    if (!orc) throw new Error('Orcamento nao encontrado')
+    if (!orc) throw new Error('Orçamento não encontrado')
     const updated = await prisma.orcamento.update({ where: { id }, data: { responsavelId } })
-    let nomeNovo = 'Sem responsavel'
+    let nomeNovo = 'Sem responsável'
     if (responsavelId) {
       const u = await prisma.user.findUnique({ where: { id: responsavelId }, select: { name: true } }).catch(() => null)
       nomeNovo = u?.name || responsavelId
     }
-    await this.addEvento(id, userId, 'edicao', null, null, `Responsavel alterado para "${nomeNovo}"`)
+    await this.addEvento(id, userId, 'edicao', null, null, `Responsável alterado para "${nomeNovo}"`)
     this.emitEvent('dados-gerais', { orcamentoId: id, empresaId: updated.empresaId, actorUserId: userId })
     return updated
   }
 
   async trocarSolicitante(id: string, solicitanteId: string | null, userId?: string) {
     const orc = await prisma.orcamento.findUnique({ where: { id } })
-    if (!orc) throw new Error('Orcamento nao encontrado')
+    if (!orc) throw new Error('Orçamento não encontrado')
     const updated = await prisma.orcamento.update({ where: { id }, data: { solicitanteId } })
     let nomeNovo = 'Sem solicitante'
     if (solicitanteId) {
@@ -3077,7 +3077,7 @@ export class OrcamentoService {
 
   async editarData(id: string, campo: string, valor: string | null, userId?: string) {
     const camposPermitidos = ['dtEnviado', 'dtAprovado', 'dtLiberado', 'dtFinalizado', 'dtEncerrado', 'dtCancelado']
-    if (!camposPermitidos.includes(campo)) throw new Error(`Campo nao permitido: ${campo}`)
+    if (!camposPermitidos.includes(campo)) throw new Error(`Campo não permitido: ${campo}`)
 
     // #HLP0235: data-only (YYYY-MM-DD) é ancorada ao MEIO-DIA UTC. new Date('2026-06-25')
     // vira meia-noite UTC e, exibida em fuso negativo (Brasil UTC-3), aparece um dia
@@ -3634,7 +3634,7 @@ export class OrcamentoService {
       where: { id },
       include: { itens: true },
     })
-    if (!orc) throw new Error('Orcamento nao encontrado')
+    if (!orc) throw new Error('Orçamento não encontrado')
 
     const cliente = orc.clienteId
       ? await prisma.cliente.findUnique({ where: { id: orc.clienteId }, select: { razaoSocial: true, email: true, documento: true } }).catch(() => null)
@@ -3774,8 +3774,8 @@ export class OrcamentoService {
     }
 
     const descricaoEvento = emails.size > 0
-      ? `Orcamento enviado para: ${[...emails].join(', ')}`
-      : 'Orcamento marcado como enviado (sem e-mail disparado)'
+      ? `Orçamento enviado para: ${[...emails].join(', ')}`
+      : 'Orçamento marcado como enviado (sem e-mail disparado)'
     await this.addEvento(id, userId, 'envio', null, null, descricaoEvento)
 
     return { ok: true, destinatarios: [...emails], linkPublico }
@@ -3792,8 +3792,8 @@ export class OrcamentoService {
 
   async registrarDecisao(token: string, decisao: { tipo: string; nome: string; cpf?: string; observacao?: string; cnpjFaturamento?: string; emailFinanceiro?: string }) {
     const orc = await prisma.orcamento.findUnique({ where: { token } })
-    if (!orc) throw new Error('Orcamento nao encontrado')
-    if (orc.decisaoTipo) throw new Error('Decisao ja registrada')
+    if (!orc) throw new Error('Orçamento não encontrado')
+    if (orc.decisaoTipo) throw new Error('Decisão já registrada')
 
     const isAprovado = decisao.tipo === 'APROVADO'
     const isRevisao = decisao.tipo === 'REVISAO_SOLICITADA'
@@ -4006,7 +4006,7 @@ export class OrcamentoService {
 
   async removeItem(id: string) {
     const item = await prisma.orcamentoItem.findUnique({ where: { id } })
-    if (!item) throw new Error('Item nao encontrado')
+    if (!item) throw new Error('Item não encontrado')
     await this.assertEditable(item.orcamentoId)
     await prisma.orcamentoItem.delete({ where: { id } })
     await this.recalcularTotais(item.orcamentoId)
@@ -5370,7 +5370,7 @@ export class OrcamentoService {
 
     return [...byResp.entries()].map(([id, data]) => ({
       responsavelId: id === '__sem_responsavel__' ? null : id,
-      nome: id === '__sem_responsavel__' ? 'Sem responsavel' : (userMap.get(id)?.name ?? 'Desconhecido'),
+      nome: id === '__sem_responsavel__' ? 'Sem responsável' : (userMap.get(id)?.name ?? 'Desconhecido'),
       image: id === '__sem_responsavel__' ? null : (userMap.get(id)?.image ?? null),
       ...data,
       taxaAprovacao: data.total > 0 ? Math.round((data.aprovados / data.total) * 100) : 0,

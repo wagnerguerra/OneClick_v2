@@ -39,18 +39,18 @@ export function createRelatorioTiRouter(service: RelatorioTiService) {
       .query(({ ctx }) => service.ehLiderDaEquipe(ctx.userId, ctx.empresaId)),
 
     // ── Rotina da equipe ──
-    criar: writeSubOrLiderProcedure(MODULE, 'postar', 'Publicar o proprio relatorio')
+    criar: writeSubOrLiderProcedure(MODULE, 'postar', 'Publicar o próprio relatório')
       .input(criarRelatorioSchema)
       .mutation(({ input, ctx }) => service.criar(input, ctx.userId, ctx.empresaId)),
 
-    atualizar: writeSubOrLiderProcedure(MODULE, 'postar', 'Editar o proprio relatorio')
+    atualizar: writeSubOrLiderProcedure(MODULE, 'postar', 'Editar o próprio relatório')
       .input(atualizarRelatorioSchema)
       .mutation(async ({ input, ctx }) => {
         const lider = await service.ehLiderDaEquipe(ctx.userId, ctx.empresaId)
         return service.atualizar(input, ctx.userId, lider || (ctx.isMaster ?? false))
       }),
 
-    remover: writeSubOrLiderProcedure(MODULE, 'postar', 'Excluir o proprio relatorio')
+    remover: writeSubOrLiderProcedure(MODULE, 'postar', 'Excluir o próprio relatório')
       .input(z.object({ id: z.string().min(1) }))
       .mutation(async ({ input, ctx }) => {
         const lider = await service.ehLiderDaEquipe(ctx.userId, ctx.empresaId)
@@ -67,7 +67,7 @@ export function createRelatorioTiRouter(service: RelatorioTiService) {
       .input(listarRelatoriosDiaSchema)
       .mutation(({ input, ctx }) => service.consolidarDia(input.data, ctx.empresaId)),
 
-    enviarDiretoria: writeSubOrLiderProcedure(MODULE, 'enviar_diretoria', 'Enviar o consolidado a diretoria')
+    enviarDiretoria: writeSubOrLiderProcedure(MODULE, 'enviar_diretoria', 'Enviar o consolidado à diretoria')
       .input(z.object({
         data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         /** Em branco, usa os destinatários da configuração. */
@@ -83,7 +83,7 @@ export function createRelatorioTiRouter(service: RelatorioTiService) {
      * Sob `gerenciar_config`, e não `postar`: publicar em nome de outra pessoa
      * é ato administrativo, não a rotina de quem escreve o próprio relatório.
      */
-    importar: writeSubOrLiderProcedure(MODULE, 'gerenciar_config', 'Importar relatorios em lote')
+    importar: writeSubOrLiderProcedure(MODULE, 'gerenciar_config', 'Importar relatórios em lote')
       .input(z.object({
         itens: z.array(z.object({
           data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -135,7 +135,7 @@ export function createRelatorioTiRouter(service: RelatorioTiService) {
       .mutation(({ input }) => service.removerNovidade(input.id)),
 
     // ── Configuração ──
-    salvarConfig: writeSubOrLiderProcedure(MODULE, 'gerenciar_config', 'Configurar os relatorios da TI')
+    salvarConfig: writeSubOrLiderProcedure(MODULE, 'gerenciar_config', 'Configurar os relatórios da TI')
       .input(z.object({
         areaId: z.string().optional().nullable(),
         destinatariosIds: z.array(z.string()).optional(),

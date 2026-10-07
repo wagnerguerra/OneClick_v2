@@ -96,7 +96,7 @@ export function ModuloAcessoButton({
     const texto = alvo.subKey
       ? `Remover "${subPermission?.label}" de ${p.name}?`
       : `Remover "${({ read: 'Leitura (remove o acesso)', write: 'Escrita', delete: 'Exclusão' } as Record<Nivel, string>)[alvo.nivel!]}" de ${p.name} nesta tela?`
-    const ok = await alerts.confirm({ title: 'Revogar permissão', text: texto, confirmText: 'Revogar' })
+    const ok = await alerts.confirm({ title: 'Revogar permissão', text: texto, confirmText: 'Revogar', destructive: true })
     if (!ok) return
     const tag = `${p.id}:${alvo.subKey ?? alvo.nivel}`
     setRevogando(tag)

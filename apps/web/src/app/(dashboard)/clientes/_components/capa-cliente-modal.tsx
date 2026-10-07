@@ -113,7 +113,7 @@ export function CapaClienteModal({ open, onOpenChange, clienteId, onAplicada, te
     const ok = await alerts.confirm({
       title: 'Remover a capa deste cliente?',
       text: 'Ele volta a usar a capa padrão do módulo.',
-      icon: 'warning', confirmText: 'Remover',
+      icon: 'warning', confirmText: 'Remover', destructive: true,
     })
     if (!ok) return
     try {

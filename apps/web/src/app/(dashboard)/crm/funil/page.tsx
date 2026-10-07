@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sparkles, Loader2, Save, Copy, ExternalLink, Flame, Thermometer, Snowflake, Plus, Trash2, Megaphone, MessageSquare } from 'lucide-react'
-import { Button, Card, Input, Label, Switch, Badge, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn, Dialog, DialogContent } from '@saas/ui'
+import { Button, Card, Input, Label, Switch, Badge, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn, Dialog, DialogContent, DialogTitle } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BADGE, DOT } from '@/lib/color-styles'
@@ -20,7 +20,7 @@ type LeadOutputs = inferRouterOutputs<AppRouter>['lead']
 type Sessao = LeadOutputs['listSessoes'][number]
 type ReportFunil = LeadOutputs['reportFunil']
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 interface Cfg {
   id: string | null
@@ -127,7 +127,7 @@ export default function CrmFunilPage() {
 
   async function excluir() {
     if (!cfg?.id) return
-    const ok = await alerts.confirm({ title: 'Excluir campanha', text: `Excluir "${cfg.nome || cfg.slug}"? Esta ação não pode ser desfeita.`, confirmText: 'Excluir', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Excluir campanha', text: `Excluir "${cfg.nome || cfg.slug}"? Esta ação não pode ser desfeita.`, confirmText: 'Excluir', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await trpc.lead.deleteConfig.mutate({ id: cfg.id })
@@ -224,7 +224,7 @@ export default function CrmFunilPage() {
                 const ativa = cfg?.id === c.id && cfg?.id !== null
                 return (
                   <button key={c.id ?? c.slug} type="button" onClick={() => setCfg({ ...c })}
-                    className={cn('w-full text-left rounded-md border px-2.5 py-2 transition-colors hover:bg-muted/50', ativa && 'ring-2 ring-rose-400 bg-rose-50/50 dark:bg-rose-950/20')}>
+                    className={cn('w-full text-left rounded-md border px-2.5 py-2 transition-colors hover:bg-muted/50', ativa && 'ring-2 ring-primary/80 bg-primary/10')}>
                     <div className="flex items-center gap-2 min-w-0">
                       <Megaphone className="h-3.5 w-3.5 shrink-0" style={{ color: c.corPrimaria || '#10b981' }} />
                       <span className="text-sm font-medium truncate flex-1">{c.nome || c.slug}</span>
@@ -407,7 +407,9 @@ export default function CrmFunilPage() {
 
       <Dialog open={conversaOpen} onOpenChange={(o) => { if (!o) { setConversaOpen(false); setConversa(null) } }}>
         <DialogContent className="max-w-lg">
-          <DialogHeaderIcon icon={MessageSquare} color="violet">Conversa do atendimento</DialogHeaderIcon>
+          <DialogHeaderIcon icon={MessageSquare} color="violet">
+            <DialogTitle>Conversa do atendimento</DialogTitle>
+          </DialogHeaderIcon>
           <div className="max-h-[60vh] space-y-3 overflow-y-auto chat-scrollbar rounded-2xl bg-muted/20 px-2 py-3">
             {conversaLoading ? (
               <div className="py-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></div>
@@ -419,13 +421,13 @@ export default function CrmFunilPage() {
                 return (
                   <div key={i} className="flex flex-col items-end">
                     <span className="mb-0.5 pr-1 text-[10px] text-muted-foreground">Visitante{time ? ` · ${time}` : ''}</span>
-                    <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-3xl rounded-br-md px-4 py-2.5 text-sm leading-relaxed text-white shadow-sm" style={{ background: MODULE_COLOR }}>{m.conteudo}</div>
+                    <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-3xl rounded-br-md px-4 py-2.5 text-sm leading-relaxed text-white shadow-sm" style={{ background: PRIMARY }}>{m.conteudo}</div>
                   </div>
                 )
               }
               return (
                 <div key={i} className="flex items-end gap-2.5">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white shadow-sm" style={{ background: MODULE_COLOR }}><Sparkles className="h-3.5 w-3.5" /></div>
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white shadow-sm" style={{ background: PRIMARY }}><Sparkles className="h-3.5 w-3.5" /></div>
                   <div className="flex min-w-0 max-w-[85%] flex-col items-start">
                     <span className="mb-0.5 pl-1 text-[10px] text-muted-foreground">Atendente{time ? ` · ${time}` : ''}</span>
                     <div className="whitespace-pre-wrap break-words rounded-3xl rounded-tl-md border border-border/70 bg-card px-4 py-2.5 text-sm leading-relaxed shadow-sm">{m.conteudo}</div>

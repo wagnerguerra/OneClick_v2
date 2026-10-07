@@ -22,8 +22,6 @@ import { UserAvatar } from '@/components/ui/user-avatar'
 import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 import { PageHeaderBar } from '@/components/page-header-bar'
 
-const MOD = 'var(--mod-administrativo, #38bdf8)'
-
 interface UserChip { usuarioId: string; nome: string; image: string | null; quantidade: number }
 interface PorTipo { tipoId: string; nome: string; cor: string; corBorda: string; quantidade: number; totalMinutos: number; usuarios: UserChip[] }
 interface TipoChip { tipoId: string; nome: string; cor: string; quantidade: number }
@@ -233,7 +231,7 @@ export default function RelatoriosAgendaPage() {
               {/* Cards de resumo */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Card><CardContent className="p-4 flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg flex items-center justify-center text-white shrink-0" style={{ backgroundColor: MOD }}><CalendarDays className="h-5 w-5" /></div>
+                  <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-primary text-primary-foreground shrink-0"><CalendarDays className="h-5 w-5" /></div>
                   <div><p className="text-2xl font-bold leading-none">{data.totais.quantidade}</p><p className="text-xs text-muted-foreground mt-1">Eventos no período</p></div>
                 </CardContent></Card>
                 <Card><CardContent className="p-4 flex items-center gap-3">

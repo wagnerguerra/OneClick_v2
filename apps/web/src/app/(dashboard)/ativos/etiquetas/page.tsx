@@ -85,7 +85,7 @@ export default function EtiquetasPage() {
       <div className="space-y-3">
         {/* Topo — PADRAO_PAGINAS §1.1 */}
         <PageHeaderBar className="no-print" actions={<>
-            <Button onClick={() => window.print()} className="gap-1.5 bg-sky-600 hover:bg-sky-700 text-white">
+            <Button onClick={() => window.print()} className="gap-1.5">
               <Printer className="h-4 w-4" /> Imprimir
             </Button>
             <BackButton href="/ativos" />
@@ -114,7 +114,8 @@ export default function EtiquetasPage() {
             Nenhum ativo encontrado. Volte e selecione ativos pra imprimir.
           </div>
         ) : (
-          <div className="etiquetas-folha bg-white p-6 rounded-md shadow-sm border">
+          <div className="etiquetas-folha bg-white text-slate-900 p-6 rounded-md shadow-sm border border-slate-200">
+            {/* Folha = papel: claro nos dois temas (fundo e texto fixos), como o que sai da impressora. */}
             {/* Grid 3 colunas — A4 tem ~180mm úteis, 3×60mm */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {ativos.map(a => (

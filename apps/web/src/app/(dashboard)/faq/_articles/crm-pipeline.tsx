@@ -5,10 +5,11 @@ import {
   Lightbulb, Info, ArrowRight, MessageSquare, CheckSquare, Tag,
 } from 'lucide-react'
 import { ArticleShell } from '../_components/article-shell'
+import { corDoArtigo } from '../_components/articles-catalog'
 import { Section, Step, Callout, QuickLink, DefRow } from '../_components/article-blocks'
 
-const MODULO_COLOR = 'var(--mod-comercial, #fb7185)'
-const FAQ_COLOR = 'var(--mod-ajuda, #0891b2)'
+const MODULO_COLOR = corDoArtigo('crm-pipeline')
+const FAQ_COLOR = 'var(--color-primary)'
 
 export default function FaqCrmPipelinePage() {
   return (

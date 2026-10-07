@@ -27,10 +27,9 @@ import { resolveAssetUrl } from '@/lib/api-url'
  * (ex.: `"h-6 w-6 text-[10px]"`); `bg`/`fg` são as classes de cor de fundo e de
  * texto do fallback (iniciais ou ícone; defaults `bg-slate-400`/`text-white`) —
  * passe, ex., `bg="bg-muted" fg="text-muted-foreground"` para o tom discreto.
- * Para a COR DO MÓDULO (editável no design-system), passe `bgColor` com a var/hook
- * (`bgColor="var(--mod-<slug>, #fallback)"` ou `useModuleColor('<slug>')`) — aplica
- * inline e ignora a classe `bg`, mantendo a forma canônica (não use `bg="bg-<c>-500"`
- * contando com o retint). Um `ring-*` (contorno) pode vir pelo `className` — mas use
+ * Para uma cor que vem de CSS var (ex.: a primária, `bgColor="var(--color-primary)"`),
+ * passe `bgColor` — aplica inline e ignora a classe `bg`. Avatar nunca leva a cor do
+ * módulo (ver docs/PADRAO_CORES_E_TEMA.md). Um `ring-*` (contorno) pode vir pelo `className` — mas use
  * um tom DISTINTO do `bg`: no fallback (iniciais/ícone) o círculo é preenchido com
  * `bg`, então um ring da MESMA cor do `bg` fica invisível (só aparece sobre foto).
  */

@@ -34,6 +34,7 @@ import { useIsMobile } from '@/hooks/use-media-query'
 import { resolveAssetUrl, getApiUrl } from '@/lib/api-url'
 import { renderConflitosHtml } from '@/lib/agenda-conflitos'
 import { TarefaModal } from './_components/tarefa-modal'
+import { GoogleAgendaButton } from './_components/google-agenda-button'
 import { alerts } from '@/lib/alerts'
 import { useSession } from '@/lib/auth-client'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -479,7 +480,7 @@ export default function AgendaPage() {
           className="text-sm min-h-[96px] resize-y"
         />
         <div className="flex justify-end">
-          <Button size="sm" className="bg-sky-500 hover:bg-sky-600 text-white gap-1.5" onClick={addAnotacaoEvento} disabled={!novaAnotacao.trim()}>
+          <Button size="sm" variant="success" className="gap-1.5" onClick={addAnotacaoEvento} disabled={!novaAnotacao.trim()}>
             <Send className="h-4 w-4" /> Adicionar
           </Button>
         </div>
@@ -518,11 +519,11 @@ export default function AgendaPage() {
                     value={editandoAnotacaoTexto}
                     onChange={e => setEditandoAnotacaoTexto(e.target.value)}
                     rows={2}
-                    className="w-full text-sm rounded-md px-2 py-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-400"
+                    className="w-full text-sm rounded-md px-2 py-1.5"
                   />
                   <div className="flex justify-end gap-1.5">
                     <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setEditandoAnotacaoId(null); setEditandoAnotacaoTexto('') }}>Cancelar</Button>
-                    <Button size="sm" className="h-7 text-xs bg-sky-500 hover:bg-sky-600 text-white" onClick={salvarEdicaoAnotacao} disabled={!editandoAnotacaoTexto.trim()}>Salvar</Button>
+                    <Button size="sm" variant="success" className="h-7 text-xs" onClick={salvarEdicaoAnotacao} disabled={!editandoAnotacaoTexto.trim()}>Salvar</Button>
                   </div>
                 </div>
               ) : (
@@ -1308,7 +1309,7 @@ export default function AgendaPage() {
 
   async function handleDeleteTipo(t: AgendaTipo) {
     if (!canManageTipos) return // [QA #13]
-    const ok = await alerts.confirm({ title: 'Excluir tipo', text: `Excluir "${t.nome}"?`, confirmText: 'Excluir', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Excluir tipo', text: `Excluir "${t.nome}"?`, confirmText: 'Excluir', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await trpc.agenda.deleteTipo.mutate({ id: t.id })
@@ -1382,22 +1383,31 @@ export default function AgendaPage() {
     <div className="space-y-3">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-        <Button
-          size="sm"
-          style={{ backgroundColor: 'var(--mod-administrativo, #38bdf8)' }}
-          className="text-white gap-1.5"
-          onClick={() => openNewEvent()}
-        >
-          <Plus className="h-4 w-4" /> Novo Evento
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => { setTarefaEditando(null); setTarefaModalOpen(true) }}
-        >
-          <CheckSquare className="h-4 w-4" /> Nova Tarefa
-        </Button>
+        {/* "+ Novo" único (padrão do cabeçalho: primeiro, no azul do tema), com
+            Evento e Tarefa no menu — antes eram dois botões lado a lado. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" className="gap-1.5">
+              <Plus className="h-4 w-4" /> Novo <ChevronDown className="h-3.5 w-3.5 opacity-80" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-52">
+            <DropdownMenuItem onClick={() => openNewEvent()} className="cursor-pointer gap-2 text-xs">
+              <Calendar className="h-3.5 w-3.5" />
+              <span className="flex flex-col">
+                <span className="font-medium">Evento</span>
+                <span className="text-[11px] text-muted-foreground">Reunião, compromisso, visita</span>
+              </span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { setTarefaEditando(null); setTarefaModalOpen(true) }} className="cursor-pointer gap-2 text-xs">
+              <CheckSquare className="h-3.5 w-3.5" />
+              <span className="flex flex-col">
+                <span className="font-medium">Tarefa</span>
+                <span className="text-[11px] text-muted-foreground">Algo a fazer, sem horário marcado</span>
+              </span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button asChild variant="outline" size="sm" className="gap-1.5">
           <Link href="/agenda/disponibilidade">
             <Users className="h-4 w-4" /> Verificar disponibilidade
@@ -1410,6 +1420,7 @@ export default function AgendaPage() {
             <Printer className="h-4 w-4" /> Imprimir o dia
           </Link>
         </Button>
+        <GoogleAgendaButton onSincronizado={() => { void fetchEventos() }} />
         {canVerRelatorios && (
           <Button asChild variant="outline" size="sm" className="gap-1.5">
             <Link href="/agenda/relatorios">
@@ -1516,7 +1527,7 @@ export default function AgendaPage() {
                     const u = usuarios.find(x => x.id === id)
                     if (!u) return null
                     return (
-                      <span key={id} className={cn('flex items-center gap-1 text-[11px] pl-1.5 pr-1 py-0.5 rounded-full', PILL.sky)}>
+                      <span key={id} className="flex items-center gap-1 text-[11px] pl-1.5 pr-1 py-0.5 rounded-full bg-primary/10 text-primary-on-surface">
                         <span className="truncate max-w-[120px]">{u.name}</span>
                         <button
                           type="button"
@@ -1632,7 +1643,7 @@ export default function AgendaPage() {
                             <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: coresTipoEvento(ev.tipo, isDark).borda }} />
                             <span className="text-[11px] text-muted-foreground">{dataHoje}</span>
                           </div>
-                          <div className={cn('flex items-center gap-1 text-[11px] shrink-0', TEXT.sky)}>
+                          <div className="flex items-center gap-1 text-[11px] shrink-0 text-primary-on-surface">
                             <Clock className="h-3 w-3" />
                             {ev.diaInteiro ? 'Dia inteiro' : `${ev.horaInicio} às ${ev.horaFim}`}
                           </div>
@@ -1670,7 +1681,7 @@ export default function AgendaPage() {
         <div className="flex-1 min-w-0 flex flex-col">
           {/* Botões mobile (visíveis apenas em telas menores) */}
           <div className="mb-3 flex flex-wrap items-center gap-2 xl:hidden">
-            <Button size="sm" className="h-9 gap-1.5 bg-sky-500 text-white hover:bg-sky-600" onClick={() => openNewEvent()}>
+            <Button size="sm" className="h-9 gap-1.5" onClick={() => openNewEvent()}>
               <Plus className="h-4 w-4" />Novo Evento
             </Button>
             <Select value={filtroTipo || '__all__'} onValueChange={v => setFiltroTipo(v === '__all__' ? '' : v)}>
@@ -1730,8 +1741,8 @@ export default function AgendaPage() {
                       'border-b border-r last:border-r-0 p-1 transition-all cursor-pointer overflow-hidden flex flex-col min-h-0',
                       isCurrentMonth && !isPast && 'hover:bg-muted/20',
                       isCurrentMonth && isPast && 'bg-muted/30 dark:bg-muted/10',
-                      today && 'bg-sky-50/50 dark:bg-sky-950/20',
-                      dropTargetDay === dateStr && 'bg-sky-100 dark:bg-sky-900/30 ring-2 ring-inset ring-sky-400',
+                      today && 'bg-primary/5',
+                      dropTargetDay === dateStr && 'bg-primary/10 ring-2 ring-inset ring-primary/60',
                     )}
                     // Listras diagonais discretas pra dias dos meses adjacentes — sinal
                     // visual de "fora do mês corrente". Mesmo padrão funciona em light/dark.
@@ -1768,7 +1779,7 @@ export default function AgendaPage() {
                       <div className="flex h-full flex-col items-center gap-1 pt-0.5">
                         <span className={cn(
                           'flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-medium',
-                          today && 'bg-sky-500 text-white',
+                          today && 'bg-primary text-primary-foreground',
                           isPast && !today && isCurrentMonth && 'text-muted-foreground/60',
                           !isCurrentMonth && 'text-muted-foreground/50',
                         )}>{dayNum}</span>
@@ -1792,7 +1803,7 @@ export default function AgendaPage() {
                       <>
                         <div className={cn(
                           'text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full shrink-0',
-                          today && 'bg-sky-500 text-white',
+                          today && 'bg-primary text-primary-foreground',
                           isPast && !today && isCurrentMonth && 'text-muted-foreground/60',
                           !isCurrentMonth && 'text-muted-foreground/50',
                         )}>
@@ -1909,7 +1920,7 @@ export default function AgendaPage() {
                         {dayEvents.length > 3 && (
                           <button
                             type="button"
-                            className={cn('shrink-0 mt-[10px] text-[10px] hover:text-sky-700 dark:hover:text-sky-300 hover:underline pl-1.5 font-medium cursor-pointer w-full text-left leading-none', TEXT.sky)}
+                            className="shrink-0 mt-[10px] text-[10px] hover:underline pl-1.5 font-medium cursor-pointer w-full text-left leading-none text-primary-on-surface"
                             onClick={(e) => {
                               e.stopPropagation()
                               setDayModalDate(dateStr)
@@ -1946,7 +1957,7 @@ export default function AgendaPage() {
                                   >
                                     {t.concluida
                                       ? <CheckSquare className={cn('h-3 w-3', TEXT.emerald)} />
-                                      : <Square className="h-3 w-3 text-muted-foreground group-hover/tk:text-sky-500" />}
+                                      : <Square className="h-3 w-3 text-muted-foreground group-hover/tk:text-emerald-500" />}
                                   </button>
                                   <span className={cn('truncate', t.concluida && 'line-through text-muted-foreground')}>
                                     {t.horaPrazo && <span className="text-[10px] text-muted-foreground mr-1 tabular-nums">{t.horaPrazo}</span>}
@@ -1988,7 +1999,7 @@ export default function AgendaPage() {
       {/* ============================================================ */}
       <Dialog open={dayModalOpen} onOpenChange={setDayModalOpen}>
         <DialogContent className={dayModalTarefas.length > 0 ? 'max-w-4xl' : 'max-w-2xl'}>
-          <DialogHeaderIcon icon={Calendar} color="sky">
+          <DialogHeaderIcon icon={Calendar}>
             <DialogTitle>
               {dayModalDate && (() => {
                 const d = parseDate(dayModalDate)
@@ -2090,7 +2101,7 @@ export default function AgendaPage() {
                             className="inline-flex items-center gap-1.5 text-[12px] bg-muted/60 border border-border/60 rounded-full pl-0.5 pr-2.5 py-0.5"
                             title={p.nome}
                           >
-                            <UserAvatar user={{ name: p.nome, image: p.image }} className="h-6 w-6 text-[9px] shrink-0" bg="bg-sky-500" />
+                            <UserAvatar user={{ name: p.nome, image: p.image }} className="h-6 w-6 text-[9px] shrink-0" bg="bg-primary" fg="text-primary-foreground" />
                             <span className="truncate max-w-[140px]">{p.nome}</span>
                           </span>
                         ))}
@@ -2115,7 +2126,7 @@ export default function AgendaPage() {
           {dayModalTarefas.length > 0 && (
             <aside className="space-y-2 md:border-l md:border-border md:pl-5">
               <div className="flex items-center gap-2">
-                <ListTodo className="h-4 w-4 text-sky-500" />
+                <ListTodo className="h-4 w-4 text-primary-on-surface" />
                 <span className="text-[13px] font-bold uppercase tracking-wide text-foreground">Tarefas</span>
                 <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
                   {dayModalTarefas.length}
@@ -2140,7 +2151,7 @@ export default function AgendaPage() {
                   >
                     {t.concluida
                       ? <CheckSquare className={cn('h-4 w-4', TEXT.emerald)} />
-                      : <Square className="h-4 w-4 text-muted-foreground group-hover/tk:text-sky-500" />}
+                      : <Square className="h-4 w-4 text-muted-foreground group-hover/tk:text-emerald-500" />}
                   </button>
                   <div className="min-w-0">
                     <p className={cn('text-[13px] leading-snug text-foreground', t.concluida && 'line-through text-muted-foreground')}>
@@ -2166,7 +2177,7 @@ export default function AgendaPage() {
               </Link>
             </Button>
             {dayModalDate >= formatDate(new Date()) && (
-              <Button size="sm" onClick={() => { setDayModalOpen(false); openNewEvent(dayModalDate) }} className="gap-1.5 bg-sky-500 hover:bg-sky-600 text-white">
+              <Button size="sm" onClick={() => { setDayModalOpen(false); openNewEvent(dayModalDate) }} className="gap-1.5">
                 <Plus className="h-3.5 w-3.5" />Novo evento
               </Button>
             )}
@@ -2321,7 +2332,7 @@ export default function AgendaPage() {
                                 <DropdownMenuItem key={t.id} onClick={() => alterarTipoEvento(t.id)} className="gap-2 text-xs">
                                   <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: coresTipoEvento(t, isDark).borda }} />
                                   <span className="flex-1">{t.nome}</span>
-                                  {t.id === ev.tipoId && <Check className="h-3.5 w-3.5 text-sky-500" />}
+                                  {t.id === ev.tipoId && <Check className="h-3.5 w-3.5 text-foreground" />}
                                 </DropdownMenuItem>
                               ))}
                             </DropdownMenuContent>
@@ -2364,7 +2375,7 @@ export default function AgendaPage() {
                           onClick={() => setViewTab(t.value as typeof viewTab)}
                           className={cn(
                             'px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5',
-                            viewTab === t.value ? cn('border-sky-500', TEXT.sky) : 'border-transparent text-muted-foreground hover:text-foreground'
+                            viewTab === t.value ? 'border-primary-on-surface text-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground'
                           )}
                         >
                           <t.icon className="h-3.5 w-3.5 shrink-0" />{t.label}
@@ -2418,7 +2429,7 @@ export default function AgendaPage() {
                             href={ev.link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={cn('inline-flex items-center gap-1.5 hover:underline truncate max-w-full', TEXT.sky)}
+                            className="inline-flex items-center gap-1.5 hover:underline truncate max-w-full text-primary-on-surface"
                           >
                             <span className="truncate">{ev.link}</span>
                             <ExternalLink className="h-3.5 w-3.5 shrink-0" />
@@ -2437,7 +2448,7 @@ export default function AgendaPage() {
                                   className="inline-flex items-center gap-1.5 pl-1 pr-2.5 py-0.5 rounded-full bg-muted/60 border border-border/60"
                                   title={nome}
                                 >
-                                  <UserAvatar user={{ name: nome, image: p.usuario?.image ?? null }} className="h-5 w-5 text-[9px] shrink-0" bg="bg-sky-500" />
+                                  <UserAvatar user={{ name: nome, image: p.usuario?.image ?? null }} className="h-5 w-5 text-[9px] shrink-0" bg="bg-primary" fg="text-primary-foreground" />
                                   <span className="text-[12px] font-medium truncate max-w-[160px] text-foreground">{nome}</span>
                                 </span>
                               )
@@ -2469,7 +2480,7 @@ export default function AgendaPage() {
                             // documento, e a hierarquia de títulos desequilibra o
                             // layout. Os marcadores de lista continuam vindo do
                             // RichContent, que é o que estava faltando.
-                            className="text-sm [&_*]:text-sm [&_a]:text-sky-600"
+                            className="text-sm [&_*]:text-sm"
                             html={ev.descricao}
                           />
                         </div>
@@ -2672,7 +2683,7 @@ export default function AgendaPage() {
                                 // `[&_*]:text-[12px]` achata o tamanho de todo
                                 // descendente de propósito (mesmo motivo do bloco
                                 // de descrição do evento, acima).
-                                className="rounded-md border border-border bg-background/40 p-2.5 max-h-44 overflow-y-auto nice-scrollbar break-words text-[12px] [&_*]:text-[12px] [&_p]:my-1 [&_ul]:my-1 [&_ul]:pl-4 [&_ol]:my-1 [&_ol]:pl-4 [&_a]:text-violet-600 dark:[&_a]:text-violet-400"
+                                className="rounded-md border border-border bg-background/40 p-2.5 max-h-44 overflow-y-auto nice-scrollbar break-words text-[12px] [&_*]:text-[12px] [&_p]:my-1 [&_ul]:my-1 [&_ul]:pl-4 [&_ol]:my-1 [&_ol]:pl-4"
                                 html={op.descricao}
                               />
                             </div>
@@ -2826,8 +2837,8 @@ export default function AgendaPage() {
 
                   {/* Campos especiais — regras configuráveis por tipo (Agenda › Configurações) */}
                   {temConfigEvento && (
-                    <div className="space-y-3 rounded-lg border bg-sky-50/50 dark:bg-sky-950/10 p-3">
-                      <p className={cn('text-[10px] font-medium', TEXT.sky)}>Configurações do evento</p>
+                    <div className="space-y-3 rounded-lg border bg-primary/5 p-3">
+                      <p className="text-[10px] font-medium text-primary-on-surface">Configurações do evento</p>
 
                       {/* Modalidade */}
                       {permiteModalidade && (
@@ -2839,8 +2850,8 @@ export default function AgendaPage() {
                             { v: 'ONLINE', l: 'Online', i: Video },
                             { v: 'HIBRIDO', l: 'Híbrido', i: Monitor },
                           ].map(({ v, l, i: I }) => (
-                            <label key={v} className={cn('flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors', form.presenca === v ? PILL.sky : 'hover:bg-muted/50')}>
-                              <input type="radio" name="presenca" checked={form.presenca === v} onChange={() => setForm(f => ({ ...f, presenca: v, ...(v === 'ONLINE' ? { salaId: '', sala: '' } : {}) }))} className="accent-sky-500" />
+                            <label key={v} className={cn('flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors', form.presenca === v ? 'bg-primary/10 text-primary-on-surface' : 'hover:bg-muted/50')}>
+                              <input type="radio" name="presenca" checked={form.presenca === v} onChange={() => setForm(f => ({ ...f, presenca: v, ...(v === 'ONLINE' ? { salaId: '', sala: '' } : {}) }))} className="accent-primary" />
                               <I className="h-3.5 w-3.5" />{l}
                             </label>
                           ))}
@@ -2863,7 +2874,7 @@ export default function AgendaPage() {
                                 key={s.id}
                                 className={cn(
                                   'flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors',
-                                  active ? PILL.sky : 'hover:bg-muted/50',
+                                  active ? 'bg-primary/10 text-primary-on-surface' : 'hover:bg-muted/50',
                                 )}
                               >
                                 <input
@@ -2871,7 +2882,7 @@ export default function AgendaPage() {
                                   name="sala-radio"
                                   checked={active}
                                   onChange={() => setForm(f => ({ ...f, salaId: s.id, sala: s.nome, local: '' }))}
-                                  className="accent-sky-500"
+                                  className="accent-primary"
                                 />
                                 <DoorOpen className="h-3.5 w-3.5" />{s.nome}
                               </label>
@@ -2881,7 +2892,7 @@ export default function AgendaPage() {
                           <label
                             className={cn(
                               'flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors',
-                              form.sala === 'Outro' ? PILL.sky : 'hover:bg-muted/50',
+                              form.sala === 'Outro' ? 'bg-primary/10 text-primary-on-surface' : 'hover:bg-muted/50',
                             )}
                           >
                             <input
@@ -2889,14 +2900,14 @@ export default function AgendaPage() {
                               name="sala-radio"
                               checked={form.sala === 'Outro'}
                               onChange={() => setForm(f => ({ ...f, salaId: '', sala: 'Outro' }))}
-                              className="accent-sky-500"
+                              className="accent-primary"
                             />
                             <MapPin className="h-3.5 w-3.5" />Outro local
                           </label>
                         </div>
                         {salasCadastradas.length === 0 && canManageConfig && (
                           <p className="text-[10px] text-muted-foreground">
-                            Nenhuma sala cadastrada. <Link href="/agenda/configuracoes" className={cn('hover:underline', TEXT.sky)}>Cadastrar agora</Link>
+                            Nenhuma sala cadastrada. <Link href="/agenda/configuracoes" className="hover:underline text-primary-on-surface">Cadastrar agora</Link>
                           </p>
                         )}
                       </div>
@@ -3139,7 +3150,7 @@ export default function AgendaPage() {
                         <TabsTrigger
                           key={t.value}
                           value={t.value}
-                          className="gap-2 px-4 py-2.5 text-xs font-medium whitespace-nowrap rounded-none border-b-2 -mb-px border-transparent text-muted-foreground transition-all hover:text-foreground hover:border-border data-[state=active]:border-sky-500 data-[state=active]:text-sky-600 dark:data-[state=active]:text-sky-400 data-[state=active]:shadow-none"
+                          className="gap-2 px-4 py-2.5 text-xs font-medium whitespace-nowrap rounded-none border-b-2 -mb-px border-transparent text-muted-foreground transition-all hover:text-foreground hover:border-border data-[state=active]:border-primary-on-surface data-[state=active]:text-primary-on-surface data-[state=active]:shadow-none"
                         >
                           <t.icon className="h-3.5 w-3.5 shrink-0" />{t.label}
                         </TabsTrigger>
@@ -3249,8 +3260,8 @@ export default function AgendaPage() {
                         {form.participanteIds.map(id => {
                           const u = usuarios.find(u => u.id === id)
                           return u ? (
-                            <span key={id} className={cn('flex items-center gap-1.5 text-[11px] pl-0.5 pr-2 py-0.5 rounded-full', PILL.sky)}>
-                              <UserAvatar user={{ name: u.name, image: u.image ?? null }} className="h-5 w-5 text-[8px] text-sky-700 dark:text-sky-400" bg="bg-sky-200 dark:bg-sky-800" />
+                            <span key={id} className="flex items-center gap-1.5 text-[11px] pl-0.5 pr-2 py-0.5 rounded-full bg-primary/10 text-primary-on-surface">
+                              <UserAvatar user={{ name: u.name, image: u.image ?? null }} className="h-5 w-5 text-[8px]" bg="bg-primary/20" fg="text-primary-on-surface" />
                               {u.name}
                               <button type="button" onClick={() => setForm(f => ({ ...f, participanteIds: f.participanteIds.filter(p => p !== id) }))} className="hover:text-red-500"><X className="h-3 w-3" /></button>
                             </span>
@@ -3637,7 +3648,7 @@ export default function AgendaPage() {
       {/* ============================================================ */}
       <Dialog open={tiposModalOpen} onOpenChange={setTiposModalOpen}>
         <DialogContent className="max-w-4xl">
-          <DialogHeaderIcon icon={Palette} color="sky">
+          <DialogHeaderIcon icon={Palette} color="slate">
             <DialogTitle>Tipos de Evento</DialogTitle>
             <DialogDescription>Cadastre e edite as categorias de eventos da agenda</DialogDescription>
           </DialogHeaderIcon>
@@ -3666,7 +3677,7 @@ export default function AgendaPage() {
                       onClick={() => openTipoEdit(t)}
                       className={cn(
                         'group w-full flex items-center justify-between gap-2 rounded-md border px-2.5 py-2 text-left cursor-pointer transition-colors hover:bg-muted/50',
-                        tipoEditando?.id === t.id && 'ring-2 ring-sky-500 bg-sky-50/50 dark:bg-sky-950/20',
+                        tipoEditando?.id === t.id && 'ring-2 ring-primary/80 bg-primary/10',
                       )}
                     >
                       <div className="flex items-center gap-2 min-w-0">
@@ -3793,7 +3804,7 @@ export default function AgendaPage() {
                     <div className="flex items-center justify-between">
                       <p className="text-[11px] font-semibold text-muted-foreground">Salas disponíveis para este tipo</p>
                       {tipoForm.salasPermitidas.length > 0 && (
-                        <button type="button" className={cn('text-[10px] hover:underline', TEXT.sky)} onClick={() => setTipoForm(f => ({ ...f, salasPermitidas: [] }))}>
+                        <button type="button" className="text-[10px] hover:underline text-primary-on-surface" onClick={() => setTipoForm(f => ({ ...f, salasPermitidas: [] }))}>
                           Liberar todas
                         </button>
                       )}
@@ -3805,7 +3816,7 @@ export default function AgendaPage() {
                     </p>
                     {salasCadastradas.filter(s => s.ativo).length === 0 ? (
                       <p className="text-[10px] text-muted-foreground italic">
-                        Nenhuma sala cadastrada. <Link href="/agenda/configuracoes" className={cn('hover:underline', TEXT.sky)}>Cadastrar</Link>
+                        Nenhuma sala cadastrada. <Link href="/agenda/configuracoes" className="hover:underline text-primary-on-surface">Cadastrar</Link>
                       </p>
                     ) : (
                       <div className="grid grid-cols-2 gap-1.5 pt-0.5">

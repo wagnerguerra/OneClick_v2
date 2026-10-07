@@ -5,11 +5,11 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@saas/ui'
 import { useAbasPermitidas } from './abas'
 
-const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
-
 /**
- * Pills de navegação do módulo, no mesmo desenho das páginas de detalhe
- * (orçamentos, clientes): cápsula arredondada, pill ativa na cor do módulo.
+ * Abas de navegação do módulo no estilo SUBLINHADO (o das abas padrão do
+ * sistema): ativa sublinhada e em primary-on-surface. De propósito diferente
+ * das sub-abas dentro das páginas (ex.: Integração), que usam a cápsula
+ * deslizante — assim os dois níveis não se confundem quando empilhados.
  *
  * Fica DENTRO de cada página, logo abaixo do cabeçalho — por isso é componente
  * e não parte do layout, que só consegue desenhar acima do conteúdo.
@@ -25,8 +25,8 @@ export function AbasAcessorias() {
   if (abas.length <= 1) return null
 
   return (
-    <div className="flex overflow-x-auto nice-scrollbar">
-      <div className="flex min-w-max gap-1.5 rounded-full border border-border bg-muted/40 p-1 shadow-sm">
+    <div className="flex overflow-x-auto nice-scrollbar rounded-t-md border-b border-border bg-muted/40">
+      <div className="flex min-w-max">
         {abas.map((a) => {
           const ativo = pathname === a.href || pathname.startsWith(`${a.href}/`)
           const Icone = a.icon
@@ -35,10 +35,11 @@ export function AbasAcessorias() {
               key={a.href}
               href={a.href}
               className={cn(
-                'flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors',
-                ativo ? 'bg-card shadow-sm' : 'text-foreground/60 hover:text-foreground',
+                '-mb-px flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-[13px] font-medium transition-colors',
+                ativo
+                  ? 'rounded-t-md border-primary-on-surface bg-card text-primary-on-surface shadow-[0_-1px_4px_rgba(0,0,0,0.06)] dark:shadow-[0_-1px_4px_rgba(0,0,0,0.3)]'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border',
               )}
-              style={ativo ? { color: MODULE_COLOR } : undefined}
             >
               <Icone className="h-3.5 w-3.5" />
               {a.label}

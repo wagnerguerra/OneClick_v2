@@ -126,8 +126,8 @@ export const STRONG: Record<ColorName, string> = {
 
 /** Texto colorido (claro -600 / escuro -400). */
 export const TEXT: Record<ColorName, string> = {
-  emerald: 'text-emerald-700 dark:text-emerald-500',
-  rose: 'text-rose-700 dark:text-rose-500',
+  emerald: 'text-emerald-600 dark:text-emerald-500',
+  rose: 'text-rose-600 dark:text-rose-500',
   amber: 'text-amber-700 dark:text-amber-300',
   sky: 'text-sky-600 dark:text-sky-400',
   indigo: 'text-indigo-600 dark:text-indigo-400',
@@ -139,9 +139,9 @@ export const TEXT: Record<ColorName, string> = {
   pink: 'text-pink-600 dark:text-pink-400',
   orange: 'text-orange-600 dark:text-orange-400',
   blue: 'text-blue-600 dark:text-blue-400',
-  red: 'text-red-600 dark:text-red-400',
+  red: 'text-red-600 dark:text-red-500',
   purple: 'text-purple-600 dark:text-purple-400',
-  slate: 'text-slate-600 dark:text-slate-400',
+  slate: 'text-slate-500 dark:text-slate-300',
 }
 
 /**
@@ -165,7 +165,7 @@ export const SURFACE: Record<ColorName, string> = {
   blue: 'bg-blue-100 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800',
   red: 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800',
   purple: 'bg-purple-50 border-purple-200 dark:bg-purple-950/30 dark:border-purple-800',
-  slate: 'bg-slate-50 border-slate-200 dark:bg-slate-800/50 dark:border-slate-700',
+  slate: 'bg-slate-200/70 border-slate-300 dark:bg-slate-800/50 dark:border-slate-600',
 }
 
 /** Cor da borda apenas (a largura `border`/`border-2` fica no layout). */
@@ -216,8 +216,7 @@ export const DOT: Record<ColorName, string> = {
  * Preenchimento SÓLIDO de área: barra de progresso, medidor, célula/faixa colorida.
  * Hoje é o mesmo tom do `DOT` (`bg-<c>-500`), mas papel à parte de propósito — a
  * intenção é distinta (preencher vs. pontuar) e os dois podem divergir de shade no
- * futuro sem quebrar quem usa. Sob `.mod-<slug>`, o `bg-<c>-500` da cor do módulo
- * retinge pro `var(--mod-<slug>)` (fill vira a cor do módulo). NÃO usar em texto/borda.
+ * futuro sem quebrar quem usa. NÃO usar em texto/borda.
  */
 export const FILL: Record<ColorName, string> = {
   pink: 'bg-pink-500',

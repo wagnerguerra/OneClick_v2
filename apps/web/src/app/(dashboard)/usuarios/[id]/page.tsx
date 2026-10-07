@@ -24,7 +24,7 @@ import { numeroParaMoeda } from '@/lib/masks'
 import { useTabLabel } from '@/hooks/use-tab-label'
 import { resolveAssetUrl } from '@/lib/api-url'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // emerald (Cadastros)
+const PRIMARY = 'var(--color-primary)'
 
 interface UserProfile {
   id: string
@@ -144,7 +144,7 @@ export default function UserProfilePage() {
         actions={<>
           <Button
             size="sm"
-            style={{ backgroundColor: MODULE_COLOR }}
+            style={{ backgroundColor: PRIMARY }}
             className="gap-1.5 text-white"
             onClick={() => router.push(`/usuarios/${params.id}/editar`)}
           >
@@ -174,7 +174,7 @@ export default function UserProfilePage() {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={resolveAssetUrl(user.coverImage)} alt="" className="absolute inset-0 h-full w-full object-cover" />
           ) : (
-            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR} 0%, var(--color-primary) 100%)` }} />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${PRIMARY} 0%, var(--color-primary) 100%)` }} />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
           <div className="relative z-10 px-5 pb-5 pt-24 text-white sm:px-6 sm:pt-28">
@@ -377,7 +377,7 @@ export default function UserProfilePage() {
                             <button
                               type="button"
                               className="hover:underline text-left"
-                              style={{ color: MODULE_COLOR }}
+                              style={{ color: PRIMARY }}
                               onClick={() => router.push(`/clientes/${c.clienteId}`)}
                             >
                               {c.razaoSocial}

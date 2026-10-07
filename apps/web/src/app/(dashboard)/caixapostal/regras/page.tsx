@@ -464,8 +464,8 @@ export default function CaixaPostalRegrasPage() {
               <CollapsibleTrigger asChild>
                 <button className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-muted/30 transition-colors rounded-lg">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-indigo-50 dark:bg-indigo-900/20">
-                      <Zap className={cn('h-4 w-4', TEXT.indigo)} />
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                      <Zap className="h-4 w-4 text-primary" />
                     </div>
                     <div>
                       <h3 className="text-sm font-semibold">Regras do Sistema</h3>

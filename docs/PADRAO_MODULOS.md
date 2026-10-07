@@ -26,83 +26,31 @@ apps/web/src/app/(dashboard)/{modulo}/
 
 ## Tipografia
 
-Títulos seguem o CSS global (`globals.css`):
-
-```css
-h1 { font-size: 24px; line-height: 1.2; font-weight: 400; letter-spacing: 0.5px; color: rgb(18, 52, 77); }
-h2 { font-size: 20px; line-height: 30px; }
-h3 { font-size: 16px; line-height: 24px; }
-```
+Títulos seguem o CSS global (`globals.css`): `h1`/`h2`/`h3` com tamanho próprio e
+cor `var(--color-foreground)` (segue o tema).
 
 **REGRA**: Usar `<h1>` puro sem classes inline nos títulos de página. O estilo vem do CSS global.
+Sobre faixa colorida, ponha a cor (ex.: `text-white`) no próprio título — o global vence a herança.
 
 ---
 
 ## Header de Página (padrão global)
 
-### Listagem
+O topo de toda listagem e de todo formulário é a `<PageHeaderBar>` — estrutura,
+trilha e ordem das ações em [`PADRAO_PAGINAS.md`](PADRAO_PAGINAS.md) §1.1 e §3.1.
+Resumo:
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│ ┌────┐                                                       │
-│ │ 🔷 │  Título do Módulo                  [➕ Novo ...]  [⋮] │
-│ │icon│  Descrição do módulo                                  │
-│ └────┘                                                       │
-└──────────────────────────────────────────────────────────────┘
-```
-
-- **Ícone**: quadrado 48x48 (`h-12 w-12`), `rounded-[4px]`, cor sólida do grupo (sem degradê), `shadow-md`
-- **Título**: `<h1>` puro (sem classes)
-- **Descrição**: `<p className="text-sm text-muted-foreground">`
-- **Botão Novo**: `variant="success" size="sm"` com ícone `Plus`
-- **Menu ⋮**: `DropdownMenu` com `MoreVertical` icon (`variant="outline" size="icon-sm"`)
-  - Importar (ícone `FileUp`)
-  - Exportar (ícone `FileDown`)
-- **SEM botão Voltar** na listagem
-
-### Formulário (Create/Edit)
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│ ┌────┐                                                       │
-│ │ 🔷 │  Título                       [💾 Salvar]  [← Voltar] │
-│ │icon│  #código — Nome do registro                           │
-│ └────┘                                                       │
-└──────────────────────────────────────────────────────────────┘
-```
-
-- **Ícone**: quadrado com degradê diagonal (`bg-gradient-to-br from-[cor] to-[cor]`), `shadow-md`
-- **Subtítulo** (edit): `#código — Nome do registro`
-- **Salvar**: `variant="success" size="sm"` com ícone `Save` — texto fixo "Salvar"
-- **Voltar**: `variant="outline" size="sm"` com ícone `ArrowLeft` — **sempre último da direita**
-- **Botões ficam no header, NÃO dentro do Card nem no rodapé**
-
-### Props do formulário:
-```tsx
-<ModuloForm
-  mode="create" | "edit"
-  title="Editar Cargo"
-  description="#10 — Analista de Sistemas"
-  icon={<Briefcase className="h-6 w-6" />}
-  iconBg="from-emerald-500 to-emerald-600"
-  defaultValues={...}
-  linkedUsers={[...]}  // sidebar colaboradores (edit only)
-  events={[...]}       // sidebar eventos (edit only)
-/>
-```
-
----
-
-## Cores de ícone por GRUPO
-
-| Grupo | Cor sólida (listagem) | Degradê (form) |
-|-------|----------------------|-----------------|
-| **Cadastros** | `bg-emerald-500` | `from-emerald-500 to-emerald-600` |
-| **Corporativo** | `bg-sky-500` | `from-sky-500 to-sky-600` |
-| **Qualidade** | `bg-amber-500` | `from-amber-500 to-amber-600` |
-| **Configurações** | `bg-orange-700` | `from-orange-700 to-orange-800` |
-
-> **REGRA**: Listagem usa cor sólida. Formulário usa degradê. Nunca cores individuais por módulo.
+- **Título**: `<h1>` puro (sem classes) + trilha `Página inicial › Bloco › Módulo`.
+- **Sem caixa de ícone colorido** ao lado do título (o antigo ícone 48px na cor do
+  grupo saiu; a cor do módulo não entra no conteúdo — ver
+  [`PADRAO_CORES_E_TEMA.md`](PADRAO_CORES_E_TEMA.md) §6).
+- **Listagem**: "+ Novo…" primeiro (`<Button size="sm">` padrão = primária — ele só
+  abre o formulário), depois as secundárias e o menu `⋮` por último
+  (`variant="outline" size="icon-sm"`, com Importar/Exportar). Sem botão Voltar.
+- **Formulário (create/edit)**: "Salvar" `variant="success" size="sm"` com ícone
+  `Save`; `<BackButton>` sempre por último (só ícone, porque divide espaço com o
+  Salvar). Subtítulo do edit: `#código — Nome do registro`.
+- **Botões ficam no header, NÃO dentro do Card nem no rodapé.**
 
 ---
 
@@ -116,7 +64,7 @@ h3 { font-size: 16px; line-height: 24px; }
 - Info "Mostrando X a Y de Z registros"
 - Loading spinner dentro da tabela
 - Linha clicável abre edição
-- Delete com SweetAlert (`alerts.confirmDelete`)
+- Delete com SweetAlert (`alerts.confirmDelete`, ou `alerts.confirm({ …, destructive: true })`)
 - Colunas responsivas (`hidden sm:table-cell`, `hidden md:table-cell`)
 - **NÃO incluir coluna Status** — gerenciado apenas no formulário
 - **Tabela com `table-fixed`** para travar larguras das colunas
@@ -172,7 +120,7 @@ h3 { font-size: 16px; line-height: 24px; }
 - Selects opcionais: `value="__none__"` como placeholder
 - SweetAlert após salvar ou em erro
 - Campos de texto formatado: `<RichEditor />` (TipTap)
-- Campos de formulário usam `bg-card` (não `bg-background`)
+- Campos de formulário **sem** `bg-*`/`border-*` — herdam fundo e borda do `globals.css`
 
 ### Rich Text Editor (TipTap):
 - Componente: `@saas/ui` → `<RichEditor value={} onChange={} />`
@@ -301,9 +249,9 @@ export function createXxxRouter(service: XxxService) {
 
 | Contexto | Variante | Tamanho | Ícone |
 |----------|----------|---------|-------|
-| Criar registro | `success` | `sm` | `Plus` |
-| Salvar formulário | `success` | `sm` | `Save` |
-| Voltar (formulário) | `outline` | `sm` | `ArrowLeft` |
+| "+ Novo…" (abre o formulário) | `default` (primária) | `sm` | `Plus` |
+| Salvar / Criar que conclui | `success` | `sm` | `Save` |
+| Voltar | `<BackButton>` (componente) | — | — |
 | Menu ⋮ (listagem) | `outline` | `icon-sm` | `MoreVertical` |
 | Editar (tabela) | `soft-info` | `icon-sm` | `Pencil` |
 | Excluir (tabela) | `soft-destructive` | `icon-sm` | `Trash2` |
@@ -343,8 +291,8 @@ alerts.error('Erro', 'Não foi possível realizar a operação.')
 - Shadows: `shadow-[0_1px_2px_rgba(0,0,0,0.04)]` (mínimo)
 - Table header: `bg-muted/40`, `uppercase`, `tracking-wider`, `text-xs`, `font-semibold`
 - Toolbar/footer: `bg-muted/20`, `border-border/60`
-- Transições: `transition-all duration-200`
+- Transições: `transition-colors`/`transition-opacity` etc. escopadas — nunca `transition-all` em container (anima a cor herdada e atrasa o texto ao trocar o tema)
 - Sidebar: sempre dark mode
-- Inputs/Selects/RichEditor: `bg-card` (não `bg-background`)
+- Inputs/Selects/RichEditor: fundo e borda vêm do `globals.css` — **nunca** `bg-*`/`border-*` no campo (ver `PADRAO_CORES_E_TEMA.md`)
 - Inputs focus: `border-primary ring-1 ring-primary` (sem ring-offset)
 - Títulos h1: sem classes inline, estilo global via CSS

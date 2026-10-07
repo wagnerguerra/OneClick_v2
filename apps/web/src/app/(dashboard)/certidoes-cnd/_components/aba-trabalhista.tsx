@@ -21,7 +21,7 @@ export function AbaTrabalhista({ refreshKey }: { refreshKey: number }) {
       nome="CNDT" icon={FileText} refreshKey={refreshKey} vazio="Nenhuma CNDT consultada"
       listar={listar} totais={totais}
       indicadores={t => [
-        { key: '', label: 'Total', count: t.total ?? 0, cor: STATUS_COR.modulo, icon: Shield },
+        { key: '', label: 'Total', count: t.total ?? 0, cor: STATUS_COR.primaria, icon: Shield },
         { key: 'negativa', label: 'Negativas', count: t.negativas ?? 0, cor: STATUS_COR.emerald, icon: CheckCircle2 },
         { key: 'positiva', label: 'Positivas', count: t.positivas ?? 0, cor: STATUS_COR.amber, icon: AlertTriangle },
         { key: 'nao_emitida', label: 'Não emitidas', count: t.naoEmitidas ?? 0, cor: STATUS_COR.red, icon: XCircle },

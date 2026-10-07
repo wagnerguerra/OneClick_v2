@@ -118,6 +118,22 @@ export const ORCAMENTO_STATUS_LABELS: Record<OrcamentoStatusValue, string> = {
 }
 
 /**
+ * Cor (hex) de cada status — fonte única para gráficos, bolinhas e badges com
+ * cor inline (listagem, detalhe, relatórios e Painel Comercial). Mesmo padrão
+ * do `CONTRATO_STATUS_COLORS`.
+ */
+export const ORCAMENTO_STATUS_COLORS: Record<OrcamentoStatusValue, string> = {
+  NOVO: '#818cf8',       // indigo
+  A_ENVIAR: '#94a3b8',   // slate
+  ENVIADO: '#3b82f6',    // blue
+  APROVADO: '#10b981',   // emerald
+  LIBERADO: '#059669',   // emerald escuro
+  FINALIZADO: '#1e293b', // slate escuro
+  ENCERRADO: '#ef4444',  // red
+  CANCELADO: '#64748b',  // slate médio
+}
+
+/**
  * Campos do relatório de orçamentos — fonte única para a tela (escolha dos
  * campos) e para o servidor (cabeçalho do xlsx/csv/pdf). Serve ao "Relatório
  * da coluna" do kanban e à exportação da lista. Campo novo entra AQUI.

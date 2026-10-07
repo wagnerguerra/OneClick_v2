@@ -305,6 +305,7 @@ export function useTicketForm(opts: {
       text: 'O que você digitou neste ticket será apagado.',
       confirmText: 'Descartar',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     limparRascunho()

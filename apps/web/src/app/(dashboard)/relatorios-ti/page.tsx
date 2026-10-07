@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   NotebookPen, Plus, ChevronLeft, ChevronRight, Loader2, Paperclip,
   FileText, Download, Trash2, Pencil, Send, AlertCircle, Settings, Megaphone, EyeOff, Eye, FolderUp, X,
+  ExternalLink,
 } from 'lucide-react'
 import {
   Button, Card, Input, Label, cn, Checkbox,
@@ -24,7 +25,7 @@ import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { useUrlPdf } from '../ferramentas/_components/baixar'
 import { ImportarModal } from './_components/importar-modal'
 
-const MODULE_COLOR = 'var(--mod-ti, #22d3ee)'
+const PRIMARY = 'var(--color-primary)'
 
 interface Autor { id: string; name: string; image?: string | null }
 
@@ -271,7 +272,7 @@ export default function RelatoriosTiPage() {
   }
 
   async function salvarNovidade() {
-    if (!novTitulo.trim()) { await alerts.warning('Novidade', 'Informe o titulo.'); return }
+    if (!novTitulo.trim()) { await alerts.warning('Novidade', 'Informe o título.'); return }
     setSalvandoNov(true)
     try {
       const base = {
@@ -288,7 +289,7 @@ export default function RelatoriosTiPage() {
       setNovModal(null)
       await carregarNovidades()
     } catch (e) {
-      await alerts.error('Nao foi possivel salvar', (e as Error).message)
+      await alerts.error('Não foi possível salvar', (e as Error).message)
     } finally {
       setSalvandoNov(false)
     }
@@ -299,7 +300,7 @@ export default function RelatoriosTiPage() {
       await (trpc.relatorioTi as any).despublicarNovidade.mutate({ id })
       await carregarNovidades()
     } catch (e) {
-      await alerts.error('Nao foi possivel despublicar', (e as Error).message)
+      await alerts.error('Não foi possível despublicar', (e as Error).message)
     }
   }
 
@@ -315,7 +316,7 @@ export default function RelatoriosTiPage() {
       await (trpc.relatorioTi as any).atualizarNovidade.mutate({ id, ativo: true })
       await carregarNovidades()
     } catch (e) {
-      await alerts.error('Nao foi possivel publicar', (e as Error).message)
+      await alerts.error('Não foi possível publicar', (e as Error).message)
     }
   }
 
@@ -497,6 +498,7 @@ export default function RelatoriosTiPage() {
       text: `"${r.titulo}" sai do histórico. Novidades já publicadas a partir dele continuam no ar.`,
       icon: 'warning',
       confirmText: 'Excluir',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -620,8 +622,8 @@ export default function RelatoriosTiPage() {
                 <div className="flex items-center justify-between">
                   <span className={cn(
                     'inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-[12px] tabular-nums',
-                    ehHoje ? 'font-bold text-white' : doMes ? 'font-medium text-foreground' : 'text-muted-foreground',
-                  )} style={ehHoje ? { backgroundColor: MODULE_COLOR } : undefined}>
+                    ehHoje ? 'font-bold text-primary-foreground' : doMes ? 'font-medium text-foreground' : 'text-muted-foreground',
+                  )} style={ehHoje ? { backgroundColor: PRIMARY } : undefined}>
                     {d.getDate()}
                   </span>
                   <span className="flex items-center gap-1">
@@ -672,20 +674,25 @@ export default function RelatoriosTiPage() {
           percorrer o que a equipe entregou, e voltar à lista a cada relatório
           quebraria justamente esse percurso. */}
       <Sheet open={!!diaAberto} onOpenChange={o => { if (!o) setDiaAberto(null) }}>
+        {/* border-l-0: a borda de 1px do Sheet fica FORA da área recortada, então a
+            faixa em gradiente não a cobre e sobrava um fio à esquerda do cabeçalho.
+            A sombra do Sheet já separa o painel do fundo. */}
         <SheetContent side="right" size="xl" hideClose
-          className="flex w-full sm:w-[80vw] max-w-[1280px] flex-col overflow-hidden p-0">
+          className="flex w-full sm:w-[80vw] max-w-[1280px] flex-col overflow-hidden border-l-0 p-0">
           <SheetTitle className="sr-only">Relatórios do dia</SheetTitle>
           <SheetDescription className="sr-only">
             Lista dos relatórios do dia, com a prévia do escolhido ao lado.
           </SheetDescription>
 
-          {/* Faixa em gradiente da cor do módulo, como no detalhe do helpdesk —
+          {/* Faixa em gradiente da cor primária, como no detalhe do helpdesk —
               é o que diz, de relance, em que assunto a pessoa entrou. */}
           <div className="flex items-start gap-3 px-6 py-4 text-white"
-            style={{ background: `linear-gradient(120deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 55%, #6366f1))` }}>
+            style={{ background: `linear-gradient(120deg, ${PRIMARY}, color-mix(in srgb, ${PRIMARY} 55%, #6366f1))` }}>
             <div className="min-w-0 flex-1">
               <p className="text-[11px] uppercase tracking-[.14em] opacity-80">Relatórios da TI</p>
-              <h2 className="truncate text-xl font-bold capitalize">
+              {/* text-white explícito: o global pinta h1/h2/h3 com o texto do tema,
+                  que venceria a herança e escureceria o título sobre a faixa no light. */}
+              <h2 className="truncate text-xl font-bold capitalize text-white">
                 {diaAberto && new Date(`${diaAberto}T12:00:00`).toLocaleDateString('pt-BR', {
                   weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
                 })}
@@ -705,13 +712,13 @@ export default function RelatoriosTiPage() {
               )}
               {podeGerarPdf && doDia.length > 0 && (
                 pdfDoDia ? (
-                  <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <Button asChild variant="secondary" size="sm" className="gap-1.5">
                     <a href={urlPdfDoDia} download={pdfDoDia.nome}>
                       <Download className="h-4 w-4" /> Baixar o PDF
                     </a>
                   </Button>
                 ) : (
-                  <Button variant="outline" size="sm" className="gap-1.5" onClick={gerarPdf} disabled={gerando}>
+                  <Button variant="secondary" size="sm" className="gap-1.5" onClick={gerarPdf} disabled={gerando}>
                     {gerando ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
                     Gerar PDF
                   </Button>
@@ -771,7 +778,7 @@ export default function RelatoriosTiPage() {
                       'w-full rounded-lg border px-2.5 py-2 text-left transition-colors',
                       ativo ? 'border-transparent bg-background shadow-sm' : 'border-border/60 hover:bg-background/70',
                     )}
-                    style={ativo ? { boxShadow: `0 0 0 2px ${MODULE_COLOR}` } : undefined}
+                    style={ativo ? { boxShadow: `0 0 0 2px ${PRIMARY}` } : undefined}
                   >
                     <div className="flex items-center gap-2">
                       <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-[10px] font-bold">
@@ -820,7 +827,7 @@ export default function RelatoriosTiPage() {
                     {selecionado.formato === 'ANEXO' && (
                       <Button asChild variant="outline" size="sm" className="gap-1.5">
                         <a href={`${getApiUrl()}/api/relatorios-ti/arquivo/${selecionado.id}`} target="_blank" rel="noreferrer">
-                          <Download className="h-3.5 w-3.5" /> Nova aba
+                          <ExternalLink className="h-3.5 w-3.5" /> Abrir em nova aba
                         </a>
                       </Button>
                     )}
@@ -911,7 +918,7 @@ export default function RelatoriosTiPage() {
                 <button key={o.v} type="button" onClick={() => setFormatoForm(o.v)}
                   className={cn('rounded-lg border px-3 py-2.5 text-left transition-colors',
                     formatoForm === o.v ? 'bg-muted/40' : 'border-border hover:bg-muted/20')}
-                  style={formatoForm === o.v ? { borderColor: MODULE_COLOR } : undefined}>
+                  style={formatoForm === o.v ? { borderColor: PRIMARY } : undefined}>
                   <span className="block text-[13px] font-semibold">{o.t}</span>
                   <span className="mt-0.5 block text-[11px] text-muted-foreground">{o.d}</span>
                 </button>
@@ -960,7 +967,7 @@ export default function RelatoriosTiPage() {
       {/* ── Novidades publicadas ── */}
       <Dialog open={novidadesOpen} onOpenChange={o => { if (!o) setNovidadesOpen(false) }}>
         <DialogContent className="max-w-3xl">
-          <DialogHeaderIcon icon={Megaphone} color="cyan">
+          <DialogHeaderIcon icon={Megaphone}>
             <DialogTitle>Novidades do painel</DialogTitle>
             <DialogDescription>
               O que os usuários veem no painel inicial. Sai do relatório, mas o texto é seu.

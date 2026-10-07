@@ -352,10 +352,10 @@ export class AdminService {
 
       // Validações
       if (key === 'CNPJ_CONTRATANTE' && value && !/^\d{14}$/.test(value.replace(/\D/g, ''))) {
-        throw new Error('CNPJ do contratante deve ter 14 digitos')
+        throw new Error('CNPJ do contratante deve ter 14 dígitos')
       }
       if (field.type === 'number' && value && isNaN(Number(value))) {
-        throw new Error(`${field.label} deve ser um numero`)
+        throw new Error(`${field.label} deve ser um número`)
       }
 
       updates.set(key, value)
@@ -914,10 +914,10 @@ oc/
 
   async deleteBackup(filename: string) {
     if (!filename || filename.includes('..') || !filename.endsWith('.zip')) {
-      throw new Error('Nome de arquivo invalido')
+      throw new Error('Nome de arquivo inválido')
     }
     const filepath = path.join(this.getBackupDir(), filename)
-    if (!fs.existsSync(filepath)) throw new Error('Arquivo nao encontrado')
+    if (!fs.existsSync(filepath)) throw new Error('Arquivo não encontrado')
     fs.unlinkSync(filepath)
     return { ok: true, filename }
   }

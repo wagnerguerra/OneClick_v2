@@ -12,7 +12,7 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
-import { MODULE_COLOR, formatDoc } from '../_lib/ui'
+import { formatDoc } from '../_lib/ui'
 
 export interface CndRecord {
   id: string
@@ -131,7 +131,7 @@ export function FederalPdfDialog({ record, abaInicial, onClose }: { record: CndR
   return (
     <Dialog open={!!record} onOpenChange={o => { if (!o) onClose() }}>
       <DialogContent className="flex h-[90vh] max-w-5xl flex-col">
-        <DialogHeaderIcon icon={FileOutput} accentColor={MODULE_COLOR}>
+        <DialogHeaderIcon icon={FileOutput}>
           <DialogTitle className="truncate">{record?.razaoSocial || 'Certidão'}</DialogTitle>
           <DialogDescription>{record ? formatDoc(record.documento) : ''}{record?.tipoCertidao ? ` · ${record.tipoCertidao}` : ''}</DialogDescription>
         </DialogHeaderIcon>
@@ -141,8 +141,7 @@ export function FederalPdfDialog({ record, abaInicial, onClose }: { record: CndR
             <button key={v} type="button"
               onClick={() => { setAba(v); if (v === 'sitfis' && !sitfisUrl && !sitfisLoading && !sitfisErro) carregarSitfis() }}
               className={cn('-mb-px flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-xs font-medium transition-colors',
-                aba === v ? 'text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground')}
-              style={aba === v ? { borderColor: MODULE_COLOR } : undefined}>
+                aba === v ? 'border-primary-on-surface text-primary-on-surface' : 'border-transparent text-muted-foreground hover:text-foreground')}>
               <Icon className="h-3.5 w-3.5" />{l}{carregando && <Loader2 className="h-3 w-3 animate-spin" />}
             </button>
           ))}

@@ -181,7 +181,9 @@ export function RichEditor({
       TableKit.configure({ table: { resizable: false } }),
       Link.configure({
         openOnClick: false,
-        HTMLAttributes: { class: 'text-primary underline' },
+        // Primária legível sobre a superfície (tom claro no dark). O RichContent
+        // aplica a mesma cor ao exibir, inclusive em HTML salvo com a classe antiga.
+        HTMLAttributes: { class: 'text-primary-on-surface underline' },
       }),
       // inline:true coloca a imagem como filha de <p>, permitindo que o TextAlign
       // (configurado pra 'paragraph') centralize/alinhe a imagem via text-align

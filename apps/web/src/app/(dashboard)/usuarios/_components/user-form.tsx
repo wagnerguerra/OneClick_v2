@@ -22,7 +22,7 @@ import { cn } from '@saas/ui'
 import { TEXT, BADGE, STRONG } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
-import { MODULE_ICONS, GROUP_ICONS } from '@/lib/navigation'
+import { MODULE_ICONS, GROUP_ICONS, groupModuleColorVar } from '@/lib/navigation'
 import { masks, moedaParaNumero, numeroParaMoeda, dataParaISO, isoParaData } from '@/lib/masks'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -38,79 +38,23 @@ interface UserFormProps {
   defaultValues?: Partial<CreateUserInput> & { isMaster?: boolean; permissions?: PermissionInput[] }
 }
 
-// Cores por grupo de permissões
-const GROUP_COLORS: Record<string, {
-  bar: string; title: string; toggle: string; icon: string
-  activeBg: string; activeBorder: string
-  hoverBg: string; hoverBorder: string; decoration: string
-}> = {
-  'Cadastros': {
-    bar: 'bg-emerald-500', title: TEXT.emerald, toggle: 'bg-emerald-500', icon: TEXT.emerald,
-    activeBg: 'bg-emerald-50 dark:bg-emerald-950/30', activeBorder: 'border-emerald-200 dark:border-emerald-800/50',
-    hoverBg: 'hover:bg-emerald-50/50 dark:hover:bg-emerald-950/10', hoverBorder: 'hover:border-emerald-200/60',
-    decoration: 'decoration-emerald-400/40',
-  },
-  'Comercial': {
-    bar: 'bg-sky-500', title: TEXT.sky, toggle: 'bg-sky-500', icon: TEXT.sky,
-    activeBg: 'bg-sky-50 dark:bg-sky-950/30', activeBorder: 'border-sky-200 dark:border-sky-800/50',
-    hoverBg: 'hover:bg-sky-50/50 dark:hover:bg-sky-950/10', hoverBorder: 'hover:border-sky-200/60',
-    decoration: 'decoration-sky-400/40',
-  },
-  'Administrativo': {
-    bar: 'bg-indigo-500', title: TEXT.indigo, toggle: 'bg-indigo-500', icon: TEXT.indigo,
-    activeBg: 'bg-indigo-50 dark:bg-indigo-950/30', activeBorder: 'border-indigo-200 dark:border-indigo-800/50',
-    hoverBg: 'hover:bg-indigo-50/50 dark:hover:bg-indigo-950/10', hoverBorder: 'hover:border-indigo-200/60',
-    decoration: 'decoration-indigo-400/40',
-  },
-  'Legalização': {
-    bar: 'bg-violet-500', title: TEXT.violet, toggle: 'bg-violet-500', icon: TEXT.violet,
-    activeBg: 'bg-violet-50 dark:bg-violet-950/30', activeBorder: 'border-violet-200 dark:border-violet-800/50',
-    hoverBg: 'hover:bg-violet-50/50 dark:hover:bg-violet-950/10', hoverBorder: 'hover:border-violet-200/60',
-    decoration: 'decoration-violet-400/40',
-  },
-  'Trabalhista': {
-    bar: 'bg-teal-500', title: TEXT.teal, toggle: 'bg-teal-500', icon: TEXT.teal,
-    activeBg: 'bg-teal-50 dark:bg-teal-950/30', activeBorder: 'border-teal-200 dark:border-teal-800/50',
-    hoverBg: 'hover:bg-teal-50/50 dark:hover:bg-teal-950/10', hoverBorder: 'hover:border-teal-200/60',
-    decoration: 'decoration-teal-400/40',
-  },
-  'Fiscal': {
-    bar: 'bg-rose-500', title: TEXT.rose, toggle: 'bg-rose-500', icon: TEXT.rose,
-    activeBg: 'bg-rose-50 dark:bg-rose-950/30', activeBorder: 'border-rose-200 dark:border-rose-800/50',
-    hoverBg: 'hover:bg-rose-50/50 dark:hover:bg-rose-950/10', hoverBorder: 'hover:border-rose-200/60',
-    decoration: 'decoration-rose-400/40',
-  },
-  'Contábil': {
-    bar: 'bg-cyan-500', title: TEXT.cyan, toggle: 'bg-cyan-500', icon: TEXT.cyan,
-    activeBg: 'bg-cyan-50 dark:bg-cyan-950/30', activeBorder: 'border-cyan-200 dark:border-cyan-800/50',
-    hoverBg: 'hover:bg-cyan-50/50 dark:hover:bg-cyan-950/10', hoverBorder: 'hover:border-cyan-200/60',
-    decoration: 'decoration-cyan-400/40',
-  },
-  'TI': {
-    bar: 'bg-slate-500', title: TEXT.slate, toggle: 'bg-slate-500', icon: TEXT.slate,
-    activeBg: 'bg-slate-50 dark:bg-slate-950/30', activeBorder: 'border-slate-200 dark:border-slate-800/50',
-    hoverBg: 'hover:bg-slate-50/50 dark:hover:bg-slate-950/10', hoverBorder: 'hover:border-slate-200/60',
-    decoration: 'decoration-slate-400/40',
-  },
-  'Qualidade': {
-    bar: 'bg-amber-500', title: TEXT.amber, toggle: 'bg-amber-500', icon: TEXT.amber,
-    activeBg: 'bg-amber-50 dark:bg-amber-950/30', activeBorder: 'border-amber-200 dark:border-amber-800/50',
-    hoverBg: 'hover:bg-amber-50/50 dark:hover:bg-amber-950/10', hoverBorder: 'hover:border-amber-200/60',
-    decoration: 'decoration-amber-400/40',
-  },
-  'Configurações': {
-    bar: 'bg-orange-700', title: TEXT.orange, toggle: 'bg-orange-700', icon: TEXT.orange,
-    activeBg: 'bg-orange-50 dark:bg-orange-950/30', activeBorder: 'border-orange-200 dark:border-orange-800/50',
-    hoverBg: 'hover:bg-orange-50/50 dark:hover:bg-orange-950/10', hoverBorder: 'hover:border-orange-200/60',
-    decoration: 'decoration-orange-400/40',
-  },
-  'default': {
-    bar: 'bg-muted-foreground', title: 'text-foreground', toggle: 'bg-primary', icon: 'text-primary',
-    activeBg: 'bg-primary/[0.04]', activeBorder: 'border-primary/20',
-    hoverBg: 'hover:bg-muted/30', hoverBorder: 'hover:border-border',
-    decoration: 'decoration-primary/40',
-  },
+// Cores por grupo de permissões — DERIVADAS da cor de cada módulo (a mesma da
+// sidebar, `var(--mod-<slug>)`, editável em /admin/design-system). As classes
+// são fixas e leem a var `--gc`, que cada grupo define via `style` (ver
+// `estiloDoGrupo`). Mesma fonte da tela de permissões em massa. Grupo sem cor
+// de módulo cai na primária.
+const GC = {
+  title: 'text-[color:var(--gc)]',
+  icon: 'text-[color:var(--gc)]',
+  toggle: 'bg-[color:var(--gc)]',
+  activeBg: 'bg-[color-mix(in_oklab,var(--gc)_12%,transparent)]',
+  activeBorder: 'border-[color-mix(in_oklab,var(--gc)_40%,transparent)]',
+  hoverBg: 'hover:bg-[color-mix(in_oklab,var(--gc)_6%,transparent)]',
+  hoverBorder: 'hover:border-[color-mix(in_oklab,var(--gc)_30%,transparent)]',
+  decoration: 'decoration-[color-mix(in_oklab,var(--gc)_45%,transparent)]',
 }
+const estiloDoGrupo = (grupo: string) =>
+  ({ '--gc': groupModuleColorVar(grupo) ?? 'var(--color-primary)' }) as React.CSSProperties
 
 function RequiredMark() { return <span className="text-destructive ml-0.5">*</span> }
 
@@ -240,12 +184,12 @@ export function UserForm({ mode, userId, title, description, defaultValues }: Us
             identidade à esquerda e as abas na base. */}
         <div className="overflow-hidden rounded-2xl border border-border bg-card">
           <div className="relative overflow-hidden">
-            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR} 0%, var(--color-primary) 100%)` }} />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${PRIMARY} 0%, var(--color-primary) 100%)` }} />
             <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
             <div className="relative z-10 px-5 pb-5 pt-24 text-white sm:px-6 sm:pt-28">
               <div className="flex items-end gap-4">
                 <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-card shadow-lg ring-4 ring-white/50">
-                  <User className="h-10 w-10" style={{ color: MODULE_COLOR }} />
+                  <User className="h-10 w-10" style={{ color: PRIMARY }} />
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -312,7 +256,7 @@ export function UserForm({ mode, userId, title, description, defaultValues }: Us
 // Card principal com pills laterais (padrão Cadastros)
 // ============================================================
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // Cadastros = emerald
+const PRIMARY = 'var(--color-primary)'
 
 const USER_TABS = [
   { key: 'dados', label: 'Dados Pessoais', icon: User },
@@ -692,12 +636,12 @@ function UserDetailsCard({ activeTab, mode, userId, register, control, errors, a
                         grupo ficava cortado sem nada indicando que havia mais. */}
                     <div className="flex flex-wrap items-center gap-0 border-b px-2">
                       {Object.entries(MODULE_GROUPS).map(([groupName, slugs]) => {
-                        const gc = GROUP_COLORS[groupName] || GROUP_COLORS['default']!
+                        const gc = GC
                         const GroupIcon = GROUP_ICONS[groupName]
                         const activeCount = slugs.filter(s => permissionsMap[s]?.canRead).length
                         const isActiveGroup = permGroupTab === groupName
                         return (
-                          <button key={groupName} type="button" onClick={() => { setPermGroupTab(groupName); setPermSearchQuery('') }}
+                          <button key={groupName} type="button" style={estiloDoGrupo(groupName)} onClick={() => { setPermGroupTab(groupName); setPermSearchQuery('') }}
                             className={cn('flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium border-b-2 -mb-px whitespace-nowrap transition-colors',
                               isActiveGroup ? cn('border-current', gc.title) : 'border-transparent text-muted-foreground hover:text-foreground',
                             )}>
@@ -718,12 +662,12 @@ function UserDetailsCard({ activeTab, mode, userId, register, control, errors, a
                       {Object.entries(MODULE_GROUPS).map(([groupName, slugs]) => {
                         if (groupName !== permGroupTab) return null
                         const filtered = slugs
-                        const gc = GROUP_COLORS[groupName] || GROUP_COLORS['default']!
+                        const gc = GC
                         return (
                           // Colunas por largura disponível, não por breakpoint: em
                           // 1366px com a barra lateral aberta cabem duas, e o
                           // `lg:grid-cols-3` forçava três espremendo o card.
-                          <div key={groupName} className="grid gap-2 grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
+                          <div key={groupName} style={estiloDoGrupo(groupName)} className="grid gap-2 grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
                             {filtered.map((slug) => {
                               const Icon = MODULE_ICONS[slug]
                               const label = MODULE_LABELS[slug] ?? slug
@@ -1028,7 +972,7 @@ function ClientesVinculados({ userId }: { userId: string }) {
       })
       setImportResult(result)
       if (!dryRun && result.vinculados > 0) fetchData()
-      if (!dryRun) await alerts.success('Importacao concluida', `${result.vinculados} vinculo(s) importado(s).`)
+      if (!dryRun) await alerts.success('Importação concluída', `${result.vinculados} vínculo(s) importado(s).`)
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
     } finally { setImporting(false) }
@@ -1041,7 +985,7 @@ function ClientesVinculados({ userId }: { userId: string }) {
         <div className="flex items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => handleImportOneClick(true)} disabled={importing} className="gap-1.5 text-xs">
             {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ChevronDown className="h-3.5 w-3.5" />}
-            Previa OneClick
+            Prévia OneClick
           </Button>
           <Button type="button" variant="success" size="sm" onClick={() => handleImportOneClick(false)} disabled={importing} className="gap-1.5 text-xs">
             {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -1050,14 +994,14 @@ function ClientesVinculados({ userId }: { userId: string }) {
         </div>
         <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
           <Checkbox checked={onlyMyArea} onCheckedChange={v => setOnlyMyArea(v === true)} />
-          Somente a area deste usuario
+          Somente a área deste usuário
         </label>
       </div>
 
       {importResult && (
         <div className={cn('rounded-lg px-4 py-3 text-xs', importResult.dryRun ? BADGE.sky : BADGE.emerald)}>
-          <span className="font-semibold">{importResult.dryRun ? 'Previa:' : 'Resultado:'}</span>{' '}
-          {importResult.totalLinhasOneClick} no OneClick | {importResult.vinculados} vinculo(s) {importResult.dryRun ? 'encontrado(s)' : 'importado(s)'} | {importResult.ignoradosSemCliente} sem cliente local
+          <span className="font-semibold">{importResult.dryRun ? 'Prévia:' : 'Resultado:'}</span>{' '}
+          {importResult.totalLinhasOneClick} no OneClick | {importResult.vinculados} vínculo(s) {importResult.dryRun ? 'encontrado(s)' : 'importado(s)'} | {importResult.ignoradosSemCliente} sem cliente local
         </div>
       )}
 
@@ -1065,7 +1009,7 @@ function ClientesVinculados({ userId }: { userId: string }) {
       {data.length > 0 && (
         <div className="flex items-center gap-3">
           <Input
-            placeholder="Buscar cliente, CNPJ ou area..."
+            placeholder="Buscar cliente, CNPJ ou área..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="h-8 text-xs max-w-xs"
@@ -1083,7 +1027,7 @@ function ClientesVinculados({ userId }: { userId: string }) {
         <div className="text-center py-6 text-muted-foreground">
           <Handshake className="h-8 w-8 mx-auto mb-2 opacity-40" />
           <p className="text-sm">Nenhum cliente vinculado.</p>
-          <p className="text-xs mt-1">Use "Importar Carteira" ou vincule na aba Servicos do cliente.</p>
+          <p className="text-xs mt-1">Use "Importar Carteira" ou vincule na aba Serviços do cliente.</p>
         </div>
       ) : (
         <>
@@ -1093,8 +1037,8 @@ function ClientesVinculados({ userId }: { userId: string }) {
                 <tr className="bg-muted/30 text-xs text-muted-foreground">
                   <th className="text-left px-3 py-2 font-medium">Cliente</th>
                   <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">CNPJ/CPF</th>
-                  <th className="text-left px-3 py-2 font-medium">Area</th>
-                  <th className="text-left px-3 py-2 font-medium">Funcao</th>
+                  <th className="text-left px-3 py-2 font-medium">Área</th>
+                  <th className="text-left px-3 py-2 font-medium">Função</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
@@ -1130,7 +1074,7 @@ function ClientesVinculados({ userId }: { userId: string }) {
           {totalPages > 1 && (
             <div className="flex items-center justify-between">
               <span className="text-[11px] text-muted-foreground">
-                Pag. {page} de {totalPages}
+                Pág. {page} de {totalPages}
               </span>
               <div className="flex items-center gap-1">
                 <Button type="button" variant="outline" size="sm" className="h-7 text-xs px-2" disabled={page === 1} onClick={() => setPage(1)}>{'<<'}</Button>

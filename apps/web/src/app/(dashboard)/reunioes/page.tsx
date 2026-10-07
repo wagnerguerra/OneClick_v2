@@ -18,7 +18,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+const PRIMARY = 'var(--color-primary)'
 const PAGE_SIZES = [10, 20, 50]
 
 interface Row {
@@ -86,7 +86,7 @@ export default function ReunioesPage() {
     const ok = await alerts.confirm({
       title: `Excluir "${r.titulo}"?`,
       text: 'A reunião, as ações e o histórico serão apagados.',
-      icon: 'warning', confirmText: 'Excluir',
+      icon: 'warning', confirmText: 'Excluir', destructive: true,
     })
     if (!ok) return
     try {
@@ -146,7 +146,7 @@ export default function ReunioesPage() {
             {/* O badge de pendências que o v1 mostrava no menu, agora como filtro. */}
             <Button variant={pendentes ? 'default' : 'outline'} size="xs"
               className={pendentes ? 'text-white' : ''}
-              style={pendentes ? { backgroundColor: MODULE_COLOR } : undefined}
+              style={pendentes ? { backgroundColor: PRIMARY } : undefined}
               onClick={() => { setPendentes((v) => !v); setPage(1) }}>
               <AlertTriangle className="h-3.5 w-3.5" />Com ação pendente
             </Button>
@@ -156,7 +156,7 @@ export default function ReunioesPage() {
               </Button>
             )}
           </div>
-          <div className="max-w-xs w-full sm:w-auto">
+          <div className="w-full sm:w-[272px]">
             <Input placeholder="Buscar por título, local, cliente..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
@@ -170,7 +170,7 @@ export default function ReunioesPage() {
               <TableHead className="hidden sm:table-cell w-[110px]">Data</TableHead>
               <TableHead className="hidden md:table-cell w-[80px] text-center">Partic.</TableHead>
               <TableHead className="w-[160px]">Ações da reunião</TableHead>
-              <TableHead className="w-[90px] text-right">Ações</TableHead>
+              <TableHead className="w-[104px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

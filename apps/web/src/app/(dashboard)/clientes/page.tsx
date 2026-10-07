@@ -1496,19 +1496,19 @@ export default function ClientesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Gerenciador de Opcoes (Atividade / Origem) */}
+      {/* Gerenciador de Opções (Atividade / Origem) */}
       <Dialog open={opcoesModal} onOpenChange={setOpcoesModal}>
         <DialogContent className="max-w-[620px]">
-          <DialogHeaderIcon icon={Settings2} color="emerald">
-            <DialogTitle className="text-[15px]">Opcoes de Cadastro</DialogTitle>
-            <DialogDescription className="text-[11px]">Gerencie as opcoes dos campos Atividade, Origem, Grupo e o catálogo de Benefícios</DialogDescription>
+          <DialogHeaderIcon icon={Settings2} color="slate">
+            <DialogTitle className="text-[15px]">Opções de Cadastro</DialogTitle>
+            <DialogDescription className="text-[11px]">Gerencie as opções dos campos Atividade, Origem, Grupo e o catálogo de Benefícios</DialogDescription>
           </DialogHeaderIcon>
           <DialogBody>
             {/* Tabs */}
             <div className="flex gap-1 mb-3 border-b">
               {(['ATIVIDADE', 'ORIGEM', 'GRUPO', 'BENEFICIO'] as const).map(tab => (
                 <button key={tab} type="button"
-                  className={cn('px-4 py-2 text-xs font-medium border-b-2 transition-colors -mb-px', opcoesTab === tab ? cn('border-emerald-500', TEXT.emerald) : 'border-transparent text-muted-foreground hover:text-foreground')}
+                  className={cn('px-4 py-2 text-xs font-medium border-b-2 transition-colors -mb-px', opcoesTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}
                   onClick={() => { setOpcoesTab(tab); loadOpcoes(tab) }}
                 >
                   {tab === 'ATIVIDADE' ? 'Atividades' : tab === 'ORIGEM' ? 'Origens' : tab === 'GRUPO' ? 'Grupos' : 'Benefícios'}
@@ -1528,7 +1528,7 @@ export default function ClientesPage() {
                   {opcoesLoading ? (
                     <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
                   ) : opcoes.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-6">Nenhuma opcao cadastrada</p>
+                    <p className="text-xs text-muted-foreground text-center py-6">Nenhuma opção cadastrada</p>
                   ) : filtradas.length === 0 ? (
                     <p className="text-xs text-muted-foreground text-center py-6">Nenhum resultado para &quot;{opcoesBusca}&quot;</p>
                   ) : filtradas.map(op => (
