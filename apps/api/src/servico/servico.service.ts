@@ -3,6 +3,7 @@ import { prisma } from '@saas/db'
 import { sqlSemEmpresaInativa } from '../common/empresa-inativa'
 import { whereDaArea } from './servico-area'
 import { ordenarPassosDaEtapa } from './servico-sub-etapa'
+import { avaliarCondicoes, afetadosPelaTroca, condicoesEfetivasDoTemplate, type CondicaoExec } from './servico-condicao'
 import type { CreateServicoInput, UpdateServicoInput, CreateServicoEtapaInput, CreateServicoPassoInput, CreateServicoSubEtapaInput, CreateExecucaoInput, CreateEncadeamentoInput, Condicao, CreateMaterialInput, UpdateMaterialInput, CreateGrupoInput, UpdateGrupoInput, IniciarGrupoInput, CreateObrigacaoInput, FlowPlan } from '@saas/types'
 import { OrcamentoService } from '../orcamento/orcamento.service'
 import { ProcessoService } from '../processo/processo.service'
@@ -1326,25 +1327,42 @@ export class ServicoService {
       void _i; void _c; void _u; void _p; void _e
       return rest
     }
+    // Condições ("if") apontam para PASSOS-PERGUNTA do mesmo serviço: depois de
+    // clonar, remapeia para as cópias (pergunta fora do serviço clonado = some).
+    const passoMap = new Map<string, string>()
+    const condPendentes: Array<{ tipo: 'etapa' | 'sub' | 'passo'; id: string; perguntaOrigem: string }> = []
     const clonarPassos = async (passos: Array<Record<string, unknown>>, novaEtapaId: string, subMap: Map<string, string>) => {
       for (const p of passos) {
-        const { id: _i, etapaId: _e, createdAt: _c, updatedAt: _u, dependeDoPassoId: _d, subEtapaId, ...rest } = p as any
+        const { id: _i, etapaId: _e, createdAt: _c, updatedAt: _u, dependeDoPassoId: _d, subEtapaId, condicaoPassoId, ...rest } = p as any
         void _i; void _e; void _c; void _u; void _d
-        await prisma.servicoPasso.create({
-          data: { ...rest, etapaId: novaEtapaId, dependeDoPassoId: null, subEtapaId: subEtapaId ? (subMap.get(subEtapaId) ?? null) : null },
+        const novo = await prisma.servicoPasso.create({
+          data: { ...rest, etapaId: novaEtapaId, dependeDoPassoId: null, condicaoPassoId: null, subEtapaId: subEtapaId ? (subMap.get(subEtapaId) ?? null) : null },
         })
+        passoMap.set((p as { id: string }).id, novo.id)
+        if (condicaoPassoId) condPendentes.push({ tipo: 'passo', id: novo.id, perguntaOrigem: condicaoPassoId })
+      }
+    }
+    const aplicarCondicoes = async () => {
+      for (const c of condPendentes) {
+        const condicaoPassoId = passoMap.get(c.perguntaOrigem) ?? null
+        const data = condicaoPassoId ? { condicaoPassoId } : { condicaoPassoId: null, condicaoOpcoes: [] }
+        if (c.tipo === 'etapa') await prisma.servicoEtapa.update({ where: { id: c.id }, data })
+        else if (c.tipo === 'sub') await prisma.servicoSubEtapa.update({ where: { id: c.id }, data })
+        else await prisma.servicoPasso.update({ where: { id: c.id }, data })
       }
     }
     const clonarEtapas = async (etapas: Array<{ passos: Array<Record<string, unknown>> } & Record<string, unknown>>, novoServicoId: string) => {
       for (const et of etapas) {
-        const { id: _i, servicoId: _s, createdAt: _c, updatedAt: _u, passos, subEtapas, ...rest } = et as any
+        const { id: _i, servicoId: _s, createdAt: _c, updatedAt: _u, passos, subEtapas, condicaoPassoId: condEt, ...rest } = et as any
         void _i; void _s; void _c; void _u
-        const novaEt = await prisma.servicoEtapa.create({ data: { ...rest, servicoId: novoServicoId } })
+        const novaEt = await prisma.servicoEtapa.create({ data: { ...rest, condicaoPassoId: null, servicoId: novoServicoId } })
+        if (condEt) condPendentes.push({ tipo: 'etapa', id: novaEt.id, perguntaOrigem: condEt })
         // Sub-etapas primeiro, para os passos apontarem para as cópias.
         const subMap = new Map<string, string>()
-        for (const sub of (subEtapas ?? []) as Array<{ id: string; nome: string; ordem: number }>) {
-          const nova = await prisma.servicoSubEtapa.create({ data: { etapaId: novaEt.id, nome: sub.nome, ordem: sub.ordem } })
+        for (const sub of (subEtapas ?? []) as Array<{ id: string; nome: string; ordem: number; condicaoPassoId?: string | null; condicaoOpcoes?: string[] }>) {
+          const nova = await prisma.servicoSubEtapa.create({ data: { etapaId: novaEt.id, nome: sub.nome, ordem: sub.ordem, condicaoOpcoes: sub.condicaoOpcoes ?? [] } })
           subMap.set(sub.id, nova.id)
+          if (sub.condicaoPassoId) condPendentes.push({ tipo: 'sub', id: nova.id, perguntaOrigem: sub.condicaoPassoId })
         }
         await clonarPassos(passos ?? [], novaEt.id, subMap)
       }
@@ -1393,6 +1411,7 @@ export class ServicoService {
       })
     }
 
+    await aplicarCondicoes()
     await this.recomputeSlaServico(novo.id)
     return novo
   }
@@ -1407,13 +1426,23 @@ export class ServicoService {
     return etapa
   }
 
-  async updateEtapa(id: string, data: { nome?: string; ordem?: number }) {
+  async updateEtapa(id: string, data: { nome?: string; ordem?: number; condicaoPassoId?: string | null; condicaoOpcoes?: string[] }) {
     // slaHoras é sempre derivado dos passos — descartamos qualquer valor entrante.
     const { nome, ordem } = data
-    return prisma.servicoEtapa.update({ where: { id }, data: { nome, ordem } })
+    const cond = data.condicaoPassoId !== undefined
+      ? await this.condicaoValidada({ tipo: 'etapa', id }, data.condicaoPassoId, data.condicaoOpcoes)
+      : {}
+    return prisma.servicoEtapa.update({ where: { id }, data: { nome, ordem, ...cond } })
   }
 
   async deleteEtapa(id: string) {
+    // Pergunta desta etapa usada como condição FORA dela: excluir deixaria a
+    // condição órfã. Barra e diz onde ajustar.
+    const perguntas = await prisma.servicoPasso.findMany({ where: { etapaId: id, tipo: 'PERGUNTA' }, select: { id: true } })
+    for (const pg of perguntas) {
+      const usos = (await this.usosDaPergunta(pg.id)).filter(u => !(u.etapaId === id))
+      if (usos.length > 0) throw new Error(`Esta etapa tem uma pergunta usada como condição em: ${usos.map(u => u.nome).join(', ')}. Remova essas condições antes de excluir a etapa.`)
+    }
     const etapa = await prisma.servicoEtapa.findUnique({ where: { id }, select: { servicoId: true } })
     const result = await prisma.servicoEtapa.delete({ where: { id } })
     if (etapa) await this.recomputeSlaServico(etapa.servicoId)
@@ -1431,11 +1460,125 @@ export class ServicoService {
     return prisma.servicoSubEtapa.create({ data: { etapaId: input.etapaId, nome: input.nome.trim(), ordem } })
   }
 
-  async updateSubEtapa(id: string, data: { nome?: string; ordem?: number }) {
+  async updateSubEtapa(id: string, data: { nome?: string; ordem?: number; condicaoPassoId?: string | null; condicaoOpcoes?: string[] }) {
+    const cond = data.condicaoPassoId !== undefined
+      ? await this.condicaoValidada({ tipo: 'sub', id }, data.condicaoPassoId, data.condicaoOpcoes)
+      : {}
     return prisma.servicoSubEtapa.update({
       where: { id },
-      data: { ...(data.nome !== undefined ? { nome: data.nome.trim() } : {}), ...(data.ordem !== undefined ? { ordem: data.ordem } : {}) },
+      data: { ...(data.nome !== undefined ? { nome: data.nome.trim() } : {}), ...(data.ordem !== undefined ? { ordem: data.ordem } : {}), ...cond },
     })
+  }
+
+  // ── Perguntas e condições ("if", 07/10/2026) ───────────────
+  //
+  // Um passo do tipo PERGUNTA é respondido na execução; etapa, sub-etapa ou
+  // passo podem ter uma condição "só vale se a pergunta X = opções". Regras
+  // puras em `servico-condicao.ts`.
+
+  /** Etapas, sub-etapas e passos que usam a pergunta como condição. */
+  private async usosDaPergunta(perguntaId: string): Promise<Array<{ nome: string; etapaId: string | null; opcoes: string[] }>> {
+    const [etapas, subs, passos] = await Promise.all([
+      prisma.servicoEtapa.findMany({ where: { condicaoPassoId: perguntaId }, select: { id: true, nome: true, condicaoOpcoes: true } }),
+      prisma.servicoSubEtapa.findMany({ where: { condicaoPassoId: perguntaId }, select: { nome: true, etapaId: true, condicaoOpcoes: true } }),
+      prisma.servicoPasso.findMany({ where: { condicaoPassoId: perguntaId }, select: { nome: true, etapaId: true, condicaoOpcoes: true } }),
+    ])
+    return [
+      ...etapas.map(e => ({ nome: `etapa "${e.nome}"`, etapaId: e.id, opcoes: e.condicaoOpcoes })),
+      ...subs.map(x => ({ nome: `sub-etapa "${x.nome}"`, etapaId: x.etapaId, opcoes: x.condicaoOpcoes })),
+      ...passos.map(x => ({ nome: `passo "${x.nome}"`, etapaId: x.etapaId, opcoes: x.condicaoOpcoes })),
+    ]
+  }
+
+  /**
+   * Valida a condição de um item e devolve os campos a gravar. A pergunta tem
+   * de ser um passo PERGUNTA do MESMO serviço, vir ANTES do item na ordem real
+   * (etapa anterior; na mesma etapa, passo direto ou sub-etapa anterior) e as
+   * opções têm de existir nela. `null` remove a condição.
+   */
+  private async condicaoValidada(
+    alvo: { tipo: 'etapa' | 'sub' | 'passo'; id: string; etapaId?: string; subEtapaId?: string | null },
+    condicaoPassoId: string | null | undefined,
+    condicaoOpcoes: string[] | undefined,
+  ): Promise<{ condicaoPassoId: string | null; condicaoOpcoes: string[] }> {
+    if (!condicaoPassoId) return { condicaoPassoId: null, condicaoOpcoes: [] }
+    const pergunta = await prisma.servicoPasso.findUnique({
+      where: { id: condicaoPassoId },
+      select: { id: true, tipo: true, perguntaOpcoes: true, etapaId: true, subEtapaId: true, ordem: true, etapa: { select: { servicoId: true, ordem: true } }, subEtapa: { select: { ordem: true } } },
+    })
+    if (!pergunta || pergunta.tipo !== 'PERGUNTA') throw new Error('A condição precisa apontar para um passo do tipo Pergunta.')
+    const opcoes = [...new Set((condicaoOpcoes ?? []).map(o => o.trim()).filter(Boolean))]
+    if (opcoes.length === 0) throw new Error('Escolha ao menos uma resposta da pergunta para a condição.')
+    const desconhecidas = opcoes.filter(o => !pergunta.perguntaOpcoes.includes(o))
+    if (desconhecidas.length > 0) throw new Error(`Resposta(s) que não existem na pergunta: ${desconhecidas.join(', ')}.`)
+
+    // Posição do alvo (etapa, sub-etapa e — para passo — a própria posição).
+    let etapaId = alvo.etapaId ?? null
+    let subId: string | null = alvo.tipo === 'sub' ? alvo.id : (alvo.subEtapaId ?? null)
+    if (alvo.tipo === 'etapa') etapaId = alvo.id
+    if (alvo.tipo === 'sub') {
+      const sub = await prisma.servicoSubEtapa.findUnique({ where: { id: alvo.id }, select: { etapaId: true } })
+      etapaId = sub?.etapaId ?? null
+    }
+    if (alvo.tipo === 'passo' && (!etapaId || alvo.subEtapaId === undefined)) {
+      const ps = await prisma.servicoPasso.findUnique({ where: { id: alvo.id }, select: { etapaId: true, subEtapaId: true } })
+      etapaId = etapaId ?? ps?.etapaId ?? null
+      if (alvo.subEtapaId === undefined) subId = ps?.subEtapaId ?? null
+    }
+    const etapa = etapaId ? await prisma.servicoEtapa.findUnique({ where: { id: etapaId }, select: { servicoId: true, ordem: true } }) : null
+    if (!etapa || etapa.servicoId !== pergunta.etapa.servicoId) throw new Error('A pergunta precisa ser deste mesmo serviço.')
+
+    const ANTES = 'A pergunta precisa vir ANTES do item que ela condiciona (etapa anterior, ou passo/sub-etapa anterior na mesma etapa).'
+    if (alvo.tipo === 'passo' && alvo.id === pergunta.id) throw new Error('Um passo não pode depender da própria pergunta.')
+    if (pergunta.etapa.ordem < etapa.ordem) return { condicaoPassoId, condicaoOpcoes: opcoes }
+    if (pergunta.etapaId !== etapaId || alvo.tipo === 'etapa') throw new Error(ANTES)
+    // Mesma etapa: ordem real = diretos primeiro, depois cada sub-etapa.
+    const subAlvo = subId ? await prisma.servicoSubEtapa.findUnique({ where: { id: subId }, select: { ordem: true } }) : null
+    const chave = (sub: { ordem: number } | null, ordem: number) => [sub ? 1 + sub.ordem : 0, ordem] as const
+    const kP = chave(pergunta.subEtapa, pergunta.ordem)
+    if (alvo.tipo === 'sub') {
+      // Pergunta direta da etapa ou de sub-etapa anterior.
+      if (kP[0] < (subAlvo ? 1 + subAlvo.ordem : 0)) return { condicaoPassoId, condicaoOpcoes: opcoes }
+      throw new Error(ANTES)
+    }
+    const ps = await prisma.servicoPasso.findUnique({ where: { id: alvo.id }, select: { ordem: true } })
+    const kA = chave(subAlvo, ps?.ordem ?? Number.MAX_SAFE_INTEGER)
+    if (kP[0] < kA[0] || (kP[0] === kA[0] && kP[1] < kA[1])) return { condicaoPassoId, condicaoOpcoes: opcoes }
+    throw new Error(ANTES)
+  }
+
+  /** Campos de pergunta do passo: normaliza e valida (texto + ao menos 2 opções). */
+  private async camposPergunta(
+    passoId: string | null,
+    data: Partial<CreateServicoPassoInput>,
+  ): Promise<Record<string, unknown>> {
+    const mexe = data.tipo !== undefined || data.perguntaTexto !== undefined || data.perguntaOpcoes !== undefined || data.perguntaMultipla !== undefined
+    if (!mexe) return {}
+    const atual = passoId ? await prisma.servicoPasso.findUnique({ where: { id: passoId }, select: { tipo: true, perguntaTexto: true, perguntaOpcoes: true } }) : null
+    const tipo = data.tipo ?? atual?.tipo ?? 'PASSO'
+    const opcoes = data.perguntaOpcoes !== undefined
+      ? [...new Set(data.perguntaOpcoes.map(o => o.trim()).filter(Boolean))]
+      : (atual?.perguntaOpcoes ?? [])
+    if (passoId && atual?.tipo === 'PERGUNTA') {
+      const usos = await this.usosDaPergunta(passoId)
+      if (tipo !== 'PERGUNTA' && usos.length > 0) {
+        throw new Error(`Esta pergunta é usada como condição em: ${usos.map(u => u.nome).join(', ')}. Remova essas condições antes de transformá-la em passo comum.`)
+      }
+      // Opção removida/renomeada que alguma condição usa: barra (mais seguro
+      // que limpar a condição em silêncio e mudar o caminho do serviço).
+      const removidas = (atual.perguntaOpcoes ?? []).filter(o => !opcoes.includes(o))
+      const presas = usos.filter(u => u.opcoes.some(o => removidas.includes(o)))
+      if (presas.length > 0) {
+        throw new Error(`A resposta "${removidas.filter(o => presas.some(u => u.opcoes.includes(o))).join('", "')}" é usada na condição de: ${presas.map(u => u.nome).join(', ')}. Ajuste essas condições antes de remover ou renomear a resposta.`)
+      }
+    }
+    if (tipo === 'PERGUNTA') {
+      const texto = (data.perguntaTexto !== undefined ? data.perguntaTexto : atual?.perguntaTexto)?.trim() ?? ''
+      if (!texto) throw new Error('Informe o texto da pergunta.')
+      if (opcoes.length < 2) throw new Error('A pergunta precisa de pelo menos 2 respostas.')
+      return { tipo, perguntaTexto: texto, perguntaOpcoes: opcoes, ...(data.perguntaMultipla !== undefined ? { perguntaMultipla: data.perguntaMultipla } : {}) }
+    }
+    return { tipo: 'PASSO', perguntaTexto: null, perguntaOpcoes: [], perguntaMultipla: false }
   }
 
   /** Exclui a sub-etapa; os passos dela VOLTAM para a etapa (FK SetNull), não são apagados. */
@@ -1455,7 +1598,14 @@ export class ServicoService {
 
   async addPasso(input: CreateServicoPassoInput) {
     const subEtapaId = await this.validarSubEtapaDoPasso(input.etapaId, input.subEtapaId)
-    const passo = await prisma.servicoPasso.create({ data: { ...input, subEtapaId } as any })
+    const { condicaoPassoId, condicaoOpcoes, tipo: _t, perguntaTexto: _pt, perguntaOpcoes: _po, perguntaMultipla: _pm, ...base } = input
+    void _t; void _pt; void _po; void _pm
+    const pergunta = await this.camposPergunta(null, input)
+    const passo = await prisma.servicoPasso.create({ data: { ...base, ...pergunta, subEtapaId } as any })
+    if (condicaoPassoId) {
+      const cond = await this.condicaoValidada({ tipo: 'passo', id: passo.id, etapaId: input.etapaId, subEtapaId }, condicaoPassoId, condicaoOpcoes)
+      await prisma.servicoPasso.update({ where: { id: passo.id }, data: cond })
+    }
     await this.recomputeSlaEtapaECascata(input.etapaId)
     return passo
   }
@@ -1469,12 +1619,20 @@ export class ServicoService {
       const pedida = data.subEtapaId !== undefined ? data.subEtapaId : (etapaId !== atual.etapaId ? null : atual.subEtapaId)
       data = { ...data, subEtapaId: await this.validarSubEtapaDoPasso(etapaId, pedida) }
     }
-    const passo = await prisma.servicoPasso.update({ where: { id }, data: data as any })
+    const { condicaoPassoId, condicaoOpcoes, tipo: _t, perguntaTexto: _pt, perguntaOpcoes: _po, perguntaMultipla: _pm, ...base } = data
+    void _t; void _pt; void _po; void _pm
+    const pergunta = await this.camposPergunta(id, data)
+    const cond = condicaoPassoId !== undefined
+      ? await this.condicaoValidada({ tipo: 'passo', id, etapaId: data.etapaId, subEtapaId: data.subEtapaId }, condicaoPassoId, condicaoOpcoes)
+      : {}
+    const passo = await prisma.servicoPasso.update({ where: { id }, data: { ...base, ...pergunta, ...cond } as any })
     await this.recomputeSlaEtapaECascata(passo.etapaId)
     return passo
   }
 
   async deletePasso(id: string) {
+    const usos = await this.usosDaPergunta(id)
+    if (usos.length > 0) throw new Error(`Esta pergunta é usada como condição em: ${usos.map(u => u.nome).join(', ')}. Remova essas condições antes de excluí-la.`)
     const passo = await prisma.servicoPasso.findUnique({ where: { id }, select: { etapaId: true } })
     const result = await prisma.servicoPasso.delete({ where: { id } })
     if (passo) await this.recomputeSlaEtapaECascata(passo.etapaId)
@@ -3237,14 +3395,104 @@ export class ServicoService {
       })
       for (const u of users) usersMap.set(u.id, u)
     }
+    // Condições "if" (derivado no backend): não se aplica / aguardando a pergunta.
+    const estados = avaliarCondicoes(exec.passos)
+    const porId = new Map(exec.passos.map(p => [p.id, p]))
     return {
       ...exec,
-      passos: exec.passos.map(p => ({
-        ...p,
-        concluidoPorUsuario: p.concluidoPor ? usersMap.get(p.concluidoPor) ?? null : null,
-        ignoradoPorUsuario: (p as any).ignoradoPor ? usersMap.get((p as any).ignoradoPor) ?? null : null,
-      })),
+      passos: exec.passos.map(p => {
+        const est = estados.get(p.id)
+        const pergunta = est?.perguntaId ? porId.get(est.perguntaId) : null
+        return {
+          ...p,
+          concluidoPorUsuario: p.concluidoPor ? usersMap.get(p.concluidoPor) ?? null : null,
+          ignoradoPorUsuario: (p as any).ignoradoPor ? usersMap.get((p as any).ignoradoPor) ?? null : null,
+          naoSeAplica: est?.estado === 'nao_se_aplica',
+          aguardandoPergunta: est?.estado === 'aguardando',
+          condicaoMotivo: pergunta ? { perguntaPassoId: pergunta.id, pergunta: pergunta.perguntaTexto || pergunta.passoNome, resposta: pergunta.respostaOpcoes } : null,
+        }
+      }),
     }
+  }
+
+  /**
+   * Recalcula "não se aplica" de toda a execução e grava o que mudou. Chamado a
+   * cada resposta de pergunta. Concluídos que deixam de valer MANTÊM
+   * concluidoPor/Em — só passam a "não se aplica".
+   */
+  private async recalcularCondicoes(execucaoId: string): Promise<void> {
+    const passos = await prisma.servicoExecucaoPasso.findMany({
+      where: { execucaoId },
+      select: { id: true, ordem: true, tipo: true, respostaOpcoes: true, condicoes: true, naoSeAplica: true },
+    })
+    const estados = avaliarCondicoes(passos)
+    for (const p of passos) {
+      const nao = estados.get(p.id)?.estado === 'nao_se_aplica'
+      if (nao !== p.naoSeAplica) await prisma.servicoExecucaoPasso.update({ where: { id: p.id }, data: { naoSeAplica: nao } })
+    }
+  }
+
+  /**
+   * Responde um passo-PERGUNTA do checklist. Primeira resposta conclui o passo
+   * (mesma trilha do togglePasso: notificações, e-mails, campos). Trocar a
+   * resposta é permitido com a execução em andamento; se passos já CONCLUÍDOS
+   * deixarem de valer, sem `confirmar` devolve só a lista (dry-run).
+   */
+  async responderPassoPergunta(id: string, opcoes: string[], userId?: string, confirmar = false) {
+    const passo = await prisma.servicoExecucaoPasso.findUnique({
+      where: { id },
+      include: { execucao: { select: { status: true, pausado: true } } },
+    })
+    if (!passo) throw new Error('Passo não encontrado')
+    if (passo.tipo !== 'PERGUNTA') throw new Error('Este passo não é uma pergunta.')
+    if (passo.execucao.status !== 'EM_ANDAMENTO') throw new Error('A execução não está em andamento.')
+    if (passo.execucao.pausado) throw new Error('A execução está pausada — retome antes de responder.')
+    const escolhidas = [...new Set(opcoes.map(o => o.trim()).filter(Boolean))]
+    if (escolhidas.length === 0) throw new Error('Escolha uma resposta.')
+    if (!passo.perguntaMultipla && escolhidas.length > 1) throw new Error('Esta pergunta aceita só uma resposta.')
+    const invalidas = escolhidas.filter(o => !passo.perguntaOpcoes.includes(o))
+    if (invalidas.length > 0) throw new Error(`Resposta inválida: ${invalidas.join(', ')}.`)
+
+    const todos = await prisma.servicoExecucaoPasso.findMany({
+      where: { execucaoId: passo.execucaoId },
+      select: { id: true, ordem: true, tipo: true, respostaOpcoes: true, condicoes: true, concluido: true, passoNome: true, perguntaTexto: true },
+    })
+    const estadoAtual = avaliarCondicoes(todos).get(id)?.estado
+    if (estadoAtual === 'nao_se_aplica') throw new Error('Esta pergunta não se aplica a esta execução.')
+    if (estadoAtual === 'aguardando') throw new Error('Responda antes a pergunta de que esta depende.')
+
+    const jaRespondida = passo.respostaOpcoes.length > 0
+    if (jaRespondida) {
+      const afetados = afetadosPelaTroca(todos, id, escolhidas)
+      if (afetados.length > 0 && !confirmar) {
+        return { precisaConfirmar: true as const, afetados: afetados.map(a => ({ id: a.id, passoNome: a.passoNome })) }
+      }
+    }
+
+    const antes = passo.respostaOpcoes
+    await prisma.servicoExecucaoPasso.update({
+      where: { id },
+      data: { respostaOpcoes: escolhidas, respondidoPor: userId ?? null, respondidoEm: new Date() },
+    })
+    await this.recalcularCondicoes(passo.execucaoId)
+    await this.addEvento(passo.execucaoId, userId, jaRespondida ? 'pergunta_alterada' : 'pergunta_respondida',
+      jaRespondida
+        ? `Alterou a resposta de "${passo.perguntaTexto || passo.passoNome}": ${antes.join(', ')} → ${escolhidas.join(', ')}`
+        : `Respondeu "${passo.perguntaTexto || passo.passoNome}": ${escolhidas.join(', ')}`)
+    // Primeira resposta: conclui o passo pela trilha normal (notificações, e-mails).
+    let emailsPendentesConfirmacao: unknown[] = []
+    if (!passo.concluido) {
+      try {
+        const t = await this.togglePasso(id, userId) as { emailsPendentesConfirmacao?: unknown[] } | undefined
+        emailsPendentesConfirmacao = t?.emailsPendentesConfirmacao ?? []
+      } catch (e) {
+        // Não conseguiu concluir (ex.: obrigatório anterior): desfaz a resposta.
+        await prisma.servicoExecucaoPasso.update({ where: { id }, data: { respostaOpcoes: antes, respondidoPor: null, respondidoEm: null } })
+        await this.recalcularCondicoes(passo.execucaoId)
+        throw e
+      }
+    }
+    return { precisaConfirmar: false as const, afetados: [], emailsPendentesConfirmacao }
   }
 
   /**
@@ -3392,6 +3640,12 @@ export class ServicoService {
     // Mantemos um mapa templatePassoId -> execPassoId para depois mapear deps.
     const passoIdMap = new Map<string, string>()
     let ordemGlobal = 0
+    // Condições efetivas (etapa + sub-etapa + passo) por passo do template —
+    // inválidas (pergunta depois do item, opção removida) são descartadas.
+    const sequencia = servico.etapas.flatMap(etapa => ordenarPassosDaEtapa(etapa).map(({ passo }) => ({
+      passo, etapa, sub: passo.subEtapaId ? (etapa.subEtapas.find(x => x.id === passo.subEtapaId) ?? null) : null,
+    })))
+    const condTemplate = condicoesEfetivasDoTemplate(sequencia)
     for (const etapa of servico.etapas) {
       // Ordem real: passos diretos da etapa, depois cada sub-etapa na ordem dela.
       // É essa ordem que vira `ordem` (e a regra "obrigatório anterior bloqueia").
@@ -3406,6 +3660,10 @@ export class ServicoService {
             ordem: ordemGlobal++,
             obrigatorio: passo.obrigatorio,
             permiteIgnorar: (passo as any).permiteIgnorar ?? false,
+            tipo: passo.tipo,
+            perguntaTexto: passo.perguntaTexto,
+            perguntaOpcoes: passo.perguntaOpcoes,
+            perguntaMultipla: passo.perguntaMultipla,
           },
         })
         passoIdMap.set(passo.id, execPasso.id)
@@ -3426,6 +3684,18 @@ export class ServicoService {
             })
           }
         }
+      }
+    }
+
+    // Pass 3: condições "if" — apontam para os passos-pergunta DESTA execução.
+    for (const [templateId, conds] of condTemplate) {
+      if (conds.length === 0) continue
+      const execId = passoIdMap.get(templateId)
+      const condicoes: CondicaoExec[] = conds
+        .map(c => ({ perguntaExecPassoId: passoIdMap.get(c.perguntaPassoId) ?? '', opcoes: c.opcoes }))
+        .filter(c => c.perguntaExecPassoId)
+      if (execId && condicoes.length > 0) {
+        await prisma.servicoExecucaoPasso.update({ where: { id: execId }, data: { condicoes: condicoes as unknown as object } })
       }
     }
 
@@ -3485,6 +3755,19 @@ export class ServicoService {
     const passo = await prisma.servicoExecucaoPasso.findUnique({ where: { id } })
     if (!passo) throw new Error('Passo não encontrado')
 
+    // Condições "if": não se aplica / aguardando a pergunta não se concluem.
+    if (!passo.concluido) {
+      const todos = await prisma.servicoExecucaoPasso.findMany({
+        where: { execucaoId: passo.execucaoId },
+        select: { id: true, ordem: true, tipo: true, respostaOpcoes: true, condicoes: true, passoNome: true, perguntaTexto: true },
+      })
+      const est = avaliarCondicoes(todos).get(id)
+      const pg = est?.perguntaId ? todos.find(t => t.id === est.perguntaId) : null
+      if (est?.estado === 'nao_se_aplica') throw new Error('Este passo não se aplica à resposta dada — não precisa ser concluído.')
+      if (est?.estado === 'aguardando') throw new Error(`Este passo depende da resposta de "${pg?.perguntaTexto || pg?.passoNome || 'uma pergunta anterior'}". Responda a pergunta primeiro.`)
+      if (passo.tipo === 'PERGUNTA' && passo.respostaOpcoes.length === 0) throw new Error('Responda a pergunta para concluir este passo.')
+    }
+
     // Passos ignorados não podem ser concluídos diretamente — usuário precisa
     // primeiro "desfazer ignorar" e depois concluir.
     if ((passo as any).ignorado && !passo.concluido) {
@@ -3513,6 +3796,7 @@ export class ServicoService {
           obrigatorio: true,
           concluido: false,
           ignorado: false,
+          naoSeAplica: false,
         } as any,
         select: { passoNome: true, ordem: true },
         orderBy: { ordem: 'asc' },
@@ -3558,6 +3842,8 @@ export class ServicoService {
     const updated = await prisma.servicoExecucaoPasso.update({
       where: { id },
       data: {
+        // Reabrir uma PERGUNTA limpa a resposta (os itens dela voltam a "aguardando").
+        ...(!novoConcluido && passo.tipo === 'PERGUNTA' ? { respostaOpcoes: [], respondidoPor: null, respondidoEm: null } : {}),
         concluido: novoConcluido,
         concluidoPor: novoConcluido ? userId || null : null,
         concluidoEm: novoConcluido ? agora : null,
@@ -3571,7 +3857,8 @@ export class ServicoService {
       where: { id: passo.execucaoId },
       include: { passos: true },
     })
-    const todosConcluidos = execucao && execucao.passos.every(p => p.id === id ? novoConcluido : p.concluido)
+    // "Não se aplica" conta como fechado (condição "if" não satisfeita).
+    const todosConcluidos = execucao && execucao.passos.every(p => p.id === id ? novoConcluido : (p.concluido || p.naoSeAplica))
 
     // Claim-first: se a execução está sem responsável e o user marcou um passo
     // (concluindo), ele se torna o responsável. Aplica ao fluxo Legalização
@@ -3790,7 +4077,7 @@ export class ServicoService {
     // podem finalizar ignorando o checklist — fase de implantação do módulo.
     const podeIgnorarChecklist = userId ? await this.podeConcluirSemChecklist(userId) : false
     const pendentes = podeIgnorarChecklist ? 0 : await prisma.servicoExecucaoPasso.count({
-      where: { execucaoId: id, obrigatorio: true, concluido: false, ignorado: false } as any,
+      where: { execucaoId: id, obrigatorio: true, concluido: false, ignorado: false, naoSeAplica: false } as any,
     })
     if (pendentes > 0) {
       throw new Error(`Não é possível concluir: ${pendentes} passo${pendentes > 1 ? 's' : ''} obrigatório${pendentes > 1 ? 's' : ''} ainda pendente${pendentes > 1 ? 's' : ''}.`)
@@ -4708,6 +4995,7 @@ export class ServicoService {
             obrigatorio: true,
             concluido: true,
             ignorado: true,
+            naoSeAplica: true,
             _count: { select: { comentarios: true, anexos: true } },
           },
           orderBy: { ordem: 'asc' },
@@ -4881,8 +5169,8 @@ export class ServicoService {
       // Passo atual = primeiro passo NAO concluido E NAO ignorado, na ordem.
       const passosOrdenados = [...e.passos].sort((a, b) => a.ordem - b.ordem)
       const totalPassos = passosOrdenados.length
-      const concluidos = passosOrdenados.filter(p => p.concluido || p.ignorado).length
-      const atual = passosOrdenados.find(p => !p.concluido && !p.ignorado) ?? null
+      const concluidos = passosOrdenados.filter(p => p.concluido || p.ignorado || p.naoSeAplica).length
+      const atual = passosOrdenados.find(p => !p.concluido && !p.ignorado && !p.naoSeAplica) ?? null
 
       itens.push({
         id: e.id,

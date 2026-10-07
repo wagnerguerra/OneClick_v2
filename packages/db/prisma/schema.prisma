@@ -5455,6 +5455,12 @@ model ServicoEtapa {
   nome      String
   ordem     Int
   slaHoras  Int?   @map("sla_horas")
+  /// Condição ("if", 07/10/2026): este item só vale se o passo-PERGUNTA
+  /// `condicaoPassoId` (do MESMO serviço, anterior na ordem real) foi
+  /// respondido com alguma das `condicaoOpcoes`. Sem FK: a exclusão da pergunta
+  /// é barrada no servico.service enquanto houver condição apontando para ela.
+  condicaoPassoId String?  @map("condicao_passo_id")
+  condicaoOpcoes  String[] @default([]) @map("condicao_opcoes")
 
   servico   Servico           @relation(fields: [servicoId], references: [id], onDelete: Cascade)
   passos    ServicoPasso[]
@@ -5475,6 +5481,12 @@ model ServicoSubEtapa {
   ordem     Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  /// Condição ("if", 07/10/2026): este item só vale se o passo-PERGUNTA
+  /// `condicaoPassoId` (do MESMO serviço, anterior na ordem real) foi
+  /// respondido com alguma das `condicaoOpcoes`. Sem FK: a exclusão da pergunta
+  /// é barrada no servico.service enquanto houver condição apontando para ela.
+  condicaoPassoId String?  @map("condicao_passo_id")
+  condicaoOpcoes  String[] @default([]) @map("condicao_opcoes")
 
   etapa  ServicoEtapa   @relation(fields: [etapaId], references: [id], onDelete: Cascade)
   passos ServicoPasso[]
@@ -5510,6 +5522,18 @@ model ServicoPasso {
   permiteIgnorar   Boolean @default(false) @map("permite_ignorar")
   /// Sub-etapa (opcional) da MESMA etapa. Null = passo direto na etapa.
   subEtapaId       String? @map("sub_etapa_id")
+  /// PASSO (padrão) | PERGUNTA — a pergunta é respondida na execução e as
+  /// condições dos itens seguintes decidem o que vale (07/10/2026).
+  tipo             String   @default("PASSO")
+  perguntaTexto    String?  @map("pergunta_texto")
+  perguntaOpcoes   String[] @default([]) @map("pergunta_opcoes")
+  perguntaMultipla Boolean  @default(false) @map("pergunta_multipla")
+  /// Condição ("if", 07/10/2026): este item só vale se o passo-PERGUNTA
+  /// `condicaoPassoId` (do MESMO serviço, anterior na ordem real) foi
+  /// respondido com alguma das `condicaoOpcoes`. Sem FK: a exclusão da pergunta
+  /// é barrada no servico.service enquanto houver condição apontando para ela.
+  condicaoPassoId String?  @map("condicao_passo_id")
+  condicaoOpcoes  String[] @default([]) @map("condicao_opcoes")
 
   etapa             ServicoEtapa                @relation(fields: [etapaId], references: [id], onDelete: Cascade)
   subEtapa          ServicoSubEtapa?            @relation(fields: [subEtapaId], references: [id], onDelete: SetNull)
@@ -6197,6 +6221,21 @@ model ServicoExecucaoPasso {
   // da mesma execucao. togglePasso valida que esse esteja concluido antes
   // de marcar este como concluido.
   dependeDoExecPassoId String?   @map("depende_do_exec_passo_id")
+  /// Snapshot da pergunta (tipo PERGUNTA) e da resposta dada na execução.
+  tipo                 String    @default("PASSO")
+  perguntaTexto        String?   @map("pergunta_texto")
+  perguntaOpcoes       String[]  @default([]) @map("pergunta_opcoes")
+  perguntaMultipla     Boolean   @default(false) @map("pergunta_multipla")
+  respostaOpcoes       String[]  @default([]) @map("resposta_opcoes")
+  respondidoPor        String?   @map("respondido_por")
+  respondidoEm         DateTime? @map("respondido_em")
+  /// Condições EFETIVAS (etapa + sub-etapa + passo, todas precisam valer):
+  /// [{ perguntaExecPassoId, opcoes[] }]. Resolvidas na criação da execução.
+  condicoes            Json?
+  /// Derivado no backend (recalculado a cada resposta): a condição não foi
+  /// satisfeita — o passo aparece riscado e não conta para concluir. Quem já
+  /// tinha concluído mantém concluidoPor/Em (histórico).
+  naoSeAplica          Boolean   @default(false) @map("nao_se_aplica")
 
   execucao    ServicoExecucao                  @relation(fields: [execucaoId], references: [id], onDelete: Cascade)
   comentarios ServicoExecucaoPassoComentario[]

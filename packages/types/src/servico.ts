@@ -304,6 +304,17 @@ export const createServicoEtapaSchema = z.object({
   slaHoras: z.coerce.number().min(0).optional().nullable(),
 })
 
+/**
+ * Condição ("if"): o item só vale se o passo-PERGUNTA `condicaoPassoId` (do
+ * mesmo serviço, anterior na ordem) for respondido com alguma das opções.
+ * `condicaoPassoId: null` remove a condição.
+ */
+const condicaoCampos = {
+  condicaoPassoId: z.string().optional().nullable(),
+  condicaoOpcoes: z.array(z.string().trim().min(1).max(120)).max(30).optional(),
+}
+export const condicaoItemSchema = z.object(condicaoCampos)
+
 export const createServicoPassoSchema = z.object({
   etapaId: z.string(),
   nome: z.string().min(1),
@@ -324,6 +335,12 @@ export const createServicoPassoSchema = z.object({
   permiteIgnorar: z.boolean().default(false),
   /** Sub-etapa (opcional) da MESMA etapa — null = passo direto na etapa. */
   subEtapaId: z.string().optional().nullable(),
+  /** PASSO (padrão) | PERGUNTA — a pergunta decide o que vale nos itens seguintes. */
+  tipo: z.enum(['PASSO', 'PERGUNTA']).optional(),
+  perguntaTexto: z.string().trim().max(500).optional().nullable(),
+  perguntaOpcoes: z.array(z.string().trim().min(1).max(120)).max(30).optional(),
+  perguntaMultipla: z.boolean().optional(),
+  ...condicaoCampos,
 })
 
 /** Sub-etapa: agrupamento opcional de passos dentro de uma etapa (um nível). */
