@@ -447,7 +447,8 @@ export default function ServicosPage() {
         if (sort.column === 'categoria') { av = a.area?.name ?? ''; bv = b.area?.name ?? '' }
         else if (sort.column === 'tipo') { av = tipoLabel(a); bv = tipoLabel(b) }
         else if (sort.column === 'grupo') { av = a.grupos?.[0]?.grupo.nome ?? ''; bv = b.grupos?.[0]?.grupo.nome ?? '' }
-        else { av = a.nome; bv = b.nome }
+        // trim: nome com tab/espaço nas pontas não pode furar a ordem alfabética.
+        else { av = a.nome.trim(); bv = b.nome.trim() }
         return av.localeCompare(bv, 'pt-BR', { sensitivity: 'base' }) * dir
       })
       setTotalServicos(sorted.length)
