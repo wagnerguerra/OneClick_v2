@@ -2,10 +2,16 @@
 // página de resultados). Excel/CSV/PDF são gerados no SERVIDOR (download por
 // navegação); aqui fica só a formatação de célula e a impressão client-side.
 
+import {
+  ORCAMENTO_RELATORIO_CAMPOS, ORCAMENTO_RELATORIO_CAMPOS_PADRAO, ORCAMENTO_EXPORTACAO_CAMPOS_PADRAO,
+} from '@saas/types'
+
 export interface ItemServico { descricao: string; servicoId: string | null }
 export interface Linha {
   id: string
   numero: number
+  /** Rótulo da etapa do orçamento. */
+  status: string
   cliente: string
   valorTotal: number
   natureza: string
@@ -26,26 +32,28 @@ export interface Resumo { count: number; somaTotal: number; ticketMedio: number;
 export interface Resultado { resumo: Resumo; linhas: Linha[] }
 export interface CampoDef { key: string; label: string }
 
+// O catálogo de campos (chave, rótulo, padrões) mora em @saas/types — o mesmo
+// que o servidor usa no cabeçalho do arquivo. Aqui só se recorta por contexto.
+
+/** Campos do relatório de UMA coluna: sem Status (é sempre o da coluna). */
 export function getCampos(statusLabel: string): CampoDef[] {
-  return [
-    { key: 'numero', label: 'Número' },
-    { key: 'cliente', label: 'Cliente' },
-    { key: 'valorTotal', label: 'Valor total' },
-    { key: 'natureza', label: 'Tipo (Extra/Mensal)' },
-    { key: 'areas', label: 'Área(s)' },
-    { key: 'solicitante', label: 'Solicitante' },
-    { key: 'responsavel', label: 'Responsável' },
-    { key: 'createdAt', label: 'Criado em' },
-    { key: 'dataStatus', label: `Data na etapa (${statusLabel})` },
-    { key: 'validadeDias', label: 'Validade (dias)' },
-    { key: 'itens', label: 'Itens/serviços' },
-    { key: 'descontoAplicado', label: 'Desconto' },
-    { key: 'formaPagamento', label: 'Forma de pagamento' },
-    { key: 'textoInterno', label: 'Texto Interno' },
-    { key: 'textoCliente', label: 'Texto para o Cliente' },
-  ]
+  return ORCAMENTO_RELATORIO_CAMPOS
+    .filter(c => c.key !== 'status')
+    .map(c => (c.key === 'dataStatus' ? { key: c.key, label: `${c.label} (${statusLabel})` } : { key: c.key, label: c.label }))
 }
-export const DEFAULT_CAMPOS = ['numero', 'cliente', 'valorTotal', 'natureza', 'areas', 'responsavel', 'createdAt']
+export const DEFAULT_CAMPOS: string[] = ORCAMENTO_RELATORIO_CAMPOS_PADRAO
+
+/**
+ * Campos da exportação da LISTA (botão Exportar do cabeçalho): com o Status —
+ * a lista atravessa etapas — e sem a "Data na etapa", que só existe quando o
+ * recorte é uma coluna só.
+ */
+export function getCamposExportacao(): CampoDef[] {
+  return ORCAMENTO_RELATORIO_CAMPOS
+    .filter(c => c.key !== 'dataStatus')
+    .map(c => ({ key: c.key, label: c.label }))
+}
+export const DEFAULT_CAMPOS_EXPORTACAO: string[] = ORCAMENTO_EXPORTACAO_CAMPOS_PADRAO
 
 export const brl = (n: number) => (n || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 export const dt = (v: string | null) => (v ? new Date(v).toLocaleDateString('pt-BR') : '—')

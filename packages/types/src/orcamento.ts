@@ -133,6 +133,40 @@ export const ORCAMENTO_STATUS_COLORS: Record<OrcamentoStatusValue, string> = {
   CANCELADO: '#64748b',  // slate médio
 }
 
+/**
+ * Campos do relatório de orçamentos — fonte única para a tela (escolha dos
+ * campos) e para o servidor (cabeçalho do xlsx/csv/pdf). Serve ao "Relatório
+ * da coluna" do kanban e à exportação da lista. Campo novo entra AQUI.
+ *  - `status` só faz sentido na exportação da lista (atravessa etapas);
+ *  - `dataStatus` só no relatório da coluna (uma etapa só).
+ */
+export const ORCAMENTO_RELATORIO_CAMPOS = [
+  { key: 'numero', label: 'Número' },
+  { key: 'status', label: 'Status' },
+  { key: 'cliente', label: 'Cliente' },
+  { key: 'valorTotal', label: 'Valor total' },
+  { key: 'natureza', label: 'Tipo (Extra/Mensal)' },
+  { key: 'areas', label: 'Área(s)' },
+  { key: 'solicitante', label: 'Solicitante' },
+  { key: 'responsavel', label: 'Responsável' },
+  { key: 'createdAt', label: 'Criado em' },
+  { key: 'dataStatus', label: 'Data na etapa' },
+  { key: 'validadeDias', label: 'Validade (dias)' },
+  { key: 'itens', label: 'Itens/serviços' },
+  { key: 'descontoAplicado', label: 'Desconto' },
+  { key: 'formaPagamento', label: 'Forma de pagamento' },
+  { key: 'textoInterno', label: 'Texto Interno' },
+  { key: 'textoCliente', label: 'Texto para o Cliente' },
+] as const
+export type OrcamentoRelatorioCampo = typeof ORCAMENTO_RELATORIO_CAMPOS[number]['key']
+
+/** Campos marcados por padrão no relatório da coluna. */
+export const ORCAMENTO_RELATORIO_CAMPOS_PADRAO: OrcamentoRelatorioCampo[] =
+  ['numero', 'cliente', 'valorTotal', 'natureza', 'areas', 'responsavel', 'createdAt']
+/** Campos marcados por padrão na exportação da lista (o Status a mais). */
+export const ORCAMENTO_EXPORTACAO_CAMPOS_PADRAO: OrcamentoRelatorioCampo[] =
+  ['status', ...ORCAMENTO_RELATORIO_CAMPOS_PADRAO]
+
 // Transições do funil (drag no kanban). Cancelamento NÃO é transição de drag —
 // é ação própria (botão Cancelar), então CANCELADO não é destino de ninguém e,
 // sendo terminal, não sai para lugar nenhum.
