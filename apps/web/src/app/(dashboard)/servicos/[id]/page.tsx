@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef, createContext, useContext, Fragment } from 'react'
+import { useEffect, useState, useCallback, useRef, createContext, useContext, forwardRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -15,7 +15,7 @@ import {
   Play, Pause, FileText, Layers, GitBranch, History, ListChecks,
   GripVertical, Clock, ChevronRight, ChevronDown, Network, Repeat, Zap, Type, Check, Search, Users,
   Bell, Mail, CircleDollarSign, AlignLeft, Info, Settings, CalendarDays, Lock, Unlock, ShieldCheck, Database, HelpCircle,
-  StickyNote, Link as LinkIcon, Paperclip, X,
+  StickyNote, Link as LinkIcon, Paperclip, Folder, FolderOpen, FolderPlus, Settings2, CheckSquare,
 } from 'lucide-react'
 import Link from 'next/link'
 import {
@@ -26,6 +26,7 @@ import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
   RichEditor, Checkbox, Switch, Textarea,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
+  Sheet, SheetContent, SheetHeader, SheetBody, SheetFooter, SheetTitle, SheetDescription,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
@@ -128,19 +129,6 @@ function itensArrastaveis(passos: Passo[], subEtapas: SubEtapa[]): string[] {
   const ids = new Set(subs.map(x => x.id))
   const out = [GRP_DIRETO, ...passos.filter(p => !p.subEtapaId || !ids.has(p.subEtapaId)).map(p => p.dndId)]
   for (const se of subs) out.push(`${GRP}${se.id}`, ...passos.filter(p => p.subEtapaId === se.id).map(p => p.dndId))
-  return out
-}
-
-/** Cabeçalhos imediatamente antes de um passo na lista plana. */
-function cabecalhosAntes(flat: string[], dndId: string): string[] {
-  const out: string[] = []
-  for (let k = flat.indexOf(dndId) - 1; k >= 0 && flat[k]!.startsWith(GRP); k--) out.unshift(flat[k]!)
-  return out
-}
-/** Cabeçalhos depois do último passo (sub-etapas vazias no fim, etapa sem passos). */
-function cabecalhosNoFim(flat: string[]): string[] {
-  const out: string[] = []
-  for (let k = flat.length - 1; k >= 0 && flat[k]!.startsWith(GRP); k--) out.unshift(flat[k]!)
   return out
 }
 
@@ -275,21 +263,6 @@ function computePassoLayers(passos: Passo[]): Map<string, number> {
     if (p.id) calc(p.id)
   }
   return layer
-}
-
-/** Paleta de cores cíclica para trilhos. L0 = sem cor (estado neutro padrão).
- *  As demais cores dão um leve tint pra agrupar visualmente. */
-const LAYER_BG_CLASSES = [
-  '', // L0 — nenhum tint, mantém a cor padrão da linha
-  'bg-emerald-50/60 dark:bg-emerald-950/20',
-  'bg-sky-50/60 dark:bg-sky-950/20',
-  'bg-amber-50/60 dark:bg-amber-950/20',
-  'bg-rose-50/60 dark:bg-rose-950/20',
-  'bg-violet-50/60 dark:bg-violet-950/20',
-]
-function getLayerBgClass(layer: number): string {
-  if (layer <= 0) return LAYER_BG_CLASSES[0] ?? ''
-  return LAYER_BG_CLASSES[((layer - 1) % (LAYER_BG_CLASSES.length - 1)) + 1] ?? ''
 }
 
 /** Conta quantos trilhos distintos existem (qtd. de níveis com pelo menos 1 passo). */
@@ -462,6 +435,43 @@ export default function ServicoDetailPage() {
   function expandAllEtapas() {
     setCollapsedEtapas(new Set())
   }
+  /** Sub-etapas recolhidas na árvore (ids). */
+  const [collapsedSubs, setCollapsedSubs] = useState<Set<string>>(new Set())
+  function alternarSub(subId: string) {
+    setCollapsedSubs(prev => {
+      const next = new Set(prev)
+      if (next.has(subId)) next.delete(subId); else next.add(subId)
+      return next
+    })
+  }
+  const todasSubs = etapas.flatMap(et => et.subEtapas.map(se => se.id))
+  const tudoRecolhido = etapas.length > 0 && collapsedEtapas.size >= etapas.length
+  function recolherTudoArvore() { collapseAllEtapas(); setCollapsedSubs(new Set(todasSubs)) }
+  function expandirTudoArvore() { expandAllEtapas(); setCollapsedSubs(new Set()) }
+  // Abre/fecha da árvore lembrado por serviço (só conveniência do navegador).
+  const chaveArvore = `servico-arvore:${id}`
+  const arvoreCarregada = useRef(false)
+  useEffect(() => {
+    if (arvoreCarregada.current) return
+    arvoreCarregada.current = true
+    try {
+      const salvo = JSON.parse(localStorage.getItem(chaveArvore) ?? 'null') as { etapas?: string[]; subs?: string[] } | null
+      if (salvo?.etapas) setCollapsedEtapas(new Set(salvo.etapas))
+      if (salvo?.subs) setCollapsedSubs(new Set(salvo.subs))
+    } catch { /* sem storage: tudo aberto */ }
+  }, [chaveArvore])
+  useEffect(() => {
+    if (!arvoreCarregada.current) return
+    try { localStorage.setItem(chaveArvore, JSON.stringify({ etapas: [...collapsedEtapas], subs: [...collapsedSubs] })) } catch { /* ignora */ }
+  }, [chaveArvore, collapsedEtapas, collapsedSubs])
+
+  /** Item cujo painel lateral de configuração está aberto. */
+  const [painel, setPainel] = useState<
+    | { tipo: 'passo'; dndId: string }
+    | { tipo: 'etapa'; key: string }
+    | { tipo: 'sub'; subId: string }
+    | null
+  >(null)
 
   // Encadeamentos
   const [encadeamentos, setEncadeamentos] = useState<Encadeamento[]>([])
@@ -706,11 +716,19 @@ export default function ServicoDetailPage() {
   /** Do fluxo para a edição: abre "Etapas e passos" e foca o passo clicado. */
   const irParaPasso = useCallback((dndId: string) => {
     setActiveTab('etapas')
+    const ei = etapas.findIndex(et => et.passos.some(pp => pp.dndId === dndId))
+    const et = etapas[ei]
+    if (et) {
+      const key = et.id ?? (et as unknown as { __draftKey?: string }).__draftKey ?? `__none-${ei}`
+      setCollapsedEtapas(prev => { const n = new Set(prev); n.delete(key); return n })
+      const sub = et.passos.find(pp => pp.dndId === dndId)?.subEtapaId
+      if (sub) setCollapsedSubs(prev => { const n = new Set(prev); n.delete(sub); return n })
+    }
     setTimeout(() => {
       const el = passoInputRefs.current.get(dndId)
       if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus() }
     }, 120)
-  }, [])
+  }, [etapas])
 
   // ── Salvar Visão geral ────────────────────────────────────
 
@@ -1124,6 +1142,45 @@ export default function ServicoDetailPage() {
       tipo: 'passo', id: p.id, nome: p.nome, condicao: condicaoDe(p),
       pergunta: { tipo: p.tipo ?? 'PASSO', perguntaTexto: p.perguntaTexto ?? null, perguntaOpcoes: p.perguntaOpcoes ?? [], perguntaMultipla: p.perguntaMultipla ?? false },
     })
+  }
+
+  const painelPasso = (() => {
+    if (painel?.tipo !== 'passo') return null
+    for (let ei = 0; ei < etapas.length; ei++) {
+      const pi = etapas[ei]!.passos.findIndex(x => x.dndId === painel.dndId)
+      if (pi !== -1) return { p: etapas[ei]!.passos[pi]!, pi, ei, et: etapas[ei]! }
+    }
+    return null
+  })()
+  const painelEtapa = (() => {
+    if (painel?.tipo !== 'etapa') return null
+    const ei = etapas.findIndex((et, i) => (et.id ?? (et as unknown as { __draftKey?: string }).__draftKey ?? `__none-${i}`) === painel.key)
+    return ei === -1 ? null : { et: etapas[ei]!, ei }
+  })()
+  const painelSub = (() => {
+    if (painel?.tipo !== 'sub') return null
+    const ei = etapas.findIndex(et => et.subEtapas.some(se => se.id === painel.subId))
+    if (ei === -1) return null
+    return { se: etapas[ei]!.subEtapas.find(se => se.id === painel.subId)!, ei, et: etapas[ei]! }
+  })()
+  function alterarSlaPasso(ei: number, pi: number, p: Passo, v: string) {
+    setEtapas(prev => prev.map((x, i) => i === ei
+      ? { ...x, passos: x.passos.map((pp, j) => j === pi ? { ...pp, slaText: v } : pp) }
+      : x))
+    if (p.id) scheduleSave(`passo-${p.id}-sla`, () => {
+      const min = parseSlaMin(v)
+      if (v.trim() !== '' && min === null) return Promise.resolve()
+      return updatePassoCampo(p.id, 'slaMinutos', min)
+    })
+  }
+  /** Ao sair do campo: normaliza o texto pro formato canônico ("1h 30m"). */
+  function normalizarSlaPasso(ei: number, pi: number, v: string) {
+    const canonical = formatSlaMin(parseSlaMin(v))
+    if (canonical !== v) {
+      setEtapas(prev => prev.map((x, i) => i === ei
+        ? { ...x, passos: x.passos.map((pp, j) => j === pi ? { ...pp, slaText: canonical } : pp) }
+        : x))
+    }
   }
 
   // Adiciona um passo apenas LOCALMENTE (draft = sem id). O servidor é
@@ -2222,29 +2279,29 @@ export default function ServicoDetailPage() {
 
         {/* ── TAB: Etapas e Passos ── */}
         <TabsContent value="etapas" className="mt-4">
+          {/* Árvore de etapas → sub-etapas → passos, como um explorador de arquivos
+              (07/10/2026). Linhas compactas; o detalhe de cada item (SLA, condição,
+              materiais, e-mails, lembretes, campos) abre no painel lateral. */}
           <Card>
-            <CardContent className="p-5 space-y-4">
-              <div className="flex items-center justify-between">
+            <CardContent className="p-4 sm:p-5 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-semibold">Etapas e passos do template</h3>
                   <p className="text-[11px] text-muted-foreground">
-                    Checklist replicado a cada execução. Alterações são salvas automaticamente.
+                    Checklist replicado a cada execução. Clique num item para configurá-lo; arraste pela alça para reordenar.
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {etapas.length > 1 && (
+                  {etapas.length > 0 && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => collapsedEtapas.size === etapas.length ? expandAllEtapas() : collapseAllEtapas()}
+                      onClick={() => (tudoRecolhido ? expandirTudoArvore() : recolherTudoArvore())}
                       className="gap-1.5 text-xs text-muted-foreground"
-                      title={collapsedEtapas.size === etapas.length ? 'Expandir todas as etapas' : 'Recolher todas as etapas'}
                     >
-                      {collapsedEtapas.size === etapas.length ? (
-                        <><ChevronDown className="h-3.5 w-3.5" /> Expandir tudo</>
-                      ) : (
-                        <><ChevronRight className="h-3.5 w-3.5" /> Recolher tudo</>
-                      )}
+                      {tudoRecolhido
+                        ? <><ChevronDown className="h-3.5 w-3.5" /> Expandir tudo</>
+                        : <><ChevronRight className="h-3.5 w-3.5" /> Recolher tudo</>}
                     </Button>
                   )}
                   <Button variant="outline" size="sm" onClick={addEtapa} className="gap-1.5 text-xs">
@@ -2252,545 +2309,497 @@ export default function ServicoDetailPage() {
                   </Button>
                 </div>
               </div>
+
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleEtapasDragEnd}>
                 <SortableContext items={etapas.map(et => et.id || '__none')} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-3">
+                  <div className="rounded-lg border border-border py-1">
                     {etapas.length === 0 && (
-                      <p className="text-xs text-muted-foreground text-center py-6 italic border rounded-lg bg-muted/20">
-                        Nenhuma etapa cadastrada. Clique em &quot;Adicionar etapa&quot; pra começar.
+                      <p className="text-xs text-muted-foreground text-center py-6 italic">
+                        Nenhuma etapa cadastrada. Clique em &quot;Adicionar etapa&quot; para começar.
                       </p>
                     )}
                     {etapas.map((et, ei) => {
                       const draftKey = (et as unknown as { __draftKey?: string }).__draftKey
                       const sortKey = et.id ?? draftKey ?? `__none-${ei}`
                       const collapsed = collapsedEtapas.has(sortKey)
+                      const seloEtapa = et.id ? seloDe(et) : null
+                      const trilhos = countTrilhos(computePassoLayers(et.passos))
+                      const flat = itensArrastaveis(et.passos, et.subEtapas)
+                      // Passos de sub-etapa recolhida saem da lista visível (o
+                      // handler de arraste continua usando a lista completa).
+                      const visiveis = flat.filter(x => {
+                        if (x.startsWith(GRP)) return true
+                        const pp = et.passos.find(q => q.dndId === x)
+                        return !(pp?.subEtapaId && collapsedSubs.has(pp.subEtapaId))
+                      })
+                      const selecionadaEtapa = painel?.tipo === 'etapa' && painel.key === sortKey
                       return (
-                      <SortableEtapa key={sortKey} id={sortKey}>
-                        {/* Cabeçalho da etapa */}
-                        <div className={cn('flex items-center gap-2', collapsed ? 'mb-0' : 'mb-3')}>
-                          <SortableEtapaHandle />
-                          <button
-                            type="button"
-                            onClick={() => toggleEtapaCollapse(sortKey)}
-                            className="shrink-0 inline-flex items-center justify-center h-9 w-7 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                            title={collapsed ? 'Expandir etapa' : 'Recolher etapa'}
-                            aria-expanded={!collapsed}
+                        <SortableEtapa key={sortKey} id={sortKey}>
+                          {/* ── Linha da etapa (pasta) ── */}
+                          <div
+                            className={cn(
+                              'group/linha flex items-start gap-1 rounded-md px-1.5 py-1 hover:bg-muted/50',
+                              selecionadaEtapa && 'bg-primary/10 hover:bg-primary/10',
+                            )}
                           >
-                            <ChevronDown
-                              className={cn(
-                                'h-4 w-4 transition-transform duration-200 ease-out',
-                                collapsed && '-rotate-90',
-                              )}
-                            />
-                          </button>
-                          <span className="text-[10px] font-bold text-muted-foreground w-5 shrink-0">{ei + 1}.</span>
-                          <div className="flex-1 flex items-center gap-2 min-w-0">
-                            <div className="relative flex-1 min-w-0">
-                              <Input
+                            <span className="mt-0.5 opacity-0 transition-opacity group-hover/linha:opacity-100"><SortableEtapaHandle /></span>
+                            <button
+                              type="button"
+                              onClick={() => toggleEtapaCollapse(sortKey)}
+                              className="mt-0.5 inline-flex h-6 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                              title={collapsed ? 'Abrir etapa' : 'Fechar etapa'}
+                              aria-expanded={!collapsed}
+                            >
+                              <ChevronRight className={cn('h-3.5 w-3.5 transition-transform duration-150', !collapsed && 'rotate-90')} />
+                            </button>
+                            {collapsed
+                              ? <Folder className={cn('mt-1 h-4 w-4 shrink-0', TEXT.amber)} />
+                              : <FolderOpen className={cn('mt-1 h-4 w-4 shrink-0', TEXT.amber)} />}
+                            <span className="mt-1 w-5 shrink-0 text-right text-[11px] font-bold tabular-nums text-muted-foreground">{ei + 1}.</span>
+                            <div className="relative min-w-0 flex-1">
+                              <NomeInline
                                 ref={el => {
-                                  const key = et.id ?? (et as unknown as { __draftKey?: string }).__draftKey
+                                  const key = et.id ?? draftKey
                                   if (!key) return
                                   if (el) etapaInputRefs.current.set(key, el)
                                   else etapaInputRefs.current.delete(key)
                                 }}
                                 value={et.nome}
-                                onChange={e => {
-                                  const v = e.target.value
+                                forte
+                                ariaLabel="Nome da etapa"
+                                placeholder={et.id ? 'Nome da etapa' : 'Digite o nome (vazio = descartar)'}
+                                onChange={v => {
                                   setEtapas(prev => prev.map((x, i) => i === ei ? { ...x, nome: v } : x))
                                   if (et.id) scheduleSave(`etapa-${et.id}-nome`, () => updateEtapaNome(et.id, v))
                                 }}
-                                onBlur={e => {
-                                  const draftKey = (et as unknown as { __draftKey?: string }).__draftKey
-                                  // Só faz flush se for draft (sem id ainda)
-                                  if (!et.id && draftKey) {
-                                    void flushEtapaDraft(draftKey, e.target.value)
-                                  }
-                                }}
-                                placeholder={et.id ? 'Nome da etapa' : 'Digite o nome (vazio = descartar)'}
-                                className="h-9 text-sm"
+                                onBlur={v => { if (!et.id && draftKey) void flushEtapaDraft(draftKey, v) }}
                               />
                               {et.id && savingKeys.has(`etapa-${et.id}-nome`) && (
-                                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground absolute right-2 top-3" />
+                                <Loader2 className="absolute right-1 top-1.5 h-3 w-3 animate-spin text-muted-foreground" />
                               )}
                             </div>
-                            {/* Materiais de apoio inline — chips + botão "+ Material" à direita do input da etapa.
-                                Só pra etapas salvas (com id). */}
-                            {et.id && (() => {
-                              const selo = seloDe(et)
-                              const abrir = () => setAlvoCondicao({ tipo: 'etapa', id: et.id!, nome: et.nome, condicao: condicaoDe(et) })
-                              return selo ? (
-                                <SeloCondicaoCadastro texto={selo} onClick={abrir} className="h-9 shrink-0 text-[11px]" />
-                              ) : (
-                                <Button variant="ghost" size="icon-sm" className="h-9 w-9 shrink-0 text-muted-foreground" onClick={abrir} title="Condição: esta etapa só vale para certas respostas de uma pergunta">
-                                  <GitBranch className="h-3.5 w-3.5" />
-                                </Button>
-                              )
-                            })()}
-                            {et.id && (
-                              <MateriaisSection
-                                materiais={et.materiais ?? []}
-                                etapaId={et.id}
-                                inline
-                                onChange={() => { void fetchServico() }}
-                              />
-                            )}
-                          </div>
-                          {/* Contagem de passos — visível quando colapsada */}
-                          {collapsed && (
-                            <div
-                              className="flex items-center justify-center gap-1 shrink-0 h-9 px-2 rounded-md bg-muted/40 border border-input text-[11px] font-medium text-muted-foreground tabular-nums"
-                              title={`${et.passos.length} passo${et.passos.length === 1 ? '' : 's'} nesta etapa`}
-                            >
-                              <ListChecks className="h-3 w-3" />
-                              <span>{et.passos.length}</span>
+                            {/* Etiquetas curtas da etapa */}
+                            <div className="mt-0.5 flex shrink-0 flex-wrap items-center justify-end gap-1">
+                              {seloEtapa && (
+                                <SeloCondicaoCadastro texto={seloEtapa} onClick={() => setAlvoCondicao({ tipo: 'etapa', id: et.id!, nome: et.nome, condicao: condicaoDe(et) })} className="h-6 max-w-[200px] text-[10.5px]" />
+                              )}
+                              {trilhos > 1 && (
+                                <span className={cn('inline-flex h-6 items-center gap-1 rounded border px-1.5 text-[10.5px] font-medium', BADGE.emerald)} title={`${trilhos} trilhos paralelos — passos no mesmo trilho rodam simultaneamente`}>
+                                  <GitBranch className="h-3 w-3" />{trilhos}
+                                </span>
+                              )}
+                              <span className="inline-flex h-6 items-center gap-1 px-1 text-[10.5px] tabular-nums text-muted-foreground" title={`${et.passos.length} passo(s)`}>
+                                <ListChecks className="h-3 w-3" />{et.passos.length}
+                              </span>
+                              <span className="inline-flex h-6 items-center gap-1 px-1 text-[10.5px] tabular-nums text-muted-foreground" title="SLA da etapa = soma dos passos (jornada 8h/dia × 5 dias/sem)">
+                                <Clock className="h-3 w-3" />{formatSlaRich(calcEtapaMinutos(et)) || '—'}
+                              </span>
                             </div>
-                          )}
-                          {/* Indicador de trilhos — visível só quando há mais de 1 */}
-                          {(() => {
-                            const trilhos = countTrilhos(computePassoLayers(et.passos))
-                            if (trilhos <= 1) return null
-                            return (
-                              <div
-                                className={cn('flex items-center justify-center gap-1 shrink-0 h-9 px-2 rounded-md border text-[11px] font-medium', BADGE.emerald)}
-                                title={`${trilhos} trilhos paralelos — passos no mesmo trilho rodam simultaneamente`}
-                              >
-                                <GitBranch className="h-3 w-3" />
-                                <span>{trilhos} trilhos</span>
-                              </div>
-                            )
-                          })()}
-                          {/* SLA da etapa — soma dos passos (não editável) */}
-                          <div
-                            className="flex items-center justify-center gap-1 shrink-0 h-9 px-2 min-w-[72px] rounded-md bg-muted/40 border border-input text-[11px] font-medium text-foreground tabular-nums"
-                            title="SLA da etapa = soma do tempo de todos os passos (jornada 8h/dia × 5 dias/sem)"
-                          >
-                            <Clock className="h-3 w-3 text-muted-foreground" />
-                            <span>{formatSlaRich(calcEtapaMinutos(et)) || '—'}</span>
-                          </div>
-                          <Button variant="ghost" size="icon-xs" onClick={() => removeEtapa(et.id)} className="text-destructive shrink-0" title="Remover etapa">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                        {/* Conteúdo da etapa (header da grade + lista de passos) — animação smooth
-                            de expand/collapse via grid-template-rows 1fr↔0fr (técnica moderna
-                            que evita medir altura). O wrapper interno usa overflow-hidden pra
-                            cortar o vazamento enquanto a transição roda. */}
-                        <div
-                          className={cn(
-                            'grid transition-[grid-template-rows,opacity] duration-200 ease-out',
-                            collapsed ? 'grid-rows-[0fr] opacity-0 pointer-events-none' : 'grid-rows-[1fr] opacity-100',
-                          )}
-                        >
-                          <div className="overflow-hidden">
-
-                    {/* Header da grade de passos — larguras fixas. Coluna "Obr." virou append
-                        (botão cadeado) dentro do input do passo; "Pula?" e "Dependência" foram
-                        removidas. */}
-                    {et.passos.length > 0 && (
-                      <div className="ml-7 grid grid-cols-[24px_1fr_80px_28px] gap-2 items-center text-[9px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 px-1">
-                        <span></span>
-                        <span>Passo</span>
-                        <span className="text-center" title="Aceita horas e minutos: '1h 30m', '45m', '2h' ou número puro em minutos">SLA</span>
-                        <span></span>
-                      </div>
-                    )}
-
-                    {/* Linhas de passos — mesmas larguras do header.
-                        Cada passo recebe uma classe de fundo baseada no "trilho"
-                        (nível na cadeia de dependência). Passos no mesmo trilho
-                        rodam em paralelo e compartilham a cor. */}
-                    {/* Sub-etapas: agrupamento opcional dos passos desta etapa. */}
-                    {et.id && (
-                      <div className="ml-7 mb-2 flex flex-wrap items-center gap-1.5">
-                        <span className="text-[11px] font-semibold text-muted-foreground">Sub-etapas:</span>
-                        {et.subEtapas.length === 0 && (
-                          <span className="text-[11px] text-muted-foreground/80">nenhuma — os passos ficam direto na etapa</span>
-                        )}
-                        {et.subEtapas.slice().sort((a, b) => a.ordem - b.ordem).map((se) => {
-                          const qtd = et.passos.filter(pp => pp.subEtapaId === se.id).length
-                          return (
-                            <span key={se.id} className="inline-flex items-center gap-0.5 rounded-md border border-border bg-muted/40 py-0.5 pl-1.5 pr-0.5">
-                              <Layers className="h-3 w-3 text-muted-foreground" />
-                              <input
-                                defaultValue={se.nome}
-                                onBlur={e => { void renomearSubEtapa(ei, se.id, e.target.value) }}
-                                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                                aria-label="Nome da sub-etapa"
-                                className="w-[9rem] bg-transparent px-1 text-[11px] font-medium text-foreground focus:outline-none"
-                              />
-                              <span className="text-[10px] tabular-nums text-muted-foreground" title="Passos nesta sub-etapa">{qtd}</span>
-                              {(() => {
-                                const selo = seloDe(se)
-                                return (
-                                  <Button
-                                    variant="ghost" size="icon-xs"
-                                    className={cn('h-5 w-5', selo ? TEXT.sky : 'text-muted-foreground opacity-60 hover:opacity-100')}
-                                    onClick={() => setAlvoCondicao({ tipo: 'sub', id: se.id, nome: se.nome, condicao: condicaoDe(se) })}
-                                    title={selo ? `Só vale ${selo} — clique para alterar` : 'Condição: esta sub-etapa só vale para certas respostas de uma pergunta'}
-                                  >
-                                    <GitBranch className="h-3 w-3" />
+                            {/* Ações: aparecem ao passar o mouse */}
+                            <div className="mt-0.5 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/linha:opacity-100">
+                              {et.id && (
+                                <>
+                                  <Button variant="ghost" size="icon-xs" className="h-6 w-6" onClick={() => { if (collapsed) toggleEtapaCollapse(sortKey); addPasso(et) }} title="Adicionar passo">
+                                    <Plus className="h-3.5 w-3.5" />
                                   </Button>
-                                )
-                              })()}
-                              <Button variant="ghost" size="icon-xs" className="h-5 w-5 text-destructive opacity-60 hover:opacity-100" onClick={() => { void excluirSubEtapa(ei, se) }} title="Excluir sub-etapa (os passos voltam para a etapa)">
-                                <X className="h-3 w-3" />
+                                  <Button variant="ghost" size="icon-xs" className="h-6 w-6" onClick={() => { void addSubEtapa(ei) }} title="Adicionar sub-etapa">
+                                    <FolderPlus className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon-xs" className="h-6 w-6" onClick={() => setPainel({ tipo: 'etapa', key: sortKey })} title="Configurar etapa (condição, materiais)">
+                                    <Settings2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </>
+                              )}
+                              <Button variant="ghost" size="icon-xs" className="h-6 w-6 text-destructive" onClick={() => removeEtapa(et.id)} title="Remover etapa">
+                                <Trash2 className="h-3.5 w-3.5" />
                               </Button>
-                            </span>
-                          )
-                        })}
-                        <Button variant="ghost" size="sm" className="h-6 gap-1 text-[11px] text-muted-foreground" onClick={() => { void addSubEtapa(ei) }}>
-                          <Plus className="h-3 w-3" /> Sub-etapa
-                        </Button>
-                      </div>
-                    )}
-                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(ev) => handlePassosDragEnd(ei, ev)}>
-                      <SortableContext items={itensArrastaveis(et.passos, et.subEtapas)} strategy={verticalListSortingStrategy}>
-                    <div className="ml-7 space-y-1.5">
-                      {(() => {
-                        const passoLayers = computePassoLayers(et.passos)
-                        return et.passos.map((p, pi) => {
-                          const layer = p.id ? (passoLayers.get(p.id) ?? 0) : 0
-                          const layerCls = getLayerBgClass(layer)
-                          return (
-                        <Fragment key={p.dndId}>
-                        {/* Cabeçalhos de grupo que vêm logo antes deste passo na lista arrastável */}
-                        {cabecalhosAntes(itensArrastaveis(et.passos, et.subEtapas), p.dndId).map(c => (
-                          <CabecalhoGrupo key={c} id={c} etapa={et} />
-                        ))}
-                        <SortablePasso id={p.dndId} layerClass={layerCls} exiting={!!p.id && exitingPassoIds.has(p.id)}>
-                          <SortablePassoHandle numero={pi + 1} />
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className="relative flex-1 min-w-0 flex items-stretch">
-                              <Input
-                                ref={el => {
-                                  if (el) passoInputRefs.current.set(p.dndId, el)
-                                  else passoInputRefs.current.delete(p.dndId)
-                                }}
-                                value={p.nome}
-                                onChange={e => {
-                                  const v = e.target.value
-                                  setEtapas(prev => prev.map((x, i) => i === ei
-                                    ? { ...x, passos: x.passos.map((pp, j) => j === pi ? { ...pp, nome: v } : pp) }
-                                    : x))
-                                  if (p.id) scheduleSave(`passo-${p.id}-nome`, () => updatePassoCampo(p.id, 'nome', v))
-                                }}
-                                onBlur={e => {
-                                  // Draft (sem id) → persiste se tem texto, descarta se vazio
-                                  if (!p.id && et.id) {
-                                    void flushPassoDraft(
-                                      et.id,
-                                      p.dndId,
-                                      e.target.value,
-                                      pi,
-                                      p.obrigatorio,
-                                      p.permiteIgnorar,
-                                      p.slaText,
-                                    )
-                                  }
-                                }}
-                                placeholder={p.id ? 'Descrição do passo' : 'Digite o nome (vazio = descartar)'}
-                                className="h-8 text-sm flex-1 rounded-r-none border-r-0"
-                              />
-                              {p.id && savingKeys.has(`passo-${p.id}-nome`) && (
-                                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground absolute right-10 top-2.5" />
-                              )}
-                              {/* Indicadores visuais (notas / links / arquivos / e-mails / lembretes /
-                                  campos do cliente) — chips coloridos entre o input e o botão lock,
-                                  formando um único "input group". Cada chip só renderiza se count > 0;
-                                  clique abre o dialog correspondente. Border-l ausente nos chips
-                                  internos pra formar fila contínua. */}
-                              {p.id && p.tipo === 'PERGUNTA' && (
-                                <button
-                                  type="button"
-                                  onClick={() => abrirCondicaoPasso(p)}
-                                  className={cn('h-8 inline-flex items-center gap-1 px-2 text-[10px] font-medium border-y border-r border-input transition-colors shrink-0', BADGE.violet)}
-                                  title={`Pergunta: ${p.perguntaTexto ?? ''} — ${(p.perguntaOpcoes ?? []).join(' / ')}${p.perguntaMultipla ? ' (várias respostas)' : ''}`}
-                                >
-                                  <HelpCircle className="h-3 w-3" />
-                                  <span>Pergunta · {(p.perguntaOpcoes ?? []).length}</span>
-                                </button>
-                              )}
-                              {p.id && (() => {
-                                const selo = seloDe(p)
-                                return selo ? (
-                                  <SeloCondicaoCadastro texto={selo} onClick={() => abrirCondicaoPasso(p)} className="h-8 shrink-0 rounded-none border-l-0 max-w-[180px]" />
-                                ) : null
-                              })()}
-                              {p.id && (() => {
-                                const notas = (p.materiais ?? []).filter(m => m.tipo === 'NOTA').length
-                                return notas > 0 ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setOpenMateriaisPasso({ passoId: p.id!, tipo: 'NOTA' })}
-                                    className="h-8 inline-flex items-center gap-1 px-2 text-[10px] font-medium tabular-nums border-y border-r border-input bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-950/50 transition-colors shrink-0"
-                                    title={`Notas / instruções · ${notas}`}
-                                  >
-                                    <StickyNote className="h-3 w-3" />
-                                    <span>{notas}</span>
-                                  </button>
-                                ) : null
-                              })()}
-                      {cabecalhosNoFim(itensArrastaveis(et.passos, et.subEtapas)).map(c => (
-                        <CabecalhoGrupo key={c} id={c} etapa={et} />
-                      ))}
-                              {p.id && (() => {
-                                const links = (p.materiais ?? []).filter(m => m.tipo === 'LINK').length
-                                return links > 0 ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setOpenMateriaisPasso({ passoId: p.id!, tipo: 'LINK' })}
-                                    className="h-8 inline-flex items-center gap-1 px-2 text-[10px] font-medium tabular-nums border-y border-r border-input bg-sky-50 text-sky-700 hover:bg-sky-100 dark:bg-sky-950/30 dark:text-sky-300 dark:hover:bg-sky-950/50 transition-colors shrink-0"
-                                    title={`Links externos · ${links}`}
-                                  >
-                                    <LinkIcon className="h-3 w-3" />
-                                    <span>{links}</span>
-                                  </button>
-                                ) : null
-                              })()}
-                              {p.id && (() => {
-                                const arquivos = (p.materiais ?? []).filter(m => m.tipo === 'ARQUIVO').length
-                                return arquivos > 0 ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setOpenMateriaisPasso({ passoId: p.id!, tipo: 'ARQUIVO' })}
-                                    className="h-8 inline-flex items-center gap-1 px-2 text-[10px] font-medium tabular-nums border-y border-r border-input bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300 dark:hover:bg-emerald-950/50 transition-colors shrink-0"
-                                    title={`Arquivos · ${arquivos}`}
-                                  >
-                                    <Paperclip className="h-3 w-3" />
-                                    <span>{arquivos}</span>
-                                  </button>
-                                ) : null
-                              })()}
-                              {p.id && (p.emailsCount ?? 0) > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => setOpenEmailsPasso(p.id!)}
-                                  className="h-8 inline-flex items-center gap-1 px-2 text-[10px] font-medium tabular-nums border-y border-r border-input bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:text-indigo-300 dark:hover:bg-indigo-950/50 transition-colors shrink-0"
-                                  title={`E-mails de conclusão · ${p.emailsCount}`}
-                                >
-                                  <Mail className="h-3 w-3" />
-                                  <span>{p.emailsCount}</span>
-                                </button>
-                              )}
-                              {p.id && (p.lembretesCount ?? 0) > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => setOpenLembretesPasso(p.id!)}
-                                  className="h-8 inline-flex items-center gap-1 px-2 text-[10px] font-medium tabular-nums border-y border-r border-input bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-950/50 transition-colors shrink-0"
-                                  title={`Lembretes na agenda · ${p.lembretesCount}`}
-                                >
-                                  <Bell className="h-3 w-3" />
-                                  <span>{p.lembretesCount}</span>
-                                </button>
-                              )}
-                              {p.id && (p.camposClienteCount ?? 0) > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => setOpenCamposClientePasso(p.id!)}
-                                  className="h-8 inline-flex items-center gap-1 px-2 text-[10px] font-medium tabular-nums border-y border-r border-input bg-sky-50 text-sky-700 hover:bg-sky-100 dark:bg-sky-950/30 dark:text-sky-300 dark:hover:bg-sky-950/50 transition-colors shrink-0"
-                                  title={`Campos do cliente · ${p.camposClienteCount}`}
-                                >
-                                  <Database className="h-3 w-3" />
-                                  <span>{p.camposClienteCount}</span>
-                                </button>
-                              )}
-                              {/* Append final: toggle de obrigatoriedade. Lock = obrigatório (vermelho),
-                                  Unlock = opcional (verde). SEMPRE à direita — depois dos indicadores. */}
-                              {p.id && (
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={p.obrigatorio}
-                                  onClick={() => {
-                                    const v = !p.obrigatorio
-                                    setEtapas(prev => prev.map((x, i) => i === ei
-                                      ? { ...x, passos: x.passos.map((pp, j) => j === pi ? { ...pp, obrigatorio: v } : pp) }
-                                      : x))
-                                    void updatePassoCampo(p.id, 'obrigatorio', v)
-                                  }}
-                                  title={p.obrigatorio
-                                    ? 'Obrigatório — clique para tornar opcional'
-                                    : 'Opcional — clique para tornar obrigatório'}
-                                  className={cn(
-                                    'h-8 w-8 inline-flex items-center justify-center rounded-r-md border border-input border-l-0 transition-colors shrink-0',
-                                    p.obrigatorio
-                                      ? 'bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/60'
-                                      : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/60',
-                                  )}
-                                >
-                                  {p.obrigatorio ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
-                                </button>
-                              )}
                             </div>
-                            {/* Materiais de apoio inline — chips + botão "+ Material" à direita do input.
-                                Só pra passos salvos (com id) — drafts precisam ser persistidos primeiro.
-                                Item "E-mail" é injetado no dropdown via extraDropdownItems; abre o dialog
-                                de PassoEmailsSection (renderizado abaixo em modo controlado). */}
-                            {p.id && (
-                              <MateriaisSection
-                                materiais={p.materiais ?? []}
-                                passoId={p.id}
-                                density="compact"
-                                inline
-                                hideChips
-                                openListTipo={openMateriaisPasso?.passoId === p.id ? openMateriaisPasso.tipo : null}
-                                onCloseList={() => setOpenMateriaisPasso(null)}
-                                onChange={() => { void fetchServico() }}
-                                extraDropdownItems={[
-                                  {
-                                    key: 'email',
-                                    icon: Mail,
-                                    label: 'E-mail de conclusão',
-                                    iconClassName: TEXT.indigo,
-                                    onSelect: () => setOpenEmailsPasso(p.id!),
-                                  },
-                                  {
-                                    key: 'lembrete',
-                                    icon: Bell,
-                                    label: 'Agendar lembrete',
-                                    iconClassName: TEXT.amber,
-                                    onSelect: () => setOpenLembretesPasso(p.id!),
-                                  },
-                                  {
-                                    key: 'campo-cliente',
-                                    icon: Database,
-                                    label: 'Vincular campo',
-                                    iconClassName: TEXT.sky,
-                                    onSelect: () => setOpenCamposClientePasso(p.id!),
-                                  },
-                                  {
-                                    key: 'pergunta-condicao',
-                                    icon: GitBranch,
-                                    label: 'Pergunta e condição',
-                                    iconClassName: TEXT.violet,
-                                    onSelect: () => abrirCondicaoPasso(p),
-                                  },
-                                ]}
-                              />
-                            )}
-                            {/* Dialog de e-mails do passo controlado pelo state externo.
-                                onCountChange atualiza só o passo específico no estado local —
-                                evita refetch global (que causava flicker da tab inteira). */}
-                            {p.id && (
-                              <PassoEmailsSection
-                                passoId={p.id}
-                                density="compact"
-                                inline
-                                controlled={{
-                                  open: openEmailsPasso === p.id,
-                                  onOpenChange: (o) => setOpenEmailsPasso(o ? p.id! : null),
-                                  hideTrigger: true,
-                                }}
-                                onCountChange={(count) => setEtapas(prev => prev.map(et => ({
-                                  ...et,
-                                  passos: et.passos.map(pp => pp.id === p.id ? { ...pp, emailsCount: count } : pp),
-                                })))}
-                              />
-                            )}
-                            {/* Dialog de lembretes (agenda corporativa) controlado. */}
-                            {p.id && (
-                              <PassoLembretesSection
-                                passoId={p.id}
-                                controlled={{
-                                  open: openLembretesPasso === p.id,
-                                  onOpenChange: (o) => setOpenLembretesPasso(o ? p.id! : null),
-                                }}
-                                onCountChange={(count) => setEtapas(prev => prev.map(et => ({
-                                  ...et,
-                                  passos: et.passos.map(pp => pp.id === p.id ? { ...pp, lembretesCount: count } : pp),
-                                })))}
-                              />
-                            )}
-                            {/* Dialog de vínculos de campos do cliente controlado. */}
-                            {p.id && (
-                              <PassoCamposClienteSection
-                                passoId={p.id}
-                                controlled={{
-                                  open: openCamposClientePasso === p.id,
-                                  onOpenChange: (o) => setOpenCamposClientePasso(o ? p.id! : null),
-                                }}
-                                onCountChange={(count) => setEtapas(prev => prev.map(et => ({
-                                  ...et,
-                                  passos: et.passos.map(pp => pp.id === p.id ? { ...pp, camposClienteCount: count } : pp),
-                                })))}
-                              />
-                            )}
-                            {p.id && et.subEtapas.length > 0 && (
-                              <select
-                                value={p.subEtapaId ?? ''}
-                                onChange={e => { void definirSubEtapaDoPasso(ei, p.id!, e.target.value || null) }}
-                                title="Sub-etapa do passo"
-                                aria-label="Sub-etapa do passo"
-                                className="h-8 max-w-[10rem] shrink-0 rounded-md border border-input bg-background px-1.5 text-[11px] text-foreground"
+                          </div>
+
+                          {/* ── Conteúdo da etapa (sub-etapas e passos), com linha-guia ── */}
+                          {!collapsed && (
+                            <div className="ml-[26px] border-l border-border pl-1.5">
+                              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(ev) => handlePassosDragEnd(ei, ev)}>
+                                <SortableContext items={visiveis} strategy={verticalListSortingStrategy}>
+                                  {visiveis.map(item => {
+                                    if (item.startsWith(GRP)) {
+                                      const direto = item === GRP_DIRETO
+                                      const subId = direto ? null : item.slice(GRP.length)
+                                      const se = subId ? et.subEtapas.find(x => x.id === subId) : undefined
+                                      return (
+                                        <SortableGrupo
+                                          key={item}
+                                          id={item}
+                                          nome={direto ? 'Direto na etapa' : (se?.nome ?? 'Sub-etapa')}
+                                          qtd={et.passos.filter(pp => (direto ? !pp.subEtapaId : pp.subEtapaId === subId)).length}
+                                          fixo={direto}
+                                          recolhida={!!subId && collapsedSubs.has(subId)}
+                                          selecionada={!!subId && painel?.tipo === 'sub' && painel.subId === subId}
+                                          selo={se ? seloDe(se) : null}
+                                          onAlternar={subId ? () => alternarSub(subId) : undefined}
+                                          onRenomear={se ? (v => { void renomearSubEtapa(ei, se.id, v) }) : undefined}
+                                          onConfigurar={se ? () => setPainel({ tipo: 'sub', subId: se.id }) : undefined}
+                                          onCondicao={se ? () => setAlvoCondicao({ tipo: 'sub', id: se.id, nome: se.nome, condicao: condicaoDe(se) }) : undefined}
+                                          onExcluir={se ? () => { void excluirSubEtapa(ei, se) } : undefined}
+                                        />
+                                      )
+                                    }
+                                    const pi = et.passos.findIndex(q => q.dndId === item)
+                                    const p = et.passos[pi]
+                                    if (!p) return null
+                                    const dentroDeSub = !!p.subEtapaId && et.subEtapas.length > 0
+                                    const seloPasso = p.id ? seloDe(p) : null
+                                    const notas = (p.materiais ?? []).filter(m => m.tipo === 'NOTA').length
+                                    const links = (p.materiais ?? []).filter(m => m.tipo === 'LINK').length
+                                    const arquivos = (p.materiais ?? []).filter(m => m.tipo === 'ARQUIVO').length
+                                    const selecionado = painel?.tipo === 'passo' && painel.dndId === p.dndId
+                                    const abrirPainel = (extra?: () => void) => { if (p.id) { setPainel({ tipo: 'passo', dndId: p.dndId }); extra?.() } }
+                                    const contador = (n: number, Icone: typeof Mail, titulo: string, onClick: () => void) => n > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={onClick}
+                                        className="inline-flex h-5 items-center gap-0.5 rounded px-1 text-[10px] tabular-nums text-muted-foreground hover:bg-muted hover:text-foreground"
+                                        title={`${titulo} · ${n}`}
+                                      >
+                                        <Icone className="h-3 w-3" />{n}
+                                      </button>
+                                    )
+                                    return (
+                                      <div key={p.dndId} data-passo={p.dndId} className={cn(dentroDeSub && 'ml-[22px] border-l border-border pl-1.5')}>
+                                        <SortablePasso id={p.dndId} exiting={!!p.id && exitingPassoIds.has(p.id)} selecionado={selecionado}>
+                                          <span className="mt-1 w-6 shrink-0 text-right"><SortablePassoHandle numero={pi + 1} /></span>
+                                          {p.tipo === 'PERGUNTA'
+                                            ? <HelpCircle className={cn('mt-1 h-4 w-4 shrink-0', TEXT.violet)} />
+                                            : <CheckSquare className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />}
+                                          <div className="relative min-w-0 flex-1">
+                                            <NomeInline
+                                              ref={el => {
+                                                if (el) passoInputRefs.current.set(p.dndId, el)
+                                                else passoInputRefs.current.delete(p.dndId)
+                                              }}
+                                              value={p.nome}
+                                              ariaLabel="Nome do passo"
+                                              placeholder={p.id ? 'Descrição do passo' : 'Digite o nome (vazio = descartar)'}
+                                              onChange={v => {
+                                                setEtapas(prev => prev.map((x, i) => i === ei
+                                                  ? { ...x, passos: x.passos.map((pp, j) => j === pi ? { ...pp, nome: v } : pp) }
+                                                  : x))
+                                                if (p.id) scheduleSave(`passo-${p.id}-nome`, () => updatePassoCampo(p.id, 'nome', v))
+                                              }}
+                                              onBlur={v => {
+                                                // Draft (sem id) → persiste se tem texto, descarta se vazio
+                                                if (!p.id && et.id) void flushPassoDraft(et.id, p.dndId, v, pi, p.obrigatorio, p.permiteIgnorar, p.slaText)
+                                              }}
+                                            />
+                                            {p.id && savingKeys.has(`passo-${p.id}-nome`) && (
+                                              <Loader2 className="absolute right-1 top-1.5 h-3 w-3 animate-spin text-muted-foreground" />
+                                            )}
+                                          </div>
+                                          {/* Etiquetas curtas */}
+                                          <div className="mt-0.5 flex shrink-0 flex-wrap items-center justify-end gap-0.5">
+                                            {p.id && (
+                                              <button
+                                                type="button"
+                                                role="switch"
+                                                aria-checked={p.obrigatorio}
+                                                onClick={() => {
+                                                  const v = !p.obrigatorio
+                                                  setEtapas(prev => prev.map((x, i) => i === ei
+                                                    ? { ...x, passos: x.passos.map((pp, j) => j === pi ? { ...pp, obrigatorio: v } : pp) }
+                                                    : x))
+                                                  void updatePassoCampo(p.id, 'obrigatorio', v)
+                                                }}
+                                                className={cn('inline-flex h-5 items-center gap-0.5 rounded border px-1 text-[10px] font-medium', p.obrigatorio ? BADGE.rose : BADGE.emerald)}
+                                                title={p.obrigatorio ? 'Obrigatório — clique para tornar opcional' : 'Opcional — clique para tornar obrigatório'}
+                                              >
+                                                {p.obrigatorio ? <Lock className="h-2.5 w-2.5" /> : <Unlock className="h-2.5 w-2.5" />}
+                                                {p.obrigatorio ? 'Obrig.' : 'Opc.'}
+                                              </button>
+                                            )}
+                                            {p.slaText && (
+                                              <span className="inline-flex h-5 items-center gap-0.5 px-1 text-[10px] tabular-nums text-muted-foreground" title="SLA do passo">
+                                                <Clock className="h-3 w-3" />{p.slaText}
+                                              </span>
+                                            )}
+                                            {p.tipo === 'PERGUNTA' && (
+                                              <button type="button" onClick={() => abrirCondicaoPasso(p)} className={cn('inline-flex h-5 items-center gap-0.5 rounded border px-1 text-[10px] font-medium', BADGE.violet)} title={`Pergunta: ${p.perguntaTexto ?? ''} — ${(p.perguntaOpcoes ?? []).join(' / ')}${p.perguntaMultipla ? ' (várias respostas)' : ''}`}>
+                                                Pergunta · {(p.perguntaOpcoes ?? []).length}
+                                              </button>
+                                            )}
+                                            {seloPasso && (
+                                              <SeloCondicaoCadastro texto={seloPasso} onClick={() => abrirCondicaoPasso(p)} className="h-5 max-w-[180px] text-[10px]" />
+                                            )}
+                                            {contador(notas, StickyNote, 'Notas / instruções', () => abrirPainel(() => setOpenMateriaisPasso({ passoId: p.id!, tipo: 'NOTA' })))}
+                                            {contador(links, LinkIcon, 'Links externos', () => abrirPainel(() => setOpenMateriaisPasso({ passoId: p.id!, tipo: 'LINK' })))}
+                                            {contador(arquivos, Paperclip, 'Arquivos', () => abrirPainel(() => setOpenMateriaisPasso({ passoId: p.id!, tipo: 'ARQUIVO' })))}
+                                            {contador(p.emailsCount ?? 0, Mail, 'E-mails de conclusão', () => abrirPainel(() => setOpenEmailsPasso(p.id!)))}
+                                            {contador(p.lembretesCount ?? 0, Bell, 'Lembretes na agenda', () => abrirPainel(() => setOpenLembretesPasso(p.id!)))}
+                                            {contador(p.camposClienteCount ?? 0, Database, 'Campos do cliente', () => abrirPainel(() => setOpenCamposClientePasso(p.id!)))}
+                                          </div>
+                                          <div className="mt-0.5 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/linha:opacity-100">
+                                            {p.id && (
+                                              <Button variant="ghost" size="icon-xs" className="h-6 w-6" onClick={() => abrirPainel()} title="Configurar passo (SLA, condição, materiais, e-mails, lembretes, campos)">
+                                                <Settings2 className="h-3.5 w-3.5" />
+                                              </Button>
+                                            )}
+                                            <Button variant="ghost" size="icon-xs" className="h-6 w-6 text-destructive" onClick={() => removePasso(p.id)} title="Remover passo">
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                          </div>
+                                        </SortablePasso>
+                                      </div>
+                                    )
+                                  })}
+                                </SortableContext>
+                              </DndContext>
+                              <Button
+                                variant="ghost" size="sm"
+                                onClick={() => addPasso(et)}
+                                className="ml-7 h-6 gap-1 text-[11px] text-muted-foreground"
+                                disabled={!et.id}
                               >
-                                <option value="">Sem sub-etapa</option>
-                                {et.subEtapas.slice().sort((a, b) => a.ordem - b.ordem).map(se => (
-                                  <option key={se.id} value={se.id}>{se.nome}</option>
-                                ))}
-                              </select>
-                            )}
-                          </div>
-                          <Input
-                            type="text"
-                            value={p.slaText}
-                            onChange={e => {
-                              const v = e.target.value
-                              setEtapas(prev => prev.map((x, i) => i === ei
-                                ? { ...x, passos: x.passos.map((pp, j) => j === pi ? { ...pp, slaText: v } : pp) }
-                                : x))
-                              if (p.id) scheduleSave(`passo-${p.id}-sla`, () => {
-                                const min = parseSlaMin(v)
-                                if (v.trim() !== '' && min === null) return Promise.resolve()
-                                return updatePassoCampo(p.id, 'slaMinutos', min)
-                              })
-                            }}
-                            onBlur={e => {
-                              // Ao sair: normaliza o texto pro formato canônico ("1h 30m")
-                              const min = parseSlaMin(e.target.value)
-                              const canonical = formatSlaMin(min)
-                              if (canonical !== e.target.value) {
-                                setEtapas(prev => prev.map((x, i) => i === ei
-                                  ? { ...x, passos: x.passos.map((pp, j) => j === pi ? { ...pp, slaText: canonical } : pp) }
-                                  : x))
-                              }
-                            }}
-                            placeholder="1h 30m"
-                            title="Formato aceito: 1h 30m, 45m, 2h, 1.5h ou 90 (minutos)"
-                            className="h-8 text-sm text-center px-1"
-                          />
-                          <Button
-                            variant="ghost" size="icon-xs"
-                            onClick={() => removePasso(p.id)}
-                            className="text-destructive opacity-50 hover:opacity-100"
-                            title="Remover passo"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </SortablePasso>
-                      </Fragment>
-                          )
-                        })
-                      })()}
-                      <Button
-                        variant="ghost" size="sm"
-                        onClick={() => addPasso(et)}
-                        className="gap-1 text-[10px] text-muted-foreground h-6 mt-1"
-                      >
-                        <Plus className="h-3 w-3" /> Adicionar passo
-                      </Button>
-                    </div>
-                      </SortableContext>
-                    </DndContext>
-                          </div>
-                        </div>
-                  </SortableEtapa>
-                  )
-                })}
-              </div>
+                                <Plus className="h-3 w-3" /> Adicionar passo
+                              </Button>
+                            </div>
+                          )}
+                        </SortableEtapa>
+                      )
+                    })}
+                  </div>
                 </SortableContext>
               </DndContext>
             </CardContent>
           </Card>
+
+          {/* ── Painel lateral de configuração do item selecionado ── */}
+          <Sheet open={!!painel} onOpenChange={o => { if (!o) setPainel(null) }}>
+            <SheetContent side="right" size="md" className="w-full sm:max-w-[460px]">
+              {painelPasso && (() => {
+                const { p, pi, ei, et } = painelPasso
+                return (
+                  <>
+                    <SheetHeader>
+                      <SheetTitle className="flex items-center gap-2 text-[15px]">
+                        {p.tipo === 'PERGUNTA' ? <HelpCircle className={cn('h-4 w-4', TEXT.violet)} /> : <CheckSquare className="h-4 w-4 text-muted-foreground" />}
+                        Passo {sequenciaPassos.findIndex(x => x.p.dndId === p.dndId) + 1}
+                      </SheetTitle>
+                      <SheetDescription className="text-[11px]">{et.nome || 'Etapa'}{p.subEtapaId ? ` › ${et.subEtapas.find(s => s.id === p.subEtapaId)?.nome ?? ''}` : ''}</SheetDescription>
+                    </SheetHeader>
+                    <SheetBody className="nice-scrollbar space-y-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-[13px] font-semibold">Nome</Label>
+                        <Textarea
+                          value={p.nome}
+                          rows={2}
+                          onChange={e => {
+                            const v = e.target.value
+                            setEtapas(prev => prev.map((x, i) => i === ei ? { ...x, passos: x.passos.map((pp, j) => j === pi ? { ...pp, nome: v } : pp) } : x))
+                            if (p.id) scheduleSave(`passo-${p.id}-nome`, () => updatePassoCampo(p.id, 'nome', v))
+                          }}
+                          className="text-sm"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-[13px] font-semibold">SLA</Label>
+                          <Input
+                            value={p.slaText}
+                            onChange={e => alterarSlaPasso(ei, pi, p, e.target.value)}
+                            onBlur={e => normalizarSlaPasso(ei, pi, e.target.value)}
+                            placeholder="1h 30m"
+                            title="Formato aceito: 1h 30m, 45m, 2h, 1.5h ou 90 (minutos)"
+                            className="h-9 text-sm"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[13px] font-semibold">Obrigatório</Label>
+                          <div className="flex h-9 items-center gap-2">
+                            <Switch
+                              checked={p.obrigatorio}
+                              onCheckedChange={v => {
+                                setEtapas(prev => prev.map((x, i) => i === ei ? { ...x, passos: x.passos.map((pp, j) => j === pi ? { ...pp, obrigatorio: v } : pp) } : x))
+                                if (p.id) void updatePassoCampo(p.id, 'obrigatorio', v)
+                              }}
+                            />
+                            <span className="text-xs text-muted-foreground">{p.obrigatorio ? 'Trava os passos seguintes' : 'Opcional'}</span>
+                          </div>
+                        </div>
+                      </div>
+                      {et.subEtapas.length > 0 && p.id && (
+                        <div className="space-y-1.5">
+                          <Label className="text-[13px] font-semibold">Sub-etapa</Label>
+                          <select
+                            value={p.subEtapaId ?? ''}
+                            onChange={e => { void definirSubEtapaDoPasso(ei, p.id!, e.target.value || null) }}
+                            className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                          >
+                            <option value="">Direto na etapa</option>
+                            {et.subEtapas.slice().sort((a, b) => a.ordem - b.ordem).map(se => (
+                              <option key={se.id} value={se.id}>{se.nome}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      <div className="space-y-1.5">
+                        <Label className="text-[13px] font-semibold">Pergunta e condição</Label>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {p.tipo === 'PERGUNTA' && (
+                            <span className={cn('inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] font-medium', BADGE.violet)}>
+                              <HelpCircle className="h-3 w-3" /> {p.perguntaTexto || 'Pergunta'} · {(p.perguntaOpcoes ?? []).join(' / ')}
+                            </span>
+                          )}
+                          {seloDe(p) && <SeloCondicaoCadastro texto={seloDe(p)!} onClick={() => abrirCondicaoPasso(p)} className="h-6 text-[11px]" />}
+                          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => abrirCondicaoPasso(p)}>
+                            <GitBranch className="h-3.5 w-3.5" /> {p.tipo === 'PERGUNTA' || seloDe(p) ? 'Editar' : 'Definir pergunta ou condição'}
+                          </Button>
+                        </div>
+                      </div>
+                      {p.id && (
+                        <div className="space-y-1.5">
+                          <Label className="text-[13px] font-semibold">Ao concluir o passo</Label>
+                          <div className="flex flex-wrap gap-2">
+                            <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setOpenEmailsPasso(p.id!)}>
+                              <Mail className={cn('h-3.5 w-3.5', TEXT.indigo)} /> E-mails ({p.emailsCount ?? 0})
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setOpenLembretesPasso(p.id!)}>
+                              <Bell className={cn('h-3.5 w-3.5', TEXT.amber)} /> Lembretes ({p.lembretesCount ?? 0})
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setOpenCamposClientePasso(p.id!)}>
+                              <Database className={cn('h-3.5 w-3.5', TEXT.sky)} /> Campos do cliente ({p.camposClienteCount ?? 0})
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      {p.id && (
+                        <div className="space-y-1.5">
+                          <Label className="text-[13px] font-semibold">Materiais de apoio</Label>
+                          <MateriaisSection
+                            materiais={p.materiais ?? []}
+                            passoId={p.id}
+                            density="compact"
+                            openListTipo={openMateriaisPasso?.passoId === p.id ? openMateriaisPasso.tipo : null}
+                            onCloseList={() => setOpenMateriaisPasso(null)}
+                            onChange={() => { void fetchServico() }}
+                          />
+                        </div>
+                      )}
+                      {/* Dialogs do passo (controlados) */}
+                      {p.id && (
+                        <>
+                          <PassoEmailsSection
+                            passoId={p.id}
+                            density="compact"
+                            inline
+                            controlled={{ open: openEmailsPasso === p.id, onOpenChange: (o) => setOpenEmailsPasso(o ? p.id! : null), hideTrigger: true }}
+                            onCountChange={(count) => setEtapas(prev => prev.map(x => ({ ...x, passos: x.passos.map(pp => pp.id === p.id ? { ...pp, emailsCount: count } : pp) })))}
+                          />
+                          <PassoLembretesSection
+                            passoId={p.id}
+                            controlled={{ open: openLembretesPasso === p.id, onOpenChange: (o) => setOpenLembretesPasso(o ? p.id! : null) }}
+                            onCountChange={(count) => setEtapas(prev => prev.map(x => ({ ...x, passos: x.passos.map(pp => pp.id === p.id ? { ...pp, lembretesCount: count } : pp) })))}
+                          />
+                          <PassoCamposClienteSection
+                            passoId={p.id}
+                            controlled={{ open: openCamposClientePasso === p.id, onOpenChange: (o) => setOpenCamposClientePasso(o ? p.id! : null) }}
+                            onCountChange={(count) => setEtapas(prev => prev.map(x => ({ ...x, passos: x.passos.map(pp => pp.id === p.id ? { ...pp, camposClienteCount: count } : pp) })))}
+                          />
+                        </>
+                      )}
+                    </SheetBody>
+                    <SheetFooter>
+                      <Button variant="outline" size="sm" className="gap-1.5 text-destructive sm:mr-auto" onClick={() => { const id = p.id; setPainel(null); removePasso(id) }}>
+                        <Trash2 className="h-3.5 w-3.5" /> Remover passo
+                      </Button>
+                      <Button size="sm" onClick={() => setPainel(null)}>Fechar</Button>
+                    </SheetFooter>
+                  </>
+                )
+              })()}
+
+              {painelEtapa && (() => {
+                const { et, ei } = painelEtapa
+                return (
+                  <>
+                    <SheetHeader>
+                      <SheetTitle className="flex items-center gap-2 text-[15px]"><FolderOpen className={cn('h-4 w-4', TEXT.amber)} /> Etapa {ei + 1}</SheetTitle>
+                      <SheetDescription className="text-[11px]">{et.passos.length} passo(s) · SLA {formatSlaRich(calcEtapaMinutos(et)) || '—'}</SheetDescription>
+                    </SheetHeader>
+                    <SheetBody className="nice-scrollbar space-y-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-[13px] font-semibold">Nome</Label>
+                        <Input
+                          value={et.nome}
+                          onChange={e => {
+                            const v = e.target.value
+                            setEtapas(prev => prev.map((x, i) => i === ei ? { ...x, nome: v } : x))
+                            if (et.id) scheduleSave(`etapa-${et.id}-nome`, () => updateEtapaNome(et.id, v))
+                          }}
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      {et.id && (
+                        <div className="space-y-1.5">
+                          <Label className="text-[13px] font-semibold">Condição</Label>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {seloDe(et) && <SeloCondicaoCadastro texto={seloDe(et)!} onClick={() => setAlvoCondicao({ tipo: 'etapa', id: et.id!, nome: et.nome, condicao: condicaoDe(et) })} className="h-6 text-[11px]" />}
+                            <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setAlvoCondicao({ tipo: 'etapa', id: et.id!, nome: et.nome, condicao: condicaoDe(et) })}>
+                              <GitBranch className="h-3.5 w-3.5" /> {seloDe(et) ? 'Editar condição' : 'Definir condição'}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      {et.id && (
+                        <div className="space-y-1.5">
+                          <Label className="text-[13px] font-semibold">Materiais de apoio</Label>
+                          <MateriaisSection materiais={et.materiais ?? []} etapaId={et.id} onChange={() => { void fetchServico() }} />
+                        </div>
+                      )}
+                    </SheetBody>
+                    <SheetFooter>
+                      <Button variant="outline" size="sm" className="gap-1.5 text-destructive sm:mr-auto" onClick={() => { const id = et.id; setPainel(null); removeEtapa(id) }}>
+                        <Trash2 className="h-3.5 w-3.5" /> Remover etapa
+                      </Button>
+                      <Button size="sm" onClick={() => setPainel(null)}>Fechar</Button>
+                    </SheetFooter>
+                  </>
+                )
+              })()}
+
+              {painelSub && (() => {
+                const { se, ei, et } = painelSub
+                return (
+                  <>
+                    <SheetHeader>
+                      <SheetTitle className="flex items-center gap-2 text-[15px]"><Layers className={cn('h-4 w-4', TEXT.sky)} /> Sub-etapa</SheetTitle>
+                      <SheetDescription className="text-[11px]">{et.nome || 'Etapa'} · {et.passos.filter(x => x.subEtapaId === se.id).length} passo(s)</SheetDescription>
+                    </SheetHeader>
+                    <SheetBody className="nice-scrollbar space-y-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-[13px] font-semibold">Nome</Label>
+                        <Input key={se.id} defaultValue={se.nome} onBlur={e => { void renomearSubEtapa(ei, se.id, e.target.value) }} className="h-9 text-sm" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[13px] font-semibold">Condição</Label>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {seloDe(se) && <SeloCondicaoCadastro texto={seloDe(se)!} onClick={() => setAlvoCondicao({ tipo: 'sub', id: se.id, nome: se.nome, condicao: condicaoDe(se) })} className="h-6 text-[11px]" />}
+                          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setAlvoCondicao({ tipo: 'sub', id: se.id, nome: se.nome, condicao: condicaoDe(se) })}>
+                            <GitBranch className="h-3.5 w-3.5" /> {seloDe(se) ? 'Editar condição' : 'Definir condição'}
+                          </Button>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">Para colocar passos nesta sub-etapa, arraste-os para baixo do título dela na árvore ou escolha a sub-etapa no painel do passo.</p>
+                    </SheetBody>
+                    <SheetFooter>
+                      <Button variant="outline" size="sm" className="gap-1.5 text-destructive sm:mr-auto" onClick={() => { setPainel(null); void excluirSubEtapa(ei, se) }}>
+                        <Trash2 className="h-3.5 w-3.5" /> Excluir sub-etapa
+                      </Button>
+                      <Button size="sm" onClick={() => setPainel(null)}>Fechar</Button>
+                    </SheetFooter>
+                  </>
+                )
+              })()}
+            </SheetContent>
+          </Sheet>
         </TabsContent>
 
         {/* ── TAB: Fluxo (DAG) ── */}
@@ -3195,60 +3204,108 @@ function SortableEtapaHandle() {
   )
 }
 
-/** Cabeçalho de grupo (sub-etapa ou "Direto na etapa") na lista arrastável da etapa. */
-function CabecalhoGrupo({ id, etapa }: { id: string; etapa: { passos: Array<{ subEtapaId: string | null }>; subEtapas: Array<{ id: string; nome: string }> } }) {
-  const direto = id === GRP_DIRETO
-  const subId = direto ? null : id.slice(GRP.length)
-  const nome = direto ? 'Direto na etapa' : (etapa.subEtapas.find(x => x.id === subId)?.nome ?? 'Sub-etapa')
-  const qtd = etapa.passos.filter(p => (direto ? !p.subEtapaId : p.subEtapaId === subId)).length
-  return <SortableGrupo id={id} nome={nome} qtd={qtd} fixo={direto} />
-}
-
 /**
- * Cabeçalho arrastável de sub-etapa: arrastar pela alça move a sub-etapa com os
- * passos; soltar um passo sobre ele coloca o passo no grupo (também quando está
- * vazio). "Direto na etapa" (`fixo`) é só alvo — não se arrasta.
+ * Linha de sub-etapa na árvore (subpasta). Arrastar pela alça move a sub-etapa
+ * com os passos; soltar um passo sobre ela coloca o passo no grupo (também
+ * quando está vazia). "Direto na etapa" (`fixo`) é só alvo — não se arrasta e
+ * só aparece quando a etapa tem sub-etapas.
  */
-function SortableGrupo({ id, nome, qtd, fixo }: { id: string; nome: string; qtd: number; fixo?: boolean }) {
+function SortableGrupo({ id, nome, qtd, fixo, recolhida, selecionada, selo, onAlternar, onRenomear, onConfigurar, onCondicao, onExcluir }: {
+  id: string; nome: string; qtd: number; fixo?: boolean; recolhida?: boolean; selecionada?: boolean; selo?: string | null
+  onAlternar?: () => void; onRenomear?: (v: string) => void; onConfigurar?: () => void; onCondicao?: () => void; onExcluir?: () => void
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } = useSortable({
     id, disabled: fixo ? { draggable: true } : undefined,
   })
   const style: React.CSSProperties = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
+  if (fixo) {
+    return (
+      <div ref={setNodeRef} style={style} className={cn('flex items-center gap-1.5 rounded px-1.5 py-0.5 pl-8 text-[11px] text-muted-foreground', isOver && 'bg-muted/60')}>
+        <span className="italic">Direto na etapa</span>
+        <span className="tabular-nums text-muted-foreground/70">· {qtd}</span>
+      </div>
+    )
+  }
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        'flex items-center gap-1.5 rounded px-1 pt-2 pb-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground',
+        'group/linha flex items-center gap-1 rounded-md px-1 py-0.5 hover:bg-muted/50',
         isOver && 'bg-muted/60',
+        selecionada && 'bg-primary/10 hover:bg-primary/10',
       )}
     >
-      {fixo ? (
-        <span className="w-4" aria-hidden />
-      ) : (
-        <button
-          type="button"
-          {...(attributes as unknown as React.HTMLAttributes<HTMLButtonElement>)}
-          {...(listeners as unknown as React.HTMLAttributes<HTMLButtonElement>)}
-          className="cursor-grab text-muted-foreground/50 hover:text-muted-foreground active:cursor-grabbing"
-          title="Arrastar a sub-etapa (leva os passos junto)"
-          aria-label={`Arrastar a sub-etapa ${nome}`}
-        >
-          <GripVertical className="h-3.5 w-3.5" />
-        </button>
-      )}
-      <Layers className="h-3 w-3" />
-      <span className={cn(fixo && 'normal-case font-medium')}>{nome}</span>
-      <span className="font-normal normal-case tabular-nums text-muted-foreground/70">· {qtd} passo{qtd !== 1 ? 's' : ''}</span>
-      <span className="h-px flex-1 bg-border" aria-hidden />
-      {qtd === 0 && !fixo && <span className="font-normal normal-case text-muted-foreground/70">solte um passo aqui</span>}
+      <button
+        type="button"
+        {...(attributes as unknown as React.HTMLAttributes<HTMLButtonElement>)}
+        {...(listeners as unknown as React.HTMLAttributes<HTMLButtonElement>)}
+        className="cursor-grab text-muted-foreground/50 opacity-0 transition-opacity hover:text-muted-foreground active:cursor-grabbing group-hover/linha:opacity-100"
+        title="Arrastar a sub-etapa (leva os passos junto)"
+        aria-label={`Arrastar a sub-etapa ${nome}`}
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
+        onClick={onAlternar}
+        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+        title={recolhida ? 'Abrir sub-etapa' : 'Fechar sub-etapa'}
+        aria-expanded={!recolhida}
+      >
+        <ChevronRight className={cn('h-3.5 w-3.5 transition-transform duration-150', !recolhida && 'rotate-90')} />
+      </button>
+      {recolhida ? <Folder className={cn('h-4 w-4 shrink-0', TEXT.sky)} /> : <FolderOpen className={cn('h-4 w-4 shrink-0', TEXT.sky)} />}
+      <input
+        key={nome}
+        defaultValue={nome}
+        onBlur={e => { if (e.target.value !== nome) onRenomear?.(e.target.value) }}
+        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+        aria-label="Nome da sub-etapa"
+        className="h-6 min-w-0 flex-1 rounded bg-transparent px-1 text-[13px] font-medium text-foreground hover:bg-background/60 focus:bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+      />
+      {selo && <SeloCondicaoCadastro texto={selo} onClick={() => onCondicao?.()} className="h-5 max-w-[180px] text-[10px]" />}
+      <span className="shrink-0 px-1 text-[10.5px] tabular-nums text-muted-foreground" title="Passos nesta sub-etapa">
+        {qtd === 0 ? 'vazia — solte um passo aqui' : `${qtd} passo${qtd !== 1 ? 's' : ''}`}
+      </span>
+      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/linha:opacity-100">
+        <Button variant="ghost" size="icon-xs" className="h-6 w-6" onClick={onConfigurar} title="Configurar sub-etapa (condição)">
+          <Settings2 className="h-3.5 w-3.5" />
+        </Button>
+        <Button variant="ghost" size="icon-xs" className="h-6 w-6 text-destructive" onClick={onExcluir} title="Excluir sub-etapa (os passos voltam para a etapa)">
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
     </div>
   )
 }
 
+/** Nome editável direto na linha da árvore: parece texto, vira campo ao focar. */
+const NomeInline = forwardRef<HTMLInputElement, {
+  value: string; placeholder?: string; ariaLabel: string; forte?: boolean
+  onChange: (v: string) => void; onBlur?: (v: string) => void
+}>(function NomeInline({ value, placeholder, ariaLabel, forte, onChange, onBlur }, ref) {
+  return (
+    <input
+      ref={ref}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      onBlur={e => onBlur?.(e.target.value)}
+      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+      title={value}
+      className={cn(
+        'h-6 w-full min-w-0 rounded bg-transparent px-1 text-[13px] text-foreground placeholder:text-muted-foreground/70 hover:bg-background/60 focus:bg-background focus:outline-none focus:ring-1 focus:ring-ring',
+        forte && 'font-semibold',
+      )}
+    />
+  )
+})
+
 /** Linha de passo drag-and-drop. Drag ativa apenas pelo número à esquerda
  * (via SortableHandleContext) — assim os inputs continuam clicáveis sem dispara drag. */
-function SortablePasso({ id, children, layerClass, exiting }: { id: string; children: React.ReactNode; layerClass?: string; exiting?: boolean }) {
+function SortablePasso({ id, children, exiting, selecionado }: { id: string; children: React.ReactNode; exiting?: boolean; selecionado?: boolean }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   // Quando `exiting=true`, anima fade + colapso vertical pra dar feedback de
   // remoção sem precisar refetch da etapa inteira.
@@ -3272,8 +3329,8 @@ function SortablePasso({ id, children, layerClass, exiting }: { id: string; chil
       ref={setNodeRef}
       style={style}
       className={cn(
-        'grid grid-cols-[24px_1fr_80px_28px] gap-2 items-center py-0.5 px-1 rounded',
-        layerClass,
+        'group/linha flex items-start gap-1 rounded-md px-1 py-0.5 hover:bg-muted/50',
+        selecionado && 'bg-primary/10 hover:bg-primary/10',
       )}
     >
       <SortableHandleContext.Provider
