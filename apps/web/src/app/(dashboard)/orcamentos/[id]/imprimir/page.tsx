@@ -7,6 +7,7 @@ import { Button } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { useEmpresaAtiva } from '@/hooks/use-empresa-ativa'
 import { resolveAssetUrl } from '@/lib/api-url'
+import { PrintFrame } from '@/components/print/print-frame'
 
 interface Item {
   id: string
@@ -48,7 +49,9 @@ interface Orcamento {
   responsavel: { name: string } | null
 }
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+/* Acento do papel: azul da skin padrão, tom light, FIXO. O papel é sempre claro
+   e é o mesmo para quem imprimir — não segue tema nem skin de quem está logado. */
+const ACCENT_COLOR = 'var(--skin-padrao)'
 
 function formatCurrency(v: number | string | null | undefined): string {
   return Number(v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -235,7 +238,7 @@ export default function ImprimirOrcamentoPage() {
           left: 0;
           right: 0;
           height: 4px;
-          background: ${MODULE_COLOR};
+          background: ${ACCENT_COLOR};
           z-index: 2;
         }
         /* Conteudo precisa estar acima da marca d'agua */
@@ -262,18 +265,18 @@ export default function ImprimirOrcamentoPage() {
           border-bottom: 1px solid #1a1a1a;
           margin-bottom: 16px;
         }
-        .quote-doc .accent { color: ${MODULE_COLOR}; }
+        .quote-doc .accent { color: ${ACCENT_COLOR}; }
         .quote-doc .accent-bar {
           display: inline-block;
           width: 36px;
           height: 3px;
-          background: ${MODULE_COLOR};
+          background: ${ACCENT_COLOR};
           margin-bottom: 12px;
         }
         .quote-doc .doc-number {
           font-size: 24px;
           font-weight: 700;
-          color: ${MODULE_COLOR};
+          color: ${ACCENT_COLOR};
           letter-spacing: -0.02em;
           line-height: 1;
         }
@@ -326,7 +329,7 @@ export default function ImprimirOrcamentoPage() {
         }
         .quote-doc .totals-row .lbl { color: #6b7280; }
         .quote-doc .totals-row .val { font-variant-numeric: tabular-nums; font-weight: 500; }
-        .quote-doc .totals-row.discount .val { color: ${MODULE_COLOR}; }
+        .quote-doc .totals-row.discount .val { color: ${ACCENT_COLOR}; }
         .quote-doc .totals-row.grand {
           margin-top: 4px;
           padding: 12px 0 0;
@@ -343,7 +346,7 @@ export default function ImprimirOrcamentoPage() {
         .quote-doc .totals-row.grand .val {
           font-size: 22px;
           font-weight: 700;
-          color: ${MODULE_COLOR};
+          color: ${ACCENT_COLOR};
           letter-spacing: -0.01em;
         }
         /* Cliente info grid */
@@ -468,8 +471,9 @@ export default function ImprimirOrcamentoPage() {
             width: 100% !important;
             max-width: 100% !important;
             margin: 0 !important;
-            /* padding-bottom reserva espaco para o footer fixo nao sobrepor texto */
-            padding: 0 0 56px 0 !important;
+            /* O espaco do footer fixo e reservado pagina a pagina pelo
+               <PrintFrame>; padding aqui so valeria para a ultima folha. */
+            padding: 0 !important;
             box-shadow: none !important;
             background: white !important;
           }
@@ -503,8 +507,8 @@ export default function ImprimirOrcamentoPage() {
 
           /* === FOOTER em cada pagina ===
              position: fixed dentro de @media print faz o navegador renderizar
-             o elemento em todas as paginas. Combinar com padding-bottom no
-             container pra evitar sobreposicao do conteudo. */
+             o elemento em todas as paginas. O <PrintFrame> reserva o espaco
+             dele em cada folha, pra nao cobrir a ultima linha (#HLP0407). */
           .quote-doc .footer {
             position: fixed !important;
             bottom: 0 !important;
@@ -569,14 +573,14 @@ export default function ImprimirOrcamentoPage() {
         <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push(`/orcamentos/${id}`)}>
           <ArrowLeft className="h-4 w-4" /> Voltar
         </Button>
-        <Button size="sm" className="text-white gap-1.5 ml-auto" style={{ backgroundColor: MODULE_COLOR }} onClick={() => window.print()}>
+        <Button size="sm" className="gap-1.5 ml-auto" onClick={() => window.print()}>
           <Printer className="h-4 w-4" /> Imprimir
         </Button>
       </div>
 
       {/* DOCUMENTO */}
       <div className="quote-doc">
-        {/* Faixa de acento no topo de cada pagina (identidade rose) */}
+        {/* Faixa de acento no topo (so na tela; a impressao a esconde) */}
         <div className="top-accent" aria-hidden />
 
         {/* Marca d'agua institucional: usa a imagem cadastrada na empresa ativa
@@ -591,6 +595,7 @@ export default function ImprimirOrcamentoPage() {
 
         {/* Conteudo do documento (z-index acima da marca d'agua) */}
         <div className="quote-content">
+        <PrintFrame footerSpace={56}>
 
         {/* HEADER: logo + meta */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
@@ -775,7 +780,9 @@ export default function ImprimirOrcamentoPage() {
           </div>
         )}
 
-        {/* FOOTER */}
+        </PrintFrame>
+
+        {/* FOOTER — fora da moldura: e o rodape fixo cujo espaco ela reserva */}
         <div className="footer">
           <span>{empresaNome}{orc.empresa?.site ? ` · ${orc.empresa.site}` : ''}</span>
           <span>Proposta #{String(orc.numero).padStart(4, '0')} · {formatDate(orc.createdAt)}</span>
