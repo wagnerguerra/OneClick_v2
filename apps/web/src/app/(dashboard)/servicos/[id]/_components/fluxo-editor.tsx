@@ -1231,9 +1231,10 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
   const [novoBlocoTipo, setNovoBlocoTipo] = useState<null | 'ATIVIDADE' | 'DECISAO' | 'DOCUMENTACAO' | 'INICIO' | 'FIM' | 'PERGUNTA'>(null)
   const [novoBlocoNome, setNovoBlocoNome] = useState('')
   // Campos extras de PERGUNTA — só usados quando novoBlocoTipo === 'PERGUNTA'.
-  // Defaults sugeridos: 3 áreas principais. Usuário pode ajustar antes de criar.
-  const [perguntaTexto, setPerguntaTexto] = useState('Serviço mensal em todas as áreas?')
-  const [perguntaOpcoes, setPerguntaOpcoes] = useState<string[]>(['Contábil', 'Trabalhista', 'Fiscal'])
+  // Começam VAZIOS: o usuário cadastra a pergunta e as opções do zero (antes
+  // vinham "Contábil/Trabalhista/Fiscal" e um texto prontos — 07/10/2026).
+  const [perguntaTexto, setPerguntaTexto] = useState('')
+  const [perguntaOpcoes, setPerguntaOpcoes] = useState<string[]>([])
   const [perguntaOpcaoNova, setPerguntaOpcaoNova] = useState('')
   const [perguntaMulti, setPerguntaMulti] = useState(true)
 
@@ -2124,8 +2125,8 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                             // Reseta campos do PERGUNTA para os defaults toda vez que abre
                             // (caso contrário, o segundo bloco herdaria os valores do anterior)
                             if (b.tipo === 'PERGUNTA') {
-                              setPerguntaTexto('Serviço mensal em todas as áreas?')
-                              setPerguntaOpcoes(['Contábil', 'Trabalhista', 'Fiscal'])
+                              setPerguntaTexto('')
+                              setPerguntaOpcoes([])
                               setPerguntaOpcaoNova('')
                               setPerguntaMulti(true)
                             }

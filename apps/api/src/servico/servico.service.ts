@@ -1078,11 +1078,12 @@ export class ServicoService {
         helpdeskTipos: (input.helpdeskTipos as any) ?? [],
         ehObrigacaoAcessoria: input.ehObrigacaoAcessoria ?? false,
         recorrenteMensal: input.recorrenteMensal ?? (categoria === 'MENSAL'),
-        // PERGUNTA: pré-preenche opções padrão se nenhuma foi enviada.
+        // PERGUNTA: sem opções pré-cadastradas — o usuário cadastra do zero
+        // (antes gravava "Contábil/Trabalhista/Fiscal" quando vinha vazio).
         perguntaTexto:  input.perguntaTexto ?? null,
         perguntaOpcoes: input.perguntaOpcoes && input.perguntaOpcoes.length > 0
           ? (input.perguntaOpcoes as any)
-          : isPergunta ? (['Contábil', 'Trabalhista', 'Fiscal'] as any) : undefined,
+          : isPergunta ? ([] as any) : undefined,
         perguntaMulti:  input.perguntaMulti ?? false,
         // Default da atribuição: depende da categoriaServico (MENSAL→CLIENTE_AREA,
         // EXTRA→ORCAMENTO, FLUXO→HERDA_PREDECESSOR). Override via input.
