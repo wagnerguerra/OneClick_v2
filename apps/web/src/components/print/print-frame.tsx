@@ -17,6 +17,11 @@ import type { ReactNode } from 'react'
  *
  * O rodapé fixo fica FORA da moldura, como irmão seguinte; `footerSpace` é a
  * altura que ele ocupa no papel, com folga.
+ *
+ * A moldura também desliga o tema no conteúdo: o papel é sempre claro, mas a
+ * regra base `h1, h2, h3 { color: var(--color-foreground) }` do globals.css
+ * segue o tema e, com o sistema no escuro, pintava os títulos de #e5e5e5 sobre
+ * o branco do documento (nome da empresa sem logo, títulos da descrição).
  */
 export function PrintFrame({ footerSpace, children }: { footerSpace: number; children: ReactNode }) {
   return (
@@ -35,6 +40,10 @@ export function PrintFrame({ footerSpace, children }: { footerSpace: number; chi
           border: 0;
           vertical-align: top;
         }
+        /* Título herda a cor do documento, não a do tema. :where zera a
+           especificidade: vence a regra base (em @layer) e perde para qualquer
+           cor de título que a página escolha de propósito. */
+        .print-frame :where(h1, h2, h3, h4, h5, h6) { color: inherit; }
         .print-frame > tfoot { display: none; }
         @media print {
           .print-frame > tfoot { display: table-footer-group; }
