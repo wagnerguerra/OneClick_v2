@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { GitBranch, HelpCircle, Loader2, Plus, X } from 'lucide-react'
+import { GitBranch, HelpCircle, Loader2, Plus, X, AlertTriangle } from 'lucide-react'
 import {
   Button, Input, Label, Checkbox, Switch, cn,
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
@@ -37,15 +37,21 @@ export function textoCondicao(c: Condicao, perguntas: Map<string, { texto: strin
 }
 
 /** Selo da condição — clicável quando há como editar. */
-export function SeloCondicaoCadastro({ texto, onClick, className }: { texto: string; onClick?: () => void; className?: string }) {
+export function SeloCondicaoCadastro({ texto, onClick, className, foraDeOrdem }: {
+  texto: string; onClick?: () => void; className?: string
+  /** A pergunta da condição está DEPOIS deste item: nas execuções novas a condição é ignorada. */
+  foraDeOrdem?: boolean
+}) {
   const Comp = onClick ? 'button' : 'span'
   return (
     <Comp
       {...(onClick ? { type: 'button' as const, onClick } : {})}
-      title={`Só vale ${texto}`}
-      className={cn('inline-flex max-w-[260px] items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium', BADGE.sky, className)}
+      title={foraDeOrdem
+        ? `Condição ignorada: a pergunta está DEPOIS deste item, então ainda não foi respondida quando ele chega. Arraste a pergunta para antes do item ou troque a condição. (Só vale ${texto})`
+        : `Só vale ${texto}`}
+      className={cn('inline-flex max-w-[260px] items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium', foraDeOrdem ? BADGE.amber : BADGE.sky, className)}
     >
-      <GitBranch className="h-2.5 w-2.5 shrink-0" />
+      {foraDeOrdem ? <AlertTriangle className="h-2.5 w-2.5 shrink-0" /> : <GitBranch className="h-2.5 w-2.5 shrink-0" />}
       <span className="truncate">{texto}</span>
     </Comp>
   )

@@ -1114,7 +1114,7 @@ export default function ServicoDetailPage() {
       .map(x => [x.p.id!, { id: x.p.id!, texto: x.p.perguntaTexto || x.p.nome, opcoes: x.p.perguntaOpcoes ?? [], numero: x.numero }] as const),
   )
   /** Perguntas que vêm ANTES do alvo — as únicas que podem condicioná-lo (o servidor confere de novo). */
-  function perguntasAntesDe(alvo: AlvoCondicao | null): PerguntaDisponivel[] {
+  function perguntasAntesDe(alvo: Pick<AlvoCondicao, 'tipo' | 'id'> | null): PerguntaDisponivel[] {
     if (!alvo) return []
     let limite: (x: { p: Passo; ei: number; et: Etapa }, i: number) => boolean
     if (alvo.tipo === 'etapa') {
@@ -1134,6 +1134,14 @@ export default function ServicoDetailPage() {
   }
   const seloDe = (c: { condicaoPassoId?: string | null; condicaoOpcoes?: string[] }) =>
     textoCondicao({ condicaoPassoId: c.condicaoPassoId ?? null, condicaoOpcoes: c.condicaoOpcoes ?? [] }, perguntasPorId)
+  /**
+   * A pergunta da condição ficou DEPOIS do item (alguém arrastou)? Nas execuções
+   * novas a condição é ignorada — o cadastro avisa no selo (âmbar com ⚠).
+   */
+  function condicaoForaDeOrdem(alvo: Pick<AlvoCondicao, 'tipo' | 'id'>, condicaoPassoId: string | null | undefined): boolean {
+    if (!condicaoPassoId) return false
+    return !perguntasAntesDe(alvo).some(q => q.id === condicaoPassoId)
+  }
   const condicaoDe = (c: { condicaoPassoId?: string | null; condicaoOpcoes?: string[] }) =>
     ({ condicaoPassoId: c.condicaoPassoId ?? null, condicaoOpcoes: c.condicaoOpcoes ?? [] })
   function abrirCondicaoPasso(p: Passo) {
@@ -2381,7 +2389,7 @@ export default function ServicoDetailPage() {
                             {/* Etiquetas curtas da etapa */}
                             <div className="mt-0.5 flex shrink-0 flex-wrap items-center justify-end gap-1">
                               {seloEtapa && (
-                                <SeloCondicaoCadastro texto={seloEtapa} onClick={() => setAlvoCondicao({ tipo: 'etapa', id: et.id!, nome: et.nome, condicao: condicaoDe(et) })} className="h-6 max-w-[200px] text-[10.5px]" />
+                                <SeloCondicaoCadastro texto={seloEtapa} foraDeOrdem={condicaoForaDeOrdem({ tipo: 'etapa', id: et.id! }, et.condicaoPassoId)} onClick={() => setAlvoCondicao({ tipo: 'etapa', id: et.id!, nome: et.nome, condicao: condicaoDe(et) })} className="h-6 max-w-[200px] text-[10.5px]" />
                               )}
                               {trilhos > 1 && (
                                 <span className={cn('inline-flex h-6 items-center gap-1 rounded border px-1.5 text-[10.5px] font-medium', BADGE.emerald)} title={`${trilhos} trilhos paralelos — passos no mesmo trilho rodam simultaneamente`}>
@@ -2436,6 +2444,7 @@ export default function ServicoDetailPage() {
                                           recolhida={!!subId && collapsedSubs.has(subId)}
                                           selecionada={!!subId && painel?.tipo === 'sub' && painel.subId === subId}
                                           selo={se ? seloDe(se) : null}
+                                          seloForaDeOrdem={se ? condicaoForaDeOrdem({ tipo: 'sub', id: se.id }, se.condicaoPassoId) : false}
                                           onAlternar={subId ? () => alternarSub(subId) : undefined}
                                           onRenomear={se ? (v => { void renomearSubEtapa(ei, se.id, v) }) : undefined}
                                           onConfigurar={se ? () => setPainel({ tipo: 'sub', subId: se.id }) : undefined}
@@ -2527,7 +2536,7 @@ export default function ServicoDetailPage() {
                                               </button>
                                             )}
                                             {seloPasso && (
-                                              <SeloCondicaoCadastro texto={seloPasso} onClick={() => abrirCondicaoPasso(p)} className="h-5 max-w-[180px] text-[10px]" />
+                                              <SeloCondicaoCadastro texto={seloPasso} foraDeOrdem={!!p.id && condicaoForaDeOrdem({ tipo: 'passo', id: p.id }, p.condicaoPassoId)} onClick={() => abrirCondicaoPasso(p)} className="h-5 max-w-[180px] text-[10px]" />
                                             )}
                                             {contador(notas, StickyNote, 'Notas / instruções', () => abrirPainel(() => setOpenMateriaisPasso({ passoId: p.id!, tipo: 'NOTA' })))}
                                             {contador(links, LinkIcon, 'Links externos', () => abrirPainel(() => setOpenMateriaisPasso({ passoId: p.id!, tipo: 'LINK' })))}
@@ -2648,7 +2657,7 @@ export default function ServicoDetailPage() {
                               <HelpCircle className="h-3 w-3" /> {p.perguntaTexto || 'Pergunta'} · {(p.perguntaOpcoes ?? []).join(' / ')}
                             </span>
                           )}
-                          {seloDe(p) && <SeloCondicaoCadastro texto={seloDe(p)!} onClick={() => abrirCondicaoPasso(p)} className="h-6 text-[11px]" />}
+                          {seloDe(p) && <SeloCondicaoCadastro texto={seloDe(p)!} foraDeOrdem={!!p.id && condicaoForaDeOrdem({ tipo: 'passo', id: p.id }, p.condicaoPassoId)} onClick={() => abrirCondicaoPasso(p)} className="h-6 text-[11px]" />}
                           <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => abrirCondicaoPasso(p)}>
                             <GitBranch className="h-3.5 w-3.5" /> {p.tipo === 'PERGUNTA' || seloDe(p) ? 'Editar' : 'Definir pergunta ou condição'}
                           </Button>
@@ -2741,7 +2750,7 @@ export default function ServicoDetailPage() {
                         <div className="space-y-1.5">
                           <Label className="text-[13px] font-semibold">Condição</Label>
                           <div className="flex flex-wrap items-center gap-2">
-                            {seloDe(et) && <SeloCondicaoCadastro texto={seloDe(et)!} onClick={() => setAlvoCondicao({ tipo: 'etapa', id: et.id!, nome: et.nome, condicao: condicaoDe(et) })} className="h-6 text-[11px]" />}
+                            {seloDe(et) && <SeloCondicaoCadastro texto={seloDe(et)!} foraDeOrdem={!!et.id && condicaoForaDeOrdem({ tipo: 'etapa', id: et.id }, et.condicaoPassoId)} onClick={() => setAlvoCondicao({ tipo: 'etapa', id: et.id!, nome: et.nome, condicao: condicaoDe(et) })} className="h-6 text-[11px]" />}
                             <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setAlvoCondicao({ tipo: 'etapa', id: et.id!, nome: et.nome, condicao: condicaoDe(et) })}>
                               <GitBranch className="h-3.5 w-3.5" /> {seloDe(et) ? 'Editar condição' : 'Definir condição'}
                             </Button>
@@ -2781,7 +2790,7 @@ export default function ServicoDetailPage() {
                       <div className="space-y-1.5">
                         <Label className="text-[13px] font-semibold">Condição</Label>
                         <div className="flex flex-wrap items-center gap-2">
-                          {seloDe(se) && <SeloCondicaoCadastro texto={seloDe(se)!} onClick={() => setAlvoCondicao({ tipo: 'sub', id: se.id, nome: se.nome, condicao: condicaoDe(se) })} className="h-6 text-[11px]" />}
+                          {seloDe(se) && <SeloCondicaoCadastro texto={seloDe(se)!} foraDeOrdem={condicaoForaDeOrdem({ tipo: 'sub', id: se.id }, se.condicaoPassoId)} onClick={() => setAlvoCondicao({ tipo: 'sub', id: se.id, nome: se.nome, condicao: condicaoDe(se) })} className="h-6 text-[11px]" />}
                           <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setAlvoCondicao({ tipo: 'sub', id: se.id, nome: se.nome, condicao: condicaoDe(se) })}>
                             <GitBranch className="h-3.5 w-3.5" /> {seloDe(se) ? 'Editar condição' : 'Definir condição'}
                           </Button>
@@ -3210,7 +3219,8 @@ function SortableEtapaHandle() {
  * quando está vazia). "Direto na etapa" (`fixo`) é só alvo — não se arrasta e
  * só aparece quando a etapa tem sub-etapas.
  */
-function SortableGrupo({ id, nome, qtd, fixo, recolhida, selecionada, selo, onAlternar, onRenomear, onConfigurar, onCondicao, onExcluir }: {
+function SortableGrupo({ id, nome, qtd, fixo, recolhida, selecionada, selo, seloForaDeOrdem, onAlternar, onRenomear, onConfigurar, onCondicao, onExcluir }: {
+  seloForaDeOrdem?: boolean
   id: string; nome: string; qtd: number; fixo?: boolean; recolhida?: boolean; selecionada?: boolean; selo?: string | null
   onAlternar?: () => void; onRenomear?: (v: string) => void; onConfigurar?: () => void; onCondicao?: () => void; onExcluir?: () => void
 }) {
@@ -3264,7 +3274,7 @@ function SortableGrupo({ id, nome, qtd, fixo, recolhida, selecionada, selo, onAl
         aria-label="Nome da sub-etapa"
         className="h-6 min-w-0 flex-1 rounded bg-transparent px-1 text-[13px] font-medium text-foreground hover:bg-background/60 focus:bg-background focus:outline-none focus:ring-1 focus:ring-ring"
       />
-      {selo && <SeloCondicaoCadastro texto={selo} onClick={() => onCondicao?.()} className="h-5 max-w-[180px] text-[10px]" />}
+      {selo && <SeloCondicaoCadastro texto={selo} foraDeOrdem={seloForaDeOrdem} onClick={() => onCondicao?.()} className="h-5 max-w-[180px] text-[10px]" />}
       <span className="shrink-0 px-1 text-[10.5px] tabular-nums text-muted-foreground" title="Passos nesta sub-etapa">
         {qtd === 0 ? 'vazia — solte um passo aqui' : `${qtd} passo${qtd !== 1 ? 's' : ''}`}
       </span>
