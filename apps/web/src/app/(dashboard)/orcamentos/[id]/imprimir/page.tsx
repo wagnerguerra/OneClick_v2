@@ -49,7 +49,9 @@ interface Orcamento {
   responsavel: { name: string } | null
 }
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+/* Acento do papel: azul da skin padrão, tom light, FIXO. O papel é sempre claro
+   e é o mesmo para quem imprimir — não segue tema nem skin de quem está logado. */
+const ACCENT = 'var(--skin-padrao)'
 
 function formatCurrency(v: number | string | null | undefined): string {
   return Number(v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -236,7 +238,7 @@ export default function ImprimirOrcamentoPage() {
           left: 0;
           right: 0;
           height: 4px;
-          background: ${MODULE_COLOR};
+          background: ${ACCENT};
           z-index: 2;
         }
         /* Conteudo precisa estar acima da marca d'agua */
@@ -263,18 +265,18 @@ export default function ImprimirOrcamentoPage() {
           border-bottom: 1px solid #1a1a1a;
           margin-bottom: 16px;
         }
-        .quote-doc .accent { color: ${MODULE_COLOR}; }
+        .quote-doc .accent { color: ${ACCENT}; }
         .quote-doc .accent-bar {
           display: inline-block;
           width: 36px;
           height: 3px;
-          background: ${MODULE_COLOR};
+          background: ${ACCENT};
           margin-bottom: 12px;
         }
         .quote-doc .doc-number {
           font-size: 24px;
           font-weight: 700;
-          color: ${MODULE_COLOR};
+          color: ${ACCENT};
           letter-spacing: -0.02em;
           line-height: 1;
         }
@@ -327,7 +329,7 @@ export default function ImprimirOrcamentoPage() {
         }
         .quote-doc .totals-row .lbl { color: #6b7280; }
         .quote-doc .totals-row .val { font-variant-numeric: tabular-nums; font-weight: 500; }
-        .quote-doc .totals-row.discount .val { color: ${MODULE_COLOR}; }
+        .quote-doc .totals-row.discount .val { color: ${ACCENT}; }
         .quote-doc .totals-row.grand {
           margin-top: 4px;
           padding: 12px 0 0;
@@ -344,7 +346,7 @@ export default function ImprimirOrcamentoPage() {
         .quote-doc .totals-row.grand .val {
           font-size: 22px;
           font-weight: 700;
-          color: ${MODULE_COLOR};
+          color: ${ACCENT};
           letter-spacing: -0.01em;
         }
         /* Cliente info grid */
@@ -571,14 +573,14 @@ export default function ImprimirOrcamentoPage() {
         <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push(`/orcamentos/${id}`)}>
           <ArrowLeft className="h-4 w-4" /> Voltar
         </Button>
-        <Button size="sm" className="text-white gap-1.5 ml-auto" style={{ backgroundColor: MODULE_COLOR }} onClick={() => window.print()}>
+        <Button size="sm" className="gap-1.5 ml-auto" onClick={() => window.print()}>
           <Printer className="h-4 w-4" /> Imprimir
         </Button>
       </div>
 
       {/* DOCUMENTO */}
       <div className="quote-doc">
-        {/* Faixa de acento no topo de cada pagina (identidade rose) */}
+        {/* Faixa de acento no topo (so na tela; a impressao a esconde) */}
         <div className="top-accent" aria-hidden />
 
         {/* Marca d'agua institucional: usa a imagem cadastrada na empresa ativa

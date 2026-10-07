@@ -102,7 +102,9 @@ interface Cliente {
   telefone: string | null
 }
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+/* Acento do papel: azul da skin padrão, tom light, FIXO. O papel é sempre claro
+   e é o mesmo para quem imprimir — não segue tema nem skin de quem está logado. */
+const ACCENT = 'var(--skin-padrao)'
 
 function formatCurrency(v: number | string | null | undefined): string {
   return Number(v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -236,7 +238,7 @@ export default function ImprimirOportunidadePage() {
           position: absolute;
           top: 0; left: 0; right: 0;
           height: 4px;
-          background: ${MODULE_COLOR};
+          background: ${ACCENT};
           z-index: 2;
         }
         .quote-doc .quote-content { position: relative; z-index: 1; }
@@ -262,13 +264,13 @@ export default function ImprimirOportunidadePage() {
         .quote-doc .accent-bar {
           display: inline-block;
           width: 36px; height: 3px;
-          background: ${MODULE_COLOR};
+          background: ${ACCENT};
           margin-bottom: 12px;
         }
         .quote-doc .doc-number {
           font-size: 24px;
           font-weight: 700;
-          color: ${MODULE_COLOR};
+          color: ${ACCENT};
           letter-spacing: -0.02em;
           line-height: 1;
         }
@@ -298,7 +300,7 @@ export default function ImprimirOportunidadePage() {
         .quote-doc .valor-box .val {
           font-size: 22px;
           font-weight: 700;
-          color: ${MODULE_COLOR};
+          color: ${ACCENT};
           letter-spacing: -0.01em;
           font-variant-numeric: tabular-nums;
         }
@@ -550,7 +552,7 @@ export default function ImprimirOportunidadePage() {
         <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push(`/crm?op=${id}`)}>
           <ArrowLeft className="h-4 w-4" /> Voltar
         </Button>
-        <Button size="sm" className="text-white gap-1.5 ml-auto" style={{ backgroundColor: MODULE_COLOR }} onClick={() => window.print()}>
+        <Button size="sm" className="gap-1.5 ml-auto" onClick={() => window.print()}>
           <Printer className="h-4 w-4" /> Imprimir
         </Button>
       </div>
