@@ -36,8 +36,7 @@ import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
 // Rótulos dos tipos de chamado — serviço interno declara quais atende, e o
 // seletor de serviço do HelpDesk filtra por isso.
 import { HELPDESK_TIPO_LABELS } from '@saas/types'
-import { FluxoEditor, type FluxoNode, type FluxoEdge } from './_components/fluxo-editor'
-import { FluxoAssistant } from './_components/fluxo-assistant'
+import { FluxoDoServico } from './_components/fluxo-do-servico'
 import { MateriaisSection, type Material } from './_components/materiais-section'
 import { NotificacoesSection } from './_components/notificacoes-section'
 import { PassoEmailsSection } from './_components/passo-emails-section'
@@ -464,16 +463,6 @@ export default function ServicoDetailPage() {
   const [encObservacao, setEncObservacao] = useState('')
   const [encSaving, setEncSaving] = useState(false)
 
-  // Fluxo (DAG)
-  const [fluxoData, setFluxoData] = useState<{ nodes: FluxoNode[]; edges: FluxoEdge[] } | null>(null)
-  /** Bumpa a cada refetch — força o FluxoEditor a re-montar com os novos dados
-   *  via `key={fluxoVersion}`. Evita full page reload ao adicionar/remover
-   *  blocos, mantendo o usuário na aba Fluxo. */
-  const [fluxoVersion, setFluxoVersion] = useState(0)
-  const [fluxoLoading, setFluxoLoading] = useState(false)
-  /** Assistente guiado de fluxo (Fase 2) — abre pela aba Fluxo ou via ?assistente=fluxo. */
-  const [assistOpen, setAssistOpen] = useState(false)
-
   // ── Loaders ────────────────────────────────────────────────
 
   const fetchServico = useCallback(async () => {
@@ -677,40 +666,29 @@ export default function ServicoDetailPage() {
     }
   }, [])
 
-  const fetchFluxo = useCallback(async (opts?: { silent?: boolean }) => {
-    // silent=true → refetch sem mostrar spinner (usado após add/remove de bloco
-    // pra não tirar o canvas da tela e dar a impressão de page reload)
-    if (!opts?.silent) setFluxoLoading(true)
-    try {
-      const data = await (trpc.servico as any).getFluxo.query({ id })
-      setFluxoData(data)
-    } catch (e) {
-      console.warn('Falha ao carregar fluxo:', (e as Error).message)
-    } finally {
-      if (!opts?.silent) setFluxoLoading(false)
-    }
-  }, [id])
 
   useEffect(() => { fetchServico(); fetchEncadeamentos(); fetchTodosServicos(); fetchAreas(); fetchTodosGrupos(); fetchUsuariosForSelect(); fetchVariacoes() }, [fetchServico, fetchEncadeamentos, fetchTodosServicos, fetchAreas, fetchTodosGrupos, fetchUsuariosForSelect, fetchVariacoes])
 
-  useEffect(() => {
-    // Lazy-load Fluxo ao abrir a aba
-    if (activeTab === 'fluxo' && !fluxoData && !fluxoLoading) {
-      fetchFluxo()
-    }
-  }, [activeTab, fluxoData, fluxoLoading, fetchFluxo])
 
   // Hand-off do wizard de cadastro: ?assistente=fluxo abre a aba Fluxo já com o
   // assistente guiado. Lê via window (evita exigir <Suspense> de useSearchParams).
   useEffect(() => {
     if (typeof window === 'undefined') return
     const sp = new URLSearchParams(window.location.search)
+    // O assistente monta a CADEIA, que agora mora em /servicos/[id]/cadeia.
     if (sp.get('assistente') === 'fluxo') {
-      setActiveTab('fluxo')
-      setAssistOpen(true)
-      window.history.replaceState(null, '', `/servicos/${id}`)
+      router.replace(`/servicos/${id}/cadeia?assistente=fluxo`)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /** Do fluxo para a edição: abre "Etapas e passos" e foca o passo clicado. */
+  const irParaPasso = useCallback((dndId: string) => {
+    setActiveTab('etapas')
+    setTimeout(() => {
+      const el = passoInputRefs.current.get(dndId)
+      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus() }
+    }, 120)
   }, [])
 
   // ── Salvar Visão geral ────────────────────────────────────
@@ -1222,7 +1200,6 @@ export default function ServicoDetailPage() {
       }
       setEncModalOpen(false)
       await fetchEncadeamentos()
-      setFluxoData(null) // força refetch do fluxo na próxima abertura
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
     } finally {
@@ -1241,7 +1218,6 @@ export default function ServicoDetailPage() {
     try {
       await (trpc.servico as any).removeEncadeamento.mutate({ id: enc.id })
       await fetchEncadeamentos()
-      setFluxoData(null)
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
     }
@@ -2709,53 +2685,19 @@ export default function ServicoDetailPage() {
 
         {/* ── TAB: Fluxo (DAG) ── */}
         <TabsContent value="fluxo" className="mt-4">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-[11px] text-muted-foreground">
-              Monte o fluxo por perguntas guiadas ou edite os blocos diretamente no canvas.
-            </p>
-            <Button size="sm" onClick={() => setAssistOpen(true)} className="gap-1.5">
-              <Zap className="h-4 w-4" /> Montar com assistente
-            </Button>
-          </div>
+          {/* Fluxo DO PRÓPRIO serviço. A cadeia completa (sucessores, perguntas,
+              blocos) fica em /servicos/[id]/cadeia — ⋮ do /servicos, só em
+              serviços que são início de cadeia. */}
           <Card>
             <CardContent className="p-4">
-              {fluxoLoading || !fluxoData ? (
-                <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Calculando fluxo...
-                </div>
-              ) : (
-                <FluxoEditor
-                  key={fluxoVersion}
-                  rootId={id}
-                  nodes={fluxoData.nodes}
-                  edges={fluxoData.edges}
-                  onChanged={async () => {
-                    // Re-busca fluxo silenciosamente; mantém aba ativa e estado
-                    // do resto da página. Bumpar a versão força o editor a
-                    // re-montar com os nodes/edges atualizados.
-                    await fetchFluxo({ silent: true })
-                    setFluxoVersion(v => v + 1)
-                  }}
-                />
-              )}
+              <FluxoDoServico
+                etapas={etapas}
+                onEditarEtapas={() => setActiveTab('etapas')}
+                onEditarPasso={irParaPasso}
+              />
             </CardContent>
           </Card>
         </TabsContent>
-
-        {/* Assistente guiado de fluxo (Fase 2) */}
-        <FluxoAssistant
-          open={assistOpen}
-          onOpenChange={setAssistOpen}
-          servicoId={id}
-          servicoNome={nome}
-          servicos={todosServicos}
-          onApplied={async () => {
-            await fetchServico()
-            await fetchFluxo({ silent: true })
-            setFluxoVersion(v => v + 1)
-            await fetchEncadeamentos()
-          }}
-        />
 
         {/* ── TAB: Sucessores ── */}
         <TabsContent value="encadeamento" className="mt-4">

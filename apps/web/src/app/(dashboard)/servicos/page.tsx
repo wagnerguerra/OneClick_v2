@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
-  ClipboardCheck, Loader2, Plus, MoreVertical, Trash2, Edit, Pencil, Copy, 
+  ClipboardCheck, Loader2, Plus, MoreVertical, Trash2, Edit, Pencil, Copy, Workflow,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   Clock, CheckCircle2, LayoutGrid, List, Play, XCircle, Eye,
   GripVertical, Pause, MessageSquare, Paperclip, Send, ChevronDown, ChevronUp,
@@ -239,6 +239,15 @@ function tipoLabel(s: Servico): string {
 // ============================================================
 // Page
 // ============================================================
+
+/**
+ * Início de cadeia: tem sucessores e não é sucessor de ninguém — mesma regra do
+ * filtro "Início" da tela. Só esses abrem o "Fluxo da cadeia" (decisão de
+ * 07/10/2026: a cadeia inteira sai do detalhe do serviço e fica aqui).
+ */
+function ehInicioDeCadeia(s: { _count?: { encadeamentosOrigem?: number; encadeamentosDestino?: number } }): boolean {
+  return (s._count?.encadeamentosOrigem ?? 0) > 0 && (s._count?.encadeamentosDestino ?? 0) === 0
+}
 
 export default function ServicosPage() {
   const router = useRouter()
@@ -1295,6 +1304,9 @@ export default function ServicosPage() {
                           <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
                             <DropdownMenuItem onClick={() => openEditServico(s.id)}><Edit className="h-3.5 w-3.5 mr-2" />Editar</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleDuplicarServico(s.id)}><Copy className="h-3.5 w-3.5 mr-2" />Duplicar</DropdownMenuItem>
+                            {ehInicioDeCadeia(s) && (
+                              <DropdownMenuItem asChild><Link href={`/servicos/${s.id}/cadeia`}><Workflow className="h-3.5 w-3.5 mr-2" />Fluxo da cadeia</Link></DropdownMenuItem>
+                            )}
                             <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteServico(s.id)}><Trash2 className="h-3.5 w-3.5 mr-2" />Excluir</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -1501,6 +1513,9 @@ export default function ServicosPage() {
                         <DropdownMenuContent align="end" className="w-44">
                           <DropdownMenuItem onClick={() => openEditServico(s.id)}><Edit className="h-4 w-4" />Editar</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDuplicarServico(s.id)}><Copy className="h-4 w-4" />Duplicar</DropdownMenuItem>
+                          {ehInicioDeCadeia(s) && (
+                            <DropdownMenuItem asChild><Link href={`/servicos/${s.id}/cadeia`}><Workflow className="h-4 w-4" />Fluxo da cadeia</Link></DropdownMenuItem>
+                          )}
                           <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteServico(s.id)}><Trash2 className="h-4 w-4" />Excluir</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
