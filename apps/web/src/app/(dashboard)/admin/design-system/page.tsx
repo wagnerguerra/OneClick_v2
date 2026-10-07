@@ -495,7 +495,7 @@ function ModuleColorsEditor() {
         <div className="space-y-1.5">
           <h4 className="text-[12px] font-bold">Onde ela aparece — lista fechada</h4>
           <div className="flex flex-wrap gap-1.5">
-            {['Sidebar', 'Widgets do dashboard', 'FAQ', 'Grupos de permissão em /usuarios', 'Nós do editor de fluxo (por área)'].map(l => (
+            {['Sidebar', 'Widgets do dashboard', 'FAQ', 'Grupos de permissão em /usuarios', 'Nós do editor de fluxo (por área)', 'Balão de feedback (botão e cada modo)'].map(l => (
               <span key={l} className="rounded-full border border-border bg-muted/40 px-2.5 py-0.5 text-[11px] text-foreground/80">{l}</span>
             ))}
           </div>

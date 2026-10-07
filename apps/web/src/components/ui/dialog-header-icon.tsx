@@ -72,10 +72,11 @@ interface Props {
    *  /admin/design-system → aba "Modais". */
   color?: IconColor
   /**
-   * Cor de acento por VALOR/variável (ex.: a cor do módulo `var(--mod-<slug>)`).
+   * Cor de acento por VALOR/variável (ex.: uma cor vinda de cadastro).
    * Quando setada, o quadrado do ícone usa essa cor (tint suave + ícone na cor,
    * com ajuste claro/escuro via `color-mix` com o foreground) em vez da paleta
-   * fixa `color`. Use quando a intenção é a cor do módulo — passe a variável.
+   * fixa `color`. Use só quando a cor não cabe na paleta — nunca a cor de módulo,
+   * que não é cor de conteúdo (docs/PADRAO_CORES_E_TEMA.md §6).
    */
   accentColor?: string
   /**

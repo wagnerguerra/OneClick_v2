@@ -3261,7 +3261,7 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
                   <div
                     key={a.id}
                     className="group/chip inline-flex items-center gap-1 rounded-full border pl-2.5 pr-1 py-0.5 text-[11px] font-medium transition-colors"
-                    style={{ borderColor: `color-mix(in srgb, ${PRIMARY_CLIENTES} 35%, transparent)`, color: PRIMARY_CLIENTES, backgroundColor: `color-mix(in srgb, ${PRIMARY_CLIENTES} 10%, transparent)` }}
+                    style={{ borderColor: `color-mix(in srgb, ${PRIMARY_CLIENTES} 35%, transparent)`, color: 'var(--color-primary-on-surface)', backgroundColor: `color-mix(in srgb, ${PRIMARY_CLIENTES} 10%, transparent)` }}
                   >
                     <span
                       className={canManageAtiv ? 'cursor-pointer' : ''}

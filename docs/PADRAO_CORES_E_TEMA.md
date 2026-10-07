@@ -210,7 +210,11 @@ em `:root` pelo `ModuleColorsProvider`. Defaults em `DEFAULT_MODULE_COLORS`
 2. os **widgets do dashboard** (ícone por módulo);
 3. o **FAQ** (cor do artigo/tópico pelo módulo que ele documenta);
 4. os **grupos de permissão** em `/usuarios` (aba Permissões / Permissões em massa);
-5. os **nós do editor de fluxo** de Serviços (por área).
+5. os **nós do editor de fluxo** de Serviços (por área);
+6. o **balão de feedback** (botão flutuante, `floating-feedback-button.tsx`): o
+   botão em `--mod-ti` e o acento de cada modo — orçamento em `--mod-comercial`,
+   evento em `--mod-administrativo`, chamado em `--mod-ti`. Cada modo abre algo
+   de um módulo, e a cor diz qual.
 
 Nesses lugares ela vem **sempre da var** (`var(--mod-<slug>, #fallback)`,
 `useModuleColor`, `groupColorVar`/`groupModuleColorVar` em `navigation.ts`) —

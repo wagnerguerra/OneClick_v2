@@ -76,7 +76,7 @@ const TabsTrigger = React.forwardRef<
               '!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold',
               '!text-foreground/70 hover:!text-foreground transition-colors',
               'data-[state=active]:!bg-transparent dark:data-[state=active]:!bg-transparent data-[state=active]:!shadow-none',
-              'data-[state=active]:!text-primary-on-surface',
+              'data-[state=active]:!text-primary-on-surface dark:data-[state=active]:!text-[color-mix(in_oklab,var(--color-primary-on-surface),white_50%)]',
             ]
           : [
               'inline-flex items-center gap-2 cursor-pointer',

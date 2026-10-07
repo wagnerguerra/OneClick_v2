@@ -24,7 +24,7 @@ import { TIPO_FORNECIMENTO_LABELS } from '@saas/types'
  * O cálculo mora no backend (compra/relatorios.ts); a tela só desenha.
  */
 
-const MODULE_COLOR = 'var(--mod-qualidade, #f59e0b)'
+const PRIMARY = 'var(--color-primary)'
 
 type ClasseIqf = 'APROVADO' | 'RESTRICAO' | 'REPROVADO'
 interface LinhaIqf {
@@ -255,7 +255,7 @@ function RelatorioGastos({ d }: { d: Relatorios['gastos'] }) {
                 <XAxis dataKey="nome" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
                 <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => brlCurto(v)} width={72} />
                 <Tooltip content={<ChartTooltip format={(v) => brl(v)} />} cursor={{ fill: CHART_CURSOR_FILL }} />
-                <Bar dataKey="valor" name="Gasto" fill={MODULE_COLOR} radius={[4, 4, 0, 0]} maxBarSize={36} />
+                <Bar dataKey="valor" name="Gasto" fill={PRIMARY} radius={[4, 4, 0, 0]} maxBarSize={36} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -292,7 +292,7 @@ function RelatorioGastos({ d }: { d: Relatorios['gastos'] }) {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                          <div className="h-full rounded-full" style={{ width: `${Math.min(100, f.acumuladoPct)}%`, background: MODULE_COLOR }} />
+                          <div className="h-full rounded-full" style={{ width: `${Math.min(100, f.acumuladoPct)}%`, background: PRIMARY }} />
                         </div>
                         <span className="w-10 text-right text-[11px] tabular-nums text-muted-foreground">{pct(f.acumuladoPct)}</span>
                       </div>

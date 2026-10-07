@@ -27,8 +27,6 @@ import {
   aplicarExemplos,
 } from './_lib/templates'
 
-const MODULE_COLOR = 'var(--color-primary)'
-
 // Empresa/logo de exemplo usados só no preview do sandbox.
 const PREVIEW_EMPRESA = 'Central Contábil'
 const PREVIEW_LOGO: string | null = null
@@ -256,10 +254,9 @@ export default function EmailTemplatesPage() {
                         className={cn(
                           'w-full rounded-md border px-2.5 py-2 text-left transition-colors',
                           ativo
-                            ? 'border-transparent text-white'
+                            ? 'border-transparent bg-primary text-primary-foreground'
                             : 'border-border bg-muted/40 hover:bg-muted',
                         )}
-                        style={ativo ? { backgroundColor: MODULE_COLOR } : undefined}
                       >
                         <p className="truncate text-[13px] font-semibold">{t.nome}</p>
                         <p

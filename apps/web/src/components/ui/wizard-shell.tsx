@@ -29,7 +29,7 @@ export interface WizardShellProps {
   steps: WizardStep[]
   /** Índice do passo atual (0-based). */
   current: number
-  /** Cor do módulo (CSS var). Default = cadastros (emerald). */
+  /** Cor de acento (CSS var). Default = primária. */
   color?: string
   /** Corpo do passo atual. */
   children: ReactNode
@@ -49,7 +49,7 @@ export interface WizardShellProps {
 export function WizardShell({
   steps,
   current,
-  color = 'var(--mod-cadastros, #10b981)',
+  color = 'var(--color-primary)',
   children,
   onNavigate,
   onBack,

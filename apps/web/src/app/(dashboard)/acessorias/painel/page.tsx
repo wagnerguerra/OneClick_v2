@@ -846,7 +846,7 @@ function ObrigacoesDoClienteModal({
                       className={cn(
                         'cursor-pointer transition-colors',
                         // Selecionada: fundo suave e filete à esquerda, como item ativo de lista.
-                        ativa ? 'bg-muted/60 shadow-[inset_3px_0_0_var(--mod-administrativo,#0ea5e9)]' : 'hover:bg-muted/30',
+                        ativa ? 'bg-muted/60 shadow-[inset_3px_0_0_var(--color-primary-on-surface)]' : 'hover:bg-muted/30',
                       )}
                     >
                       <td className="px-3 py-2">

@@ -1325,7 +1325,6 @@ export default function OrcamentosPage() {
           onClose={() => setRelatorioColuna(null)}
           status={relatorioColuna}
           statusLabel={STATUS_LABELS[relatorioColuna] || relatorioColuna}
-          moduleColor={PRIMARY}
         />
       )}
 

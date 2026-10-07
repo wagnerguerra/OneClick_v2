@@ -6,7 +6,11 @@ import { CheckCircle2, Loader2, Star, ThumbsUp, ThumbsDown } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl } from '@/lib/api-url'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+/* Acento: a primária, que acompanha o tema do aparelho (o visitante externo
+   não troca skin, então para ele é sempre a padrão). Sólido para fundo; o
+   "on-surface" para texto/ícone, legível no dark. */
+const ACCENT_COLOR = 'var(--color-primary)'
+const ACCENT_TEXT_COLOR = 'var(--color-primary-on-surface)'
 
 interface Pergunta { id: string; ordem: number; tipo: string; enunciado: string; obrigatoria: boolean }
 interface Envio {
@@ -109,8 +113,8 @@ export default function PesquisaPublicaPage() {
           {envio.empresa?.logoUrl && (
             <img src={resolveAssetUrl(envio.empresa.logoUrl)} alt={empresaNome} className="h-14 w-auto object-contain mx-auto mb-6" />
           )}
-          <div className="h-16 w-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 8%, transparent)` }}>
-            <CheckCircle2 className="h-9 w-9" style={{ color: MODULE_COLOR }} />
+          <div className="h-16 w-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ backgroundColor: `color-mix(in srgb, ${ACCENT_COLOR} 8%, transparent)` }}>
+            <CheckCircle2 className="h-9 w-9" style={{ color: ACCENT_TEXT_COLOR }} />
           </div>
           <h2 className="text-xl font-bold mb-2">Obrigado pela sua resposta!</h2>
           <p className="text-sm text-muted-foreground">Sua opinião é muito importante para a <strong>{empresaNome}</strong>. Continuaremos trabalhando para oferecer o melhor serviço.</p>
@@ -126,7 +130,7 @@ export default function PesquisaPublicaPage() {
         {envio.empresa?.logoUrl ? (
           <img src={resolveAssetUrl(envio.empresa.logoUrl)} alt={empresaNome} className="h-12 w-auto object-contain mx-auto mb-3" />
         ) : (
-          <div className="h-14 w-14 rounded-lg mx-auto mb-3 flex items-center justify-center text-white text-xl font-bold" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
+          <div className="h-14 w-14 rounded-lg mx-auto mb-3 flex items-center justify-center text-white text-xl font-bold" style={{ background: `linear-gradient(135deg, ${ACCENT_COLOR}, color-mix(in srgb, ${ACCENT_COLOR} 87%, transparent))` }}>
             {empresaNome[0]?.toUpperCase()}
           </div>
         )}
@@ -208,7 +212,7 @@ export default function PesquisaPublicaPage() {
 
         {/* Submit */}
         <div className="pt-2">
-          <button onClick={handleSubmit} disabled={enviando || !nome.trim()} className="w-full flex items-center justify-center gap-2 px-4 py-3 text-white rounded-md font-semibold transition-colors disabled:opacity-50" style={{ backgroundColor: MODULE_COLOR }}>
+          <button onClick={handleSubmit} disabled={enviando || !nome.trim()} className="w-full flex items-center justify-center gap-2 px-4 py-3 text-white rounded-md font-semibold transition-colors disabled:opacity-50" style={{ backgroundColor: ACCENT_COLOR }}>
             {enviando ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
             Enviar resposta
           </button>

@@ -146,14 +146,13 @@ function SeletorResponsaveis({ usuarios, valor, onChange, excluir }: {
 }
 
 // ── Formulário (criar e editar) ────────────────────────────────────────
-function FormAcao({ inicial, editando, usuarios, meuId, criadorId, salvando, moduleColor, onSalvar, onCancelar }: {
+function FormAcao({ inicial, editando, usuarios, meuId, criadorId, salvando, onSalvar, onCancelar }: {
   inicial: ValoresAcao
   editando: boolean
   usuarios: Usuario[]
   meuId?: string
   criadorId?: string
   salvando: boolean
-  moduleColor: string
   onSalvar: (v: ValoresAcao, lembreteMexido: boolean) => Promise<boolean>
   onCancelar?: () => void
 }) {
@@ -218,7 +217,6 @@ function FormAcao({ inicial, editando, usuarios, meuId, criadorId, salvando, mod
             <Checkbox
               checked={v.lembreteEmail}
               disabled={semLembrete}
-              accentColor={moduleColor}
               onCheckedChange={c => { set('lembreteEmail', c === true); setLembreteMexido(true) }}
             />
             Também por e-mail
@@ -251,7 +249,7 @@ function FormAcao({ inicial, editando, usuarios, meuId, criadorId, salvando, mod
       <div className="flex flex-wrap items-center justify-between gap-2">
         {!editando ? (
           <label className="flex items-center gap-2 text-[13px]">
-            <Checkbox checked={v.realizada} accentColor={moduleColor} onCheckedChange={c => set('realizada', c === true)} />
+            <Checkbox checked={v.realizada} onCheckedChange={c => set('realizada', c === true)} />
             Já foi realizada <span className="text-[11px] text-muted-foreground">(registra como concluída)</span>
           </label>
         ) : <span />}
@@ -268,12 +266,11 @@ function FormAcao({ inicial, editando, usuarios, meuId, criadorId, salvando, mod
 }
 
 // ── Aba ────────────────────────────────────────────────────────────────
-export function AcoesTab({ oportunidadeId, acoes, carregando, meuId, moduleColor, onChanged }: {
+export function AcoesTab({ oportunidadeId, acoes, carregando, meuId, onChanged }: {
   oportunidadeId: string
   acoes: AcaoCrm[]
   carregando: boolean
   meuId?: string
-  moduleColor: string
   /** Recarrega a lista e os contadores do board. */
   onChanged: () => void
 }) {
@@ -367,7 +364,6 @@ export function AcoesTab({ oportunidadeId, acoes, carregando, meuId, moduleColor
         usuarios={usuarios}
         meuId={meuId}
         salvando={salvando && !editandoId}
-        moduleColor={moduleColor}
         onSalvar={v => criar(v)}
       />
 
@@ -395,7 +391,6 @@ export function AcoesTab({ oportunidadeId, acoes, carregando, meuId, moduleColor
                   meuId={meuId}
                   criadorId={a.criadorId}
                   salvando={salvando}
-                  moduleColor={moduleColor}
                   onSalvar={(v, mexido) => editar(a.id, v, mexido)}
                   onCancelar={() => setEditandoId(null)}
                 />
