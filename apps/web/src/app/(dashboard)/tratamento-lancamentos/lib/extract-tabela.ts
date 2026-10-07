@@ -10,7 +10,9 @@ import * as XLSX from 'xlsx'
 // o fallback via IA (TODO(IA) em `extractTabela`).
 //
 // Dois modos (auto-detectados):
-//  • TABELA ÚNICA: uma região contígua de linhas cheias (o caso comum).
+//  • TABELA ÚNICA (o caso comum): acha a linha de cabeçalho e coleta as linhas
+//    abaixo dela que caem nas suas colunas — subtotais de grupo e campos vazios
+//    não partem a tabela. Sem cabeçalho, cai no maior bloco contíguo de linhas cheias.
 //  • RELATÓRIO paginado/agrupado: o cabeçalho de colunas se REPETE (≥2×, por
 //    quebra de página) e os lançamentos vêm em várias seções intercaladas com
 //    título/filtros/subtotais. Coletamos TODAS as linhas de lançamento numa
@@ -364,8 +366,88 @@ function extractReport(matrix: Matrix, sheetName: string, header: RepeatedHeader
 }
 
 // ---- Modo TABELA ÚNICA -----------------------------------------------------
+//
+// Parte do CABEÇALHO, não do corpo: acha a linha de rótulos e coleta as linhas
+// abaixo dela que caem nas colunas dele — sem exigir que sejam contíguas nem
+// "cheias". Partir do maior bloco contíguo de linhas cheias (a heurística antiga,
+// mantida só como reserva p/ arquivo sem cabeçalho) quebrava em planilhas simples:
+// uma linha de subtotal ou com campos opcionais vazios partia a tabela em blocos,
+// ficava só o maior deles e uma LINHA DE DADOS virava o cabeçalho.
 
-/** Acha [headerRowIndex, bodyStart, bodyEnd] na maior região contígua de linhas cheias. */
+/** Quantos candidatos a cabeçalho avaliar, de cima para baixo (limita o custo em
+ *  tabelas só de texto, em que toda linha "parece" cabeçalho). */
+const MAX_HEADER_CANDIDATES = 20
+/** Linha de dados: preenche ao menos esta fração das colunas do cabeçalho (mín. 2)… */
+const MIN_ROW_COVERAGE = 0.2
+/** …e ao menos esta fração das suas células cai em colunas do cabeçalho. Barra que
+ *  uma linha estreita de títulos de grupo vire cabeçalho (os dados transbordam as
+ *  colunas dela), mas tolera sobra lateral — ex.: quadro-resumo colado à direita
+ *  das primeiras linhas do relatório de títulos pagos do Bradesco. */
+const MIN_ROW_ALIGNMENT = 0.6
+/** Abaixo desta cobertura a linha é "esparsa" e pode ser subtotal/rodapé. */
+const SPARSE_COVERAGE = 0.5
+
+/** Valor monetário/numérico puro (aceita "R$" e marcador D/C), sem data nem texto. */
+function isAmount(c: CellValue): boolean {
+  if (typeof c === 'number') return true
+  return /^-?\s*(R\$)?\s*-?[\d.,]+\s*(CD|DB|C|D)?$/i.test(String(c).trim())
+}
+
+/** Célula que COMEÇA com "Total"/"Totais"/"Subtotal"/"Sub-total". */
+const TOTAL_LABEL_RE = /^\s*(sub\s*-?\s*)?tota(l|is)\b/i
+
+/**
+ * A linha `row` é um lançamento da tabela cujo cabeçalho ocupa `headerCols`?
+ * Linhas esparsas que são só valores (subtotal de grupo) ou começam com "Total"
+ * ficam de fora; a repetição do próprio cabeçalho também.
+ */
+function isTableRow(row: CellValue[], headerCols: Set<number>, headerFp: string): boolean {
+  const cols = filledCols(row)
+  if (cols.length < 2) return false
+  const inHeader = cols.filter((c) => headerCols.has(c)).length
+  if (inHeader < Math.max(2, Math.ceil(headerCols.size * MIN_ROW_COVERAGE))) return false
+  if (inHeader / cols.length < MIN_ROW_ALIGNMENT) return false
+  if (fingerprint(row, cols) === headerFp) return false
+  if (inHeader < headerCols.size * SPARSE_COVERAGE) {
+    const valores = cols.map((c) => row[c]!)
+    if (valores.every(isAmount)) return false // subtotal: só valores
+    if (valores.some((v) => TOTAL_LABEL_RE.test(String(v)))) return false // "Total", "Subtotal"…
+  }
+  return true
+}
+
+function fingerprint(row: CellValue[], cols: number[]): string {
+  return cols.map((c) => String(row[c]).trim().toLowerCase()).join('')
+}
+
+/**
+ * Cabeçalho + linhas de dados. Candidatos = linhas de rótulos (sem data/valor/
+ * documento) com ao menos metade da largura máxima; vence o que tiver MAIS linhas
+ * compatíveis abaixo (empate → o mais acima). null quando nenhum serve.
+ */
+function detectHeaderTable(matrix: Matrix): { headerRowIndex: number; dataRows: number[] } | null {
+  const counts = matrix.map((r) => filledCols(r).length)
+  const maxFilled = counts.reduce((m, c) => (c > m ? c : m), 0)
+  const minHeader = Math.max(2, Math.ceil(maxFilled * 0.5))
+
+  let best: { headerRowIndex: number; dataRows: number[] } | null = null
+  let avaliados = 0
+  for (let h = 0; h < matrix.length && avaliados < MAX_HEADER_CANDIDATES; h++) {
+    if (counts[h]! < minHeader || !isHeaderRow(matrix[h]!)) continue
+    avaliados++
+    const cols = filledCols(matrix[h]!)
+    const headerCols = new Set(cols)
+    const fp = fingerprint(matrix[h]!, cols)
+    const dataRows: number[] = []
+    for (let r = h + 1; r < matrix.length; r++) {
+      if (isTableRow(matrix[r]!, headerCols, fp)) dataRows.push(r)
+    }
+    if (dataRows.length > (best?.dataRows.length ?? 0)) best = { headerRowIndex: h, dataRows }
+  }
+  return best
+}
+
+/** RESERVA (arquivo sem cabeçalho): [headerRowIndex, bodyStart, bodyEnd] na maior região contígua de linhas cheias. */
 function detectRegion(matrix: Matrix): { headerRowIndex: number; bodyStart: number; bodyEnd: number } | null {
   const counts = matrix.map((r) => filledCols(r).length)
   const maxFilled = counts.reduce((m, c) => (c > m ? c : m), 0) // sem spread (arquivos grandes)
@@ -408,6 +490,11 @@ function detectRegion(matrix: Matrix): { headerRowIndex: number; bodyStart: numb
 }
 
 function extractSingle(matrix: Matrix, sheetName: string): ExtractedTable {
+  const porCabecalho = detectHeaderTable(matrix)
+  if (porCabecalho) {
+    return buildTable(matrix, sheetName, porCabecalho.headerRowIndex, porCabecalho.dataRows.map((i) => ({ i })), 'single')
+  }
+
   const region = detectRegion(matrix)
   if (!region) {
     throw new Error('Não foi possível localizar uma tabela de lançamentos no arquivo.')
