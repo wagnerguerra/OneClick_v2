@@ -21,6 +21,7 @@ import { trpc } from '@/lib/trpc'
 import { useEmpresaAtiva } from '@/hooks/use-empresa-ativa'
 import { resolveAssetUrl } from '@/lib/api-url'
 import { stripHtml } from '@/lib/html'
+import { PrintFrame } from '@/components/print/print-frame'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)'
 
@@ -177,6 +178,7 @@ function ImprimirAgendaConteudo() {
       </div>
 
       <div className="dia-doc">
+        <PrintFrame footerSpace={46}>
         <div className="cabecalho">
           <div className="identidade">
             {empresa?.logoUrl && (
@@ -280,7 +282,9 @@ function ImprimirAgendaConteudo() {
             </ul>
           )}
         </section>
+        </PrintFrame>
 
+        {/* Fora da moldura: é o rodapé fixo cujo espaço ela reserva. */}
         <div className="rodape">
           <span>{empresa?.razaoSocial ?? ''}</span>
           <span>Impresso em {new Date().toLocaleString('pt-BR')}</span>
@@ -403,8 +407,9 @@ function ImprimirAgendaConteudo() {
             top: 0 !important; left: 0 !important;
             width: 100% !important; max-width: 100% !important;
             margin: 0 !important;
-            /* Reserva o rodapé fixo para ele não cobrir a última linha. */
-            padding: 0 0 46px 0 !important;
+            /* O espaço do rodapé fixo é reservado página a página pelo
+               <PrintFrame>; padding aqui só valeria para a última folha. */
+            padding: 0 !important;
             box-shadow: none !important;
             border-radius: 0 !important;
           }
@@ -417,7 +422,8 @@ function ImprimirAgendaConteudo() {
             print-color-adjust: exact !important;
           }
 
-          /* position:fixed dentro de @media print repete o elemento em toda página. */
+          /* position:fixed dentro de @media print repete o elemento em toda página.
+             O espaço dele em cada folha vem do <PrintFrame> (#HLP0407). */
           .dia-doc .rodape {
             position: fixed !important;
             bottom: 0 !important; left: 0 !important; right: 0 !important;

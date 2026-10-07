@@ -7,6 +7,7 @@ import { Button } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { useEmpresaAtiva } from '@/hooks/use-empresa-ativa'
 import { resolveAssetUrl } from '@/lib/api-url'
+import { PrintFrame } from '@/components/print/print-frame'
 
 interface Item {
   id: string
@@ -468,8 +469,9 @@ export default function ImprimirOrcamentoPage() {
             width: 100% !important;
             max-width: 100% !important;
             margin: 0 !important;
-            /* padding-bottom reserva espaco para o footer fixo nao sobrepor texto */
-            padding: 0 0 56px 0 !important;
+            /* O espaco do footer fixo e reservado pagina a pagina pelo
+               <PrintFrame>; padding aqui so valeria para a ultima folha. */
+            padding: 0 !important;
             box-shadow: none !important;
             background: white !important;
           }
@@ -503,8 +505,8 @@ export default function ImprimirOrcamentoPage() {
 
           /* === FOOTER em cada pagina ===
              position: fixed dentro de @media print faz o navegador renderizar
-             o elemento em todas as paginas. Combinar com padding-bottom no
-             container pra evitar sobreposicao do conteudo. */
+             o elemento em todas as paginas. O <PrintFrame> reserva o espaco
+             dele em cada folha, pra nao cobrir a ultima linha (#HLP0407). */
           .quote-doc .footer {
             position: fixed !important;
             bottom: 0 !important;
@@ -591,6 +593,7 @@ export default function ImprimirOrcamentoPage() {
 
         {/* Conteudo do documento (z-index acima da marca d'agua) */}
         <div className="quote-content">
+        <PrintFrame footerSpace={56}>
 
         {/* HEADER: logo + meta */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
@@ -775,7 +778,9 @@ export default function ImprimirOrcamentoPage() {
           </div>
         )}
 
-        {/* FOOTER */}
+        </PrintFrame>
+
+        {/* FOOTER — fora da moldura: e o rodape fixo cujo espaco ela reserva */}
         <div className="footer">
           <span>{empresaNome}{orc.empresa?.site ? ` · ${orc.empresa.site}` : ''}</span>
           <span>Proposta #{String(orc.numero).padStart(4, '0')} · {formatDate(orc.createdAt)}</span>

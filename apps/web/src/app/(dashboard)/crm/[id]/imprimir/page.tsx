@@ -7,6 +7,7 @@ import { Button } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { useEmpresaAtiva } from '@/hooks/use-empresa-ativa'
 import { resolveAssetUrl } from '@/lib/api-url'
+import { PrintFrame } from '@/components/print/print-frame'
 
 /**
  * Ficha impressa de uma oportunidade do CRM.
@@ -472,7 +473,9 @@ export default function ImprimirOportunidadePage() {
             width: 100% !important;
             max-width: 100% !important;
             margin: 0 !important;
-            padding: 0 0 56px 0 !important;
+            /* O espaço do footer fixo é reservado página a página pelo
+               <PrintFrame>; padding aqui só valeria para a última folha. */
+            padding: 0 !important;
             box-shadow: none !important;
             background: white !important;
           }
@@ -488,7 +491,8 @@ export default function ImprimirOportunidadePage() {
             print-color-adjust: exact !important;
           }
 
-          /* position:fixed dentro de @media print = repete em cada página. */
+          /* position:fixed dentro de @media print = repete em cada página.
+             O espaço do footer em cada folha vem do <PrintFrame> (#HLP0407). */
           .quote-doc .watermark { position: fixed !important; }
           .quote-doc .top-accent { display: none !important; }
           .quote-doc .footer {
@@ -561,6 +565,7 @@ export default function ImprimirOportunidadePage() {
         />
 
         <div className="quote-content">
+          <PrintFrame footerSpace={56}>
 
           {/* HEADER */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
@@ -874,7 +879,9 @@ export default function ImprimirOportunidadePage() {
             </div>
           )}
 
-          {/* FOOTER */}
+          </PrintFrame>
+
+          {/* FOOTER — fora da moldura: é o rodapé fixo cujo espaço ela reserva */}
           <div className="footer">
             <span>{empresaNome} · Documento interno</span>
             <span>Oportunidade {numeroLabel} · {formatDate(op.createdAt)}</span>
