@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
 import {
   Loader2, CheckCircle2, XCircle, Pause, Play, X, Check, Lock, ChevronDown, SkipForward, ListChecks,
-  ChevronLeft, ChevronRight, StickyNote, PartyPopper,
+  ChevronLeft, ChevronRight, StickyNote, PartyPopper, Layers,
 } from 'lucide-react'
 import {
   Button, Input, cn,
@@ -26,6 +26,8 @@ interface PassoExec {
   passoId: string
   passoNome: string
   etapaNome: string
+  /** Sub-etapa (snapshot do template). null = passo direto na etapa / execução antiga. */
+  subEtapaNome?: string | null
   ordem: number
   obrigatorio: boolean
   permiteIgnorar: boolean
@@ -600,15 +602,30 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
                       {/* Passos da etapa — animação slide via classe sidebar-accordion */}
                       <CollapsibleContent className="sidebar-accordion overflow-hidden">
                       <div className="space-y-3 ml-0">
-                        {passos.sort((a, b) => a.ordem - b.ordem).map(passo => {
+                        {passos.sort((a, b) => a.ordem - b.ordem).map((passo, pIdx, lista) => {
                           // Passo "fechado" (concluído OU ignorado) não está bloqueado e não conta como ativo.
                           const fechado = passo.concluido || passo.ignorado
                           const bloqueado = bloqueados.has(passo.id) && !fechado
                           const editavelPasso = execucao.status === 'EM_ANDAMENTO' && !bloqueado
                           // "Ativo" = passo pendente que pode ser concluído agora.
                           const ativo = !fechado && !bloqueado && editavelPasso
+                          // Sub-etapa: cabeçalho discreto antes do primeiro passo do grupo
+                          // (a ordem já vem agrupada do servidor: diretos, depois sub-etapas).
+                          const novaSub = !!passo.subEtapaNome && passo.subEtapaNome !== lista[pIdx - 1]?.subEtapaNome
+                          const daSub = novaSub ? lista.filter(x => x.subEtapaNome === passo.subEtapaNome) : []
                           return (
-                            <div key={passo.id} className="relative flex items-start gap-3">
+                            <Fragment key={passo.id}>
+                            {novaSub && (
+                              <div className="ml-[43px] flex items-center gap-2 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                <Layers className="h-3 w-3" />
+                                <span>{passo.subEtapaNome}</span>
+                                <span className="font-normal normal-case tracking-normal tabular-nums">
+                                  · {daSub.filter(x => x.concluido).length} de {daSub.length} concluído{daSub.length !== 1 ? 's' : ''}
+                                </span>
+                                <span className="h-px flex-1 bg-border" aria-hidden />
+                              </div>
+                            )}
+                            <div className="relative flex items-start gap-3">
                               {/* Node do passo — clicável quando editável */}
                               <button
                                 type="button"
@@ -806,6 +823,7 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
                                 </CollapsibleContent>
                               </Collapsible>
                             </div>
+                            </Fragment>
                           )
                         })}
                       </div>
@@ -996,7 +1014,7 @@ function ChecklistEmCards({
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-[260px] space-y-1.5 p-3 text-xs">
                     <p className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
-                      Passo {i + 1} de {passos.length} · {p.etapaNome}
+                      Passo {i + 1} de {passos.length} · {p.etapaNome}{p.subEtapaNome ? ` · ${p.subEtapaNome}` : ''}
                     </p>
                     <p className="font-semibold leading-snug">{p.passoNome}</p>
                     <p className={cn(
@@ -1047,7 +1065,7 @@ function ChecklistEmCards({
           >
             <div className="space-y-1 border-b border-border px-5 py-4">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Passo {idx + 1} de {passos.length} · {passo.etapaNome}
+                Passo {idx + 1} de {passos.length} · {passo.etapaNome}{passo.subEtapaNome ? ` · ${passo.subEtapaNome}` : ''}
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className={cn('text-base font-semibold text-foreground', passo.concluido && 'line-through text-muted-foreground')}>{passo.passoNome}</h3>

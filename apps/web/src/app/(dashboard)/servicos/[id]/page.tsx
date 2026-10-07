@@ -15,7 +15,7 @@ import {
   Play, Pause, FileText, Layers, GitBranch, History, ListChecks,
   GripVertical, Clock, ChevronRight, ChevronDown, Network, Repeat, Zap, Type, Check, Search, Users,
   Bell, Mail, CircleDollarSign, AlignLeft, Info, Settings, CalendarDays, Lock, Unlock, ShieldCheck, Database, HelpCircle,
-  StickyNote, Link as LinkIcon, Paperclip,
+  StickyNote, Link as LinkIcon, Paperclip, ChevronUp, X,
 } from 'lucide-react'
 import Link from 'next/link'
 import {
@@ -79,6 +79,27 @@ interface Passo {
   emailsCount?: number
   lembretesCount?: number
   camposClienteCount?: number
+  /** Sub-etapa (opcional) da mesma etapa. null = passo direto na etapa. */
+  subEtapaId: string | null
+}
+
+/** Sub-etapa: agrupamento opcional de passos dentro da etapa (um nível). */
+interface SubEtapa {
+  id: string
+  nome: string
+  ordem: number
+}
+
+/**
+ * Ordem de exibição (e de execução) dos passos de uma etapa com sub-etapas:
+ * passos diretos primeiro, depois cada sub-etapa na ordem dela. Estável dentro
+ * de cada grupo — preserva a ordem atual do array. Espelha o servidor
+ * (apps/api/src/servico/servico-sub-etapa.ts).
+ */
+function agruparPassos(passos: Passo[], subEtapas: SubEtapa[]): Passo[] {
+  const pos = new Map(subEtapas.slice().sort((a, b) => a.ordem - b.ordem).map((s, i) => [s.id, i]))
+  const grupo = (p: Passo) => (p.subEtapaId && pos.has(p.subEtapaId) ? pos.get(p.subEtapaId)! : -1)
+  return passos.map((p, i) => ({ p, i })).sort((a, b) => grupo(a.p) - grupo(b.p) || a.i - b.i).map(x => x.p)
 }
 
 /** Parseia formatos amigáveis ("1h 30m", "45m", "2h", "1.5h", "90") em minutos totais.
@@ -163,6 +184,8 @@ interface Etapa {
   nome: string
   ordem: number
   passos: Passo[]
+  /** Sub-etapas da etapa, em ordem. */
+  subEtapas: SubEtapa[]
   /** Materiais de apoio anexados a esta etapa no template. */
   materiais?: Material[]
 }
@@ -478,12 +501,13 @@ export default function ServicoDetailPage() {
           setVencimentosMensais(mapa)
         })
         .catch(() => {})
-      const etapasFromServer = (s.etapas || []).map((et: { id: string; nome: string; ordem: number; materiais?: Material[]; passos: Array<{ id: string; nome: string; ordem: number; obrigatorio: boolean; permiteIgnorar?: boolean; slaHoras: number | null; slaMinutos?: number | null; dependeDoPassoId?: string | null; materiais?: Material[]; _count?: { emailTemplates?: number; lembretes?: number; camposCliente?: number } }> }) => ({
+      const etapasFromServer = (s.etapas || []).map((et: { id: string; nome: string; ordem: number; materiais?: Material[]; subEtapas?: SubEtapa[]; passos: Array<{ id: string; nome: string; ordem: number; obrigatorio: boolean; permiteIgnorar?: boolean; slaHoras: number | null; slaMinutos?: number | null; dependeDoPassoId?: string | null; subEtapaId?: string | null; materiais?: Material[]; _count?: { emailTemplates?: number; lembretes?: number; camposCliente?: number } }> }) => ({
         id: et.id,
         nome: et.nome,
         ordem: et.ordem,
         materiais: et.materiais ?? [],
-        passos: (et.passos || []).map(p => {
+        subEtapas: (et.subEtapas ?? []).map(se => ({ id: se.id, nome: se.nome, ordem: se.ordem })),
+        passos: agruparPassos((et.passos || []).map(p => {
           // slaMinutos é a fonte canônica; fallback pra slaHoras * 60 em registros antigos
           const min = p.slaMinutos ?? (p.slaHoras != null ? p.slaHoras * 60 : null)
           return {
@@ -499,8 +523,9 @@ export default function ServicoDetailPage() {
             emailsCount: p._count?.emailTemplates ?? 0,
             lembretesCount: p._count?.lembretes ?? 0,
             camposClienteCount: p._count?.camposCliente ?? 0,
+            subEtapaId: p.subEtapaId ?? null,
           }
-        }),
+        }), (et.subEtapas ?? []).map(se => ({ id: se.id, nome: se.nome, ordem: se.ordem }))),
       }))
       setEtapas(etapasFromServer)
       // Inicia todas as etapas existentes colapsadas — usuário expande quando quiser editar.
@@ -752,6 +777,7 @@ export default function ServicoDetailPage() {
       nome: '',
       ordem: prev.length,
       passos: [],
+      subEtapas: [],
       // armazena chave local pra ref de foco
       ...({ __draftKey: draftKey } as unknown as object),
     } as Etapa])
@@ -884,10 +910,104 @@ export default function ServicoDetailPage() {
     const oldIdx = etapa.passos.findIndex(p => p.dndId === active.id)
     const newIdx = etapa.passos.findIndex(p => p.dndId === over.id)
     if (oldIdx === -1 || newIdx === -1) return
-    const reordered = arrayMove(etapa.passos, oldIdx, newIdx).map((p, i) => ({ ...p, ordem: i }))
+    const movido = arrayMove(etapa.passos, oldIdx, newIdx)
+    // Arrastar para dentro de outro grupo (sub-etapa) muda a sub-etapa do passo:
+    // ele adota o grupo do vizinho de cima (ou de baixo, se caiu no topo).
+    const passoMovido = movido[newIdx]!
+    const vizinho = movido[newIdx - 1] ?? movido[newIdx + 1]
+    const novoGrupo = vizinho ? vizinho.subEtapaId : passoMovido.subEtapaId
+    const mudouGrupo = novoGrupo !== passoMovido.subEtapaId
+    if (mudouGrupo) movido[newIdx] = { ...passoMovido, subEtapaId: novoGrupo }
+    const reordered = agruparPassos(movido, etapa.subEtapas).map((p, i) => ({ ...p, ordem: i }))
     setEtapas(prev => prev.map((x, i) => i === etapaIdx ? { ...x, passos: reordered } : x))
+    if (mudouGrupo && passoMovido.id) {
+      void (trpc.servico as any).updatePasso.mutate({ id: passoMovido.id, data: { subEtapaId: novoGrupo } })
+        .catch((err: Error) => { alerts.error('Erro ao mover passo', err.message); void fetchServico() })
+    }
     const ids = reordered.map(p => p.id).filter((x): x is string => !!x)
     void reordenarPassos(etapaIdx, ids)
+  }
+
+  // ── Sub-etapas ──────────────────────────────────────────────
+  // Agrupamento OPCIONAL de passos dentro da etapa. Excluir a sub-etapa devolve
+  // os passos para a etapa (o servidor faz SetNull) — nada é apagado.
+
+  async function addSubEtapa(etapaIdx: number) {
+    const etapa = etapas[etapaIdx]
+    if (!etapa?.id) return
+    const nome = await alerts.input({
+      title: 'Nova sub-etapa',
+      text: `Agrupa passos dentro de "${etapa.nome}". Ex.: Junta Comercial, Receita Federal.`,
+      inputPlaceholder: 'Nome da sub-etapa',
+      confirmText: 'Criar',
+      required: true,
+    })
+    if (!nome?.trim()) return
+    try {
+      const nova = await (trpc.servico as any).addSubEtapa.mutate({ etapaId: etapa.id, nome: nome.trim(), ordem: etapa.subEtapas.length }) as SubEtapa
+      setEtapas(prev => prev.map((x, i) => i === etapaIdx ? { ...x, subEtapas: [...x.subEtapas, { id: nova.id, nome: nova.nome, ordem: nova.ordem }] } : x))
+    } catch (err) { alerts.error('Erro ao criar sub-etapa', (err as Error).message) }
+  }
+
+  async function renomearSubEtapa(etapaIdx: number, subId: string, nome: string) {
+    const v = nome.trim()
+    const atual = etapas[etapaIdx]?.subEtapas.find(x => x.id === subId)
+    if (!v || !atual || atual.nome === v) return
+    setEtapas(prev => prev.map((x, i) => i === etapaIdx ? { ...x, subEtapas: x.subEtapas.map(se => se.id === subId ? { ...se, nome: v } : se) } : x))
+    try { await (trpc.servico as any).updateSubEtapa.mutate({ id: subId, nome: v }) }
+    catch (err) { alerts.error('Erro ao renomear sub-etapa', (err as Error).message); void fetchServico() }
+  }
+
+  async function moverSubEtapa(etapaIdx: number, subId: string, dir: -1 | 1) {
+    const etapa = etapas[etapaIdx]
+    if (!etapa) return
+    const lista = etapa.subEtapas.slice().sort((a, b) => a.ordem - b.ordem)
+    const i = lista.findIndex(x => x.id === subId)
+    const j = i + dir
+    if (i < 0 || j < 0 || j >= lista.length) return
+    const nova = arrayMove(lista, i, j).map((x, k) => ({ ...x, ordem: k }))
+    setEtapas(prev => prev.map((x, k) => k === etapaIdx ? { ...x, subEtapas: nova, passos: agruparPassos(x.passos, nova).map((p, n) => ({ ...p, ordem: n })) } : x))
+    try {
+      await Promise.all(nova.map(x => (trpc.servico as any).updateSubEtapa.mutate({ id: x.id, ordem: x.ordem })))
+      const ids = agruparPassos(etapa.passos, nova).map(p => p.id).filter((x): x is string => !!x)
+      await reordenarPassos(etapaIdx, ids)
+    } catch (err) { alerts.error('Erro ao reordenar sub-etapas', (err as Error).message); void fetchServico() }
+  }
+
+  async function excluirSubEtapa(etapaIdx: number, sub: SubEtapa) {
+    const qtd = etapas[etapaIdx]?.passos.filter(p => p.subEtapaId === sub.id).length ?? 0
+    const ok = await alerts.confirm({
+      title: 'Excluir sub-etapa',
+      text: qtd > 0
+        ? `"${sub.nome}" tem ${qtd} passo${qtd > 1 ? 's' : ''}. Eles NÃO serão apagados: voltam para a etapa, sem sub-etapa.`
+        : `Excluir "${sub.nome}"?`,
+      icon: 'warning',
+      destructive: true,
+    })
+    if (!ok) return
+    try {
+      await (trpc.servico as any).deleteSubEtapa.mutate({ id: sub.id })
+      setEtapas(prev => prev.map((x, i) => {
+        if (i !== etapaIdx) return x
+        const subEtapas = x.subEtapas.filter(se => se.id !== sub.id)
+        return { ...x, subEtapas, passos: agruparPassos(x.passos.map(p => p.subEtapaId === sub.id ? { ...p, subEtapaId: null } : p), subEtapas) }
+      }))
+    } catch (err) { alerts.error('Erro ao excluir sub-etapa', (err as Error).message) }
+  }
+
+  async function definirSubEtapaDoPasso(etapaIdx: number, passoId: string, subEtapaId: string | null) {
+    setEtapas(prev => prev.map((x, i) => i === etapaIdx
+      ? { ...x, passos: agruparPassos(x.passos.map(p => p.id === passoId ? { ...p, subEtapaId } : p), x.subEtapas) }
+      : x))
+    try {
+      await (trpc.servico as any).updatePasso.mutate({ id: passoId, data: { subEtapaId } })
+      const etapa = etapas[etapaIdx]
+      if (etapa) {
+        const ids = agruparPassos(etapa.passos.map(p => p.id === passoId ? { ...p, subEtapaId } : p), etapa.subEtapas)
+          .map(p => p.id).filter((x): x is string => !!x)
+        await reordenarPassos(etapaIdx, ids)
+      }
+    } catch (err) { alerts.error('Erro ao mover passo', (err as Error).message); void fetchServico() }
   }
 
   // Refs dos inputs de nome dos passos — chaveado por dndId (sempre presente,
@@ -914,8 +1034,9 @@ export default function ServicoDetailPage() {
       ? {
           ...e,
           passos: [...e.passos, {
-            // id ausente = draft
+            // id ausente = draft (entra direto na etapa, sem sub-etapa)
             dndId,
+            subEtapaId: null,
             nome: '',
             ordem: e.passos.length,
             obrigatorio: true,
@@ -2167,6 +2288,43 @@ export default function ServicoDetailPage() {
                         Cada passo recebe uma classe de fundo baseada no "trilho"
                         (nível na cadeia de dependência). Passos no mesmo trilho
                         rodam em paralelo e compartilham a cor. */}
+                    {/* Sub-etapas: agrupamento opcional dos passos desta etapa. */}
+                    {et.id && (
+                      <div className="ml-7 mb-2 flex flex-wrap items-center gap-1.5">
+                        <span className="text-[11px] font-semibold text-muted-foreground">Sub-etapas:</span>
+                        {et.subEtapas.length === 0 && (
+                          <span className="text-[11px] text-muted-foreground/80">nenhuma — os passos ficam direto na etapa</span>
+                        )}
+                        {et.subEtapas.slice().sort((a, b) => a.ordem - b.ordem).map((se, si, arr) => {
+                          const qtd = et.passos.filter(pp => pp.subEtapaId === se.id).length
+                          return (
+                            <span key={se.id} className="inline-flex items-center gap-0.5 rounded-md border border-border bg-muted/40 py-0.5 pl-1.5 pr-0.5">
+                              <Layers className="h-3 w-3 text-muted-foreground" />
+                              <input
+                                defaultValue={se.nome}
+                                onBlur={e => { void renomearSubEtapa(ei, se.id, e.target.value) }}
+                                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                                aria-label="Nome da sub-etapa"
+                                className="w-[9rem] bg-transparent px-1 text-[11px] font-medium text-foreground focus:outline-none"
+                              />
+                              <span className="text-[10px] tabular-nums text-muted-foreground" title="Passos nesta sub-etapa">{qtd}</span>
+                              <Button variant="ghost" size="icon-xs" className="h-5 w-5" disabled={si === 0} onClick={() => { void moverSubEtapa(ei, se.id, -1) }} title="Subir">
+                                <ChevronUp className="h-3 w-3" />
+                              </Button>
+                              <Button variant="ghost" size="icon-xs" className="h-5 w-5" disabled={si === arr.length - 1} onClick={() => { void moverSubEtapa(ei, se.id, 1) }} title="Descer">
+                                <ChevronDown className="h-3 w-3" />
+                              </Button>
+                              <Button variant="ghost" size="icon-xs" className="h-5 w-5 text-destructive opacity-60 hover:opacity-100" onClick={() => { void excluirSubEtapa(ei, se) }} title="Excluir sub-etapa (os passos voltam para a etapa)">
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </span>
+                          )
+                        })}
+                        <Button variant="ghost" size="sm" className="h-6 gap-1 text-[11px] text-muted-foreground" onClick={() => { void addSubEtapa(ei) }}>
+                          <Plus className="h-3 w-3" /> Sub-etapa
+                        </Button>
+                      </div>
+                    )}
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(ev) => handlePassosDragEnd(ei, ev)}>
                       <SortableContext items={et.passos.map(p => p.dndId)} strategy={verticalListSortingStrategy}>
                     <div className="ml-7 space-y-1.5">
@@ -2177,6 +2335,13 @@ export default function ServicoDetailPage() {
                           const layerCls = getLayerBgClass(layer)
                           return (
                         <Fragment key={p.dndId}>
+                        {p.subEtapaId && p.subEtapaId !== et.passos[pi - 1]?.subEtapaId && (
+                          <div className="flex items-center gap-1.5 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            <Layers className="h-3 w-3" />
+                            {et.subEtapas.find(se => se.id === p.subEtapaId)?.nome ?? 'Sub-etapa'}
+                            <span className="h-px flex-1 bg-border" aria-hidden />
+                          </div>
+                        )}
                         <SortablePasso id={p.dndId} layerClass={layerCls} exiting={!!p.id && exitingPassoIds.has(p.id)}>
                           <SortablePassoHandle numero={pi + 1} />
                           <div className="flex items-center gap-2 min-w-0">
@@ -2407,6 +2572,20 @@ export default function ServicoDetailPage() {
                                   passos: et.passos.map(pp => pp.id === p.id ? { ...pp, camposClienteCount: count } : pp),
                                 })))}
                               />
+                            )}
+                            {p.id && et.subEtapas.length > 0 && (
+                              <select
+                                value={p.subEtapaId ?? ''}
+                                onChange={e => { void definirSubEtapaDoPasso(ei, p.id!, e.target.value || null) }}
+                                title="Sub-etapa do passo"
+                                aria-label="Sub-etapa do passo"
+                                className="h-8 max-w-[10rem] shrink-0 rounded-md border border-input bg-background px-1.5 text-[11px] text-foreground"
+                              >
+                                <option value="">Sem sub-etapa</option>
+                                {et.subEtapas.slice().sort((a, b) => a.ordem - b.ordem).map(se => (
+                                  <option key={se.id} value={se.id}>{se.nome}</option>
+                                ))}
+                              </select>
                             )}
                           </div>
                           <Input

@@ -60,6 +60,7 @@ interface ExecucaoMinha {
     ordem: number
     passoNome: string
     etapaNome: string
+    subEtapaNome?: string | null
     obrigatorio: boolean
     concluido: boolean
     ignorado: boolean
@@ -966,10 +967,10 @@ export default function MeusServicosPage() {
                                 <div
                                   className="rounded-sm border border-dashed px-1.5 py-1 text-[10px] flex flex-col gap-0.5"
                                   style={{ borderColor: `color-mix(in srgb, ${PRIMARY} 33%, transparent)`, backgroundColor: `color-mix(in srgb, ${PRIMARY} 4%, transparent)` }}
-                                  title={`Etapa: ${atualKb.etapaNome} · Passo: ${atualKb.passoNome}`}
+                                  title={`Etapa: ${atualKb.etapaNome}${atualKb.subEtapaNome ? ` · Sub-etapa: ${atualKb.subEtapaNome}` : ''} · Passo: ${atualKb.passoNome}`}
                                 >
                                   <span className="inline-flex items-center gap-1 font-semibold uppercase tracking-wider text-primary-on-surface">
-                                    <ListChecks className="h-2.5 w-2.5" /> {atualKb.etapaNome}
+                                    <ListChecks className="h-2.5 w-2.5" /> {atualKb.etapaNome}{atualKb.subEtapaNome ? ` · ${atualKb.subEtapaNome}` : ''}
                                   </span>
                                   <span className="text-foreground/85 leading-tight line-clamp-2">
                                     {atualKb.passoNome}
@@ -1238,12 +1239,12 @@ export default function MeusServicosPage() {
                       {atual && exec.status === 'EM_ANDAMENTO' && (
                         <div
                           className="flex items-center gap-1 text-[11px] text-foreground/80 mb-0.5 truncate"
-                          title={`Etapa: ${atual.etapaNome} · Passo: ${atual.passoNome}`}
+                          title={`Etapa: ${atual.etapaNome}${atual.subEtapaNome ? ` · Sub-etapa: ${atual.subEtapaNome}` : ''} · Passo: ${atual.passoNome}`}
                         >
                           <span
                             className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-semibold bg-primary/10 text-primary-on-surface"
                           >
-                            <ListChecks className="h-3 w-3" /> {atual.etapaNome}
+                            <ListChecks className="h-3 w-3" /> {atual.etapaNome}{atual.subEtapaNome ? ` · ${atual.subEtapaNome}` : ''}
                           </span>
                           <span className="text-muted-foreground">→</span>
                           <span className="truncate">{atual.passoNome}</span>

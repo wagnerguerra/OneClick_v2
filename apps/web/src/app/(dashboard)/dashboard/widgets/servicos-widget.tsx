@@ -23,6 +23,7 @@ interface ExecucaoItem {
   passoAtual: {
     nome: string
     etapaNome: string | null
+    subEtapaNome?: string | null
     ordem: number
     totalPassos: number
     concluidos: number
@@ -299,6 +300,9 @@ function ServicosExpanded({ titulo: _titulo }: { titulo: string }) {
                             <>
                               <span className="text-muted-foreground">Etapa</span>{' '}
                               <span className="font-medium">"{it.passoAtual.etapaNome}"</span>
+                              {it.passoAtual.subEtapaNome && (
+                                <><span className="text-muted-foreground"> → </span><span className="font-medium">{it.passoAtual.subEtapaNome}</span></>
+                              )}
                               <span className="text-muted-foreground"> → </span>
                             </>
                           )}
