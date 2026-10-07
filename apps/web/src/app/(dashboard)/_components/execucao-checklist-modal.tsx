@@ -961,7 +961,7 @@ function ChecklistEmCards({
       {/* Trilha dos passos: faixa com respiro (as bolinhas não encostam nas
           bordas), contagem à esquerda e prévia no hover — o passo e os próximos. */}
       <TooltipProvider delayDuration={120}>
-        <div className="rounded-xl border border-border bg-muted/30 px-4 py-3">
+        <div className="px-1 py-1">
           <div className="mb-2.5 flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
             <span className="font-semibold uppercase tracking-wide">Andamento</span>
             <span className="tabular-nums">
