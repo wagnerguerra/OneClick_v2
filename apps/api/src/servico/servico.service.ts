@@ -2,7 +2,8 @@ import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import { sqlSemEmpresaInativa } from '../common/empresa-inativa'
 import { whereDaArea } from './servico-area'
-import type { CreateServicoInput, UpdateServicoInput, CreateServicoEtapaInput, CreateServicoPassoInput, CreateExecucaoInput, CreateEncadeamentoInput, Condicao, CreateMaterialInput, UpdateMaterialInput, CreateGrupoInput, UpdateGrupoInput, IniciarGrupoInput, CreateObrigacaoInput, FlowPlan } from '@saas/types'
+import { ordenarPassosDaEtapa } from './servico-sub-etapa'
+import type { CreateServicoInput, UpdateServicoInput, CreateServicoEtapaInput, CreateServicoPassoInput, CreateServicoSubEtapaInput, CreateExecucaoInput, CreateEncadeamentoInput, Condicao, CreateMaterialInput, UpdateMaterialInput, CreateGrupoInput, UpdateGrupoInput, IniciarGrupoInput, CreateObrigacaoInput, FlowPlan } from '@saas/types'
 import { OrcamentoService } from '../orcamento/orcamento.service'
 import { ProcessoService } from '../processo/processo.service'
 import { avaliarCondicao } from '../processo/avaliador-condicao'
@@ -625,6 +626,7 @@ export class ServicoService {
         etapas: {
           orderBy: { ordem: 'asc' },
           include: {
+            subEtapas: { orderBy: { ordem: 'asc' } },
             passos: {
               orderBy: { ordem: 'asc' },
               include: {
@@ -1306,14 +1308,14 @@ export class ServicoService {
   async duplicarServico(id: string, opts?: { novoNome?: string }) {
     const origem = await prisma.servico.findUnique({
       where: { id },
-      include: { etapas: { include: { passos: true }, orderBy: { ordem: 'asc' } } },
+      include: { etapas: { include: { passos: true, subEtapas: true }, orderBy: { ordem: 'asc' } } },
     })
     if (!origem) throw new Error('Serviço não encontrado')
 
     // Blocos (filhos de fluxo) deste serviço
     const filhos = await prisma.servico.findMany({
       where: { servicoPaiId: id },
-      include: { etapas: { include: { passos: true }, orderBy: { ordem: 'asc' } } },
+      include: { etapas: { include: { passos: true, subEtapas: true }, orderBy: { ordem: 'asc' } } },
     })
 
     // Copia todos os campos escalares de um Servico (spread robusto a drift de schema),
@@ -1323,19 +1325,27 @@ export class ServicoService {
       void _i; void _c; void _u; void _p; void _e
       return rest
     }
-    const clonarPassos = async (passos: Array<Record<string, unknown>>, novaEtapaId: string) => {
+    const clonarPassos = async (passos: Array<Record<string, unknown>>, novaEtapaId: string, subMap: Map<string, string>) => {
       for (const p of passos) {
-        const { id: _i, etapaId: _e, createdAt: _c, updatedAt: _u, dependeDoPassoId: _d, ...rest } = p as any
+        const { id: _i, etapaId: _e, createdAt: _c, updatedAt: _u, dependeDoPassoId: _d, subEtapaId, ...rest } = p as any
         void _i; void _e; void _c; void _u; void _d
-        await prisma.servicoPasso.create({ data: { ...rest, etapaId: novaEtapaId, dependeDoPassoId: null } })
+        await prisma.servicoPasso.create({
+          data: { ...rest, etapaId: novaEtapaId, dependeDoPassoId: null, subEtapaId: subEtapaId ? (subMap.get(subEtapaId) ?? null) : null },
+        })
       }
     }
     const clonarEtapas = async (etapas: Array<{ passos: Array<Record<string, unknown>> } & Record<string, unknown>>, novoServicoId: string) => {
       for (const et of etapas) {
-        const { id: _i, servicoId: _s, createdAt: _c, updatedAt: _u, passos, ...rest } = et as any
+        const { id: _i, servicoId: _s, createdAt: _c, updatedAt: _u, passos, subEtapas, ...rest } = et as any
         void _i; void _s; void _c; void _u
         const novaEt = await prisma.servicoEtapa.create({ data: { ...rest, servicoId: novoServicoId } })
-        await clonarPassos(passos ?? [], novaEt.id)
+        // Sub-etapas primeiro, para os passos apontarem para as cópias.
+        const subMap = new Map<string, string>()
+        for (const sub of (subEtapas ?? []) as Array<{ id: string; nome: string; ordem: number }>) {
+          const nova = await prisma.servicoSubEtapa.create({ data: { etapaId: novaEt.id, nome: sub.nome, ordem: sub.ordem } })
+          subMap.set(sub.id, nova.id)
+        }
+        await clonarPassos(passos ?? [], novaEt.id, subMap)
       }
     }
 
@@ -1409,15 +1419,55 @@ export class ServicoService {
     return result
   }
 
+  // ── Sub-etapas ────────────────────────────────────────────
+  //
+  // Agrupamento OPCIONAL de passos dentro de uma etapa (um nível, 07/10/2026).
+  // Na execução, a ordem é: passos diretos da etapa primeiro, depois cada
+  // sub-etapa na ordem dela — ver `ordenarPassosDaEtapa`.
+
+  async addSubEtapa(input: CreateServicoSubEtapaInput) {
+    const ordem = input.ordem ?? (await prisma.servicoSubEtapa.count({ where: { etapaId: input.etapaId } }))
+    return prisma.servicoSubEtapa.create({ data: { etapaId: input.etapaId, nome: input.nome.trim(), ordem } })
+  }
+
+  async updateSubEtapa(id: string, data: { nome?: string; ordem?: number }) {
+    return prisma.servicoSubEtapa.update({
+      where: { id },
+      data: { ...(data.nome !== undefined ? { nome: data.nome.trim() } : {}), ...(data.ordem !== undefined ? { ordem: data.ordem } : {}) },
+    })
+  }
+
+  /** Exclui a sub-etapa; os passos dela VOLTAM para a etapa (FK SetNull), não são apagados. */
+  async deleteSubEtapa(id: string) {
+    return prisma.servicoSubEtapa.delete({ where: { id } })
+  }
+
+  /** Sub-etapa do passo tem de ser da MESMA etapa. Devolve o valor a gravar. */
+  private async validarSubEtapaDoPasso(etapaId: string, subEtapaId: string | null | undefined): Promise<string | null> {
+    if (!subEtapaId) return null
+    const sub = await prisma.servicoSubEtapa.findUnique({ where: { id: subEtapaId }, select: { etapaId: true } })
+    if (!sub || sub.etapaId !== etapaId) throw new Error('A sub-etapa escolhida não pertence à etapa deste passo.')
+    return subEtapaId
+  }
+
   // ── Passos ────────────────────────────────────────────────
 
   async addPasso(input: CreateServicoPassoInput) {
-    const passo = await prisma.servicoPasso.create({ data: input as any })
+    const subEtapaId = await this.validarSubEtapaDoPasso(input.etapaId, input.subEtapaId)
+    const passo = await prisma.servicoPasso.create({ data: { ...input, subEtapaId } as any })
     await this.recomputeSlaEtapaECascata(input.etapaId)
     return passo
   }
 
   async updatePasso(id: string, data: Partial<CreateServicoPassoInput>) {
+    if (data.subEtapaId !== undefined || data.etapaId !== undefined) {
+      const atual = await prisma.servicoPasso.findUnique({ where: { id }, select: { etapaId: true, subEtapaId: true } })
+      if (!atual) throw new Error('Passo não encontrado')
+      const etapaId = data.etapaId ?? atual.etapaId
+      // Passo que muda de etapa sem dizer a sub-etapa sai da sub-etapa antiga.
+      const pedida = data.subEtapaId !== undefined ? data.subEtapaId : (etapaId !== atual.etapaId ? null : atual.subEtapaId)
+      data = { ...data, subEtapaId: await this.validarSubEtapaDoPasso(etapaId, pedida) }
+    }
     const passo = await prisma.servicoPasso.update({ where: { id }, data: data as any })
     await this.recomputeSlaEtapaECascata(passo.etapaId)
     return passo
@@ -3268,7 +3318,7 @@ export class ServicoService {
     // Buscar template do servico com etapas e passos
     const servico = await prisma.servico.findUnique({
       where: { id: input.servicoId },
-      include: { etapas: { orderBy: { ordem: 'asc' }, include: { passos: { orderBy: { ordem: 'asc' } } } } },
+      include: { etapas: { orderBy: { ordem: 'asc' }, include: { subEtapas: { orderBy: { ordem: 'asc' } }, passos: { orderBy: { ordem: 'asc' } } } } },
     })
     if (!servico) throw new Error('Serviço não encontrado')
 
@@ -3342,12 +3392,15 @@ export class ServicoService {
     const passoIdMap = new Map<string, string>()
     let ordemGlobal = 0
     for (const etapa of servico.etapas) {
-      for (const passo of etapa.passos) {
+      // Ordem real: passos diretos da etapa, depois cada sub-etapa na ordem dela.
+      // É essa ordem que vira `ordem` (e a regra "obrigatório anterior bloqueia").
+      for (const { passo, subEtapaNome } of ordenarPassosDaEtapa(etapa)) {
         const execPasso = await prisma.servicoExecucaoPasso.create({
           data: {
             execucaoId: execucao.id,
             passoId: passo.id,
             etapaNome: etapa.nome,
+            subEtapaNome,
             passoNome: passo.nome,
             ordem: ordemGlobal++,
             obrigatorio: passo.obrigatorio,
@@ -4650,6 +4703,7 @@ export class ServicoService {
             ordem: true,
             passoNome: true,
             etapaNome: true,
+            subEtapaNome: true,
             obrigatorio: true,
             concluido: true,
             ignorado: true,
@@ -4799,6 +4853,7 @@ export class ServicoService {
       passoAtual: {
         nome: string
         etapaNome: string | null
+        subEtapaNome: string | null
         ordem: number
         totalPassos: number
         concluidos: number
@@ -4841,6 +4896,7 @@ export class ServicoService {
           ? {
               nome: atual.passoNome,
               etapaNome: atual.etapaNome ?? null,
+              subEtapaNome: atual.subEtapaNome ?? null,
               ordem: atual.ordem,
               totalPassos,
               concluidos,
