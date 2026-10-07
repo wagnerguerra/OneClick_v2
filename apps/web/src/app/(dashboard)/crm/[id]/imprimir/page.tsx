@@ -104,7 +104,7 @@ interface Cliente {
 
 /* Acento do papel: azul da skin padrão, tom light, FIXO. O papel é sempre claro
    e é o mesmo para quem imprimir — não segue tema nem skin de quem está logado. */
-const ACCENT = 'var(--skin-padrao)'
+const ACCENT_COLOR = 'var(--skin-padrao)'
 
 function formatCurrency(v: number | string | null | undefined): string {
   return Number(v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -238,7 +238,7 @@ export default function ImprimirOportunidadePage() {
           position: absolute;
           top: 0; left: 0; right: 0;
           height: 4px;
-          background: ${ACCENT};
+          background: ${ACCENT_COLOR};
           z-index: 2;
         }
         .quote-doc .quote-content { position: relative; z-index: 1; }
@@ -264,13 +264,13 @@ export default function ImprimirOportunidadePage() {
         .quote-doc .accent-bar {
           display: inline-block;
           width: 36px; height: 3px;
-          background: ${ACCENT};
+          background: ${ACCENT_COLOR};
           margin-bottom: 12px;
         }
         .quote-doc .doc-number {
           font-size: 24px;
           font-weight: 700;
-          color: ${ACCENT};
+          color: ${ACCENT_COLOR};
           letter-spacing: -0.02em;
           line-height: 1;
         }
@@ -300,7 +300,7 @@ export default function ImprimirOportunidadePage() {
         .quote-doc .valor-box .val {
           font-size: 22px;
           font-weight: 700;
-          color: ${ACCENT};
+          color: ${ACCENT_COLOR};
           letter-spacing: -0.01em;
           font-variant-numeric: tabular-nums;
         }

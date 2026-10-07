@@ -51,7 +51,7 @@ interface Orcamento {
 
 /* Acento do papel: azul da skin padrão, tom light, FIXO. O papel é sempre claro
    e é o mesmo para quem imprimir — não segue tema nem skin de quem está logado. */
-const ACCENT = 'var(--skin-padrao)'
+const ACCENT_COLOR = 'var(--skin-padrao)'
 
 function formatCurrency(v: number | string | null | undefined): string {
   return Number(v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -238,7 +238,7 @@ export default function ImprimirOrcamentoPage() {
           left: 0;
           right: 0;
           height: 4px;
-          background: ${ACCENT};
+          background: ${ACCENT_COLOR};
           z-index: 2;
         }
         /* Conteudo precisa estar acima da marca d'agua */
@@ -265,18 +265,18 @@ export default function ImprimirOrcamentoPage() {
           border-bottom: 1px solid #1a1a1a;
           margin-bottom: 16px;
         }
-        .quote-doc .accent { color: ${ACCENT}; }
+        .quote-doc .accent { color: ${ACCENT_COLOR}; }
         .quote-doc .accent-bar {
           display: inline-block;
           width: 36px;
           height: 3px;
-          background: ${ACCENT};
+          background: ${ACCENT_COLOR};
           margin-bottom: 12px;
         }
         .quote-doc .doc-number {
           font-size: 24px;
           font-weight: 700;
-          color: ${ACCENT};
+          color: ${ACCENT_COLOR};
           letter-spacing: -0.02em;
           line-height: 1;
         }
@@ -329,7 +329,7 @@ export default function ImprimirOrcamentoPage() {
         }
         .quote-doc .totals-row .lbl { color: #6b7280; }
         .quote-doc .totals-row .val { font-variant-numeric: tabular-nums; font-weight: 500; }
-        .quote-doc .totals-row.discount .val { color: ${ACCENT}; }
+        .quote-doc .totals-row.discount .val { color: ${ACCENT_COLOR}; }
         .quote-doc .totals-row.grand {
           margin-top: 4px;
           padding: 12px 0 0;
@@ -346,7 +346,7 @@ export default function ImprimirOrcamentoPage() {
         .quote-doc .totals-row.grand .val {
           font-size: 22px;
           font-weight: 700;
-          color: ${ACCENT};
+          color: ${ACCENT_COLOR};
           letter-spacing: -0.01em;
         }
         /* Cliente info grid */
