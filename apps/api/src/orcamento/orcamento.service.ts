@@ -11,7 +11,7 @@ import { acaoAposServicos, situacaoDosServicos, type SituacaoServicos } from './
 import { carteiraRecorrente } from '../contrato/carteira-gestao'
 import type { CreateOrcamentoInput, UpdateOrcamentoInput, ListOrcamentoInput, CreateOrcamentoItemInput, UpdateOrcamentoItemInput } from '@saas/types'
 import { filtroDeBusca, escopoDeEmpresa, consolidar } from './orcamento-busca-cliente'
-import { ORCAMENTO_ALLOWED_TRANSITIONS, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_ORDER, isOrcamentoTransitionAllowed, limparCnpj, resolveOrcamentoScope } from '@saas/types'
+import { ORCAMENTO_ALLOWED_TRANSITIONS, ORCAMENTO_RELATORIO_CAMPOS, ORCAMENTO_RELATORIO_CAMPOS_PADRAO, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_ORDER, isOrcamentoTransitionAllowed, limparCnpj, resolveOrcamentoScope } from '@saas/types'
 import * as XLSX from 'xlsx'
 import { EmailService } from '../common/email.service'
 import { PesquisaService } from '../pesquisa/pesquisa.service'
@@ -806,6 +806,9 @@ export class OrcamentoService {
       return {
         id: o.id,
         numero: o.numero,
+        // Etapa do orçamento (rótulo) — coluna útil na exportação da lista,
+        // que atravessa etapas; no relatório de uma coluna é sempre a mesma.
+        status: (ORCAMENTO_STATUS_LABELS as Record<string, string>)[o.status] ?? o.status,
         cliente: (o.clienteId && clienteMap.get(o.clienteId)) || '—',
         valorTotal: Number(o.totalGeral) || 0,
         naturezaRaw: natRaw,
@@ -907,14 +910,9 @@ export class OrcamentoService {
     const statusLabel = input.status
       ? ((ORCAMENTO_STATUS_LABELS as Record<string, string>)[input.status] ?? input.status)
       : 'Lista de orçamentos'
-    const CAMPO_LABELS: Record<string, string> = {
-      numero: 'Número', cliente: 'Cliente', valorTotal: 'Valor total', natureza: 'Tipo (Extra/Mensal)',
-      areas: 'Área(s)', solicitante: 'Solicitante', responsavel: 'Responsável', createdAt: 'Criado em',
-      dataStatus: 'Data na etapa', validadeDias: 'Validade (dias)', itens: 'Itens/serviços',
-      descontoAplicado: 'Desconto', formaPagamento: 'Forma de pagamento', textoInterno: 'Texto Interno', textoCliente: 'Texto para o Cliente',
-    }
-    const DEFAULT = ['numero', 'cliente', 'valorTotal', 'natureza', 'areas', 'responsavel', 'createdAt']
-    const camposKeys = (input.campos && input.campos.length ? input.campos : DEFAULT).filter(k => k in CAMPO_LABELS)
+    // Catálogo de campos: fonte única em @saas/types (o mesmo da tela).
+    const CAMPO_LABELS: Record<string, string> = Object.fromEntries(ORCAMENTO_RELATORIO_CAMPOS.map(c => [c.key, c.label]))
+    const camposKeys = (input.campos && input.campos.length ? input.campos : ORCAMENTO_RELATORIO_CAMPOS_PADRAO).filter(k => k in CAMPO_LABELS)
 
     const brl = (n: number) => (n || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
     const dt = (v: Date | string | null) => (v ? new Date(v).toLocaleDateString('pt-BR') : '—')

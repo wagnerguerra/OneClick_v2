@@ -13,14 +13,14 @@ import {
   Highlighter, Building2, IdCard, ListChecks, Pause, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, ChevronsUpDown,
   Clock, AlertTriangle, LayoutGrid, List, Eye, Settings2, Package, BarChart3, Activity,
   MessageSquare, Paperclip, RotateCcw, Star, SlidersHorizontal, X, Target, Check,
-  Download, FileSpreadsheet, FileDown, CheckCircle2, Pencil, ThumbsDown, Search as SearchIcon,
+  FileDown, CheckCircle2, Pencil, ThumbsDown, Search as SearchIcon,
   Wrench,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, Checkbox,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   Label, RichEditor,
@@ -29,6 +29,7 @@ import { ClienteCombobox } from './_components/cliente-combobox'
 import { UserCombobox } from './_components/user-combobox'
 import { CatalogoCombobox } from './_components/catalogo-combobox'
 import { RelatorioColunaModal } from './_components/relatorio-coluna-modal'
+import { ExportarOrcamentosModal, type FormatoExportacao } from './_components/exportar-orcamentos-modal'
 import { PreviewOrcamento } from './_components/preview-orcamento'
 import { AvatarPequeno, DicaIcone, LinhaCard, LogoCliente } from '@/components/kanban/card-partes'
 import { ReprocessarServicosModal } from './_components/reprocessar-servicos-modal'
@@ -384,6 +385,7 @@ export default function OrcamentosPage() {
   // Colunas recolhidas (kanban) — persistido no localStorage
   // Coluna cujo relatório está aberto (status) — null = fechado.
   const [relatorioColuna, setRelatorioColuna] = useState<string | null>(null)
+  const [exportarOpen, setExportarOpen] = useState(false)
   const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('orcamentos-kanban-collapsed')
@@ -640,9 +642,10 @@ export default function OrcamentosPage() {
    * permissão do usuário e sobrescreve o que o cliente manda, tanto na listagem
    * quanto na exportação, então os dois já batem.
    */
-  const urlExportLista = useCallback((formato: 'xlsx' | 'csv' | 'pdf') => {
+  const urlExportLista = useCallback((formato: FormatoExportacao, campos: string[]) => {
     const p = new URLSearchParams()
     p.set('formato', formato)
+    if (campos.length) p.set('campos', campos.join(','))
     if (debouncedSearch) p.set('search', debouncedSearch)
     if (statusFilter) p.set('status', statusFilter)
     if (comReaberturas) p.set('comReaberturas', '1')
@@ -989,6 +992,11 @@ export default function OrcamentosPage() {
           >
             <Archive className="h-4 w-4" />
           </button>
+          {/* #HLP0265 — exporta o que os filtros da tela produziram; no cabeçalho
+              para valer nos dois modos (lista e quadro). */}
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setExportarOpen(true)} title="Exportar com os filtros aplicados">
+            <FileDown className="h-4 w-4" />
+          </Button>
           {canViewIndicadores && (
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/orcamentos/relatorios')} title="Relatórios">
               <BarChart3 className="h-4 w-4" />
@@ -1198,39 +1206,6 @@ export default function OrcamentosPage() {
                 <RotateCcw className="h-3.5 w-3.5" />
                 Com reaberturas
               </button>
-              {/* #HLP0265 — exportação da lista, junto dos demais controles
-                  desta linha. Fica aqui, e não na barra do topo, porque exporta
-                  exatamente o que estes filtros produziram — é o comportamento
-                  do DataTables do sistema legado, a que o time está acostumado.
-                  No kanban não aparece: lá o caminho é o relatório da coluna. */}
-              <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs bg-card shrink-0" title="Exportar a lista com os filtros aplicados">
-                  <Download className="h-3.5 w-3.5" />
-                  Exportar
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
-                  {total} orçamento{total === 1 ? '' : 's'} no filtro atual
-                </DropdownMenuLabel>
-                <DropdownMenuItem asChild>
-                  <a href={urlExportLista('xlsx')} download className="gap-2">
-                    <FileSpreadsheet className="h-3.5 w-3.5" /> Excel (.xlsx)
-                  </a>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <a href={urlExportLista('csv')} download className="gap-2">
-                    <FileText className="h-3.5 w-3.5" /> CSV
-                  </a>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <a href={urlExportLista('pdf')} download className="gap-2">
-                    <FileDown className="h-3.5 w-3.5" /> PDF
-                  </a>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-              </DropdownMenu>
             </div>
           </div>
 
@@ -1344,6 +1319,14 @@ export default function OrcamentosPage() {
           />
         )
       })()}
+
+      {/* Exportação com os filtros da tela (botão do cabeçalho) */}
+      <ExportarOrcamentosModal
+        open={exportarOpen}
+        onClose={() => setExportarOpen(false)}
+        total={total}
+        montarUrl={urlExportLista}
+      />
 
       {/* Relatório de uma coluna do kanban (menu ⋮ da coluna) */}
       {relatorioColuna && (
