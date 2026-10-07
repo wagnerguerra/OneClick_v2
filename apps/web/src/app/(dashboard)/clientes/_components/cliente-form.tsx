@@ -217,7 +217,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
   }
 
   async function handleCoverRemove() {
-    const ok = await alerts.confirm({ title: 'Remover capa?', text: 'A imagem de fundo personalizada será removida e voltará ao padrão.', icon: 'warning', confirmText: 'Remover' })
+    const ok = await alerts.confirm({ title: 'Remover capa?', text: 'A imagem de fundo personalizada será removida e voltará ao padrão.', icon: 'warning', confirmText: 'Remover', destructive: true })
     if (!ok) return
     setUploadingCover(true)
     try {
@@ -399,7 +399,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
         try {
           await salvarServicosRef.current?.()
         } catch (e) {
-          await alerts.error('Servicos nao salvos', (e as Error).message || 'O cadastro foi salvo, mas os servicos contratados nao.')
+          await alerts.error('Serviços não salvos', (e as Error).message || 'O cadastro foi salvo, mas os serviços contratados não.')
           return
         }
         await alerts.success('Cliente atualizado', 'Os dados foram salvos com sucesso.')
@@ -539,7 +539,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
           {/* ── Barra de página (padrão LuminAux): título + trilha; ações à direita ── */}
           <PageHeaderBar className="mb-0 sm:mb-0"
             actions={<>
-              {canEditDetails && <Button size="sm" type="submit" disabled={saving} className="gap-1.5"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar'}</Button>}
+              {canEditDetails && <Button size="sm" type="submit" variant="success" disabled={saving} className="gap-1.5"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar'}</Button>}
               <BackButton href="/clientes" />
             </>}
           >
@@ -563,7 +563,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
               // eslint-disable-next-line @next/next/no-img-element
               <img src={resolveAssetUrl(capaEfetiva)} alt="" className="absolute inset-0 h-full w-full object-cover" />
             ) : (
-              <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, var(--mod-cadastros, #10b981) 0%, var(--color-primary) 100%)' }} />
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary) 100%)' }} />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
             {false && (
@@ -654,7 +654,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                     />
                   ) : (
-                    <Handshake className="h-10 w-10 text-emerald-500" />
+                    <Handshake className="h-10 w-10 text-primary" />
                   )}
                 </div>
                 {/* Antes abria o seletor de arquivo direto; agora o modal, que
@@ -1021,7 +1021,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                   <p className="text-xs text-muted-foreground">{progress.filled} de {progress.total} campos preenchidos</p>
                   {progress.percent < 100 && (
                     <details className="mt-3">
-                      <summary className={cn('text-[11px] cursor-pointer hover:underline', TEXT.emerald)}>Ver campos pendentes</summary>
+                      <summary className="text-[11px] cursor-pointer hover:underline text-primary">Ver campos pendentes</summary>
                       <ul className="mt-2 space-y-1">
                         {/* Sócios pendentes (#HLP0068): só pra PJ, quando ainda não cadastrou nenhum */}
                         {watchedValues.tipoDocumento === 'CNPJ' && sociosCount === 0 && (
@@ -1033,7 +1033,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                         )}
                         {PROGRESS_FIELDS.filter(f => { const v = watchedValues[f]; return !v || String(v).trim() === '' }).map(f => {
                           const FIELD_TAB_MAP: Record<string, { tab: string; label: string }> = {
-                            razaoSocial: { tab: 'detalhes', label: 'Razao Social' },
+                            razaoSocial: { tab: 'detalhes', label: 'Razão Social' },
                             documento: { tab: 'detalhes', label: 'Documento' },
                             nomeFantasia: { tab: 'detalhes', label: 'Nome Fantasia' },
                             tipoCliente: { tab: 'detalhes', label: 'Tipo Cliente' },
@@ -1044,12 +1044,12 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                             bairro: { tab: 'detalhes', label: 'Bairro' },
                             cidade: { tab: 'detalhes', label: 'Cidade' },
                             uf: { tab: 'detalhes', label: 'UF' },
-                            situacao: { tab: 'comercial', label: 'Situacao' },
+                            situacao: { tab: 'comercial', label: 'Situação' },
                             status: { tab: 'comercial', label: 'Status' },
                             grupo: { tab: 'comercial', label: 'Grupo' },
                             origem: { tab: 'comercial', label: 'Origem' },
-                            tributacao: { tab: 'fiscal', label: 'Tributacao' },
-                            areasContratadas: { tab: 'servicos', label: 'Areas Contratadas' },
+                            tributacao: { tab: 'fiscal', label: 'Tributação' },
+                            areasContratadas: { tab: 'servicos', label: 'Áreas Contratadas' },
                           }
                           const info = FIELD_TAB_MAP[f] || { tab: 'detalhes', label: f }
                           return (
@@ -1177,7 +1177,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                       ? 'text-white shadow-sm'
                       : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground'
                   )}
-                  style={activeTab === tab.key ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
+                  style={activeTab === tab.key ? { backgroundColor: 'var(--color-primary)' } : undefined}
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0" />
                   {tab.label}
@@ -1377,8 +1377,8 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                     <button
                       type="button"
                       title="Importar ID do SCI pelo CNPJ"
-                      className="shrink-0 flex items-center gap-1.5"
-                      style={{ padding: '0.55rem 0.75rem', fontSize: '.77rem', fontWeight: 500, backgroundColor: '#0ea5e9', color: '#fff', border: '1px solid #0ea5e9', borderLeft: 'none', borderRadius: '0 0.25rem 0.25rem 0', cursor: 'pointer' }}
+                      className="shrink-0 flex items-center gap-1.5 border border-l-0 border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-600"
+                      style={{ padding: '0.55rem 0.75rem', fontSize: '.77rem', fontWeight: 500, borderRadius: '0 0.25rem 0.25rem 0', cursor: 'pointer' }}
                       onClick={async () => {
                         if (!clienteId) { alerts.error('Salve o cliente', 'Salve o cliente antes de importar o ID SCI.'); return }
                         const currentId = watch('idSistema')
@@ -1486,9 +1486,9 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
         <Dialog open={!!cnpjCard} onOpenChange={(open) => { if (!open) setCnpjCard(null) }}>
           <DialogContent className="max-w-[700px] p-0 gap-0">
             <DialogHeaderIcon icon={FileText} color="emerald">
-              <DialogTitle className="text-[15px]">Cartao CNPJ (Consulta)</DialogTitle>
+              <DialogTitle className="text-[15px]">Cartão CNPJ (Consulta)</DialogTitle>
               <DialogDescription className="text-[11px]">
-                Comprovante de inscricao e situacao cadastral — Receita Federal | Fonte: {cnpjCard.fonte === 'serpro' ? 'SERPRO' : 'BrasilAPI'}
+                Comprovante de inscrição e situação cadastral — Receita Federal | Fonte: {cnpjCard.fonte === 'serpro' ? 'SERPRO' : 'BrasilAPI'}
               </DialogDescription>
             </DialogHeaderIcon>
             <DialogBody>
@@ -1507,7 +1507,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                     <table border="0" width="100%" style="line-height: 9pt;">
                       <tbody><tr>
                         <td valign="middle" align="left" width="60" height="60">
-                          <img width="60" height="60" src="/brasao2.png" alt="Brasao" border="0" />
+                          <img width="60" height="60" src="/brasao2.png" alt="Brasão" border="0" />
                         </td>
                         <td align="center">
                           <p style="margin:0cm; margin-bottom:0pt;">&nbsp;</p>
@@ -1738,11 +1738,11 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
             </DialogBody>
             <DialogFooter className="sm:justify-between">
               <a href="https://solucoes.receita.fazenda.gov.br/servicos/cnpjreva/cnpjreva_solicitacao.asp" target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:underline flex items-center gap-1">
-                <ExternalLink className="h-3 w-3" /> Abrir cartao oficial
+                <ExternalLink className="h-3 w-3" /> Abrir cartão oficial
               </a>
               <div className="flex gap-2">
                 <Button type="button" variant="success" size="sm" className="gap-1" onClick={() => { buscarCnpj(); setCnpjCard(null) }}>
-                  <CheckCircle2 className="h-4 w-4" /> Completar no formulario
+                  <CheckCircle2 className="h-4 w-4" /> Completar no formulário
                 </Button>
                 <Button type="button" variant="outline" size="sm" onClick={() => setCnpjCard(null)}>
                   Fechar
@@ -1853,7 +1853,7 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
                       ? 'text-white shadow-sm'
                       : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground'
                   )}
-                  style={activeTab === tab.key ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
+                  style={activeTab === tab.key ? { backgroundColor: 'var(--color-primary)' } : undefined}
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0" />
                   {tab.label}
@@ -1974,7 +1974,7 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
                           h.tipo === 'cliente'
                             ? 'bg-card border border-border/60'
                             : 'text-white'
-                        )} style={h.tipo !== 'cliente' ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}>
+                        )} style={h.tipo !== 'cliente' ? { backgroundColor: 'var(--color-primary)' } : undefined}>
                           <div className="flex items-center gap-2 mb-1">
                             <span className={cn('text-[10px] font-semibold', h.tipo === 'cliente' && 'text-foreground')} style={h.tipo !== 'cliente' ? { color: 'rgba(255,255,255,0.8)' } : undefined}>
                               {h.tipo === 'cliente' ? 'Cliente' : (h.user?.name || 'Equipe')}
@@ -2009,7 +2009,7 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
                       <Checkbox checked={chatAsCliente} onCheckedChange={(v) => setChatAsCliente(!!v)} />
                       Registrar como fala do cliente
                     </label>
-                    <Button type="button" size="sm" disabled={!chatMsg.trim() || histSending} onClick={sendHistorico} style={{ backgroundColor: 'var(--mod-cadastros, #10b981)', color: '#fff' }}>
+                    <Button type="button" size="sm" disabled={!chatMsg.trim() || histSending} onClick={sendHistorico} style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }}>
                       {histSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                       {histSending ? 'Enviando...' : 'Enviar'}
                     </Button>
@@ -2075,7 +2075,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
         })
       }
     } catch (e) {
-      alerts.error('Erro', mensagemErro(e, 'Nao foi possivel carregar dados para os graficos.'))
+      alerts.error('Erro', mensagemErro(e, 'Não foi possível carregar dados para os gráficos.'))
     } finally { setChartLoading(false) }
   }
 
@@ -2121,7 +2121,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
       setFiles(freshData as typeof files)
       setFilesLoaded(true)
     } catch { setFilesLoaded(true) }
-    if (uploaded > 0) alerts.success('Upload concluido', `${uploaded} arquivo(s) enviado(s) com sucesso.`)
+    if (uploaded > 0) alerts.success('Upload concluído', `${uploaded} arquivo(s) enviado(s) com sucesso.`)
   }
 
   function handleFileClick() {
@@ -2139,7 +2139,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
   function handleFileDrop(e: React.DragEvent) {
     e.preventDefault()
     e.stopPropagation()
-    e.currentTarget.classList.remove('border-emerald-400')
+    e.currentTarget.classList.remove('border-primary')
     if (e.dataTransfer.files.length > 0) {
       uploadFiles(e.dataTransfer.files)
     }
@@ -2185,24 +2185,24 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
         <div className="p-5 grid gap-4 sm:grid-cols-3">
           <div className="flex flex-col items-center text-center p-5 rounded border border-dashed border-border/60">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted mb-3"><FileText className="h-6 w-6 text-muted-foreground" /></div>
-            <h4 className="font-semibold text-xs mb-1">Parametros</h4>
-            <p className="text-[10px] text-muted-foreground mb-3">Parametros do contrato para acompanhamento no grafico.</p>
+            <h4 className="font-semibold text-xs mb-1">Parâmetros</h4>
+            <p className="text-[10px] text-muted-foreground mb-3">Parâmetros do contrato para acompanhamento no gráfico.</p>
             <div className="flex flex-col gap-2 w-full">
-              <Button type="button" size="sm" onClick={() => setShowParamModal(true)} style={{ backgroundColor: 'var(--mod-cadastros, #10b981)', color: '#fff' }} className="w-full">→ Atualizar Parametros</Button>
+              <Button type="button" size="sm" onClick={() => setShowParamModal(true)} className="w-full">→ Atualizar Parâmetros</Button>
               <Button type="button" variant="outline" size="sm" onClick={() => setShowErpModal(true)} className="w-full"><ExternalLink className="h-3 w-3" /> Verificar no ERP</Button>
             </div>
           </div>
           <div className="flex flex-col items-center text-center p-5 rounded border border-dashed border-border/60">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted mb-3"><FileBarChart className="h-6 w-6 text-muted-foreground" /></div>
-            <h4 className="font-semibold text-xs mb-1">Graficos</h4>
+            <h4 className="font-semibold text-xs mb-1">Gráficos</h4>
             <p className="text-[10px] text-muted-foreground mb-3">Indicadores do cliente (Contrato x ERP).</p>
-            <Button type="button" variant="outline" size="sm" onClick={openChartModal}>→ Abrir Graficos</Button>
+            <Button type="button" variant="outline" size="sm" onClick={openChartModal}>→ Abrir Gráficos</Button>
           </div>
           <div className="flex flex-col items-center text-center p-5 rounded border border-dashed border-border/60">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted mb-3"><File className="h-6 w-6 text-muted-foreground" /></div>
             <h4 className="font-semibold text-xs mb-1">Arquivos</h4>
             <p className="text-[10px] text-muted-foreground mb-3">Contratos, aditivos e documentos.</p>
-            <Button type="button" size="sm" onClick={openFilesModal} style={{ backgroundColor: 'var(--mod-cadastros, #10b981)', color: '#fff' }}>
+            <Button type="button" size="sm" onClick={openFilesModal} style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }}>
               → Gerenciar Arquivos {filesLoaded && files.length > 0 && <span className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-white/30 px-1 text-[10px]">{files.length}</span>}
             </Button>
           </div>
@@ -2247,14 +2247,14 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
               {/* Upload area */}
               <div className="px-5 py-3 border-b border-border shrink-0">
                 <div
-                  className="flex flex-col items-center justify-center gap-2 rounded border-2 border-dashed border-border/60 px-4 py-5 cursor-pointer hover:border-emerald-400/50 transition-colors"
+                  className="flex flex-col items-center justify-center gap-2 rounded border-2 border-dashed border-border/60 px-4 py-5 cursor-pointer hover:border-primary/50 transition-colors"
                   onClick={handleFileClick}
-                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('border-emerald-400') }}
-                  onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-emerald-400') }}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('border-primary') }}
+                  onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-primary') }}
                   onDrop={handleFileDrop}
                 >
                   {uploading ? (
-                    <><Loader2 className="h-6 w-6 animate-spin text-emerald-500" /><p className="text-xs text-muted-foreground">Enviando arquivos...</p></>
+                    <><Loader2 className="h-6 w-6 animate-spin text-primary" /><p className="text-xs text-muted-foreground">Enviando arquivos...</p></>
                   ) : (
                     <><FileText className="h-6 w-6 text-muted-foreground/40" /><p className="text-xs font-medium">Clique ou arraste arquivos aqui</p><p className="text-[10px] text-muted-foreground">PDF, Word, Excel, imagens, ZIP</p></>
                   )}
@@ -2533,10 +2533,10 @@ function AcessoriasIntegracao({ clienteId }: { clienteId: string | null }) {
         <Input value={idAtual != null ? String(idAtual) : ''} readOnly placeholder="—" className="flex-1 min-w-0" />
         <Button
           type="button"
+          variant="success"
           onClick={handleCadastrar}
           disabled={loading || !clienteId}
           className="gap-2 shrink-0"
-          style={{ backgroundColor: '#0ea5e9', color: '#fff' }}
         >
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
           {idAtual ? 'Sincronizar no Acessórias' : 'Cadastrar no Acessórias'}
@@ -2708,7 +2708,7 @@ function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }
                       ? 'text-white shadow-sm'
                       : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground'
                   )}
-                  style={activeTab === tab.key ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
+                  style={activeTab === tab.key ? { backgroundColor: 'var(--color-primary)' } : undefined}
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0" />
                   {tab.label}
@@ -3078,7 +3078,7 @@ function LogsTab({ clienteId }: { clienteId: string }) {
 // Hook de permissões do módulo clientes extraído para `./use-clientes-perms`
 // (compartilhado com os cards de cada aba).
 
-const MODULE_COLOR_CLIENTES = 'var(--mod-cadastros, #10b981)'
+const PRIMARY_CLIENTES = 'var(--color-primary)'
 
 // UF_LIST, InscricaoRow e RegistroInscricoesCard saíram daqui: o componente
 // virou arquivo próprio (registro-inscricoes-card.tsx) e passou a viver na pill
@@ -3261,7 +3261,7 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
                   <div
                     key={a.id}
                     className="group/chip inline-flex items-center gap-1 rounded-full border pl-2.5 pr-1 py-0.5 text-[11px] font-medium transition-colors"
-                    style={{ borderColor: `color-mix(in srgb, ${MODULE_COLOR_CLIENTES} 35%, transparent)`, color: MODULE_COLOR_CLIENTES, backgroundColor: `color-mix(in srgb, ${MODULE_COLOR_CLIENTES} 10%, transparent)` }}
+                    style={{ borderColor: `color-mix(in srgb, ${PRIMARY_CLIENTES} 35%, transparent)`, color: PRIMARY_CLIENTES, backgroundColor: `color-mix(in srgb, ${PRIMARY_CLIENTES} 10%, transparent)` }}
                   >
                     <span
                       className={canManageAtiv ? 'cursor-pointer' : ''}
@@ -3617,10 +3617,10 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
                   tabIndex={0}
                   onClick={() => setViewCert(cert)}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewCert(cert) } }}
-                  className="flex items-start gap-2 text-xs group rounded-md border border-border p-2 bg-muted/30 cursor-pointer hover:bg-muted/50 hover:border-fuchsia-300 dark:hover:border-fuchsia-800 transition-colors"
+                  className="flex items-start gap-2 text-xs group rounded-md border border-border p-2 bg-muted/30 cursor-pointer hover:bg-muted/50 hover:border-primary transition-colors"
                   title="Ver detalhes do certificado"
                 >
-                  <ShieldCheck className={cn('h-4 w-4 shrink-0 mt-0.5', TEXT.fuchsia)} />
+                  <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <span className="truncate font-medium">
@@ -4033,7 +4033,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
               </div>
             </div>
             <div className="flex gap-2 mt-3">
-              <Button type="button" variant="info" size="sm" onClick={handleUpdate} disabled={!fNome.trim()}>
+              <Button type="button" variant="success" size="sm" onClick={handleUpdate} disabled={!fNome.trim()}>
                 <Save className="h-4 w-4" /> Salvar
               </Button>
               <Button type="button" variant="ghost" size="sm" onClick={cancelEdit}>Cancelar</Button>
@@ -4069,7 +4069,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
                 {contatos.map((c) => (
                   <tr key={c.id} className={cn(
                     'border-b border-border group transition-colors',
-                    c.principal ? 'bg-emerald-50/60' : 'hover:bg-muted/30'
+                    c.principal ? 'bg-primary/5' : 'hover:bg-muted/30'
                   )}>
                     {/* Estrela principal */}
                     <td className="py-2.5 px-3 text-center">
@@ -4332,7 +4332,7 @@ function CaixaPostalClienteCard({ documento }: { documento: string }) {
                 {/* Corpo */}
                 {(() => {
                   const corpo = extrairCorpoMensagem(detalheData)
-                  if (corpo) return <RichContent className="text-sm leading-relaxed [&_p]:mb-3 [&_a]:text-sky-600" html={corpo} />
+                  if (corpo) return <RichContent className="text-sm leading-relaxed [&_p]:mb-3" html={corpo} />
                   if (detalheData) return (<div><p className="text-xs text-muted-foreground mb-2">Resposta bruta da API:</p><pre className="text-xs whitespace-pre-wrap bg-muted/30 rounded-lg p-4 overflow-x-auto max-h-[400px] nice-scrollbar">{JSON.stringify(detalheData, null, 2)}</pre></div>)
                   return <p className="text-center text-muted-foreground py-10">Nenhum conteúdo disponível.</p>
                 })()}

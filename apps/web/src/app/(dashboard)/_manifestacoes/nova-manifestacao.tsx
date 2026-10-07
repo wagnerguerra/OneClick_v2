@@ -12,7 +12,6 @@ import {
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { STRONG } from '@/lib/color-styles'
 import type { Config } from './tipos'
 
 const CANAIS = [
@@ -187,7 +186,7 @@ export function NovaManifestacaoModal({ config, onClose, onCriado, editar, onSal
   return (
     <Dialog open onOpenChange={o => { if (!o && !salvando) onClose() }}>
       <DialogContent className="max-w-3xl">
-        <DialogHeaderIcon icon={e ? Pencil : config.icone} color={e ? 'sky' : 'amber'}>
+        <DialogHeaderIcon icon={e ? Pencil : config.icone} color={e ? 'sky' : 'emerald'}>
           <DialogTitle>{e ? `Editar — ${e.protocolo}` : config.rotuloNovo}</DialogTitle>
           <DialogDescription>
             {e ? 'Corrija o registro. Situação e prazo seguem o fluxo de tratativa.'
@@ -209,7 +208,7 @@ export function NovaManifestacaoModal({ config, onClose, onCriado, editar, onSal
               return (
                 <button key={o.v} type="button" onClick={() => setOrigem(o.v)}
                   className={cn('rounded-lg border px-3 py-2.5 text-left transition-colors',
-                    origem === o.v ? 'border-amber-400 bg-amber-50/60 dark:bg-amber-950/20' : 'border-border hover:bg-muted/20')}>
+                    origem === o.v ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted/20')}>
                   <span className="flex items-center gap-1.5 text-[13px] font-semibold">
                     <Ico className="h-3.5 w-3.5" />{o.t}
                   </span>
@@ -303,7 +302,7 @@ export function NovaManifestacaoModal({ config, onClose, onCriado, editar, onSal
               {elogiadosIds.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {elogiadosIds.map(id => (
-                    <span key={id} className={cn('rounded-full px-2 py-0.5 text-[11px]', STRONG.amber)}>
+                    <span key={id} className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary-on-surface">
                       {pessoas.find(p => p.id === id)?.name ?? id}
                     </span>
                   ))}

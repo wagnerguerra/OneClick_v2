@@ -289,7 +289,7 @@ export class ClienteRelatorioService {
     definicao: DefinicaoRelatorio,
     ctx: { isMaster?: boolean; empresaId?: string; podeSub: (sub: string) => boolean },
     formato: 'xlsx' | 'csv' | 'pdf',
-    titulo = 'Relatorio de clientes',
+    titulo = 'Relatório de clientes',
   ): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
     const { colunas, linhas, total, truncado } = await this.executar(definicao, ctx)
     const cabecalho = colunas.map(c => c.rotulo)

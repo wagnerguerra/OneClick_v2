@@ -3,7 +3,8 @@ import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
 import { router, readProcedure, writeProcedure, deleteProcedure, protectedProcedure } from '../trpc/trpc.service'
 import {
-  createServicoSchema, updateServicoSchema, createServicoEtapaSchema, createServicoPassoSchema, createExecucaoSchema,
+  createServicoSchema, updateServicoSchema, createServicoEtapaSchema, createServicoPassoSchema, createServicoSubEtapaSchema, createExecucaoSchema,
+  condicaoItemSchema,
   createPassoEmailTemplateSchema, updatePassoEmailTemplateSchema,
   createPassoLembreteSchema, updatePassoLembreteSchema,
   createPassoCampoClienteSchema, updatePassoCampoClienteSchema,
@@ -220,7 +221,7 @@ export function createServicoRouter(servicoService: ServicoService) {
 
     updateEtapa: writeProcedure(MODULE)
       // slaHoras NÃO entra no input — é derivado dos passos pelo servico.service.
-      .input(z.object({ id: z.string(), nome: z.string().optional(), ordem: z.number().optional() }))
+      .input(z.object({ id: z.string(), nome: z.string().optional(), ordem: z.number().optional() }).merge(condicaoItemSchema))
       .mutation(async ({ input, ctx }) => {
         await exigirServicoDaArea(ctx, await servicoDa.etapa(input.id))
         return servicoService.updateEtapa(input.id, input)
@@ -231,6 +232,29 @@ export function createServicoRouter(servicoService: ServicoService) {
       .mutation(async ({ input, ctx }) => {
         await exigirServicoDaArea(ctx, await servicoDa.etapa(input.id))
         return servicoService.deleteEtapa(input.id)
+      }),
+
+    // ── Sub-etapas (agrupamento opcional de passos dentro da etapa) ──
+    addSubEtapa: writeProcedure(MODULE)
+      .input(createServicoSubEtapaSchema)
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.etapa(input.etapaId))
+        return servicoService.addSubEtapa(input)
+      }),
+
+    updateSubEtapa: writeProcedure(MODULE)
+      .input(z.object({ id: z.string(), nome: z.string().trim().min(1).max(200).optional(), ordem: z.number().int().min(0).optional() }).merge(condicaoItemSchema))
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.subEtapa(input.id))
+        return servicoService.updateSubEtapa(input.id, input)
+      }),
+
+    /** Os passos da sub-etapa voltam para a etapa — não são apagados. */
+    deleteSubEtapa: deleteProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(async ({ input, ctx }) => {
+        await exigirServicoDaArea(ctx, await servicoDa.subEtapa(input.id))
+        return servicoService.deleteSubEtapa(input.id)
       }),
 
     // ── Passos ─────────────────────────────────────────────
@@ -499,6 +523,18 @@ export function createServicoRouter(servicoService: ServicoService) {
       .mutation(async ({ input, ctx }) => {
         await servicoService.assertCanAccessExecucaoPasso(ctx.userId!, input.id)
         return servicoService.desfazerIgnorarPasso(input.id, ctx.userId)
+      }),
+
+    /**
+     * Responde um passo do tipo PERGUNTA do checklist (condições "if").
+     * Trocar uma resposta que tira passos JÁ CONCLUÍDOS do caminho exige
+     * `confirmar: true` — sem ele, devolve `precisaConfirmar` + a lista (dry-run).
+     */
+    responderPassoPergunta: protectedProcedure
+      .input(z.object({ id: z.string(), opcoes: z.array(z.string().min(1)).min(1).max(30), confirmar: z.boolean().optional() }))
+      .mutation(async ({ input, ctx }) => {
+        await servicoService.assertCanAccessExecucaoPasso(ctx.userId!, input.id)
+        return servicoService.responderPassoPergunta(input.id, input.opcoes, ctx.userId, input.confirmar ?? false)
       }),
 
     concluirExecucao: protectedProcedure

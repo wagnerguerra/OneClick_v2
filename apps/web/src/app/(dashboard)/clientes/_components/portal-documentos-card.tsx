@@ -160,6 +160,7 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
         : `"${a.fileName}" deixa de aparecer no portal do cliente.`,
       confirmText: 'Tirar do portal',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -200,6 +201,7 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
       text: `"${s.titulo}" some da tela do cliente. O histórico fica.`,
       confirmText: 'Cancelar pedido',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -288,7 +290,7 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
             {/* ── Publicados ────────────────────────────────────────────── */}
             <section>
               <p className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold text-foreground">
-                <Eye className={cn('h-3.5 w-3.5', TEXT.emerald)} />
+                <Eye className="h-3.5 w-3.5 text-primary" />
                 No portal do cliente
                 <span className="font-normal text-muted-foreground">{publicados.length}</span>
               </p>
@@ -466,7 +468,7 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
             <Button variant="outline" type="button" onClick={() => setPublicando(null)} disabled={salvando}>
               Cancelar
             </Button>
-            <Button type="button" onClick={publicar} disabled={salvando || !formPub.competencia}>
+            <Button type="button" variant="success" onClick={publicar} disabled={salvando || !formPub.competencia}>
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Publicar'}
             </Button>
           </DialogFooter>
@@ -476,7 +478,7 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
       {/* ── Pedir documento ─────────────────────────────────────────────── */}
       <Dialog open={pedidoAberto} onOpenChange={setPedidoAberto}>
         <DialogContent className="sm:max-w-[520px]">
-          <DialogHeaderIcon icon={Inbox} color="amber">
+          <DialogHeaderIcon icon={Inbox}>
             <DialogTitle>Pedir um documento ao cliente</DialogTitle>
           </DialogHeaderIcon>
           <DialogBody className="space-y-4">

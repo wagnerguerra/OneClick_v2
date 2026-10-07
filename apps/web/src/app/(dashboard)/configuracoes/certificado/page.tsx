@@ -33,8 +33,6 @@ interface CertInfo {
   cnpjContratante: string | null
 }
 
-const MODULE_COLOR = 'var(--mod-configuracoes, #f97316)'
-
 const TABS = [
   { key: 'certificado', label: 'Certificado PJ', icon: Shield },
   { key: 'certificado-pf', label: 'Certificado PF', icon: CircleUser },
@@ -163,14 +161,14 @@ function CertificadoSettingsPageInner() {
       if (!file) return
       const { value: senha, isConfirmed } = await Swal.fire({
         title: 'Senha do Certificado PF',
-        text: `Informe a senha do arquivo "${file.name}" (certificado pessoa fisica do contador).`,
+        text: `Informe a senha do arquivo "${file.name}" (certificado pessoa física do contador).`,
         input: 'password',
         inputPlaceholder: 'Senha do PFX/P12',
         showCancelButton: true,
         confirmButtonText: 'Enviar',
         cancelButtonText: 'Cancelar',
         confirmButtonColor: '#10b981',
-        inputValidator: (value) => { if (!value) return 'A senha e obrigatoria.'; return null },
+        inputValidator: (value) => { if (!value) return 'A senha é obrigatória.'; return null },
       })
       if (!isConfirmed || !senha) return
       setUploadingPf(true)
@@ -183,7 +181,7 @@ function CertificadoSettingsPageInner() {
         setValues(prev => ({ ...prev, CERTIFICADO_PF_SENHA: senha }))
         await alerts.success('Certificado PF enviado', `${file.name} foi salvo com sucesso.`)
         loadData()
-      } catch (err) { alerts.error('Erro', (err as Error).message || 'Nao foi possivel enviar.') }
+      } catch (err) { alerts.error('Erro', (err as Error).message || 'Não foi possível enviar.') }
       finally { setUploadingPf(false) }
     }
     input.click()
@@ -194,9 +192,9 @@ function CertificadoSettingsPageInner() {
     if (!confirmed) return
     try {
       await (trpc.admin as any).deleteCertificadoPf.mutate()
-      await alerts.success('Certificado PF removido', 'O arquivo foi excluido.')
+      await alerts.success('Certificado PF removido', 'O arquivo foi excluído.')
       loadData()
-    } catch { alerts.error('Erro', 'Nao foi possivel remover.') }
+    } catch { alerts.error('Erro', 'Não foi possível remover.') }
   }
 
   async function handleSave() {
@@ -259,10 +257,9 @@ function CertificadoSettingsPageInner() {
                   <button
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key)}
-                    style={isActive ? { backgroundColor: MODULE_COLOR } : undefined}
                     className={cn(
                       'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
-                      isActive ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-white dark:hover:bg-white/5',
+                      isActive ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-white dark:hover:bg-white/5',
                     )}
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -462,9 +459,9 @@ function CertificadoSettingsPageInner() {
             {activeTab === 'certificado-pf' && (
               <div>
                 <div className="px-5 py-3 border-b border-hairline">
-                  <h4 className="text-[13px] font-semibold text-foreground">Certificado Digital PF (Pessoa Fisica do Contador)</h4>
+                  <h4 className="text-[13px] font-semibold text-foreground">Certificado Digital PF (Pessoa Física do Contador)</h4>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Certificado A1 da pessoa fisica do contador responsavel, usado para login no portal SEFAZ/ES (Agencia Virtual, DT-e) via gov.br.
+                    Certificado A1 da pessoa física do contador responsável, usado para login no portal SEFAZ/ES (Agência Virtual, DT-e) via gov.br.
                   </p>
                 </div>
 
@@ -524,13 +521,13 @@ function CertificadoSettingsPageInner() {
                         <div className="mt-3 pt-3 border-t border-hairline grid grid-cols-12 gap-3">
                           {certPfInfo.validFrom && (
                             <div className="col-span-3">
-                              <p className="text-[11px] text-muted-foreground">Valido desde</p>
+                              <p className="text-[11px] text-muted-foreground">Válido desde</p>
                               <p className="text-xs font-medium text-foreground">{formatDate(certPfInfo.validFrom)}</p>
                             </div>
                           )}
                           {certPfInfo.validTo && (
                             <div className="col-span-3">
-                              <p className="text-[11px] text-muted-foreground">Valido ate</p>
+                              <p className="text-[11px] text-muted-foreground">Válido até</p>
                               <p className={cn(
                                 'text-xs font-medium',
                                 certPfInfo.expired ? TEXT.red : certPfInfo.daysRemaining != null && certPfInfo.daysRemaining <= 30 ? TEXT.amber : 'text-foreground',
@@ -544,7 +541,7 @@ function CertificadoSettingsPageInner() {
                                 'text-xs font-bold',
                                 certPfInfo.expired ? TEXT.red : certPfInfo.daysRemaining <= 30 ? TEXT.amber : TEXT.emerald,
                               )}>
-                                {certPfInfo.expired ? `Expirado ha ${Math.abs(certPfInfo.daysRemaining)} dias` : `${certPfInfo.daysRemaining} dias`}
+                                {certPfInfo.expired ? `Expirado há ${Math.abs(certPfInfo.daysRemaining)} dias` : `${certPfInfo.daysRemaining} dias`}
                               </p>
                             </div>
                           )}
@@ -561,7 +558,7 @@ function CertificadoSettingsPageInner() {
                         <div className="mt-3 pt-3 border-t border-hairline">
                           <div className={cn('flex items-center gap-2 text-xs', TEXT.amber)}>
                             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                            <span>Nao foi possivel ler os dados do certificado. Verifique se a senha esta correta.</span>
+                            <span>Não foi possível ler os dados do certificado. Verifique se a senha está correta.</span>
                           </div>
                         </div>
                       )}
@@ -571,7 +568,7 @@ function CertificadoSettingsPageInner() {
                       <CircleUser className="h-10 w-10 text-amber-400 mx-auto mb-3" />
                       <p className="text-sm font-medium text-foreground">Nenhum certificado PF instalado</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Envie o arquivo .pfx ou .p12 do certificado A1 da pessoa fisica do contador responsavel.
+                        Envie o arquivo .pfx ou .p12 do certificado A1 da pessoa física do contador responsável.
                       </p>
                       <Button variant="success" size="sm" onClick={handleUploadPf} disabled={uploadingPf} className="gap-1.5 mt-4">
                         {uploadingPf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
@@ -589,7 +586,7 @@ function CertificadoSettingsPageInner() {
                           type={showSecret['CERTIFICADO_PF_SENHA'] ? 'text' : 'password'}
                           value={values.CERTIFICADO_PF_SENHA === '__CLEAR__' ? '' : (values.CERTIFICADO_PF_SENHA || '')}
                           onChange={(e) => setValues(prev => ({ ...prev, CERTIFICADO_PF_SENHA: e.target.value }))}
-                          placeholder="Senha do arquivo PFX (pessoa fisica)"
+                          placeholder="Senha do arquivo PFX (pessoa física)"
                           className="pr-16 font-mono text-xs"
                         />
                         <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
@@ -604,12 +601,12 @@ function CertificadoSettingsPageInner() {
                         </div>
                       </div>
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-1">Senha para abrir o PFX/P12 do contador. Necessaria para autenticacao no portal SEFAZ/ES via gov.br.</p>
+                    <p className="text-[11px] text-muted-foreground mt-1">Senha para abrir o PFX/P12 do contador. Necessária para autenticação no portal SEFAZ/ES via gov.br.</p>
                   </div>
 
                   {/* Checklist */}
                   <div className="-mx-5 px-5 py-3 border-t border-hairline">
-                    <h4 className="text-[13px] font-semibold text-foreground">Status da Configuracao</h4>
+                    <h4 className="text-[13px] font-semibold text-foreground">Status da Configuração</h4>
                   </div>
 
                   <div className="space-y-2">
@@ -630,7 +627,7 @@ function CertificadoSettingsPageInner() {
                   <div className="pt-3 border-t border-hairline">
                     <Button onClick={handleSave} disabled={saving} className="gap-2" variant="success">
                       {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                      Salvar Configuracoes
+                      Salvar Configurações
                     </Button>
                   </div>
                 </div>

@@ -476,6 +476,7 @@ function TemplateEditor({ mode, passoId, initial, onCancel, onSaved, onDeleted }
       text: `O modelo "${initial.nome}" será removido permanentemente.`,
       confirmText: 'Excluir',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     setDeleting(true)
@@ -673,7 +674,7 @@ function TemplateEditor({ mode, passoId, initial, onCancel, onSaved, onDeleted }
           <Button variant="outline" size="sm" onClick={onCancel} disabled={saving || deleting}>
             Cancelar
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={saving || deleting} className="gap-1.5">
+          <Button size="sm" variant="success" onClick={handleSave} disabled={saving || deleting} className="gap-1.5">
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
             {mode === 'edit' ? 'Salvar' : 'Adicionar'}
           </Button>

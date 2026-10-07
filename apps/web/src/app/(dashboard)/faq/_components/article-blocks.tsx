@@ -17,12 +17,22 @@ export function Section({ icon: Icon, titulo, cor, children }: {
   cor: string
   children: ReactNode
 }) {
+  // Ícone na cor do ARTIGO (var exposta pelo ArticleShell), combinando com o
+  // resto do artigo; `cor` só vale fora de um shell. A caixinha tingida em volta
+  // do ícone + o título um pouco maior marcam o nível de SEÇÃO — os blocos de
+  // dentro (Step, CadeiaBlock…) têm ícone solto e não se confundem com ele.
+  const corArtigo = `var(--faq-artigo-cor, ${cor})`
   return (
     <Card>
       <CardContent className="p-5 space-y-3">
-        <div className="flex items-center gap-2 pb-2 border-b">
-          <Icon className="h-4 w-4" style={{ color: cor }} />
-          <h3 className="text-sm font-bold" style={{ color: cor }}>{titulo}</h3>
+        <div className="flex items-center gap-2.5 pb-2.5 border-b">
+          <span
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
+            style={{ backgroundColor: `color-mix(in srgb, ${corArtigo} 15%, transparent)`, color: corArtigo }}
+          >
+            <Icon className="h-4 w-4" />
+          </span>
+          <h3 className="text-[15px] font-bold text-foreground">{titulo}</h3>
         </div>
         {children}
       </CardContent>

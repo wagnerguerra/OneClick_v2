@@ -231,7 +231,7 @@ export default function AdminPlanosPage() {
               className="h-9 w-24 text-sm"
             />
             <span className="text-sm text-muted-foreground">dias</span>
-            <Button size="sm" onClick={handleSaveTrial} disabled={savingTrial}>
+            <Button size="sm" variant="success" onClick={handleSaveTrial} disabled={savingTrial}>
               {savingTrial ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
               Salvar
             </Button>
@@ -383,7 +383,7 @@ export default function AdminPlanosPage() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setForm(null)} disabled={saving}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button variant="success" onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
               {form?.id ? 'Salvar' : 'Criar'}
             </Button>

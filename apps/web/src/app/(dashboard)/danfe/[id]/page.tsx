@@ -61,6 +61,7 @@ export default function DanfeDetalhePage() {
       text: `NFe ${danfe.numero}/${danfe.serie} será excluída permanentemente.`,
       confirmText: 'Excluir',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {

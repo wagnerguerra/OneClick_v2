@@ -269,7 +269,7 @@ export default function TratamentoLancamentosPage() {
                 'flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-10 text-center cursor-pointer outline-none transition-colors',
                 dragOver ? 'bg-muted/40' : 'border-border/60 bg-muted/20 hover:bg-muted/30',
               )}
-              style={dragOver ? { borderColor: 'var(--mod-contabil, #a78bfa)' } : undefined}
+              style={dragOver ? { borderColor: 'var(--color-primary)' } : undefined}
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
                 <Upload className="h-6 w-6 text-muted-foreground" />
@@ -315,7 +315,7 @@ export default function TratamentoLancamentosPage() {
             />
             <div className="flex flex-col items-start gap-1.5 text-[11px]">
               {canManage && (
-                <button className="text-sm text-primary underline" onClick={goCreateModel}>
+                <button className="text-sm text-primary-on-surface underline" onClick={goCreateModel}>
                   + Criar novo modelo{file ? ' a partir do arquivo enviado' : ''}
                 </button>
               )}
@@ -383,7 +383,7 @@ function StepBlock({ num, icon: Icon, title, color, className, children }: { num
     <div className={cn('flex gap-4', className)}>
       <div
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-sm"
-        style={{ backgroundColor: color ?? 'var(--mod-contabil, #a78bfa)' }}
+        style={{ backgroundColor: color ?? 'var(--color-primary)' }}
       >
         <Icon className="h-4 w-4" />
       </div>

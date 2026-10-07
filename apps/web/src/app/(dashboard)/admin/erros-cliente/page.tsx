@@ -269,6 +269,7 @@ export default function ErrosClientePage() {
       text: 'Todos os erros marcados como resolvidos serão excluídos permanentemente.',
       confirmText: 'Excluir',
       icon: 'warning',
+      destructive: true,
     })
     if (!ok) return
     try {

@@ -21,7 +21,7 @@ import {
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // emerald (Cadastros)
+const PRIMARY = 'var(--color-primary)'
 
 const COLAB_TABS = [
   { key: 'identificacao', label: 'Identificação', icon: User },
@@ -194,7 +194,7 @@ export function ColaboradorForm({
                           ? 'text-white shadow-sm'
                           : 'text-muted-foreground hover:bg-background dark:hover:bg-muted/60 hover:text-foreground',
                       )}
-                      style={activeTab === tab.key ? { backgroundColor: MODULE_COLOR } : undefined}
+                      style={activeTab === tab.key ? { backgroundColor: PRIMARY } : undefined}
                     >
                       <Icon className="h-3.5 w-3.5 shrink-0" />
                       {tab.label}

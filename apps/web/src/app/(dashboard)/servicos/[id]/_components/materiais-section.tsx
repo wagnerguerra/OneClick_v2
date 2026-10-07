@@ -136,6 +136,7 @@ export function MateriaisSection({ materiais, etapaId, passoId, readOnly, onChan
       title: 'Remover material',
       text: 'O material será excluído deste fluxo.',
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     setDeletingId(id)
@@ -601,7 +602,7 @@ function MaterialDialog({ mode, tipo, etapaId, passoId, initial, onClose, onSave
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={saving || uploading}>
+          <Button variant="success" onClick={handleSave} disabled={saving || uploading}>
             {saving ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Salvando...</> : (mode === 'edit' ? 'Salvar' : 'Adicionar')}
           </Button>
         </DialogFooter>

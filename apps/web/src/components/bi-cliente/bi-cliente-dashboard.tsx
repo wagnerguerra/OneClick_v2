@@ -407,7 +407,7 @@ function PubVisaoGeral({ kpis, analiseByAno, kpisByAno, anos, meses }: { kpis: a
             <select
               value={indicador}
               onChange={e => setIndicador(e.target.value)}
-              className="h-8 max-w-[190px] shrink-0 rounded-lg border border-border bg-card px-2 text-xs font-normal text-foreground"
+              className="h-8 max-w-[190px] shrink-0 rounded-lg px-2 text-xs font-normal text-foreground"
             >
               {INDICADORES.map(ind => <option key={ind.value} value={ind.value}>{ind.label}</option>)}
             </select>
@@ -613,7 +613,7 @@ function PubMatriz({ data }: { data: any }) {
           placeholder="Buscar conta..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="h-9 w-full rounded-lg border border-border bg-card px-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+          className="h-9 w-full rounded-lg px-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
       </div>
 

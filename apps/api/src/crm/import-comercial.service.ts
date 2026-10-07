@@ -113,7 +113,7 @@ export class ImportComercialService {
   }
 
   async importarTudo(): Promise<ImportComercialResult> {
-    if (this.progress.status === 'running') throw new Error('Importacao ja em andamento')
+    if (this.progress.status === 'running') throw new Error('Importação já em andamento')
 
     this.progress = { status: 'running', fase: 'Conectando...', current: 0, total: 8, logs: [] }
     this.idMap = {
@@ -145,36 +145,36 @@ export class ImportComercialService {
       result.oportunidades = await this.importarOportunidades(conn)
 
       // ── FASE 3: Catalogo de Servicos ──────────────────────
-      this.progress.fase = 'Catalogo de Servicos'
+      this.progress.fase = 'Catálogo de Serviços'
       this.progress.current = 3
       result.servicosCatalogo = await this.importarCatalogo(conn)
 
       // ── FASE 4: Orcamentos + Itens ────────────────────────
-      this.progress.fase = 'Orcamentos'
+      this.progress.fase = 'Orçamentos'
       this.progress.current = 4
       const orcResult = await this.importarOrcamentos(conn)
       result.orcamentos = orcResult.orcamentos
       result.orcamentoItens = orcResult.itens
 
       // ── FASE 5: Servicos (Templates) ──────────────────────
-      this.progress.fase = 'Servicos'
+      this.progress.fase = 'Serviços'
       this.progress.current = 5
       result.servicos = await this.importarServicos(conn)
 
       // ── FASE 6: Execucoes ─────────────────────────────────
-      this.progress.fase = 'Execucoes de Servico'
+      this.progress.fase = 'Execuções de Serviço'
       this.progress.current = 6
       result.execucoes = await this.importarExecucoes(conn)
 
       // ── FASE 7: Pesquisas de Satisfacao ───────────────────
-      this.progress.fase = 'Pesquisas de Satisfacao'
+      this.progress.fase = 'Pesquisas de Satisfação'
       this.progress.current = 7
       result.pesquisas = await this.importarPesquisas(conn)
 
       // ── FASE 8: Resumo ────────────────────────────────────
-      this.progress.fase = 'Concluido'
+      this.progress.fase = 'Concluído'
       this.progress.current = 8
-      result.message = `Importacao concluida: ${result.etapas} etapas, ${result.oportunidades} oportunidades, ${result.orcamentos} orcamentos (${result.orcamentoItens} itens), ${result.servicosCatalogo} catalogo, ${result.servicos} servicos, ${result.execucoes} execucoes, ${result.pesquisas} pesquisas`
+      result.message = `Importação concluída: ${result.etapas} etapas, ${result.oportunidades} oportunidades, ${result.orcamentos} orçamentos (${result.orcamentoItens} itens), ${result.servicosCatalogo} catálogo, ${result.servicos} serviços, ${result.execucoes} execuções, ${result.pesquisas} pesquisas`
       this.log('success', result.message)
       this.progress.status = 'done'
 

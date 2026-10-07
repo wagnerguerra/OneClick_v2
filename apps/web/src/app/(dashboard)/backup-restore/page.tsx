@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Download, Upload, Loader2, CheckCircle, FileArchive, AlertTriangle, X, Trash2 } from 'lucide-react'
 import { Button, Card, CardHeader, Checkbox, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, cn } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { FILL, TEXT } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -77,7 +77,7 @@ function BackupRestorePageInner() {
 
       await new Promise(r => setTimeout(r, 300))
       setProgress(100)
-      setProgressText('Backup concluido!')
+      setProgressText('Backup concluído!')
       setResult(backupResult)
       loadBackups()
     } catch (e) {
@@ -93,9 +93,9 @@ function BackupRestorePageInner() {
     if (!ok) return
     try {
       await trpc.admin.deleteBackup.mutate({ filename })
-      await alerts.success('Excluido', `Backup "${filename}" removido.`)
+      await alerts.success('Excluído', `Backup "${filename}" removido.`)
       loadBackups()
-    } catch { alerts.error('Erro', 'Nao foi possivel excluir o backup.') }
+    } catch { alerts.error('Erro', 'Não foi possível excluir o backup.') }
   }
 
   function downloadBackup(filename: string) {
@@ -147,10 +147,10 @@ function BackupRestorePageInner() {
               </label>
               <label className="flex items-center gap-2 cursor-pointer text-sm">
                 <Checkbox checked={includeEnv} onCheckedChange={(v) => setIncludeEnv(!!v)} />
-                <span>Incluir arquivo .env <span className={cn('text-xs', TEXT.amber)}>(contem credenciais)</span></span>
+                <span>Incluir arquivo .env <span className={cn('text-xs', TEXT.amber)}>(contém credenciais)</span></span>
               </label>
             </div>
-            <Button variant="success" className="w-full" onClick={handleGenerate} disabled={generating}>
+            <Button className="w-full" onClick={handleGenerate} disabled={generating}>
               {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
               {generating ? 'Gerando...' : 'Gerar Backup'}
             </Button>
@@ -167,10 +167,10 @@ function BackupRestorePageInner() {
           <div className="p-4 space-y-4">
             <div className={cn('flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 px-3 py-2 text-sm', TEXT.amber)}>
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-              <span>A restauracao do banco de dados <strong>sobrescreve todos os dados atuais</strong>. Gere um backup antes de restaurar.</span>
+              <span>A restauração do banco de dados <strong>sobrescreve todos os dados atuais</strong>. Gere um backup antes de restaurar.</span>
             </div>
             <div className="flex flex-col items-center justify-center gap-2 rounded border-2 border-dashed border-border/60 px-6 py-8 cursor-pointer hover:border-primary/40 transition-colors"
-              onClick={() => alerts.error('Em desenvolvimento', 'A restauracao via upload sera implementada em breve.')}>
+              onClick={() => alerts.error('Em desenvolvimento', 'A restauração via upload será implementada em breve.')}>
               <Upload className="h-8 w-8 text-muted-foreground/40" />
               <p className="text-sm text-muted-foreground">Clique para selecionar um arquivo .zip</p>
               <p className="text-xs text-muted-foreground">Funcionalidade em desenvolvimento</p>
@@ -198,7 +198,7 @@ function BackupRestorePageInner() {
                   <TableHead>Arquivo</TableHead>
                   <TableHead className="text-right">Tamanho</TableHead>
                   <TableHead>Data</TableHead>
-                  <TableHead className="w-[100px]">Acao</TableHead>
+                  <TableHead className="w-[100px]">Ação</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -234,7 +234,7 @@ function BackupRestorePageInner() {
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold flex items-center gap-2">
                   {generating ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <CheckCircle className="h-4 w-4 text-emerald-500" />}
-                  {generating ? 'Gerando Backup...' : 'Backup Concluido!'}
+                  {generating ? 'Gerando Backup...' : 'Backup Concluído!'}
                 </h3>
                 {!generating && (
                   <button onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-foreground">
@@ -247,8 +247,8 @@ function BackupRestorePageInner() {
               <div>
                 <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                   <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{ width: `${progress}%`, backgroundColor: progress === 100 ? '#10b981' : '#5ea3cb' }}
+                    className={cn('h-full rounded-full transition-all duration-500', progress === 100 ? FILL.emerald : 'bg-primary')}
+                    style={{ width: `${progress}%` }}
                   />
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">{progressText}</p>
@@ -260,7 +260,7 @@ function BackupRestorePageInner() {
                   <div className="rounded-lg bg-muted/30 p-3 space-y-1">
                     <p className="text-xs"><strong>Arquivo:</strong> {result.filename}</p>
                     <p className="text-xs"><strong>Tamanho:</strong> {formatBytes(result.size)}</p>
-                    <p className="text-xs"><strong>Banco de dados:</strong> {result.dbDumpOk ? <span className={TEXT.emerald}>Dump OK</span> : <span className={TEXT.amber}>pg_dump nao disponivel</span>}</p>
+                    <p className="text-xs"><strong>Banco de dados:</strong> {result.dbDumpOk ? <span className={TEXT.emerald}>Dump OK</span> : <span className={TEXT.amber}>pg_dump não disponível</span>}</p>
                   </div>
                   <Button variant="success" className="w-full" onClick={() => { downloadBackup(result.filename); setShowModal(false) }}>
                     <Download className="h-4 w-4" /> Baixar Backup

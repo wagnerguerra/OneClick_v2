@@ -28,7 +28,7 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import { SectionCard } from '@/components/section-card'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // emerald (Cadastros)
+const PRIMARY = 'var(--color-primary)'
 
 const EMPRESA_TABS = [
   { key: 'dados-legais', label: 'Dados Legais', icon: Scale },
@@ -411,7 +411,7 @@ export function EmpresaForm({ mode, empresaId, title, defaultValues, resumo }: E
         {/* Barra da página — PADRAO_PAGINAS §3.1. `mb-0`: o espaço até o hero
             é o `mt-6` dele, e a margem própria da barra somaria à dele. */}
         <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
-            <Button size="sm" type="submit" disabled={saving} className="gap-1.5">
+            <Button variant="success" size="sm" type="submit" disabled={saving} className="gap-1.5">
               <Save className="h-4 w-4" />
               {saving ? 'Salvando...' : 'Salvar'}
             </Button>
@@ -440,7 +440,7 @@ export function EmpresaForm({ mode, empresaId, title, defaultValues, resumo }: E
              vale o gradiente da cor do módulo, que é o que o padrão prevê. */
           <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
             <div className="relative overflow-hidden">
-              <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR} 0%, var(--color-primary) 100%)` }} />
+              <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${PRIMARY} 0%, var(--color-primary) 100%)` }} />
               <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
 
               <div className="relative z-10 px-5 pb-5 pt-24 text-white sm:px-6 sm:pt-28">
@@ -456,7 +456,7 @@ export function EmpresaForm({ mode, empresaId, title, defaultValues, resumo }: E
                           onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
                         />
                       ) : (
-                        <Building2 className="h-10 w-10 text-emerald-500" />
+                        <Building2 className="h-10 w-10 text-primary" />
                       )}
                     </div>
                     <div className="min-w-0">
@@ -864,7 +864,7 @@ export function EmpresaForm({ mode, empresaId, title, defaultValues, resumo }: E
                 title="Usuários da empresa"
                 description="A equipe do escritório e as pessoas dos clientes que acessam o portal. A equipe se cadastra no módulo Usuários; as pessoas dos clientes, no cadastro de cada cliente."
                 actions={
-                  <Link href="/usuarios" className={cn('text-[13px] font-medium hover:underline', TEXT.emerald)}>
+                  <Link href="/usuarios" className="text-[13px] font-medium hover:underline text-primary">
                     Abrir Usuários
                   </Link>
                 }

@@ -50,7 +50,7 @@ export function createReuniaoRouter(service: ReuniaoService) {
         return service.getById(input.id, ctx.empresaId)
       }),
 
-    criar: writeSubProcedure(MODULE, 'registrar', 'Registrar reunioes')
+    criar: writeSubProcedure(MODULE, 'registrar', 'Registrar reuniões')
       .input(criarReuniaoSchema)
       .mutation(({ input, ctx }) => service.criar(input, ctx.userId, ctx.empresaId)),
 
@@ -65,16 +65,16 @@ export function createReuniaoRouter(service: ReuniaoService) {
         return service.atualizar(input, ctx.userId, ctx.empresaId)
       }),
 
-    excluir: deleteSubProcedure(MODULE, 'excluir', 'Excluir reunioes')
+    excluir: deleteSubProcedure(MODULE, 'excluir', 'Excluir reuniões')
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => service.excluir(input.id, ctx.userId, ctx.empresaId)),
 
     // ── Plano de ação ──
-    criarAcao: writeSubProcedure(MODULE, 'gerenciar_acoes', 'Criar e concluir acoes')
+    criarAcao: writeSubProcedure(MODULE, 'gerenciar_acoes', 'Criar e concluir ações')
       .input(criarReuniaoAcaoSchema)
       .mutation(({ input, ctx }) => service.criarAcao(input, ctx.userId, ctx.empresaId)),
 
-    atualizarAcao: writeSubProcedure(MODULE, 'gerenciar_acoes', 'Criar e concluir acoes')
+    atualizarAcao: writeSubProcedure(MODULE, 'gerenciar_acoes', 'Criar e concluir ações')
       .input(atualizarReuniaoAcaoSchema)
       .mutation(({ input, ctx }) => service.atualizarAcao(input, ctx.userId, ctx.empresaId)),
 
@@ -93,7 +93,7 @@ export function createReuniaoRouter(service: ReuniaoService) {
         return service.concluirAcao(input, ctx.userId, ctx.empresaId)
       }),
 
-    excluirAcao: writeSubProcedure(MODULE, 'gerenciar_acoes', 'Criar e concluir acoes')
+    excluirAcao: writeSubProcedure(MODULE, 'gerenciar_acoes', 'Criar e concluir ações')
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => service.excluirAcao(input.id, ctx.userId, ctx.empresaId)),
 
@@ -113,7 +113,7 @@ export function createReuniaoRouter(service: ReuniaoService) {
       .input(z.object({ incluirInativos: z.boolean().default(false) }).optional())
       .query(({ input, ctx }) => service.listarTipos(ctx.empresaId, input?.incluirInativos ?? false)),
 
-    criarTipo: writeSubProcedure(MODULE, 'registrar', 'Registrar reunioes')
+    criarTipo: writeSubProcedure(MODULE, 'registrar', 'Registrar reuniões')
       .input(reuniaoTipoInputSchema)
       .mutation(({ input, ctx }) => service.criarTipo(input, ctx.empresaId)),
 

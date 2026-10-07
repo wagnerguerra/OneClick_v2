@@ -94,7 +94,7 @@ export function TenantSwitcher() {
         title="Empresa carregada — clique para trocar"
         className={cn(
           'flex max-w-[140px] items-center gap-1.5 rounded-lg px-2 h-9 text-sm font-medium text-left transition-colors outline-none sm:max-w-[280px] sm:px-2.5',
-          aberto ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-primary/10 hover:text-primary',
+          aberto ? 'bg-primary/10 text-primary-on-surface' : 'text-muted-foreground hover:bg-primary/10 hover:text-primary-on-surface',
         )}
       >
         <Building2 className="h-4 w-4 shrink-0" />

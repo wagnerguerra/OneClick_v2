@@ -21,13 +21,19 @@ interface SwitchProps {
    * so no estado ligado; desligado segue o off theme-aware. Ausente = primaria.
    */
   accentColor?: string
+  /**
+   * Intenção do estado ligado, como no Button: `default` = primária,
+   * `success` = verde semântico (o mesmo emerald do Button success). Prefira
+   * isto a `accentColor` com hex; `accentColor`, se passado, vence.
+   */
+  variant?: 'default' | 'success'
   style?: React.CSSProperties
   'aria-label'?: string
   'aria-labelledby'?: string
 }
 
 const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
-  ({ checked, defaultChecked, onCheckedChange, disabled, className, accentColor, style, ...props }, ref) => {
+  ({ checked, defaultChecked, onCheckedChange, disabled, className, accentColor, variant = 'default', style, ...props }, ref) => {
     const isControlled = checked !== undefined
     const [internal, setInternal] = React.useState(!!defaultChecked)
     const value = isControlled ? !!checked : internal
@@ -52,7 +58,7 @@ const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
           // border-2 (que desalinhava o thumb), off theme-aware, thumb branco.
           // Padding do thumb via px-0.5 + items-center (mais robusto que mt-0.5).
           'peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full px-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50',
-          value ? 'bg-primary' : 'bg-muted-foreground/25',
+          value ? (variant === 'success' ? 'bg-emerald-500' : 'bg-primary') : 'bg-muted-foreground/25',
           className,
         )}
         {...props}

@@ -92,7 +92,7 @@ export class CrmService {
   async deleteEtapa(id: string) {
     // Verificar se tem oportunidades vinculadas
     const count = await prisma.oportunidade.count({ where: { etapaId: id } })
-    if (count > 0) throw new Error(`Nao e possivel excluir: ${count} oportunidade(s) vinculada(s)`)
+    if (count > 0) throw new Error(`Não é possível excluir: ${count} oportunidade(s) vinculada(s)`)
     return prisma.crmEtapa.delete({ where: { id } })
   }
 
@@ -386,7 +386,7 @@ export class CrmService {
             data: true,
             horaInicio: true,
             diaInteiro: true,
-            tipo: { select: { nome: true, cor: true } },
+            tipo: { select: { nome: true, cor: true, corBorda: true } },
           },
         },
       },
@@ -661,7 +661,7 @@ export class CrmService {
       where: { id },
       select: { id: true, isActive: true, etapa: { select: { nome: true } } },
     })
-    if (!op) throw new Error('Oportunidade nao encontrada')
+    if (!op) throw new Error('Oportunidade não encontrada')
     if (op.isActive) return { id, reativada: false }
 
     await prisma.oportunidade.update({ where: { id }, data: { isActive: true } })
@@ -719,7 +719,7 @@ export class CrmService {
           validadeDias: 90,
           contatos: contatoPartes.length ? contatoPartes.join(' · ') : undefined,
           emailsContatos: oportunidade.contatoEmail || undefined,
-          observacoes: `Orcamento gerado automaticamente a partir da oportunidade "${oportunidade.titulo}"`,
+          observacoes: `Orçamento gerado automaticamente a partir da oportunidade "${oportunidade.titulo}"`,
         }, userId, empresaId || oportunidade.empresaId || undefined)
         orcamentoCriado = { id: novoOrc.id, numero: novoOrc.numero }
       }
@@ -759,7 +759,7 @@ export class CrmService {
 
     this.addEvento(id, userId, 'etapa', `Movido para "${oportunidade.etapa.nome}"`, anterior?.etapa?.nome, oportunidade.etapa.nome)
     if (orcamentoCriado) {
-      this.addEvento(id, userId, 'orcamento', `Orcamento #${orcamentoCriado.numero} gerado automaticamente`)
+      this.addEvento(id, userId, 'orcamento', `Orçamento #${orcamentoCriado.numero} gerado automaticamente`)
       // Notifica o time Comercial — sino de todos eles dispara via SSE.
       // A notificação fica viva até o orçamento sair do status NOVO (removida
       // automaticamente em orcamentoService.changeStatus).
@@ -1173,7 +1173,7 @@ export class CrmService {
 
     const resultado = [...byResp.entries()].map(([id, data]) => ({
       responsavelId: id === '__sem_responsavel__' ? null : id,
-      nome: id === '__sem_responsavel__' ? 'Sem responsavel' : (userMap.get(id)?.name ?? 'Desconhecido'),
+      nome: id === '__sem_responsavel__' ? 'Sem responsável' : (userMap.get(id)?.name ?? 'Desconhecido'),
       image: id === '__sem_responsavel__' ? null : (userMap.get(id)?.image ?? null),
       ...data,
       taxaConversao: data.total > 0 ? Math.round((data.ganhos / data.total) * 100) : 0,

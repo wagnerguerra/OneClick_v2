@@ -19,8 +19,8 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 
-// Cor do grupo "Configurações" (sidebar) via CSS var — themeable + dark-mode.
-const MOD_COLOR = 'var(--mod-configuracoes, #fb923c)'
+// Cor primária do sistema (adapta ao tema + skin).
+const PRIMARY = 'var(--color-primary)'
 
 function slugify(s: string) {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -110,7 +110,7 @@ export default function PaineisPage() {
       </PageHeaderBar>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" style={{ color: MOD_COLOR }} /></div>
+        <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" style={{ color: PRIMARY }} /></div>
       ) : paineis.length === 0 ? (
         <Card className="p-10 text-center">
           <Tv className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-40" />

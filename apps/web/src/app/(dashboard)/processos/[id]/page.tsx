@@ -18,10 +18,9 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { useTheme } from '@/hooks/use-theme'
 import { TEXT, BADGE, SURFACE, FILL, BORDER, DOT } from '@/lib/color-styles'
+import { statusBadge, statusSurface } from '../_lib/status-cores'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-
-const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)' // sky (bloco Administrativo)
 
 // Paleta do fluxo (SVG) — cor de contorno por estado. Fonte única: os nós do DAG
 // (corDoBloco, tema claro) e a legenda leem daqui, pra nunca divergirem.
@@ -90,16 +89,6 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELADO: 'Cancelado',
 }
 
-// EM_ANDAMENTO = sky (cor do módulo, retingida sob .mod-administrativo); os demais
-// são status universais. Todos derivam do helper BADGE (par claro+dark garantido).
-const STATUS_BADGE: Record<string, string> = {
-  EM_ANDAMENTO: BADGE.sky,
-  CONCLUIDO:    BADGE.emerald,
-  CANCELADO:    BADGE.rose,
-  AGUARDANDO_INICIO: BADGE.amber,
-  AGUARDANDO_RESPOSTA: BADGE.orange,
-  PULADO:       BADGE.slate,
-}
 
 const EXEC_STATUS_LABELS: Record<string, string> = {
   EM_ANDAMENTO: 'Em andamento',
@@ -279,7 +268,7 @@ export default function ProcessoDetalhePage() {
             <span>Processos</span>
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase border ${STATUS_BADGE[proc.status]}`}>
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase border ${statusBadge(proc.status)}`}>
               {proc.status === 'EM_ANDAMENTO' && <PlayCircle className="h-3 w-3" />}
               {proc.status === 'CONCLUIDO' && <CheckCircle2 className="h-3 w-3" />}
               {proc.status === 'CANCELADO' && <XCircle className="h-3 w-3" />}
@@ -303,33 +292,33 @@ export default function ProcessoDetalhePage() {
 
         {/* Faixa do módulo com as abas — bleed-edge */}
         <div className="relative -mx-4 sm:-mx-6 overflow-hidden bg-muted/30">
-          {/* Overlay: tinta suave da cor do módulo crescendo p/ a direita.
+          {/* Overlay: tinta suave da cor primária crescendo p/ a direita.
               Base em token (bg-muted/30) garante um fundo coerente nos dois temas. */}
           <div
             className="absolute inset-0"
-            style={{ backgroundImage: 'linear-gradient(to right, transparent 0%, color-mix(in srgb, var(--mod-administrativo, #38bdf8) 22%, transparent) 100%)' }}
+            style={{ backgroundImage: 'linear-gradient(to right, transparent 0%, color-mix(in srgb, var(--color-primary) 22%, transparent) 100%)' }}
           />
 
           {/* TabsList em pills centralizadas — dentro do mesmo wrapper */}
           <div className="relative z-10 px-4 sm:px-6 py-2 overflow-x-auto nice-scrollbar flex justify-center">
             <TabsList className="min-w-max !shadow-sm !border !border-border/60 gap-1.5 !p-1 !bg-muted/60 dark:!bg-muted/40 !rounded-full backdrop-blur-sm w-fit h-auto">
-              <TabsTrigger value="visao" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-sky-700 dark:data-[state=active]:!text-sky-300 gap-1.5">
+              <TabsTrigger value="visao" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-primary-on-surface gap-1.5">
                 <Layers className="h-3.5 w-3.5" />Visão geral
               </TabsTrigger>
-              <TabsTrigger value="fluxo" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-sky-700 dark:data-[state=active]:!text-sky-300 gap-1.5">
+              <TabsTrigger value="fluxo" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-primary-on-surface gap-1.5">
                 <Workflow className="h-3.5 w-3.5" />Fluxo
               </TabsTrigger>
-              <TabsTrigger value="execucoes" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-sky-700 dark:data-[state=active]:!text-sky-300 gap-1.5">
+              <TabsTrigger value="execucoes" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-primary-on-surface gap-1.5">
                 <ListChecks className="h-3.5 w-3.5" />Execuções
-                <span className="ml-1 text-[10px] px-1.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400 tabular-nums">{totalExec}</span>
+                <span className="ml-1 text-[10px] px-1.5 rounded-full bg-primary/10 text-primary tabular-nums">{totalExec}</span>
               </TabsTrigger>
-              <TabsTrigger value="pendencias" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-sky-700 dark:data-[state=active]:!text-sky-300 gap-1.5">
+              <TabsTrigger value="pendencias" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-primary-on-surface gap-1.5">
                 <AlertCircle className="h-3.5 w-3.5" />Pendências
                 {pendentes > 0 && (
                   <span className="ml-1 text-[10px] px-1.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 tabular-nums">{pendentes}</span>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="timeline" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-sky-700 dark:data-[state=active]:!text-sky-300 gap-1.5">
+              <TabsTrigger value="timeline" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-primary-on-surface gap-1.5">
                 <History className="h-3.5 w-3.5" />Timeline
               </TabsTrigger>
             </TabsList>
@@ -340,10 +329,11 @@ export default function ProcessoDetalhePage() {
         {/* Visão geral */}
         <TabsContent value="visao" className="mt-4 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <KpiCard label="Execuções" value={totalExec} Icon={Layers} color="sky" />
-            <KpiCard label="Em andamento" value={emAndamento} Icon={PlayCircle} color="sky" />
-            <KpiCard label="Concluídas" value={concluidas} Icon={CheckCircle2} color="emerald" />
-            <KpiCard label="Aguardando" value={pendentes} Icon={Clock} color="amber" />
+            {/* Total = neutro (não é status); os demais = cor do status (fonte única). */}
+            <KpiCard label="Execuções" value={totalExec} Icon={Layers} className={cn(SURFACE.slate, TEXT.slate)} />
+            <KpiCard label="Em andamento" value={emAndamento} Icon={PlayCircle} className={statusSurface('EM_ANDAMENTO')} />
+            <KpiCard label="Concluídas" value={concluidas} Icon={CheckCircle2} className={statusSurface('CONCLUIDO')} />
+            <KpiCard label="Aguardando" value={pendentes} Icon={Clock} className={statusSurface('AGUARDANDO_INICIO')} />
           </div>
 
           <Card>
@@ -455,7 +445,7 @@ export default function ProcessoDetalhePage() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap mb-1">
                                 <span className="text-sm font-semibold">{sv.nome}</span>
-                                <Badge variant="outline" className={`text-[10px] h-5 ${STATUS_BADGE.AGUARDANDO_RESPOSTA}`}>
+                                <Badge variant="outline" className={`text-[10px] h-5 ${statusBadge('AGUARDANDO_RESPOSTA')}`}>
                                   Aguardando resposta
                                 </Badge>
                                 <Badge variant="outline" className="text-[10px] h-5">
@@ -513,9 +503,10 @@ export default function ProcessoDetalhePage() {
                           <div className="flex justify-end">
                             <Button
                               size="sm"
+                              variant="success"
                               onClick={() => handleResponderPergunta(exec.id)}
                               disabled={respondendoId === exec.id || escolhidas.length === 0}
-                              className="gap-1.5 bg-amber-500 hover:bg-amber-600 text-white"
+                              className="gap-1.5"
                             >
                               {respondendoId === exec.id
                                 ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -536,7 +527,7 @@ export default function ProcessoDetalhePage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap mb-1">
                               <span className="text-sm font-semibold">{exec.servico.nome}</span>
-                              <Badge variant="outline" className={`text-[10px] h-5 ${STATUS_BADGE.AGUARDANDO_INICIO}`}>
+                              <Badge variant="outline" className={`text-[10px] h-5 ${statusBadge('AGUARDANDO_INICIO')}`}>
                                 <Clock className="h-2.5 w-2.5 mr-1" />Aguardando início
                               </Badge>
                               {!podePular && (
@@ -561,7 +552,6 @@ export default function ProcessoDetalhePage() {
                               onClick={() => handleIniciarSucessor(exec.id)}
                               disabled={iniciandoId === exec.id}
                               className="gap-1.5"
-                              style={{ backgroundColor: MODULE_COLOR }}
                             >
                               {iniciandoId === exec.id
                                 ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -645,7 +635,7 @@ export default function ProcessoDetalhePage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSkipOpen(false)}>Voltar</Button>
-            <Button onClick={handleSkipSucessor} disabled={skipping} variant="destructive" className="gap-1.5">
+            <Button onClick={handleSkipSucessor} disabled={skipping} variant="warning" className="gap-1.5">
               {skipping && <Loader2 className="h-4 w-4 animate-spin" />}
               <Pause className="h-3.5 w-3.5" />Pular execução
             </Button>
@@ -695,18 +685,13 @@ export default function ProcessoDetalhePage() {
 // Sub-componentes
 // ─────────────────────────────────────────────────────────────
 
-function KpiCard({ label, value, Icon, color }: {
-  label: string; value: number; Icon: typeof Workflow; color: 'sky' | 'emerald' | 'amber'
+function KpiCard({ label, value, Icon, className }: {
+  label: string; value: number; Icon: typeof Workflow
+  /** Cor (fundo+borda+texto) — de statusSurface() ou do helper. Largura `border` fica no layout. */
+  className: string
 }) {
-  // sky = cor do módulo (retingida sob .mod-administrativo); emerald/amber = status.
-  // Derivam do helper (SURFACE = fundo+borda, TEXT = texto); a largura `border` fica no layout.
-  const styles: Record<string, string> = {
-    sky:     cn(SURFACE.sky, TEXT.sky),
-    emerald: cn(SURFACE.emerald, TEXT.emerald),
-    amber:   cn(SURFACE.amber, TEXT.amber),
-  }
   return (
-    <div className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${styles[color]}`}>
+    <div className={cn('flex items-center gap-3 rounded-lg border px-3 py-2.5', className)}>
       <Icon className="h-5 w-5 shrink-0" />
       <div>
         <p className="text-lg font-bold leading-none tabular-nums">{value}</p>
@@ -737,7 +722,7 @@ function ExecucaoCard({ exec }: { exec: Execucao }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <span className="text-sm font-semibold">{exec.servico.nome}</span>
-              <Badge variant="outline" className={`text-[10px] h-5 ${STATUS_BADGE[exec.status] || ''}`}>
+              <Badge variant="outline" className={`text-[10px] h-5 ${statusBadge(exec.status)}`}>
                 {EXEC_STATUS_LABELS[exec.status] || exec.status}
               </Badge>
               {exec.predecessorExecucaoId && (
@@ -1261,7 +1246,7 @@ function FluxoResponsavelPopover({ exec, triggerRect, onClose, onChanged }: {
               {salvando === c.id ? (
                 <Loader2 className="h-4 w-4 animate-spin shrink-0" />
               ) : (
-                <UserAvatar user={c} className="h-5 w-5 text-[8px] shrink-0" bg="bg-sky-500" />
+                <UserAvatar user={c} className="h-5 w-5 text-[8px] shrink-0" bg="bg-primary" fg="text-primary-foreground" />
               )}
               <span className="flex-1 min-w-0">
                 <span className="block truncate font-medium text-foreground">{c.name}</span>

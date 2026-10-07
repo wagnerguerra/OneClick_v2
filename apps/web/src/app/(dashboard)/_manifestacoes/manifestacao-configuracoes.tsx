@@ -104,7 +104,7 @@ export function ManifestacaoConfiguracoes({ config }: { config: Config }) {
     <div className="flex flex-col gap-5">
       <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
         {pode && (
-          <Button size="sm" className="gap-1.5" onClick={salvar} disabled={salvando || !sujo}>
+          <Button variant="success" size="sm" className="gap-1.5" onClick={salvar} disabled={salvando || !sujo}>
             {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Salvar
           </Button>
         )}

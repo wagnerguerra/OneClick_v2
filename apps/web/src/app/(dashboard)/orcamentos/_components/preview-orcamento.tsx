@@ -31,9 +31,8 @@ import { UserMultiPicker } from '@/components/user-multi-picker'
 import { classificarArquivo, formatarTamanho } from '@/lib/arquivo-tipo'
 import type { ClienteDoc } from '@/components/cliente-identificacao'
 import { SeloExCliente, ehExCliente } from '@/components/selo-ex-cliente'
+import { PILL, SURFACE, TEXT, type ColorName } from '@/lib/color-styles'
 import { calcularCompletude, NIVEL_COMPLETUDE_LABEL, type Completude, type NivelCompletude } from './completude-orcamento'
-
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
 
 export interface PreviewPrazo {
   label: string
@@ -73,13 +72,8 @@ type Detalhe = {
   mensagens?: Array<{ createdAt: string; mensagem?: string | null; usuario?: { name?: string | null } | null }>
 }
 
-/** Cores fixas (inline): em classe, rosa/vermelho sofrem o retint do módulo. */
-const COR = {
-  vermelho: { fundo: '#fff1f2', borda: '#fecdd3', texto: '#be123c' },
-  ambar: { fundo: '#fffbeb', borda: '#fde68a', texto: '#b45309' },
-  azul: { fundo: '#f0f9ff', borda: '#bae6fd', texto: '#0369a1' },
-  verde: { fundo: '#ecfdf5', borda: '#a7f3d0', texto: '#047857' },
-}
+/** Cor do bloco "Próximo passo" (SURFACE + TEXT do helper, claro e escuro). */
+const COR = { vermelho: 'rose', ambar: 'amber', azul: 'sky', verde: 'emerald' } as const satisfies Record<string, ColorName>
 
 const ETAPA_DATA: Record<string, keyof PreviewOrcamentoRow> = {
   ENVIADO: 'dtEnviado', APROVADO: 'dtAprovado', LIBERADO: 'dtLiberado', FINALIZADO: 'dtFinalizado', ENCERRADO: 'dtEncerrado',
@@ -251,7 +245,7 @@ export function PreviewOrcamento({
                 {statusLabel}
               </span>
               {valor > 0 && (
-                <span className="rounded-md px-1.5 py-0.5 font-semibold tabular-nums" style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 12%, transparent)`, color: MODULE_COLOR }}>
+                <span className={cn('rounded-md px-1.5 py-0.5 font-semibold tabular-nums', PILL.emerald)}>
                   {moeda(valor)}
                 </span>
               )}
@@ -284,10 +278,7 @@ export function PreviewOrcamento({
                 </div>
               </div>
               {/* Próximo passo — dentro da visão geral */}
-              <div
-                className="mt-3 flex items-start gap-2 rounded-lg border px-3 py-2 text-[12px] leading-snug"
-                style={{ backgroundColor: bloco.cor.fundo, borderColor: bloco.cor.borda, color: bloco.cor.texto }}
-              >
+              <div className={cn('mt-3 flex items-start gap-2 rounded-lg border px-3 py-2 text-[12px] leading-snug', SURFACE[bloco.cor], TEXT[bloco.cor])}>
                 <bloco.Icon className="mt-px h-3.5 w-3.5 shrink-0" />
                 <p><span className="font-semibold">{bloco.titulo}:</span> {bloco.texto}</p>
               </div>
@@ -316,9 +307,8 @@ export function PreviewOrcamento({
                     valor={
                       <a
                         href={`/crm?op=${o.oportunidadeId}`}
-                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80"
-                        // Fúcsia inline: é a cor do CRM nos cards (e a classe sofreria retint).
-                        style={{ backgroundColor: '#c026d31A', color: '#c026d3' }}
+                        // Fúcsia: é a cor do CRM nos cards
+                        className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80', PILL.fuchsia)}
                         title="Abrir o card no CRM"
                       >
                         <Target className="h-3 w-3" /> {o.oportunidadeNumero != null ? `#${o.oportunidadeNumero}` : 'Abrir'}
@@ -339,7 +329,7 @@ export function PreviewOrcamento({
                     <ul className="space-y-1.5 text-[12px]">
                       {detalhe!.itens!.map(i => (
                         <li key={i.id} className="flex items-center gap-2">
-                          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: i.tipo === 'SERVICO' ? MODULE_COLOR : '#94a3b8' }} />
+                          <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', i.tipo === 'SERVICO' ? 'bg-primary' : 'bg-muted-foreground/50')} />
                           <span className="min-w-0 flex-1 truncate">{i.descricao.replace(/<[^>]*>/g, '')}</span>
                           {Number(i.valorTotal ?? 0) > 0 && <span className="shrink-0 tabular-nums text-muted-foreground">{moeda(Number(i.valorTotal))}</span>}
                         </li>
@@ -508,7 +498,7 @@ function CompositorMensagem({ orcamentoId, onFechar, onSalvo }: { orcamentoId: s
       )}
       <div className="flex justify-end gap-1.5">
         <Button variant="ghost" size="sm" className="h-8 text-[12px]" onClick={onFechar} disabled={salvando}>Cancelar</Button>
-        <Button size="sm" className="h-8 gap-1.5 text-[12px]" onClick={salvar} disabled={salvando || vazia}>
+        <Button variant="success" size="sm" className="h-8 gap-1.5 text-[12px]" onClick={salvar} disabled={salvando || vazia}>
           {salvando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
           {notificar.length > 0 ? `Enviar e notificar (${notificar.length})` : 'Salvar mensagem'}
         </Button>
@@ -517,7 +507,7 @@ function CompositorMensagem({ orcamentoId, onFechar, onSalvo }: { orcamentoId: s
   )
 }
 
-function proximoPasso(o: PreviewOrcamentoRow, prazo: PreviewPrazo | null): { titulo: string; texto: string; Icon: typeof Info; cor: typeof COR.azul } {
+function proximoPasso(o: PreviewOrcamentoRow, prazo: PreviewPrazo | null): { titulo: string; texto: string; Icon: typeof Info; cor: ColorName } {
   const urgente = prazo?.variant === 'danger' ? COR.vermelho : prazo?.variant === 'warning' ? COR.ambar : COR.azul
   const Icone = prazo?.variant === 'danger' || prazo?.variant === 'warning' ? AlertTriangle : Info
   const quando = prazo ? ` (${prazo.label})` : ''
@@ -562,7 +552,7 @@ function MedidorCompletude({ pct, nivel }: { pct?: number; nivel: NivelCompletud
     return () => cancelAnimationFrame(raf)
   }, [alvo])
   const arco = 'M 10 58 A 48 48 0 0 1 106 58'
-  const corNumero = nivel === 'incompleto' ? '#e11d48' : nivel === 'andamento' ? '#d97706' : nivel ? '#0d9488' : '#94a3b8'
+  const corNumero = nivel === 'incompleto' ? TEXT.rose : nivel === 'andamento' ? TEXT.amber : nivel ? TEXT.teal : 'text-muted-foreground'
   const id = useMemo(() => `m${Math.random().toString(36).slice(2, 8)}`, [])
   return (
     <div className="relative h-[66px] w-[116px] shrink-0">
@@ -582,7 +572,7 @@ function MedidorCompletude({ pct, nivel }: { pct?: number; nivel: NivelCompletud
         {/* preenchimento em tiques, revelado pela máscara */}
         <path d={arco} fill="none" stroke={`url(#${id}g)`} strokeWidth="12" strokeDasharray="1.6 2.4" mask={`url(#${id}m)`} />
       </svg>
-      <span className="absolute inset-x-0 bottom-0 text-center text-[18px] font-semibold tabular-nums" style={{ color: corNumero }}>
+      <span className={cn('absolute inset-x-0 bottom-0 text-center text-[18px] font-semibold tabular-nums', corNumero)}>
         {pct == null ? '—' : `${atual}%`}
       </span>
     </div>
@@ -608,27 +598,29 @@ interface AtividadeDia { em: string; tipo: string; texto: string; autor: string 
 
 /**
  * Ícone e cor por tipo de atividade (tipos do OrcamentoEvento + "mensagem").
- * Cores em hex: o tooltip é escuro e elas precisam aparecer sobre ele.
+ * O tooltip é INVERTIDO (bg-foreground): escuro no tema claro, claro no
+ * escuro — por isso tom 400 no claro e 600 no `dark:`, não o helper TEXT
+ * (feito para superfície normal). Neutro = text-background, que acompanha.
  */
 function tipoAtividade(tipo: string): { Icon: typeof Clock; cor: string } {
   switch (tipo) {
-    case 'status_change': return { Icon: ArrowRightLeft, cor: '#60a5fa' }
-    case 'envio': return { Icon: Send, cor: '#60a5fa' }
+    case 'status_change': return { Icon: ArrowRightLeft, cor: 'text-blue-400 dark:text-blue-600' }
+    case 'envio': return { Icon: Send, cor: 'text-blue-400 dark:text-blue-600' }
     case 'notificacao':
-    case 'notificacao_mensagem': return { Icon: Bell, cor: '#fbbf24' }
+    case 'notificacao_mensagem': return { Icon: Bell, cor: 'text-amber-400 dark:text-amber-600' }
     case 'created':
-    case 'criacao': return { Icon: Sparkles, cor: '#34d399' }
+    case 'criacao': return { Icon: Sparkles, cor: 'text-emerald-400 dark:text-emerald-600' }
     case 'edicao':
-    case 'edicao_data': return { Icon: Pencil, cor: '#cbd5e1' }
+    case 'edicao_data': return { Icon: Pencil, cor: 'text-background/70' }
     case 'servico_iniciado':
-    case 'servicos_concluidos': return { Icon: Play, cor: '#a78bfa' }
-    case 'destaque': return { Icon: Highlighter, cor: '#fbbf24' }
-    case 'contrato_fechado': return { Icon: FileSignature, cor: '#34d399' }
+    case 'servicos_concluidos': return { Icon: Play, cor: 'text-violet-400 dark:text-violet-600' }
+    case 'destaque': return { Icon: Highlighter, cor: 'text-amber-400 dark:text-amber-600' }
+    case 'contrato_fechado': return { Icon: FileSignature, cor: 'text-emerald-400 dark:text-emerald-600' }
     case 'reabertura':
-    case 'retroacao_aprovacao': return { Icon: RotateCcw, cor: '#fb923c' }
-    case 'paralizacao': return { Icon: Pause, cor: '#fbbf24' }
-    case 'mensagem': return { Icon: MessageSquare, cor: '#7dd3fc' }
-    default: return { Icon: Circle, cor: '#94a3b8' }
+    case 'retroacao_aprovacao': return { Icon: RotateCcw, cor: 'text-orange-400 dark:text-orange-600' }
+    case 'paralizacao': return { Icon: Pause, cor: 'text-amber-400 dark:text-amber-600' }
+    case 'mensagem': return { Icon: MessageSquare, cor: 'text-sky-300 dark:text-sky-600' }
+    default: return { Icon: Circle, cor: 'text-background/60' }
   }
 }
 const chaveDia = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
@@ -733,7 +725,7 @@ function CalendarioAtividade({ detalhe, criadoEm }: { detalhe: Detalhe | null; c
               <button key={m.getTime()} type="button" onClick={() => setMes(m)}
                 className={cn(
                   'shrink-0 rounded-full border px-2 py-0.5 text-[10.5px] font-medium capitalize transition-colors',
-                  ativo ? 'border-transparent bg-foreground text-background' : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground',
+                  ativo ? 'border-transparent bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground',
                 )}>
                 {mesCurto(m)}
               </button>
@@ -766,7 +758,8 @@ function CalendarioAtividade({ detalhe, criadoEm }: { detalhe: Detalhe | null; c
               style={{
                 animationDelay: `${420 + linha * 45}ms`,
                 ...(n > 0
-                  ? { backgroundColor: `color-mix(in srgb, #2563eb ${nivel(n)}%, #dbeafe)`, color: nivel(n) >= 72 ? '#fff' : '#1e3a8a' }
+                  // Intensidade da primária sobre o card (claro e escuro)
+                  ? { backgroundColor: `color-mix(in srgb, var(--color-primary) ${nivel(n)}%, var(--color-card))`, color: nivel(n) >= 72 ? 'var(--color-primary-foreground)' : 'var(--color-foreground)' }
                   : {}),
               }}
             >
@@ -799,7 +792,7 @@ function CalendarioAtividade({ detalhe, criadoEm }: { detalhe: Detalhe | null; c
                           </td>
                           <td className="px-1 py-1">
                             <span className="flex items-start gap-1.5">
-                              <t.Icon className="mt-px h-3 w-3 shrink-0" style={{ color: t.cor }} />
+                              <t.Icon className={cn('mt-px h-3 w-3 shrink-0', t.cor)} />
                               <span className="line-clamp-2">{a.texto}</span>
                             </span>
                           </td>
@@ -852,7 +845,7 @@ function TooltipGargalo({ completude, children }: { completude: Completude | nul
               return (
                 <tr key={c.rotulo} className={cn('border-b border-background/10 last:border-0', ehGargalo && 'bg-background/10')}>
                   <td className="px-3 py-1 font-medium">
-                    {ehGargalo && <AlertTriangle className="mr-1 inline h-3 w-3 -translate-y-px text-amber-300" />}
+                    {ehGargalo && <AlertTriangle className="mr-1 inline h-3 w-3 -translate-y-px text-amber-300 dark:text-amber-600" />}
                     {c.rotulo}
                   </td>
                   <td className="px-2 py-1 opacity-80">{c.situacao}</td>

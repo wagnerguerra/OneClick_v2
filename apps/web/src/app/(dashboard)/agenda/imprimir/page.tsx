@@ -21,9 +21,8 @@ import { trpc } from '@/lib/trpc'
 import { useEmpresaAtiva } from '@/hooks/use-empresa-ativa'
 import { resolveAssetUrl } from '@/lib/api-url'
 import { stripHtml } from '@/lib/html'
+import { coresTipoEvento } from '@/lib/event-type-colors'
 import { PrintFrame } from '@/components/print/print-frame'
-
-const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)'
 
 type Participante = {
   id: string
@@ -46,7 +45,7 @@ type Evento = {
   sala: string | null
   particular: boolean
   isTarefa: boolean
-  tipo: { nome: string; cor: string }
+  tipo: { nome: string; cor: string; corBorda?: string | null }
   criador: { name: string }
   participantes: Participante[]
 }
@@ -169,8 +168,7 @@ function ImprimirAgendaConteudo() {
           />
         </label>
         <Button
-          size="sm" className="gap-1.5 text-white"
-          style={{ backgroundColor: MODULE_COLOR }}
+          size="sm" className="gap-1.5"
           onClick={() => window.print()}
         >
           <Printer className="h-4 w-4" /> Imprimir
@@ -223,7 +221,8 @@ function ImprimirAgendaConteudo() {
                     </div>
                     <div className="corpo">
                       <p className="titulo">
-                        <span className="marca" style={{ backgroundColor: ev.tipo.cor }} />
+                        {/* Mesma cor da borda do evento na agenda (coresTipoEvento().borda). */}
+                        <span className="marca" style={{ backgroundColor: coresTipoEvento(ev.tipo, false).borda }} />
                         {/* Evento particular de outra pessoa nunca chega aqui — o
                             backend já filtra. O que chega é o particular de quem
                             imprime, e o papel avisa para não deixá-lo na mesa. */}

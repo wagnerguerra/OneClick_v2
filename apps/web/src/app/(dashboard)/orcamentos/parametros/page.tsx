@@ -24,7 +24,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 const TIPO_LABELS: Record<string, string> = {
   SERVICO: 'Serviço',
@@ -310,7 +310,7 @@ export default function ParametrosOrcamentosPage() {
   }
 
   async function handleExcluirTexto(t: CatalogoTexto) {
-    const ok = await alerts.confirm({ title: `Excluir texto "${t.titulo}"?`, text: 'Esta ação não pode ser desfeita.', confirmText: 'Excluir', icon: 'warning' })
+    const ok = await alerts.confirm({ title: `Excluir texto "${t.titulo}"?`, text: 'Esta ação não pode ser desfeita.', confirmText: 'Excluir', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.orcamento as any).removeCatalogoTexto.mutate({ id: t.id })
@@ -355,7 +355,7 @@ export default function ParametrosOrcamentosPage() {
     const text = item.usoCount > 0
       ? `Este item sai do catálogo e deixa de ser oferecido em novos orçamentos. Os ${item.usoCount} orçamento(s) que já o utilizam não são afetados.`
       : 'Este item sai do catálogo e deixa de ser oferecido em novos orçamentos.'
-    const ok = await alerts.confirm({ title: `Excluir "${item.nome}"?`, text, confirmText: 'Excluir', icon: 'warning' })
+    const ok = await alerts.confirm({ title: `Excluir "${item.nome}"?`, text, confirmText: 'Excluir', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.orcamento as any).deleteCatalogo.mutate({ id: item.id })
@@ -387,7 +387,7 @@ export default function ParametrosOrcamentosPage() {
     <div className="space-y-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-          <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={abrirNovo}>
+          <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={abrirNovo}>
             <Plus className="h-4 w-4" /> Novo Item
           </Button>
           <Button variant="outline" size="sm" onClick={() => fetchData()} className="gap-1.5" title="Atualizar">
@@ -476,9 +476,9 @@ export default function ParametrosOrcamentosPage() {
         {/* Barra de ação da seleção em massa. Os botões de disponibilidade não
             aparecem na visão "Excluídos": item excluído não é afetado. */}
         {selectedIds.size > 0 && (
-          <div className="flex flex-col gap-2 border-b border-border/60 bg-muted/30 px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 border-b border-primary/30 bg-primary/10 px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-xs text-muted-foreground">
-              <strong className="text-foreground">{selectedIds.size}</strong> {selectedIds.size === 1 ? 'item selecionado' : 'itens selecionados'}
+              <strong className="text-primary-on-surface">{selectedIds.size}</strong> {selectedIds.size === 1 ? 'item selecionado' : 'itens selecionados'}
             </span>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={() => setSelectedIds(new Set())} disabled={bulking}>
@@ -489,7 +489,7 @@ export default function ParametrosOrcamentosPage() {
                   <Button variant="outline" size="sm" className="gap-1.5" onClick={() => handleBulkDisponivel(true)} disabled={bulking}>
                     <CheckCircle2 className="h-3.5 w-3.5" /> Disponibilizar
                   </Button>
-                  <Button size="sm" className="gap-1.5" style={{ backgroundColor: MODULE_COLOR }} onClick={() => handleBulkDisponivel(false)} disabled={bulking}>
+                  <Button size="sm" className="gap-1.5" style={{ backgroundColor: PRIMARY }} onClick={() => handleBulkDisponivel(false)} disabled={bulking}>
                     {bulking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <EyeOff className="h-3.5 w-3.5" />}
                     Tornar indisponível
                   </Button>
@@ -569,7 +569,7 @@ export default function ParametrosOrcamentosPage() {
                           <DropdownMenuItem onClick={() => abrirEdicao(item)}>
                             <Pencil className="h-4 w-4" /> Editar
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => handleExcluir(item)}>
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleExcluir(item)}>
                             <Trash2 className="h-4 w-4" /> Excluir
                           </DropdownMenuItem>
                         </>
@@ -595,7 +595,7 @@ export default function ParametrosOrcamentosPage() {
           <DialogHeaderIcon icon={editing ? Pencil : Plus} color={editing ? 'sky' : 'emerald'}>
             <DialogTitle className="text-[15px]">{editing ? 'Editar item do catálogo' : 'Novo item do catálogo'}</DialogTitle>
             <DialogDescription className="text-[11px]">
-              Itens do catalogo ficam disponiveis para uso rapido ao montar um orcamento.
+              Itens do catálogo ficam disponíveis para uso rápido ao montar um orçamento.
             </DialogDescription>
           </DialogHeaderIcon>
           <DialogBody className="space-y-4">
@@ -640,11 +640,11 @@ export default function ParametrosOrcamentosPage() {
 
             <div>
               <Label className="text-xs font-medium">Texto padrão (opcional)</Label>
-              <p className="text-[11px] text-muted-foreground mb-2">Texto pre-preenchido como descricao detalhada quando este item for adicionado a um orcamento</p>
+              <p className="text-[11px] text-muted-foreground mb-2">Texto pré-preenchido como descrição detalhada quando este item for adicionado a um orçamento</p>
               <RichEditor
                 value={form.textoPadrao}
                 onChange={v => setForm(f => ({ ...f, textoPadrao: v }))}
-                placeholder="Descreva o servico..."
+                placeholder="Descreva o serviço..."
               />
             </div>
 
@@ -653,12 +653,12 @@ export default function ParametrosOrcamentosPage() {
                 id="disponivel"
                 checked={form.disponivelOrcamento}
                 onCheckedChange={v => setForm(f => ({ ...f, disponivelOrcamento: v === true }))}
-                accentColor="var(--mod-comercial, #fb7185)"
+                accentColor="var(--color-primary)"
                 className="mt-0.5"
               />
               <label htmlFor="disponivel" className="cursor-pointer flex-1">
                 <span className="text-sm font-medium block">Disponível para uso em orçamentos</span>
-                <span className="text-[11px] text-muted-foreground">Quando desmarcado, este item nao aparece na lista de selecao ao adicionar itens em um orcamento. Util para inativar temporariamente sem excluir.</span>
+                <span className="text-[11px] text-muted-foreground">Quando desmarcado, este item não aparece na lista de seleção ao adicionar itens em um orçamento. Útil para inativar temporariamente sem excluir.</span>
               </label>
             </div>
 
@@ -714,7 +714,7 @@ export default function ParametrosOrcamentosPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setEditOpen(false)} disabled={saving}>Cancelar</Button>
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={handleSave} disabled={saving}>
+            <Button size="sm" variant="success" className="gap-1.5" onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {editing ? 'Salvar' : 'Adicionar'}
             </Button>
@@ -767,7 +767,7 @@ export default function ParametrosOrcamentosPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setTextoEdit(null)} disabled={textoSaving}>Cancelar</Button>
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={handleSaveTexto} disabled={textoSaving}>
+            <Button size="sm" variant="success" className="gap-1.5" onClick={handleSaveTexto} disabled={textoSaving}>
               {textoSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {textoEdit?.id ? 'Salvar' : 'Adicionar'}
             </Button>

@@ -197,19 +197,19 @@ export function ManifestacaoPage({ config }: { config: Config }) {
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span className="hidden sm:inline">Exibir</span>
             <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[68px] bg-card text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[68px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{[10, 20, 50, 100].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
             </Select>
             <span className="hidden sm:inline">registros</span>
             <Select value={status || '__all__'} onValueChange={v => { setStatus(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[180px] bg-card text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[180px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todas as situações</SelectItem>
                 {config.status.map(st => <SelectItem key={st} value={st}>{STATUS_LABEL[st]?.texto ?? st}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={origem || '__all__'} onValueChange={v => { setOrigem(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[150px] bg-card text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todas as origens</SelectItem>
                 <SelectItem value="CLIENTE">De cliente</SelectItem>

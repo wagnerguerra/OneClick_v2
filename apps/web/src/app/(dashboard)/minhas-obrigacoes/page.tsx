@@ -22,8 +22,6 @@ import { EntregarDialog } from './_components/entregar-dialog'
 import { LogDialog } from './_components/log-dialog'
 import { CalendarioMinhasObrigacoes } from './_components/calendario-minhas-obrigacoes'
 
-const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)' // sky (bloco Administrativo)
-
 type StatusFiltro = 'TODOS' | 'PENDENTES' | 'ATRASADAS' | 'CONCLUIDAS'
 
 interface MinhaObrigacao {
@@ -133,9 +131,8 @@ export default function MinhasObrigacoesPage() {
               title="Visualização em tabela"
               className={cn(
                 'flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium transition-colors',
-                view === 'tabela' ? 'text-white' : 'text-muted-foreground hover:text-foreground',
+                view === 'tabela' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
-              style={view === 'tabela' ? { backgroundColor: MODULE_COLOR } : undefined}
             >
               <List className="h-3.5 w-3.5" />Tabela
             </button>
@@ -145,9 +142,8 @@ export default function MinhasObrigacoesPage() {
               title="Visualização em calendário"
               className={cn(
                 'flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium transition-colors border-l border-border/60',
-                view === 'calendario' ? 'text-white' : 'text-muted-foreground hover:text-foreground',
+                view === 'calendario' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
-              style={view === 'calendario' ? { backgroundColor: MODULE_COLOR } : undefined}
             >
               <LayoutGrid className="h-3.5 w-3.5" />Calendário
             </button>
@@ -254,7 +250,7 @@ export default function MinhasObrigacoesPage() {
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-10">
                     <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" style={{ color: MODULE_COLOR }} />
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
                       Carregando suas obrigações...
                     </div>
                   </TableCell>

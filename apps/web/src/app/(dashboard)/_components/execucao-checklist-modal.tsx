@@ -1,15 +1,18 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
 import {
   Loader2, CheckCircle2, XCircle, Pause, Play, X, Check, Lock, ChevronDown, SkipForward, ListChecks,
+  ChevronLeft, ChevronRight, StickyNote, PartyPopper, Layers, HelpCircle, Ban,
 } from 'lucide-react'
 import {
   Button, Input, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Collapsible, CollapsibleTrigger, CollapsibleContent,
+  Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { BADGE, FILL, TEXT } from '@/lib/color-styles'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -23,6 +26,8 @@ interface PassoExec {
   passoId: string
   passoNome: string
   etapaNome: string
+  /** Sub-etapa (snapshot do template). null = passo direto na etapa / execução antiga. */
+  subEtapaNome?: string | null
   ordem: number
   obrigatorio: boolean
   permiteIgnorar: boolean
@@ -36,6 +41,16 @@ interface PassoExec {
   ignoradoEm: string | null
   ignoradoMotivo: string | null
   observacao: string | null
+  /** PASSO | PERGUNTA — a pergunta é respondida aqui e decide o que vale adiante. */
+  tipo?: string
+  perguntaTexto?: string | null
+  perguntaOpcoes?: string[]
+  perguntaMultipla?: boolean
+  respostaOpcoes?: string[]
+  /** Derivados no backend (condições "if"): */
+  naoSeAplica?: boolean
+  aguardandoPergunta?: boolean
+  condicaoMotivo?: { perguntaPassoId: string; pergunta: string; resposta: string[] } | null
 }
 
 interface ExecucaoData {
@@ -80,6 +95,14 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
   const { permissions, isMaster, isEmpresaMaster } = useUserPermissions()
   const podeIgnorarChecklist = isMaster || isEmpresaMaster
     || permissions.find(p => p.moduleSlug === 'meus-servicos')?.subPermissions?.['concluir_sem_checklist'] === true
+  // Preferência de exibição (sub-permissão `meus-servicos.checklist_em_cards`):
+  // um passo por vez, em card, avançando ao concluir. É preferência, não acesso
+  // — o master também segue a marcação, sem bypass.
+  const modoCards = permissions.find(p => p.moduleSlug === 'meus-servicos')?.subPermissions?.['checklist_em_cards'] === true
+  // Passo em foco no modo cards (id) e pedido de avanço após concluir.
+  const [cardPassoId, setCardPassoId] = useState<string | null>(null)
+  const avancarAposRef = useRef<string | null>(null)
+  const [obsSalva, setObsSalva] = useState<string | null>(null)
 
   const [execucao, setExecucao] = useState<ExecucaoData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -150,6 +173,8 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
       setExecucao(null)
       setEtapasAbertas(new Set())
       setPassosAbertos(new Set())
+      setCardPassoId(null)
+      avancarAposRef.current = null
       initRef.done = false
     }
   }, [open, execucaoId, carregar, initRef])
@@ -218,8 +243,49 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
   }
 
   async function handleObs(passoId: string, obs: string) {
-    try { await (trpc.servico as any).updatePassoObs.mutate({ id: passoId, observacao: obs }) }
-    catch { /* silent */ }
+    const atual = execucao?.passos.find(p => p.id === passoId)?.observacao ?? ''
+    if (atual === obs) return
+    setExecucao(prev => prev ? { ...prev, passos: prev.passos.map(p => p.id === passoId ? { ...p, observacao: obs } : p) } : prev)
+    try {
+      await (trpc.servico as any).updatePassoObs.mutate({ id: passoId, observacao: obs })
+      setObsSalva(passoId)
+      setTimeout(() => setObsSalva(cur => (cur === passoId ? null : cur)), 2000)
+    } catch (e) { alerts.error('Observação não salva', (e as Error).message) }
+  }
+
+  /**
+   * Responde (ou troca a resposta de) um passo-pergunta. Se a troca tirar do
+   * caminho passos já concluídos, o servidor devolve a lista e pedimos
+   * confirmação — a conclusão deles fica no histórico, só passam a "Não se aplica".
+   */
+  async function handleResponder(passoId: string, opcoes: string[]) {
+    type Resp = { precisaConfirmar: boolean; afetados: Array<{ id: string; passoNome: string }>; emailsPendentesConfirmacao?: EmailPendente[] }
+    try {
+      let r = await (trpc.servico as any).responderPassoPergunta.mutate({ id: passoId, opcoes }) as Resp
+      if (r.precisaConfirmar) {
+        const ok = await alerts.confirm({
+          title: 'Trocar a resposta?',
+          text: `Com a nova resposta, ${r.afetados.length === 1 ? 'este passo já concluído deixa' : 'estes passos já concluídos deixam'} de valer e ${r.afetados.length === 1 ? 'passa' : 'passam'} a "Não se aplica" (quem concluiu e quando ficam registrados): ${r.afetados.map(a => a.passoNome).join('; ')}.`,
+          confirmText: 'Trocar resposta',
+        })
+        if (!ok) return
+        r = await (trpc.servico as any).responderPassoPergunta.mutate({ id: passoId, opcoes, confirmar: true }) as Resp
+      }
+      if (r.emailsPendentesConfirmacao && r.emailsPendentesConfirmacao.length > 0) {
+        setEmailsConfirmacao({ execPassoId: passoId, emails: r.emailsPendentesConfirmacao })
+      }
+      recarregarSilencioso()
+      onChange?.()
+    } catch (e) {
+      alerts.error('Resposta não salva', (e as Error).message)
+      recarregarSilencioso()
+    }
+  }
+
+  /** Modo cards: concluir o passo em foco e, quando a conclusão entrar, ir ao próximo em aberto. */
+  async function concluirNoCard(passoId: string) {
+    avancarAposRef.current = passoId
+    await handleToggle(passoId)
   }
 
   async function handleDesfazerIgnorar(passoId: string) {
@@ -274,7 +340,7 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
       }
       texto += '\n\nCancelar a execução não desfaz o orçamento nem o card do CRM, mas eles ficam visivelmente sem serviço ativo. Confirmar?'
     }
-    const ok = await alerts.confirm({ title: 'Cancelar execução', text: texto, icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Cancelar execução', text: texto, icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.servico as any).cancelarExecucao.mutate({ id: execucao.id })
@@ -314,13 +380,16 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
     return acc
   }, {})
   const totalPassos = execucao?.passos?.length ?? 0
-  const concluidos = execucao?.passos?.filter(p => p.concluido).length ?? 0
-  const progressPct = totalPassos > 0 ? Math.round((concluidos / totalPassos) * 100) : 0
+  // "Não se aplica" (condição "if" não satisfeita) sai da conta do progresso.
+  const passosAplicaveis = execucao?.passos?.filter(p => !p.naoSeAplica) ?? []
+  const totalAplicaveis = passosAplicaveis.length
+  const concluidos = passosAplicaveis.filter(p => p.concluido).length
+  const progressPct = totalAplicaveis > 0 ? Math.round((concluidos / totalAplicaveis) * 100) : 0
   // Concluir só fica disponível quando todos os passos obrigatórios estão fechados.
   // Passos opcionais não bloqueiam — ficam pendentes mesmo após conclusão da execução.
   // Para fins de "podeConcluir" e bloqueio, passos IGNORADOS contam como fechados —
   // eles desbloqueiam os próximos sem precisar serem concluídos.
-  const passosObrigatoriosPendentes = execucao?.passos?.filter(p => p.obrigatorio && !p.concluido && !p.ignorado).length ?? 0
+  const passosObrigatoriosPendentes = execucao?.passos?.filter(p => p.obrigatorio && !p.concluido && !p.ignorado && !p.naoSeAplica).length ?? 0
   // Quem tem a sub-permissão (ou é master) pode concluir mesmo com obrigatórios
   // pendentes — o botão fica liberado e a confirmação avisa que vai pular o checklist.
   const ignorandoChecklist = podeIgnorarChecklist && passosObrigatoriosPendentes > 0
@@ -337,9 +406,32 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
   const bloqueados = new Set<string>()
   let temObrigPendente = false
   for (const p of passosOrdenados) {
-    if (temObrigPendente) bloqueados.add(p.id)
-    if (p.obrigatorio && !p.concluido && !p.ignorado) temObrigPendente = true
+    // Aguardando a resposta de uma pergunta anterior também bloqueia.
+    if (temObrigPendente || p.aguardandoPergunta) bloqueados.add(p.id)
+    if (p.obrigatorio && !p.concluido && !p.ignorado && !p.naoSeAplica) temObrigPendente = true
   }
+
+  // Modo cards: foco inicial no primeiro passo em aberto; depois de concluir,
+  // avança sozinho para o próximo em aberto (quando a recarga confirmar).
+  useEffect(() => {
+    if (!modoCards || !execucao) return
+    const ord = [...execucao.passos].sort((a, b) => a.ordem - b.ordem)
+    const aberto = (p: PassoExec) => !p.concluido && !p.ignorado && !p.naoSeAplica
+    const pedido = avancarAposRef.current
+    if (pedido) {
+      const feito = ord.find(p => p.id === pedido)
+      if (feito && !aberto(feito)) {
+        avancarAposRef.current = null
+        const i = ord.findIndex(p => p.id === pedido)
+        const prox = ord.slice(i + 1).find(aberto) ?? ord.find(aberto) ?? null
+        setCardPassoId(prox?.id ?? '__fim__')
+      }
+      return
+    }
+    if (!cardPassoId || (cardPassoId !== '__fim__' && !ord.some(p => p.id === cardPassoId))) {
+      setCardPassoId(ord.find(aberto)?.id ?? ord[ord.length - 1]?.id ?? null)
+    }
+  }, [modoCards, execucao, cardPassoId])
 
   function formatDate(d: string) {
     return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -387,13 +479,32 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Progresso</span>
-                    <span className="font-semibold" style={{ color: accentColor }}>{progressPct}% ({concluidos}/{totalPassos})</span>
+                    {/* Progresso = verde semântico (não a cor de destaque da página). */}
+                    <span className={cn('font-semibold', TEXT.emerald)}>{progressPct}% ({concluidos}/{totalAplicaveis})</span>
                   </div>
                   <div className="h-2.5 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-300" style={{ width: `${progressPct}%`, backgroundColor: accentColor }} />
+                    <div className={cn('h-full rounded-full transition-all duration-300', FILL.emerald)} style={{ width: `${progressPct}%` }} />
                   </div>
                 </div>
 
+                {modoCards && totalPassos > 0 ? (
+                  <ChecklistEmCards
+                    passos={passosOrdenados}
+                    bloqueados={bloqueados}
+                    passoId={cardPassoId}
+                    onIr={setCardPassoId}
+                    editavel={execucao.status === 'EM_ANDAMENTO' && !execucao.pausado}
+                    accentColor={accentColor}
+                    obsSalva={obsSalva}
+                    onObs={handleObs}
+                    onConcluir={concluirNoCard}
+                    onReabrir={handleToggle}
+                    onDesfazerIgnorar={handleDesfazerIgnorar}
+                    onResponder={handleResponder}
+                    formatDate={formatDate}
+                  />
+                ) : (
+                <>
                 {/* === Timeline vertical com etapas e passos ===
                     Estrutura: container relativo com linha vertical absoluta;
                     nós (bolinhas) e cabeçalhos de etapa posicionados sobre a linha.
@@ -405,11 +516,13 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
                   <div className="absolute left-[15px] top-4 bottom-4 w-px bg-border" aria-hidden />
 
                   {Object.entries(etapas).map(([etapaNome, passos]) => {
-                    const etapaConcluidos = passos.filter(p => p.concluido).length
-                    const etapaIgnorados = passos.filter(p => p.ignorado).length
-                    const etapaFechados = etapaConcluidos + etapaIgnorados
+                    // "Não se aplica" conta como fechado (e como concluído para a cor da etapa).
+                    const etapaNaoSeAplica = passos.filter(p => p.naoSeAplica).length
+                    const etapaConcluidos = passos.filter(p => p.concluido && !p.naoSeAplica).length
+                    const etapaIgnorados = passos.filter(p => p.ignorado && !p.naoSeAplica).length
+                    const etapaFechados = etapaConcluidos + etapaIgnorados + etapaNaoSeAplica
                     const etapaTotal = passos.length
-                    const todosConcluidos = etapaTotal > 0 && etapaConcluidos === etapaTotal
+                    const todosConcluidos = etapaTotal > 0 && etapaConcluidos + etapaNaoSeAplica === etapaTotal
                     const todosFechados = etapaTotal > 0 && etapaFechados === etapaTotal
                     // "Em andamento" = pelo menos um fechado, mas não todos
                     const emAndamento = etapaFechados > 0 && etapaFechados < etapaTotal
@@ -535,23 +648,47 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
                       {/* Passos da etapa — animação slide via classe sidebar-accordion */}
                       <CollapsibleContent className="sidebar-accordion overflow-hidden">
                       <div className="space-y-3 ml-0">
-                        {passos.sort((a, b) => a.ordem - b.ordem).map(passo => {
+                        {passos.sort((a, b) => a.ordem - b.ordem).map((passo, pIdx, lista) => {
                           // Passo "fechado" (concluído OU ignorado) não está bloqueado e não conta como ativo.
-                          const fechado = passo.concluido || passo.ignorado
+                          const fechado = passo.concluido || passo.ignorado || !!passo.naoSeAplica
                           const bloqueado = bloqueados.has(passo.id) && !fechado
                           const editavelPasso = execucao.status === 'EM_ANDAMENTO' && !bloqueado
+                          const ehPergunta = passo.tipo === 'PERGUNTA'
+                          // Pergunta conclui ao responder (não pelo node); reabrir limpa a resposta.
+                          const nodeTravado = !!passo.naoSeAplica || (ehPergunta && !passo.concluido)
                           // "Ativo" = passo pendente que pode ser concluído agora.
                           const ativo = !fechado && !bloqueado && editavelPasso
+                          // Sub-etapa: cabeçalho discreto antes do primeiro passo do grupo
+                          // (a ordem já vem agrupada do servidor: diretos, depois sub-etapas).
+                          const novaSub = !!passo.subEtapaNome && passo.subEtapaNome !== lista[pIdx - 1]?.subEtapaNome
+                          const daSub = novaSub ? lista.filter(x => x.subEtapaNome === passo.subEtapaNome) : []
                           return (
-                            <div key={passo.id} className="relative flex items-start gap-3">
+                            <Fragment key={passo.id}>
+                            {novaSub && (
+                              <div className="ml-[43px] flex items-center gap-2 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                <Layers className="h-3 w-3" />
+                                <span>{passo.subEtapaNome}</span>
+                                <span className="font-normal normal-case tracking-normal tabular-nums">
+                                  · {daSub.filter(x => x.concluido).length} de {daSub.length} concluído{daSub.length !== 1 ? 's' : ''}
+                                </span>
+                                <span className="h-px flex-1 bg-border" aria-hidden />
+                              </div>
+                            )}
+                            <div className="relative flex items-start gap-3">
                               {/* Node do passo — clicável quando editável */}
                               <button
                                 type="button"
-                                onClick={() => editavelPasso && handleToggle(passo.id)}
-                                disabled={!editavelPasso || passo.ignorado}
+                                onClick={() => editavelPasso && !nodeTravado && handleToggle(passo.id)}
+                                disabled={!editavelPasso || passo.ignorado || nodeTravado}
                                 title={
-                                  passo.ignorado
+                                  passo.naoSeAplica
+                                    ? 'Não se aplica pela resposta dada'
+                                    : passo.ignorado
                                     ? `Passo ignorado${passo.ignoradoMotivo ? ` — ${passo.ignoradoMotivo}` : ''}`
+                                    : passo.aguardandoPergunta
+                                      ? `Responda antes: ${passo.condicaoMotivo?.pergunta ?? 'a pergunta anterior'}`
+                                    : ehPergunta && !passo.concluido && !bloqueado
+                                      ? 'Responda a pergunta para concluir este passo'
                                     : bloqueado
                                       ? `Conclua os passos obrigatórios anteriores primeiro${passo.obrigatorio ? ' (este passo é obrigatório)' : ''}`
                                       : passo.concluido
@@ -560,7 +697,9 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
                                 }
                                 className={cn(
                                   'relative z-10 h-[31px] w-[31px] rounded-full border-2 border-background flex items-center justify-center shrink-0 transition-all',
-                                  passo.concluido
+                                  passo.naoSeAplica
+                                    ? 'bg-card !border-dashed !border-muted-foreground/40 cursor-default'
+                                    : passo.concluido
                                     ? 'bg-emerald-500 hover:bg-emerald-600 cursor-pointer'
                                     : passo.ignorado
                                       ? 'bg-amber-400 dark:bg-amber-500 cursor-default'
@@ -572,8 +711,12 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
                                 )}
                                 style={!fechado && !bloqueado && editavelPasso ? { borderColor: accentColor } : undefined}
                               >
-                                {passo.concluido ? (
+                                {passo.naoSeAplica ? (
+                                  <Ban className="h-3.5 w-3.5 text-muted-foreground/60" />
+                                ) : passo.concluido ? (
                                   <CheckCircle2 className="h-4 w-4 text-white" />
+                                ) : ehPergunta && !bloqueado ? (
+                                  <HelpCircle className="h-4 w-4" style={{ color: accentColor }} />
                                 ) : passo.ignorado ? (
                                   <SkipForward className="h-3.5 w-3.5 text-white fill-white" />
                                 ) : bloqueado ? (
@@ -599,7 +742,9 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
                                 onOpenChange={() => togglePassoExpand(passo.id)}
                                 className={cn(
                                   'flex-1 min-w-0 rounded-md border transition-all',
-                                  passo.concluido
+                                  passo.naoSeAplica
+                                    ? 'bg-muted/20 border-dashed opacity-60'
+                                    : passo.concluido
                                     ? 'bg-emerald-50/40 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800/50'
                                     : bloqueado
                                       ? 'bg-muted/30 border-muted opacity-70'
@@ -613,22 +758,28 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
                                 <CollapsibleTrigger asChild>
                                   <button type="button" className="w-full text-left px-2.5 py-2 flex items-center gap-2 cursor-pointer">
                                     <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
-                                      <span className={cn('text-sm font-medium', passo.concluido && 'line-through text-muted-foreground', passo.ignorado && 'italic text-muted-foreground')}>
+                                      <span className={cn('text-sm font-medium', (passo.concluido || passo.naoSeAplica) && 'line-through text-muted-foreground', passo.ignorado && 'italic text-muted-foreground')}>
                                         {passo.passoNome}
                                       </span>
+                                      {ehPergunta && !passo.naoSeAplica && (
+                                        <span className={cn('inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[9px] font-medium', BADGE.violet)}>
+                                          <HelpCircle className="h-2.5 w-2.5" /> Pergunta
+                                        </span>
+                                      )}
+                                      <SeloCondicao passo={passo} />
                                       {!passo.obrigatorio && (
                                         <span className="inline-flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
                                           <Check className="h-2.5 w-2.5" /> Opcional
                                         </span>
                                       )}
-                                      {bloqueado && (
+                                      {bloqueado && !passo.aguardandoPergunta && (
                                         <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-muted-foreground" title="Aguardando conclusão de passos obrigatórios anteriores">
                                           <Lock className="h-2.5 w-2.5" /> Bloqueado
                                         </span>
                                       )}
                                       {/* Indicadores de comentário/anexo só aparecem aqui se contagem > 0 — pra não esconder info útil quando recolhido */}
                                     </div>
-                                    {passo.concluido && (passo.concluidoPorUsuario || passo.concluidoPor) && (
+                                    {passo.concluido && !passo.naoSeAplica && (passo.concluidoPorUsuario || passo.concluidoPor) && (
                                       <span
                                         className="hidden sm:inline-flex items-center gap-1 text-[10px] text-muted-foreground shrink-0"
                                         title={`Concluído por ${passo.concluidoPorUsuario?.name ?? 'usuário'}${passo.concluidoEm ? ` em ${formatDate(passo.concluidoEm)}` : ''}`}
@@ -683,12 +834,23 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
                                   </button>
                                 </CollapsibleTrigger>
 
+                                {/* Pergunta: sempre visível (não depende de expandir o passo). */}
+                                {ehPergunta && !passo.naoSeAplica && (
+                                  <div className="px-2.5 pb-2.5">
+                                    <PerguntaDoPasso
+                                      passo={passo}
+                                      editavel={execucao.status === 'EM_ANDAMENTO' && !execucao.pausado && !bloqueado}
+                                      onResponder={handleResponder}
+                                    />
+                                  </div>
+                                )}
+
                                 {/* Conteúdo expandível: observação + extras */}
                                 <CollapsibleContent className="sidebar-accordion overflow-hidden">
                                   <div className="px-2.5 pb-2.5 space-y-0">
                                 {execucao.status === 'EM_ANDAMENTO' && !bloqueado && (
                                   <Input
-                                    placeholder="Observação..."
+                                    placeholder="Observação deste passo (fica salva ao sair do campo)"
                                     defaultValue={passo.observacao || ''}
                                     onBlur={e => handleObs(passo.id, e.target.value)}
                                     className="h-7 text-xs"
@@ -698,7 +860,7 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
                                   passoId={passo.id}
                                   editavel={editavelPasso && !execucao.pausado}
                                   rightSlot={
-                                    execucao.status === 'EM_ANDAMENTO' && !execucao.pausado ? (
+                                    execucao.status === 'EM_ANDAMENTO' && !execucao.pausado && !passo.naoSeAplica ? (
                                       passo.concluido ? (
                                         <button
                                           type="button"
@@ -717,7 +879,7 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
                                         >
                                           <XCircle className="h-3 w-3" /> Desfazer ignorar
                                         </button>
-                                      ) : !bloqueado ? (
+                                      ) : !bloqueado && !ehPergunta ? (
                                         <div className="flex items-center gap-0.5">
                                           {/* Ação "Ignorar" removida intencionalmente — pra pular
                                               um passo, o gestor desmarca a obrigatoriedade no
@@ -741,6 +903,7 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
                                 </CollapsibleContent>
                               </Collapsible>
                             </div>
+                            </Fragment>
                           )
                         })}
                       </div>
@@ -749,6 +912,9 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
                     )
                   })}
                 </div>
+
+                </>
+                )}
 
                 {totalPassos === 0 && (
                   <p className="text-xs text-muted-foreground text-center py-6 italic">
@@ -824,7 +990,8 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
               size="sm"
               onClick={handlePausar}
               disabled={!pausarMotivo.trim()}
-              className="gap-1.5 text-white bg-amber-500 hover:bg-amber-600"
+              variant="warning"
+              className="gap-1.5"
             >
               <Pause className="h-4 w-4" /> Pausar
             </Button>
@@ -856,6 +1023,332 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
         />
       )}
     </>
+  )
+}
+
+/**
+ * Checklist em cards — um passo por vez (sub-permissão `checklist_em_cards`).
+ * Mesmas ações do modo lista (concluir com captura de campos/e-mails, reabrir,
+ * observação, comentários e anexos); muda só a forma: foco num passo, trilha
+ * de navegação no topo e avanço automático ao concluir.
+ */
+function ChecklistEmCards({
+  passos, bloqueados, passoId, onIr, editavel, accentColor, obsSalva,
+  onObs, onConcluir, onReabrir, onDesfazerIgnorar, onResponder, formatDate,
+}: {
+  passos: PassoExec[]
+  bloqueados: Set<string>
+  passoId: string | null
+  onIr: (id: string) => void
+  editavel: boolean
+  accentColor: string
+  obsSalva: string | null
+  onObs: (id: string, obs: string) => Promise<void>
+  onConcluir: (id: string) => Promise<void>
+  onReabrir: (id: string) => Promise<void>
+  onDesfazerIgnorar: (id: string) => Promise<void>
+  onResponder: (id: string, opcoes: string[]) => Promise<void>
+  formatDate: (d: string) => string
+}) {
+  const fim = passoId === '__fim__'
+  const idx = fim ? -1 : passos.findIndex(p => p.id === passoId)
+  const passo = idx >= 0 ? passos[idx]! : null
+  const [concluindo, setConcluindo] = useState(false)
+
+  return (
+    <div className="space-y-4">
+      {/* Trilha dos passos: faixa com respiro (as bolinhas não encostam nas
+          bordas), contagem à esquerda e prévia no hover — o passo e os próximos. */}
+      <TooltipProvider delayDuration={120}>
+        <div className="rounded-xl border border-border bg-muted/30 px-4 py-3">
+          <div className="mb-2.5 flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
+            <span className="font-semibold uppercase tracking-wide">Andamento</span>
+            <span className="tabular-nums">
+              {passos.filter(p => p.concluido || p.ignorado || p.naoSeAplica).length} de {passos.length} fechado{passos.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Passos do checklist">
+            {passos.map((p, i) => {
+              const foco = p.id === passoId
+              const situacao = p.naoSeAplica ? 'Não se aplica' : p.concluido ? 'Concluído' : p.ignorado ? 'Ignorado'
+                : p.aguardandoPergunta ? 'Aguardando a pergunta' : bloqueados.has(p.id) ? 'Bloqueado' : 'Em aberto'
+              const proximos = passos.slice(i + 1).filter(x => !x.concluido && !x.ignorado && !x.naoSeAplica).slice(0, 3)
+              return (
+                <Tooltip key={p.id}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={foco}
+                      aria-label={`Passo ${i + 1}: ${p.passoNome} (${situacao})`}
+                      onClick={() => onIr(p.id)}
+                      className="flex h-6 items-center justify-center rounded-full px-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span
+                        className={cn(
+                          'block h-2.5 rounded-full transition-all duration-200',
+                          foco ? 'w-7' : 'w-2.5 hover:scale-125',
+                          // Não se aplica: bolinha vazada, cinza tracejada. Aguardando pergunta: anel.
+                          p.naoSeAplica ? 'border border-dashed border-muted-foreground/50 bg-transparent'
+                            : p.concluido ? FILL.emerald : p.ignorado ? FILL.amber
+                            : p.aguardandoPergunta ? 'border border-muted-foreground/50 bg-transparent' : 'bg-muted-foreground/30',
+                        )}
+                        style={foco && !p.concluido && !p.ignorado && !p.naoSeAplica ? { backgroundColor: accentColor } : undefined}
+                      />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[260px] space-y-1.5 p-3 text-xs">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
+                      Passo {i + 1} de {passos.length} · {p.etapaNome}{p.subEtapaNome ? ` · ${p.subEtapaNome}` : ''}
+                    </p>
+                    <p className={cn('font-semibold leading-snug', p.naoSeAplica && 'line-through opacity-70')}>{p.passoNome}</p>
+                    <p className={cn(
+                      'text-[11px] font-medium',
+                      p.naoSeAplica ? 'opacity-70' : p.concluido ? TEXT.emerald : p.ignorado ? TEXT.amber : 'opacity-80',
+                    )}>
+                      {situacao}{p.concluido && p.concluidoPorUsuario?.name ? ` por ${p.concluidoPorUsuario.name}` : ''}
+                      {!p.obrigatorio && !p.concluido && !p.ignorado && !p.naoSeAplica ? ' · opcional' : ''}
+                    </p>
+                    {(p.naoSeAplica || p.aguardandoPergunta) && p.condicaoMotivo && (
+                      <p className="text-[11px] opacity-80">
+                        {p.naoSeAplica
+                          ? `${p.condicaoMotivo.pergunta}: ${p.condicaoMotivo.resposta.join(', ')}`
+                          : `Depende de: ${p.condicaoMotivo.pergunta}`}
+                      </p>
+                    )}
+                    {p.observacao && (
+                      <p className="line-clamp-2 text-[11px] italic opacity-80">“{p.observacao}”</p>
+                    )}
+                    {proximos.length > 0 && (
+                      <div className="border-t border-border/60 pt-1.5">
+                        <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide opacity-70">Em seguida</p>
+                        <ul className="space-y-0.5">
+                          {proximos.map(x => (
+                            <li key={x.id} className="truncate text-[11px]">
+                              {passos.indexOf(x) + 1}. {x.passoNome}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              )
+            })}
+          </div>
+        </div>
+      </TooltipProvider>
+
+      {fim || !passo ? (
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-muted/30 px-6 py-10 text-center">
+          <PartyPopper className={cn('h-8 w-8', TEXT.emerald)} />
+          <p className="text-sm font-semibold text-foreground">Todos os passos foram fechados</p>
+          <p className="max-w-sm text-xs text-muted-foreground">Revise pelos pontos acima, se quiser, e use “Concluir” no rodapé para finalizar o serviço.</p>
+        </div>
+      ) : (() => {
+        const fechado = passo.concluido || passo.ignorado || !!passo.naoSeAplica
+        const bloqueado = bloqueados.has(passo.id) && !fechado
+        const podeAgir = editavel && !bloqueado
+        const ehPergunta = passo.tipo === 'PERGUNTA'
+        return (
+          <div
+            key={passo.id}
+            className="rounded-xl border border-border"
+            style={{ animation: 'fadeSlideIn 0.25s' }}
+          >
+            <div className="space-y-1 border-b border-border px-5 py-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Passo {idx + 1} de {passos.length} · {passo.etapaNome}{passo.subEtapaNome ? ` · ${passo.subEtapaNome}` : ''}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className={cn('text-base font-semibold text-foreground', (passo.concluido || passo.naoSeAplica) && 'line-through text-muted-foreground')}>{passo.passoNome}</h3>
+                <SeloCondicao passo={passo} />
+                {passo.obrigatorio && !fechado && (
+                  <span className="rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">Obrigatório</span>
+                )}
+                {!passo.obrigatorio && (
+                  <span className="rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">Opcional</span>
+                )}
+                {bloqueado && !passo.aguardandoPergunta && (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"><Lock className="h-3 w-3" /> Conclua os passos obrigatórios anteriores</span>
+                )}
+              </div>
+              {passo.concluido && passo.naoSeAplica && (
+                <p className="text-xs text-muted-foreground">
+                  Tinha sido concluído{passo.concluidoPorUsuario?.name ? ` por ${passo.concluidoPorUsuario.name}` : ''}{passo.concluidoEm ? ` em ${formatDate(passo.concluidoEm)}` : ''} — a resposta mudou depois.
+                </p>
+              )}
+              {passo.concluido && !passo.naoSeAplica && (
+                <p className={cn('inline-flex items-center gap-1 text-xs', TEXT.emerald)}>
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Concluído{passo.concluidoPorUsuario?.name ? ` por ${passo.concluidoPorUsuario.name}` : ''}{passo.concluidoEm ? ` em ${formatDate(passo.concluidoEm)}` : ''}
+                </p>
+              )}
+              {passo.ignorado && (
+                <p className={cn('inline-flex items-center gap-1 text-xs', TEXT.amber)}>
+                  <SkipForward className="h-3.5 w-3.5" /> Ignorado{passo.ignoradoMotivo ? ` — ${passo.ignoradoMotivo}` : ''}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-3 px-5 py-4">
+              {ehPergunta && !passo.naoSeAplica && (
+                <PerguntaDoPasso passo={passo} editavel={podeAgir} onResponder={onResponder} />
+              )}
+              <div className="space-y-1.5">
+                <label htmlFor={`obs-${passo.id}`} className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
+                  <StickyNote className="h-3.5 w-3.5 text-muted-foreground" /> Observações
+                  {obsSalva === passo.id && <span className={cn('text-[11px] font-normal', TEXT.emerald)}>· salva</span>}
+                </label>
+                <textarea
+                  id={`obs-${passo.id}`}
+                  key={passo.id}
+                  defaultValue={passo.observacao || ''}
+                  onBlur={e => { void onObs(passo.id, e.target.value) }}
+                  disabled={!editavel || bloqueado}
+                  rows={3}
+                  placeholder="Anote o que for útil neste passo — fica registrado no serviço."
+                  className="nice-scrollbar w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60"
+                />
+              </div>
+              <PassoExtras passoId={passo.id} editavel={podeAgir} />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 border-t border-border px-5 py-3">
+              <Button variant="outline" size="sm" className="gap-1" disabled={idx <= 0} onClick={() => onIr(passos[idx - 1]!.id)}>
+                <ChevronLeft className="h-4 w-4" /> Anterior
+              </Button>
+              <Button variant="outline" size="sm" className="gap-1" disabled={idx >= passos.length - 1} onClick={() => onIr(passos[idx + 1]!.id)}>
+                Próximo <ChevronRight className="h-4 w-4" />
+              </Button>
+              <div className="ml-auto flex items-center gap-2">
+                {editavel && passo.concluido && !passo.naoSeAplica && (
+                  <Button variant="ghost" size="sm" className="gap-1" onClick={() => { void onReabrir(passo.id) }}>
+                    <XCircle className="h-4 w-4" /> Reabrir
+                  </Button>
+                )}
+                {editavel && passo.ignorado && (
+                  <Button variant="ghost" size="sm" className="gap-1" onClick={() => { void onDesfazerIgnorar(passo.id) }}>
+                    <XCircle className="h-4 w-4" /> Desfazer ignorar
+                  </Button>
+                )}
+                {podeAgir && !fechado && !ehPergunta && (
+                  <Button
+                    variant="success"
+                    size="sm"
+                    className="gap-1.5"
+                    disabled={concluindo}
+                    onClick={async () => {
+                      // A observação digitada e ainda não "saída" do campo vai junto.
+                      const ta = document.getElementById(`obs-${passo.id}`) as HTMLTextAreaElement | null
+                      setConcluindo(true)
+                      try {
+                        if (ta) await onObs(passo.id, ta.value)
+                        await onConcluir(passo.id)
+                      } finally { setConcluindo(false) }
+                    }}
+                  >
+                    {concluindo ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} Concluir passo
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+    </div>
+  )
+}
+
+/** Selo da condição "if": não se aplica (com a resposta que decidiu) ou aguardando a pergunta. */
+function SeloCondicao({ passo }: { passo: PassoExec }) {
+  const m = passo.condicaoMotivo
+  if (passo.naoSeAplica) {
+    return (
+      <span
+        className={cn('inline-flex items-center gap-1 rounded border border-dashed px-1.5 py-0.5 text-[10px] font-medium no-underline', BADGE.slate)}
+        title="Não conta para concluir nem bloqueia os próximos passos"
+      >
+        <Ban className="h-2.5 w-2.5" /> Não se aplica{m ? ` — ${m.pergunta}: ${m.resposta.join(', ') || '—'}` : ''}
+      </span>
+    )
+  }
+  if (passo.aguardandoPergunta) {
+    return (
+      <span className={cn('inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium', BADGE.violet)}>
+        <HelpCircle className="h-2.5 w-2.5" /> Aguardando: {m?.pergunta ?? 'pergunta anterior'}
+      </span>
+    )
+  }
+  return null
+}
+
+/**
+ * Pergunta do checklist: escolhe (uma ou várias, conforme o cadastro) e
+ * responde. A primeira resposta conclui o passo; trocar é permitido enquanto
+ * a execução está em andamento (o servidor pede confirmação se tirar do
+ * caminho passos já concluídos).
+ */
+function PerguntaDoPasso({ passo, editavel, onResponder }: {
+  passo: PassoExec
+  editavel: boolean
+  onResponder: (id: string, opcoes: string[]) => Promise<void>
+}) {
+  const atual = passo.respostaOpcoes ?? []
+  const chaveAtual = atual.join('|')
+  const [sel, setSel] = useState<string[]>(atual)
+  const [enviando, setEnviando] = useState(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setSel(atual) }, [passo.id, chaveAtual])
+  const respondida = atual.length > 0
+  const mudou = [...sel].sort().join('|') !== [...atual].sort().join('|')
+  const multipla = !!passo.perguntaMultipla
+  const alternar = (o: string) => setSel(cur => multipla
+    ? (cur.includes(o) ? cur.filter(x => x !== o) : [...cur, o])
+    : [o])
+  return (
+    <div className="space-y-2 rounded-md border border-border bg-muted/30 px-3 py-2.5">
+      <p className="flex items-start gap-1.5 text-[13px] font-semibold text-foreground">
+        <HelpCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span>{passo.perguntaTexto || passo.passoNome}</span>
+        {multipla && <span className="font-normal text-muted-foreground">(pode marcar mais de uma)</span>}
+      </p>
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5" role={multipla ? 'group' : 'radiogroup'}>
+        {(passo.perguntaOpcoes ?? []).map(o => (
+          <label key={o} className={cn('inline-flex items-center gap-1.5 text-sm', editavel ? 'cursor-pointer' : 'cursor-default opacity-70')}>
+            <input
+              type={multipla ? 'checkbox' : 'radio'}
+              name={`pergunta-${passo.id}`}
+              checked={sel.includes(o)}
+              disabled={!editavel || enviando}
+              onChange={() => alternar(o)}
+              className="h-3.5 w-3.5 accent-primary"
+            />
+            {o}
+          </label>
+        ))}
+      </div>
+      {editavel && (sel.length > 0 && (mudou || !respondida)) && (
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            className="h-7 gap-1 text-xs"
+            disabled={enviando}
+            onClick={async () => {
+              setEnviando(true)
+              try { await onResponder(passo.id, sel) } finally { setEnviando(false) }
+            }}
+          >
+            {enviando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+            {respondida ? 'Alterar resposta' : 'Responder'}
+          </Button>
+          {respondida && (
+            <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setSel(atual)}>
+              Manter “{atual.join(', ')}”
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 

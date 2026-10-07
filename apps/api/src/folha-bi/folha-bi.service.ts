@@ -14,14 +14,14 @@ const FOLHA_DASH_URL = process.env.FOLHA_DASH_URL || ''
 let _folhaPool: Pool | null = null
 function folhaDash(): Pool {
   if (!FOLHA_DASH_URL) {
-    throw new Error('FOLHA_DASH_URL nao configurada — o BI da folha le o banco folha_dash (ETL). Ver docs/ENV.md.')
+    throw new Error('FOLHA_DASH_URL não configurada — o BI da folha lê o banco folha_dash (ETL). Ver docs/ENV.md.')
   }
   if (!_folhaPool) _folhaPool = new Pool({ connectionString: FOLHA_DASH_URL, max: 4 })
   return _folhaPool
 }
 /** Onde o ambiente aponta, sem a credencial — p/ a mensagem de erro dizer algo util. */
 function folhaDashAlvo(): string {
-  try { const u = new URL(FOLHA_DASH_URL); return `${u.hostname}:${u.port || '5432'}${u.pathname}` } catch { return '(URL invalida)' }
+  try { const u = new URL(FOLHA_DASH_URL); return `${u.hostname}:${u.port || '5432'}${u.pathname}` } catch { return '(URL inválida)' }
 }
 async function fq<T = any>(sql: string, params: any[] = []): Promise<T[]> {
   try {
@@ -31,7 +31,7 @@ async function fq<T = any>(sql: string, params: any[] = []): Promise<T[]> {
     // Falha de rede vira mensagem que nomeia o alvo; erro de SQL passa direto.
     const cod = (e as { code?: string })?.code
     if (cod === 'ECONNREFUSED' || cod === 'ENOTFOUND' || cod === 'ETIMEDOUT' || cod === 'EHOSTUNREACH') {
-      throw new Error(`Banco folha_dash inalcancavel em ${folhaDashAlvo()} (${cod}) — confira FOLHA_DASH_URL.`)
+      throw new Error(`Banco folha_dash inalcançável em ${folhaDashAlvo()} (${cod}) — confira FOLHA_DASH_URL.`)
     }
     throw e
   }
@@ -168,14 +168,14 @@ export class FolhaBiService {
       where: { id: clienteId, status: 'ATIVO', ...(isMaster ? {} : { empresaId: empresaId ?? '' }) },
       select: { id: true, empresaId: true, idSistema: true, razaoSocial: true },
     })
-    if (!cliente) throw new Error('Cliente nao encontrado neste tenant.')
-    if (!cliente.idSistema) throw new Error(`${cliente.razaoSocial} esta sem ID SCI — preencha no cadastro do cliente.`)
-    if (refFim < refInicio) throw new Error('A competencia final nao pode ser anterior a inicial.')
+    if (!cliente) throw new Error('Cliente não encontrado neste tenant.')
+    if (!cliente.idSistema) throw new Error(`${cliente.razaoSocial} está sem ID SCI — preencha no cadastro do cliente.`)
+    if (refFim < refInicio) throw new Error('A competência final não pode ser anterior à inicial.')
 
     const refs = this.competenciasDoIntervalo(refInicio, refFim)
     // Teto de seguranca: cada competencia e uma execucao do ETL na maquina da LAN.
     if (refs.length > LIMITE_COMPETENCIAS) {
-      throw new Error(`Intervalo grande demais: ${refs.length} competencias (maximo ${LIMITE_COMPETENCIAS}).`)
+      throw new Error(`Intervalo grande demais: ${refs.length} competências (máximo ${LIMITE_COMPETENCIAS}).`)
     }
 
     const jaNaFila = await prisma.folhaBiSyncJob.findMany({

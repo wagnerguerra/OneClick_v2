@@ -150,7 +150,7 @@ export const CAMPOS_CLIENTE: CampoRelatorio[] = [
     origem: { tipo: 'campo', campo: 'situacao' }, formatar: texto, padrao: true,
     opcoes: [
       { valor: 'MENSAL', rotulo: 'Mensal' }, { valor: 'AVULSO', rotulo: 'Avulso' },
-      { valor: 'PROSPECT', rotulo: 'Prospect' }, { valor: 'PARALIZADO', rotulo: 'Paralizado' },
+      { valor: 'PROSPECT', rotulo: 'Prospect' }, { valor: 'PARALIZADO', rotulo: 'Paralisado' },
     ] },
   { chave: 'status', rotulo: 'Ativo / Inativo', grupo: 'Comercial', tipo: 'enum',
     origem: { tipo: 'campo', campo: 'status' }, formatar: texto,

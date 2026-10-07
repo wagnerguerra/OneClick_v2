@@ -23,7 +23,7 @@ import {
 } from 'recharts'
 import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 const TABS = [
   { key: 'funil', label: 'Funil de Vendas', icon: TrendingUp },
@@ -35,11 +35,11 @@ const TABS = [
 type TabKey = typeof TABS[number]['key']
 
 const PERIODOS = [
-  { value: '30', label: 'Ultimos 30 dias' },
-  { value: '90', label: 'Ultimos 90 dias' },
-  { value: '180', label: 'Ultimos 180 dias' },
-  { value: '365', label: 'Ultimo ano' },
-  { value: 'all', label: 'Todo o periodo' },
+  { value: '30', label: 'Últimos 30 dias' },
+  { value: '90', label: 'Últimos 90 dias' },
+  { value: '180', label: 'Últimos 180 dias' },
+  { value: '365', label: 'Último ano' },
+  { value: 'all', label: 'Todo o período' },
 ]
 
 const PIE_COLORS = [
@@ -82,7 +82,7 @@ export default function CrmRelatoriosPage() {
           </Select>
           <BackButton href="/crm" />
       </>}>
-        <h1 className="truncate">Relatorios do CRM</h1>
+        <h1 className="truncate">Relatórios do CRM</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
           <span className="text-muted-foreground/50">›</span>
@@ -107,7 +107,7 @@ export default function CrmRelatoriosPage() {
                 'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
                 isActive ? 'text-white shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-background/60',
               )}
-              style={isActive ? { backgroundColor: MODULE_COLOR } : undefined}
+              style={isActive ? { backgroundColor: PRIMARY } : undefined}
             >
               <Icon className="h-3.5 w-3.5" />
               {tab.label}
@@ -155,7 +155,7 @@ function TabFunil({ dias }: { dias?: number }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard label="Total de Oportunidades" value={String(data.totalOportunidades)} />
         <KpiCard label="Valor Total" value={formatCurrency(data.valorTotal)} />
-        <KpiCard label="Taxa de Conversao Geral" value={`${data.taxaGeral}%`} />
+        <KpiCard label="Taxa de Conversão Geral" value={`${data.taxaGeral}%`} />
       </div>
 
       <div className="grid grid-cols-12 gap-4">
@@ -175,7 +175,7 @@ function TabFunil({ dias }: { dias?: number }) {
                       className="h-8 rounded flex items-center px-2 transition-all"
                       style={{
                         width: `${width}%`,
-                        backgroundColor: etapa.cor || MODULE_COLOR,
+                        backgroundColor: etapa.cor || PRIMARY,
                         opacity: 0.85,
                       }}
                     >
@@ -200,13 +200,19 @@ function TabFunil({ dias }: { dias?: number }) {
                 <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
                 <YAxis yAxisId="left" tick={{ fontSize: 10 }} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} tickFormatter={(v: number) => formatCompact(v)} />
-                <Tooltip content={<ChartTooltip format={(v, n) => (n === 'valor' ? formatCurrency(v) : v)} />} cursor={{ fill: CHART_CURSOR_FILL }} />
+                <Tooltip
+                  content={<ChartTooltip
+                    format={(v, n) => (n === 'Valor' ? formatCurrency(v) : v)}
+                    seriesColor={(serie, etapa) => (serie === 'Quantidade' ? (etapa.cor as string) || PRIMARY : PRIMARY)}
+                  />}
+                  cursor={{ fill: CHART_CURSOR_FILL }}
+                />
                 <Bar yAxisId="left" dataKey="count" name="Quantidade" radius={[4, 4, 0, 0]}>
                   {data.etapas.map((e: any) => (
-                    <Cell key={e.etapaId} fill={e.cor || MODULE_COLOR} opacity={0.85} />
+                    <Cell key={e.etapaId} fill={e.cor || PRIMARY} opacity={0.85} />
                   ))}
                 </Bar>
-                <Bar yAxisId="right" dataKey="valor" name="Valor" radius={[4, 4, 0, 0]} fill={MODULE_COLOR} opacity={0.3} />
+                <Bar yAxisId="right" dataKey="valor" name="Valor" radius={[4, 4, 0, 0]} fill={PRIMARY} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -216,7 +222,7 @@ function TabFunil({ dias }: { dias?: number }) {
       {/* Conversion Rates */}
       {data.conversoes.length > 0 && (
         <Card className="p-4">
-          <h3 className="text-[13px] font-semibold text-foreground mb-3">Taxas de Conversao entre Etapas</h3>
+          <h3 className="text-[13px] font-semibold text-foreground mb-3">Taxas de Conversão entre Etapas</h3>
           <div className="flex items-center gap-2 flex-wrap">
             {data.conversoes.map((c: any, idx: number) => (
               <div key={idx} className="flex items-center gap-1.5">
@@ -275,7 +281,7 @@ function TabDesempenho({ dias }: { dias?: number }) {
               <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Bar dataKey="ganhos" name="Ganhos" fill="#10b981" radius={[4, 4, 0, 0]} />
               <Bar dataKey="perdidos" name="Perdidos" fill="#ef4444" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="total" name="Total" fill={MODULE_COLOR} radius={[4, 4, 0, 0]} opacity={0.4} />
+              <Bar dataKey="total" name="Total" fill={PRIMARY} radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -284,17 +290,17 @@ function TabDesempenho({ dias }: { dias?: number }) {
       {/* Table */}
       <Card className="overflow-hidden">
         <div className="px-4 py-3 border-b border-border">
-          <h3 className="text-[13px] font-semibold text-foreground">Detalhamento por Responsavel</h3>
+          <h3 className="text-[13px] font-semibold text-foreground">Detalhamento por Responsável</h3>
         </div>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="text-xs">Responsavel</TableHead>
+              <TableHead className="text-xs">Responsável</TableHead>
               <TableHead className="text-xs text-center">Total</TableHead>
               <TableHead className="text-xs text-center">Ganhos</TableHead>
               <TableHead className="text-xs text-center">Perdidos</TableHead>
               <TableHead className="text-xs text-center">Em Aberto</TableHead>
-              <TableHead className="text-xs text-center">Taxa de Conversao</TableHead>
+              <TableHead className="text-xs text-center">Taxa de Conversão</TableHead>
               <TableHead className="text-xs text-right">Valor Total</TableHead>
               <TableHead className="text-xs text-right">Valor Ganho</TableHead>
             </TableRow>
@@ -304,7 +310,7 @@ function TabDesempenho({ dias }: { dias?: number }) {
               <TableRow key={row.responsavelId || 'sem'}>
                 <TableCell className="text-xs font-medium">
                   <div className="flex items-center gap-2">
-                    <UserAvatar user={{ name: row.nome, image: row.image }} bg="bg-rose-500" className="h-6 w-6 text-[10px]" />
+                    <UserAvatar user={{ name: row.nome, image: row.image }} bg="bg-primary" fg="text-primary-foreground" className="h-6 w-6 text-[10px]" />
                     {row.nome}
                   </div>
                 </TableCell>
@@ -367,7 +373,7 @@ function TabOrigem({ dias }: { dias?: number }) {
       <div className="grid grid-cols-12 gap-4">
         {/* Donut Chart */}
         <Card className="col-span-5 p-4">
-          <h3 className="text-[13px] font-semibold text-foreground mb-4">Distribuicao por Origem</h3>
+          <h3 className="text-[13px] font-semibold text-foreground mb-4">Distribuição por Origem</h3>
           <div className="h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -426,7 +432,7 @@ function TabOrigem({ dias }: { dias?: number }) {
               <TableHead className="text-xs text-center">% do Total</TableHead>
               <TableHead className="text-xs text-center">Ganhos</TableHead>
               <TableHead className="text-xs text-center">Perdidos</TableHead>
-              <TableHead className="text-xs text-center">Taxa de Conversao</TableHead>
+              <TableHead className="text-xs text-center">Taxa de Conversão</TableHead>
               <TableHead className="text-xs text-right">Valor Total</TableHead>
             </TableRow>
           </TableHeader>
@@ -492,17 +498,20 @@ function TabTempoMedio() {
     <div className="space-y-4">
       {/* Chart */}
       <Card className="p-4">
-        <h3 className="text-[13px] font-semibold text-foreground mb-4">Tempo Medio em Cada Etapa (dias)</h3>
+        <h3 className="text-[13px] font-semibold text-foreground mb-4">Tempo Médio em Cada Etapa (dias)</h3>
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip content={<ChartTooltip format={(v) => `${v} dias`} />} cursor={{ fill: CHART_CURSOR_FILL }} />
+              <Tooltip
+                content={<ChartTooltip format={(v) => `${v} dias`} seriesColor={(_serie, etapa) => (etapa.cor as string) || PRIMARY} />}
+                cursor={{ fill: CHART_CURSOR_FILL }}
+              />
               <Bar dataKey="mediaDias" name="Dias" radius={[4, 4, 0, 0]}>
                 {data.map((e: any) => (
-                  <Cell key={e.etapaId} fill={e.cor || MODULE_COLOR} opacity={0.85} />
+                  <Cell key={e.etapaId} fill={e.cor || PRIMARY} opacity={0.85} />
                 ))}
                 <LabelList dataKey="mediaDias" position="top" style={{ fontSize: 10, fontWeight: 600 }} formatter={(v) => `${v}d`} />
               </Bar>
@@ -529,7 +538,7 @@ function TabTempoMedio() {
                     className="h-full rounded flex items-center px-2 transition-all"
                     style={{
                       width: `${width}%`,
-                      backgroundColor: etapa.cor || MODULE_COLOR,
+                      backgroundColor: etapa.cor || PRIMARY,
                       opacity: 0.8,
                     }}
                   >
@@ -568,7 +577,7 @@ function KpiCard({ label, value }: { label: string; value: string }) {
 function LoadingState() {
   return (
     <div className="flex items-center justify-center py-20">
-      <Loader2 className="h-6 w-6 animate-spin" style={{ color: MODULE_COLOR }} />
+      <Loader2 className="h-6 w-6 animate-spin" style={{ color: PRIMARY }} />
       <span className="ml-2 text-sm text-muted-foreground">Carregando dados...</span>
     </div>
   )

@@ -257,7 +257,7 @@ function FormAcao({ inicial, editando, usuarios, meuId, criadorId, salvando, mod
         ) : <span />}
         <div className="flex gap-2">
           {onCancelar && <Button size="sm" variant="outline" onClick={onCancelar} disabled={salvando}>Cancelar</Button>}
-          <Button size="sm" style={{ backgroundColor: moduleColor }} className="text-white" onClick={salvar} disabled={salvando || vazio}>
+          <Button size="sm" variant="success" onClick={salvar} disabled={salvando || vazio}>
             {salvando ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Send className="h-4 w-4 mr-1.5" />}
             {editando ? 'Salvar ação' : 'Registrar ação'}
           </Button>
@@ -349,7 +349,7 @@ export function AcoesTab({ oportunidadeId, acoes, carregando, meuId, moduleColor
   }
 
   const excluir = async (a: AcaoCrm) => {
-    const ok = await alerts.confirm({ title: 'Excluir ação?', text: `"${a.titulo}" será removida.`, confirmText: 'Excluir', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Excluir ação?', text: `"${a.titulo}" será removida.`, confirmText: 'Excluir', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.crm as any).acoes.delete.mutate({ id: a.id })
@@ -429,7 +429,7 @@ export function AcoesTab({ oportunidadeId, acoes, carregando, meuId, moduleColor
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => setEditandoId(a.id)}><Edit2 className="h-3.5 w-3.5 mr-2" />Editar</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => excluir(a)} className={TEXT.rose}><Trash2 className="h-3.5 w-3.5 mr-2" />Excluir</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => excluir(a)} className="text-destructive focus:text-destructive"><Trash2 className="h-3.5 w-3.5 mr-2" />Excluir</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>

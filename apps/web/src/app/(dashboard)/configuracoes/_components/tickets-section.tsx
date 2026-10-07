@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { BADGE, TEXT } from '@/lib/color-styles'
+import { TituloGrupo } from './titulo-grupo'
 import {
   Button, Input, Badge, cn,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
@@ -20,7 +21,7 @@ import {
   HELPDESK_STATUS, HELPDESK_STATUS_LABELS, HELPDESK_PRIORIDADE_LABELS, HELPDESK_TIPO_LABELS,
   type HelpdeskStatus, type HelpdeskPrioridade,
 } from '@saas/types'
-import { Headphones, Loader2, ChevronDown, ChevronRight, MessageSquare, Paperclip, ExternalLink, AlertTriangle } from 'lucide-react'
+import { Loader2, ChevronDown, ChevronRight, MessageSquare, Paperclip, ExternalLink, AlertTriangle } from 'lucide-react'
 
 type TicketRel = {
   id: string
@@ -104,9 +105,7 @@ export function TicketsSection() {
       {/* Header interno */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-border">
         <div>
-          <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-1.5">
-            <Headphones className="h-4 w-4" /> Relatório de Tickets
-          </h4>
+          <TituloGrupo grupo="Relatório de Tickets" />
           <p className="text-[11px] text-muted-foreground mt-0.5">
             {contagem.total} em aberto · {contagem.urgentesAltas} de prioridade alta/urgente · {contagem.sla} com SLA estourado
           </p>

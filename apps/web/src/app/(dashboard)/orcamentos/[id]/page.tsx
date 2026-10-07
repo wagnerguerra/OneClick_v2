@@ -43,7 +43,7 @@ import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { useTabLabel } from '@/hooks/use-tab-label'
-import { ORCAMENTO_STATUS_ORDER, ORCAMENTO_STATUS_LABELS } from '@saas/types'
+import { ORCAMENTO_STATUS_ORDER, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_COLORS } from '@saas/types'
 import { ClienteCombobox } from '../_components/cliente-combobox'
 import { UserCombobox } from '../_components/user-combobox'
 import { CatalogoCombobox } from '../_components/catalogo-combobox'
@@ -54,12 +54,9 @@ import { CrmResumoModal } from '../_components/crm-resumo-modal'
 // Constantes
 // ============================================================
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
-const STATUS_COLORS: Record<string, string> = {
-  NOVO: '#818cf8', A_ENVIAR: '#94a3b8', ENVIADO: '#3b82f6', APROVADO: '#10b981',
-  LIBERADO: '#059669', FINALIZADO: '#1e293b', ENCERRADO: '#ef4444',
-}
+const STATUS_COLORS: Record<string, string> = ORCAMENTO_STATUS_COLORS
 
 const STATUS_LABELS: Record<string, string> = {
   NOVO: 'Novo', A_ENVIAR: 'A Enviar', ENVIADO: 'Enviado', APROVADO: 'Aprovado',
@@ -1046,7 +1043,7 @@ export default function OrcamentoDetailPage() {
   }
 
   async function handleCoverRemove() {
-    const ok = await alerts.confirm({ title: 'Remover capa?', text: 'A imagem de fundo personalizada será removida e voltará ao padrão.', icon: 'warning', confirmText: 'Remover' })
+    const ok = await alerts.confirm({ title: 'Remover capa?', text: 'A imagem de fundo personalizada será removida e voltará ao padrão.', icon: 'warning', confirmText: 'Remover', destructive: true })
     if (!ok) return
     setUploadingCover(true)
     try {
@@ -1184,9 +1181,9 @@ export default function OrcamentoDetailPage() {
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
-  async function handleStatusAction(novoStatus: string, mensagemSucesso: string) {
+  async function handleStatusAction(novoStatus: string, mensagemSucesso: string, destructive?: boolean) {
     const c = CONFIRM_STATUS[novoStatus] ?? { title: 'Alterar status?', text: `O status do orçamento passará para ${STATUS_LABELS[novoStatus] || novoStatus}.`, confirmText: 'Confirmar', icon: 'question' as const }
-    const ok = await alerts.confirm({ title: c.title, text: c.text, confirmText: c.confirmText, cancelText: c.cancelText, icon: c.icon })
+    const ok = await alerts.confirm({ title: c.title, text: c.text, confirmText: c.confirmText, cancelText: c.cancelText, icon: c.icon, destructive })
     if (!ok) return
     await applyStatusChange(novoStatus, mensagemSucesso)
   }
@@ -1202,6 +1199,7 @@ export default function OrcamentoDetailPage() {
     cancelText?: string
     successMsg: string
     icon?: 'warning' | 'question'
+    destructive?: boolean
   }) {
     const ok = await alerts.confirm({
       title: opts.title,
@@ -1209,6 +1207,7 @@ export default function OrcamentoDetailPage() {
       confirmText: opts.confirmText,
       cancelText: opts.cancelText,
       icon: opts.icon ?? 'warning',
+      destructive: opts.destructive,
     })
     if (!ok) return
     await applyStatusChange(opts.novoStatus, opts.successMsg)
@@ -1326,13 +1325,13 @@ export default function OrcamentoDetailPage() {
   // ── Workflow estendido (paralizar, retomar, reabrir, editar datas) ──
 
   async function handleParalizar() {
-    if (!paralizarMotivo.trim()) { alerts.warning('Atenção', 'Informe o motivo da paralização'); return }
+    if (!paralizarMotivo.trim()) { alerts.warning('Atenção', 'Informe o motivo da paralisação'); return }
     setWorkflowLoading(true)
     try {
       await (trpc.orcamento as any).paralizar.mutate({ id, motivo: paralizarMotivo.trim() })
       setParalizarModal(false)
       setParalizarMotivo('')
-      alerts.success('Paralizado', 'Orçamento paralizado com sucesso')
+      alerts.success('Paralisado', 'Orçamento paralisado com sucesso')
       fetchOrc(true)
     } catch (e) { alerts.error('Erro', (e as Error).message) }
     finally { setWorkflowLoading(false) }
@@ -1425,7 +1424,7 @@ export default function OrcamentoDetailPage() {
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
   async function handleDesvincularCrm() {
-    const ok = await alerts.confirm({ title: 'Desvincular CRM', text: 'O card de CRM deixará de estar vinculado a este orçamento. O card não volta de coluna.', confirmText: 'Desvincular', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Desvincular CRM', text: 'O card de CRM deixará de estar vinculado a este orçamento. O card não volta de coluna.', confirmText: 'Desvincular', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.orcamento as any).desvincularOportunidade.mutate({ id })
@@ -1884,7 +1883,7 @@ export default function OrcamentoDetailPage() {
               return (
                 <Button
                   size="sm"
-                  style={{ backgroundColor: semItens ? undefined : MODULE_COLOR }}
+                  style={{ backgroundColor: semItens ? undefined : PRIMARY }}
                   className="text-white gap-1.5"
                   onClick={abrirEnvio}
                   disabled={semItens}
@@ -1915,6 +1914,7 @@ export default function OrcamentoDetailPage() {
                     confirmText: 'Reprovar',
                     cancelText: 'Voltar',
                     successMsg: 'Orçamento reprovado',
+                    destructive: true,
                   })}>
                     <ThumbsDown className="h-4 w-4" /> Reprovar
                   </Button>
@@ -1947,6 +1947,7 @@ export default function OrcamentoDetailPage() {
                     confirmText: 'Encerrar orçamento',
                     cancelText: 'Voltar',
                     successMsg: 'Orçamento encerrado',
+                    destructive: true,
                   })}>
                     <Archive className="h-4 w-4" /> Encerrar
                   </Button>
@@ -1961,7 +1962,7 @@ export default function OrcamentoDetailPage() {
             )}
             {/* FINALIZADO → ENCERRADO */}
             {orc.status === 'FINALIZADO' && canEncerrar && (
-              <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={() => handleStatusActionConfirm({
+              <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={() => handleStatusActionConfirm({
                 novoStatus: 'ENCERRADO',
                 title: 'Encerrar orçamento?',
                 text: 'O orçamento será arquivado no fluxo. O ciclo está completo.',
@@ -1995,7 +1996,7 @@ export default function OrcamentoDetailPage() {
                 ) : (
                   canParalizar && (
                     <DropdownMenuItem onClick={() => setParalizarModal(true)}>
-                      <Pause className="h-4 w-4 mr-2 text-amber-500" /> Paralizar
+                      <Pause className="h-4 w-4 mr-2 text-amber-500" /> Paralisar
                     </DropdownMenuItem>
                   )
                 )}
@@ -2013,7 +2014,7 @@ export default function OrcamentoDetailPage() {
               onClick={() => setIaOpen(true)}
               className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90"
             >
-              <Sparkles className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <Sparkles className="h-4 w-4" style={{ color: PRIMARY }} />
             </Button>
             {canEnviarPesquisa && (
               <Button
@@ -2023,7 +2024,7 @@ export default function OrcamentoDetailPage() {
                 onClick={abrirEnviarPesquisa}
                 className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90"
               >
-                <Star className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <Star className="h-4 w-4" style={{ color: PRIMARY }} />
               </Button>
             )}
             <BackButton href="/orcamentos" />
@@ -2049,7 +2050,7 @@ export default function OrcamentoDetailPage() {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={headerCover} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
-          <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR} 0%, var(--color-primary) 100%)` }} />
+          <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${PRIMARY} 0%, var(--color-primary) 100%)` }} />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
         {/* Controles de capa — base do background, visiveis apenas para Master ao passar o mouse */}
@@ -2099,7 +2100,7 @@ export default function OrcamentoDetailPage() {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={resolveAssetUrl(orc.cliente.logoUrl)} alt={orc.cliente.razaoSocial} className="h-full w-full object-cover" />
                 ) : (
-                  <FileText className="h-10 w-10" style={{ color: MODULE_COLOR }} />
+                  <FileText className="h-10 w-10" style={{ color: PRIMARY }} />
                 )}
               </div>
             </div>
@@ -2140,7 +2141,7 @@ export default function OrcamentoDetailPage() {
                 {/* Badges de estado, na mesma linha do status e das áreas (vidro, como os chips) */}
                 {orc.paralizado && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase ring-1 ring-white/25 backdrop-blur text-amber-200">
-                    <Pause className="h-3 w-3" /> Paralizado
+                    <Pause className="h-3 w-3" /> Paralisado
                   </span>
                 )}
                 {orc.arquivado && (
@@ -2265,7 +2266,7 @@ export default function OrcamentoDetailPage() {
           <div className="flex items-start gap-3">
             <Pause className={cn('h-5 w-5 shrink-0 mt-0.5', TEXT.amber)} />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Orçamento Paralizado</p>
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Orçamento Paralisado</p>
               <p className={cn('text-xs mt-0.5', TEXT.amber)}>{orc.paralizadoMotivo}</p>
               {orc.paralizadoEm && (
                 <p className={cn('text-[10px]', TEXT.amber, 'mt-1')}>
@@ -2537,7 +2538,7 @@ export default function OrcamentoDetailPage() {
                                 <TableCell colSpan={7} className="p-0">
                                   <div
                                     className="space-y-3 border-l-[3px] px-4 py-3"
-                                    style={{ borderLeftColor: MODULE_COLOR }}
+                                    style={{ borderLeftColor: PRIMARY }}
                                   >
                                     {/* ── Faixa 1: identificação ── */}
                                     <div className="flex flex-wrap items-end gap-2">
@@ -2847,7 +2848,7 @@ export default function OrcamentoDetailPage() {
                             user={r.responsavelNome ? { name: r.responsavelNome, image: r.responsavelImage } : null}
                             className={cn('h-14 w-14 text-base', !r.responsavelNome && 'text-muted-foreground')}
                             bg={r.responsavelNome ? undefined : 'bg-muted'}
-                            bgColor={r.responsavelNome ? MODULE_COLOR : undefined}
+                            bgColor={r.responsavelNome ? PRIMARY : undefined}
                             title={r.responsavelNome ?? estado.rotulo}
                           />
 
@@ -3041,31 +3042,31 @@ export default function OrcamentoDetailPage() {
               }
               if (orc.status === 'ENVIADO' && canAprovar) {
                 acoes.push(
-                  <Button key="aprovar" size="xs" variant="success" className="gap-1" onClick={() => handleStatusAction('APROVADO', 'Orcamento aprovado')}>
+                  <Button key="aprovar" size="xs" variant="success" className="gap-1" onClick={() => handleStatusAction('APROVADO', 'Orçamento aprovado')}>
                     <ThumbsUp className="h-3 w-3" /> Aprovar
                   </Button>,
-                  <Button key="reprovar" size="xs" variant="destructive" className="gap-1" onClick={() => handleStatusAction('ENCERRADO', 'Orcamento reprovado')}>
+                  <Button key="reprovar" size="xs" variant="destructive" className="gap-1" onClick={() => handleStatusAction('ENCERRADO', 'Orçamento reprovado', true)}>
                     <ThumbsDown className="h-3 w-3" /> Reprovar
                   </Button>,
                 )
               }
               if (orc.status === 'APROVADO' && canLiberar) {
                 acoes.push(
-                  <Button key="liberar" size="xs" variant="outline" className="gap-1" onClick={() => handleStatusAction('LIBERADO', 'Orcamento liberado')}>
+                  <Button key="liberar" size="xs" variant="outline" className="gap-1" onClick={() => handleStatusAction('LIBERADO', 'Orçamento liberado')}>
                     <DollarSign className="h-3 w-3" /> Liberar
                   </Button>,
                 )
               }
               if (orc.status === 'LIBERADO' && canEncerrar) {
                 acoes.push(
-                  <Button key="finalizar" size="xs" variant="outline" className="gap-1" onClick={() => handleStatusAction('FINALIZADO', 'Orcamento finalizado')}>
+                  <Button key="finalizar" size="xs" variant="outline" className="gap-1" onClick={() => handleStatusAction('FINALIZADO', 'Orçamento finalizado')}>
                     <CheckCircle2 className="h-3 w-3" /> Finalizar
                   </Button>,
                 )
               }
               if (orc.status === 'FINALIZADO' && canEncerrar) {
                 acoes.push(
-                  <Button key="encerrar" size="xs" variant="outline" className="gap-1" onClick={() => handleStatusAction('ENCERRADO', 'Orcamento encerrado')}>
+                  <Button key="encerrar" size="xs" variant="outline" className="gap-1" onClick={() => handleStatusAction('ENCERRADO', 'Orçamento encerrado')}>
                     <CheckCircle2 className="h-3 w-3" /> Encerrar
                   </Button>,
                 )
@@ -3320,7 +3321,7 @@ export default function OrcamentoDetailPage() {
               )}
               <div className="border-t border-border/60 pt-2 mt-2 flex items-center justify-between">
                 <span className="text-sm font-semibold">Total Geral</span>
-                <span className="text-base font-bold" style={{ color: MODULE_COLOR }}>{formatCurrency(totalGeral)}</span>
+                <span className="text-base font-bold" style={{ color: PRIMARY }}>{formatCurrency(totalGeral)}</span>
               </div>
             </div>
           </Card>
@@ -3561,7 +3562,7 @@ export default function OrcamentoDetailPage() {
                   <div key={arq.id} className="flex items-center gap-2 text-xs group">
                     <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     <div className="min-w-0 flex-1">
-                      <a href={arq.fileUrl} target="_blank" rel="noopener noreferrer" className="truncate block hover:underline font-medium" style={{ color: MODULE_COLOR }}>{arq.fileName}</a>
+                      <a href={arq.fileUrl} target="_blank" rel="noopener noreferrer" className="truncate block hover:underline font-medium" style={{ color: PRIMARY }}>{arq.fileName}</a>
                       <span className="text-muted-foreground text-[10px]">{formatDate(arq.createdAt)}</span>
                     </div>
                     {/* Público (aparece na proposta do cliente) x Privado */}
@@ -3791,7 +3792,7 @@ export default function OrcamentoDetailPage() {
       <Sheet open={pesquisaSheet} onOpenChange={setPesquisaSheet}>
         <SheetContent side="right" size="md" className="p-0">
           <div className="flex items-center gap-2.5 border-b px-5 py-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 14%, transparent)`, color: MODULE_COLOR }}>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `color-mix(in srgb, ${PRIMARY} 14%, transparent)`, color: PRIMARY }}>
               <Star className="h-5 w-5" />
             </div>
             <div className="min-w-0">
@@ -3896,7 +3897,7 @@ export default function OrcamentoDetailPage() {
       {/* Modal: enviar pesquisa de satisfação ao cliente */}
       <Dialog open={pesquisaEnviarModal} onOpenChange={setPesquisaEnviarModal}>
         <DialogContent className="sm:max-w-[520px]">
-          <DialogHeaderIcon icon={Star} color="rose">
+          <DialogHeaderIcon icon={Star}>
             <DialogTitle className="text-[15px]">Pesquisa de satisfação</DialogTitle>
             <DialogDescription className="text-[11px]">Envie o link da pesquisa ao cliente por e-mail ou copie para enviar por outro canal.</DialogDescription>
           </DialogHeaderIcon>
@@ -3918,7 +3919,7 @@ export default function OrcamentoDetailPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPesquisaEnviarModal(false)} disabled={pesquisaBusy}>Fechar</Button>
-            <Button onClick={enviarPesquisaEmail} disabled={pesquisaBusy} style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5">
+            <Button onClick={enviarPesquisaEmail} disabled={pesquisaBusy} style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5">
               {pesquisaBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Enviar por e-mail
             </Button>
           </DialogFooter>
@@ -3941,7 +3942,7 @@ export default function OrcamentoDetailPage() {
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddForma() } }}
                 className="h-9 text-sm flex-1"
               />
-              <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={handleAddForma} disabled={!novaForma.trim()}>
+              <Button size="sm" variant="success" onClick={handleAddForma} disabled={!novaForma.trim()}>
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
@@ -3980,7 +3981,7 @@ export default function OrcamentoDetailPage() {
           </DialogHeaderIcon>
           <DialogBody className="space-y-4">
             <label className="flex items-start gap-2.5 rounded-md border border-border bg-muted/30 px-3 py-2.5 cursor-pointer">
-              <Checkbox checked={enviarNotificar} onCheckedChange={v => setEnviarNotificar(v === true)} accentColor="var(--mod-comercial, #3b82f6)" className="mt-0.5" />
+              <Checkbox checked={enviarNotificar} onCheckedChange={v => setEnviarNotificar(v === true)} accentColor="var(--color-primary)" className="mt-0.5" />
               <div className="text-xs">
                 <p className="font-semibold text-foreground">Notificar o cliente por e-mail</p>
                 <p className="text-muted-foreground">{enviarNotificar ? 'O cliente receberá o e-mail com o link da proposta.' : 'O orçamento será marcado como Enviado, mas o cliente NÃO será notificado (envio por outro canal).'}</p>
@@ -4018,7 +4019,7 @@ export default function OrcamentoDetailPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setEnviarModal(false)} disabled={enviando}>Cancelar</Button>
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={handleEnviar} disabled={enviando}>
+            <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={handleEnviar} disabled={enviando}>
               {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               {orc?.status === 'ENVIADO' ? 'Reenviar' : 'Enviar'}
             </Button>
@@ -4030,9 +4031,9 @@ export default function OrcamentoDetailPage() {
       <Dialog open={paralizarModal} onOpenChange={setParalizarModal}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeaderIcon icon={Pause} color="amber">
-            <DialogTitle className="text-[15px]">Paralizar orcamento</DialogTitle>
+            <DialogTitle className="text-[15px]">Paralisar orçamento</DialogTitle>
             <DialogDescription className="text-[11px]">
-              Ao paralizar, o orçamento será marcado como pausado mas manterá o status atual. Útil quando aguarda informações do cliente.
+              Ao paralisar, o orçamento será marcado como pausado mas manterá o status atual. Útil quando aguarda informações do cliente.
             </DialogDescription>
           </DialogHeaderIcon>
           <DialogBody className="space-y-3">
@@ -4042,16 +4043,16 @@ export default function OrcamentoDetailPage() {
                 value={paralizarMotivo}
                 onChange={e => setParalizarMotivo(e.target.value)}
                 rows={3}
-                placeholder="Ex.: Aguardando documentacao do cliente"
+                placeholder="Ex.: Aguardando documentação do cliente"
                 required
               />
             </div>
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setParalizarModal(false)} disabled={workflowLoading}>Cancelar</Button>
-            <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white gap-1.5" onClick={handleParalizar} disabled={workflowLoading || !paralizarMotivo.trim()}>
+            <Button size="sm" variant="warning" className="gap-1.5" onClick={handleParalizar} disabled={workflowLoading || !paralizarMotivo.trim()}>
               {workflowLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pause className="h-4 w-4" />}
-              Paralizar
+              Paralisar
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -4158,13 +4159,13 @@ export default function OrcamentoDetailPage() {
           <DialogBody className="space-y-3">
             <h4 className="text-sm font-semibold">{textoPadraoModal?.nome}</h4>
             <RichContent
-              className="text-sm leading-relaxed [&_a]:text-sky-600"
+              className="text-sm leading-relaxed"
               html={textoPadraoModal?.texto || ''}
             />
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setTextoPadraoModal(null)}>Fechar</Button>
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={copiarTextoPadrao}>
+            <Button variant="success" size="sm" className="gap-1.5" onClick={copiarTextoPadrao}>
               <CopyIcon className="h-4 w-4" /> Copiar
             </Button>
           </DialogFooter>
@@ -4197,7 +4198,7 @@ export default function OrcamentoDetailPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setEmailModalOpen(false)} disabled={emailEnviando}>Cancelar</Button>
-            <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }} onClick={enviarEmail} disabled={emailEnviando}>
+            <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: PRIMARY }} onClick={enviarEmail} disabled={emailEnviando}>
               {emailEnviando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
               Enviar
             </Button>
@@ -4332,7 +4333,7 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
       ) : (
         <div
           className={cn(avatarSize, 'rounded-full shrink-0 flex items-center justify-center text-white font-bold ring-2 ring-background shadow-sm mt-0.5')}
-          style={{ backgroundColor: MODULE_COLOR }}
+          style={{ backgroundColor: PRIMARY }}
         >
           {iniciais}
         </div>
@@ -4393,7 +4394,7 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
                   </DropdownMenuItem>
                 )}
                 {podeExcluir && (
-                  <DropdownMenuItem className="text-destructive" onClick={onExcluir}>
+                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onExcluir}>
                     <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
                   </DropdownMenuItem>
                 )}
@@ -4426,8 +4427,8 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
                   </Button>
                   <Button
                     size="sm"
-                    className="gap-1.5 text-white"
-                    style={{ backgroundColor: MODULE_COLOR }}
+                    variant="success"
+                    className="gap-1.5"
                     onClick={salvarEdicao}
                     disabled={salvando || textoVazio}
                   >
@@ -4438,7 +4439,7 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
               </div>
             ) : (
               <RichContent
-                className="text-sm text-foreground [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_a]:text-rose-600"
+                className="text-sm text-foreground [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1"
                 html={mensagemHtml}
               />
             )}
@@ -4480,7 +4481,7 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
         {respondendo && onResponder && (
           <div className="mt-3 space-y-2 rounded-md border border-border/60 bg-muted/20 p-3">
             <Label className="text-[12px] font-semibold flex items-center gap-1.5">
-              <MessageSquare className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} />
+              <MessageSquare className="h-3.5 w-3.5" style={{ color: PRIMARY }} />
               Respondendo a {nome}
             </Label>
             <RichEditor
@@ -4495,7 +4496,7 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
               <Button
                 size="sm"
                 className="gap-1.5 text-white"
-                style={{ backgroundColor: MODULE_COLOR }}
+                style={{ backgroundColor: PRIMARY }}
                 onClick={enviarResposta}
                 disabled={enviandoResposta || respostaVazia}
               >
@@ -4605,7 +4606,7 @@ function MensagensCard({ orcamentoId, mensagens, usuarios = [], onChange, bare =
   }
 
   async function handleExcluir(id: string) {
-    const ok = await alerts.confirm({ title: 'Excluir mensagem?', text: 'Esta ação não pode ser desfeita.', confirmText: 'Excluir', icon: 'warning' })
+    const ok = await alerts.confirm({ title: 'Excluir mensagem?', text: 'Esta ação não pode ser desfeita.', confirmText: 'Excluir', icon: 'warning', destructive: true })
     if (!ok) return
     try {
       await (trpc.orcamento as any).deleteMensagem.mutate({ id })
@@ -4631,7 +4632,7 @@ function MensagensCard({ orcamentoId, mensagens, usuarios = [], onChange, bare =
       {/* ── Header: titulo + botao Nova mensagem ── */}
       <div className="flex items-center justify-between gap-2">
         <h5 className="text-[13px] font-semibold flex items-center gap-1.5">
-          <MessageSquare className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} />
+          <MessageSquare className="h-3.5 w-3.5" style={{ color: PRIMARY }} />
           Mensagens
           {mensagensLocais.length > 0 && (
             <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{mensagensLocais.length}</Badge>
@@ -4640,7 +4641,7 @@ function MensagensCard({ orcamentoId, mensagens, usuarios = [], onChange, bare =
         <Button
           size="sm"
           className="gap-1.5 text-white"
-          style={{ backgroundColor: MODULE_COLOR }}
+          style={{ backgroundColor: PRIMARY }}
           onClick={() => setNovaMsgModal(true)}
         >
           <Plus className="h-3.5 w-3.5" /> Nova mensagem
@@ -4754,8 +4755,8 @@ function MensagensCard({ orcamentoId, mensagens, usuarios = [], onChange, bare =
             </Button>
             <Button
               size="sm"
-              className="gap-1.5 text-white"
-              style={{ backgroundColor: MODULE_COLOR }}
+              variant="success"
+              className="gap-1.5"
               onClick={handleAdicionar}
               disabled={enviando || mensagemVazia}
             >
@@ -4773,7 +4774,7 @@ function MensagensCard({ orcamentoId, mensagens, usuarios = [], onChange, bare =
   return (
     <Card>
       <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">
-        <FileText className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+        <FileText className="h-4 w-4" style={{ color: PRIMARY }} />
         <h3 className="text-sm font-semibold flex-1">Mensagens internas</h3>
         <Badge variant="secondary" className="text-[10px]">{mensagensLocais.length}</Badge>
       </CardHeader>

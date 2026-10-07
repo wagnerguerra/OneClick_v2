@@ -31,7 +31,7 @@ import {
 } from './fornecedor-iso-tabs'
 import { CategoriaTagsInput } from './categoria-tags'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // emerald (Cadastros)
+const PRIMARY = 'var(--color-primary)'
 
 const FORM_TABS = [
   { key: 'identificacao', label: 'Identificação', icon: Building2 },
@@ -142,7 +142,7 @@ export function FornecedorForm({ mode, fornecedorId, currentUserId, title, descr
                         'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                         activeTab === t.key ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground',
                       )}
-                      style={activeTab === t.key ? { backgroundColor: MODULE_COLOR } : undefined}
+                      style={activeTab === t.key ? { backgroundColor: PRIMARY } : undefined}
                     >
                       <Icon className="h-3.5 w-3.5 shrink-0" />
                       {t.label}
@@ -164,7 +164,7 @@ export function FornecedorForm({ mode, fornecedorId, currentUserId, title, descr
                             'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                             activeTab === t.key ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground',
                           )}
-                          style={activeTab === t.key ? { backgroundColor: MODULE_COLOR } : undefined}
+                          style={activeTab === t.key ? { backgroundColor: PRIMARY } : undefined}
                         >
                           <Icon className="h-3.5 w-3.5 shrink-0" />
                           {t.label}

@@ -123,11 +123,11 @@ function MesCalendario({
     <div
       className={cn(
         'rounded-lg border bg-card p-3.5 shadow-sm transition-shadow hover:shadow-md',
-        isMesAtual ? 'border-emerald-300 ring-1 ring-emerald-200/50' : 'border-border/60',
+        isMesAtual ? 'border-primary/40 ring-1 ring-primary/20' : 'border-border/60',
       )}
     >
       <div className="flex items-baseline justify-between mb-2.5 pb-2 border-b border-border/40">
-        <h5 className={cn('text-[13px] font-bold tracking-tight', isMesAtual ? 'text-emerald-600' : 'text-foreground')}>
+        <h5 className={cn('text-[13px] font-bold tracking-tight', isMesAtual ? 'text-primary' : 'text-foreground')}>
           {MESES_PT[mes]}
         </h5>
         {totalNoMes > 0 && (
@@ -191,8 +191,8 @@ function MesCalendario({
                   isFds ? 'text-foreground/40' : 'text-foreground/80',
                   'hover:bg-muted hover:border-border/60',
                 ),
-            isToday && !tem && 'bg-emerald-500 text-white font-bold shadow-sm border-emerald-500',
-            isToday && tem && 'ring-2 ring-emerald-500 ring-offset-1 z-10',
+            isToday && !tem && 'bg-primary text-primary-foreground font-bold shadow-sm border-primary',
+            isToday && tem && 'ring-2 ring-primary ring-offset-1 z-10',
           )
 
           return (
@@ -320,7 +320,7 @@ export function CalendarioObrigacoesCliente({ clienteId }: { clienteId: string }
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-5 w-5 animate-spin text-emerald-500" />
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
         </div>
       ) : eventos.length === 0 ? (
         <div className="text-center text-muted-foreground py-12 text-sm">

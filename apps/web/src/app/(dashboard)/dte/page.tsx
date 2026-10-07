@@ -72,8 +72,6 @@ interface ClienteAgrupado {
 // Constantes
 // ============================================================
 
-const MODULE_COLOR = 'var(--mod-fiscal, #818cf8)'
-
 const TIPO_COLORS: Record<string, string> = {
   DFE: BADGE.blue,
   NOTIFICACOES: BADGE.amber,
@@ -400,6 +398,7 @@ export default function DtePage() {
       text: `Excluir ${ids.length} mensagem(ns) selecionada(s)?`,
       confirmText: 'Excluir',
       icon: 'warning',
+      destructive: true,
     })
     if (!confirmed) return
     try {
@@ -464,7 +463,7 @@ export default function DtePage() {
       <PageHeaderBar actions={<>
           {view === 'mensagens' && selectedCliente && (
             <>
-              <Badge variant="outline" className={cn('text-xs', STRONG.indigo)}>
+              <Badge variant="outline" className={cn('text-xs', 'bg-primary/10 text-primary')}>
                 {selectedCliente.total} mensagem(ns)
               </Badge>
               {selectedCliente.naoLidas > 0 && (
@@ -556,11 +555,11 @@ export default function DtePage() {
                   <p className="text-2xl font-bold mt-1">{stats.total}</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">mensagens</p>
                 </div>
-                <div className="flex h-11 w-11 items-center justify-center rounded-full" style={{ backgroundColor: 'rgba(129,140,248,0.15)' }}>
-                  <Mail className="h-5 w-5" style={{ color: MODULE_COLOR }} />
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
+                  <Mail className="h-5 w-5 text-primary" />
                 </div>
               </div>
-              <div className="absolute bottom-0 left-0 right-0 h-1" style={{ backgroundColor: MODULE_COLOR }} />
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary" />
             </Card>
             <Card className="p-4 relative overflow-hidden">
               <div className="flex items-center justify-between">
@@ -608,9 +607,9 @@ export default function DtePage() {
 
           {/* Informativo primeira execucao */}
           {stats.total === 0 && !syncing && !loading && (
-            <Card className="p-4 border-indigo-200 dark:border-indigo-800/40 bg-indigo-50/50 dark:bg-indigo-950/10">
+            <Card className="p-4 border-primary/30 bg-primary/10">
               <div className="flex items-start gap-3">
-                <Info className={cn('h-5 w-5 shrink-0 mt-0.5', TEXT.indigo)} />
+                <Info className="h-5 w-5 shrink-0 mt-0.5 text-primary" />
                 <div>
                   <p className="text-sm font-medium text-foreground">Primeira sincronização</p>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -687,7 +686,7 @@ export default function DtePage() {
                         <TableCell className="font-medium text-sm truncate max-w-[300px] uppercase">{cliente.razao_social}</TableCell>
                         <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">{formatDoc(cliente.documento)}</TableCell>
                         <TableCell className="hidden md:table-cell text-center">
-                          <Badge variant="outline" className={cn('text-[10px]', STRONG.indigo)}>{cliente.total}</Badge>
+                          <Badge variant="outline" className={cn('text-[10px]', 'bg-primary/10 text-primary')}>{cliente.total}</Badge>
                         </TableCell>
                         <TableCell className="text-center">
                           {cliente.naoLidas > 0
@@ -736,7 +735,6 @@ export default function DtePage() {
                         variant={p === paginaAtual ? 'default' : 'ghost'}
                         size="icon-xs"
                         onClick={() => setPage(p)}
-                        style={p === paginaAtual ? { backgroundColor: MODULE_COLOR } : undefined}
                       >
                         {p}
                       </Button>
@@ -846,7 +844,7 @@ export default function DtePage() {
                         className={cn(
                           'cursor-pointer whitespace-nowrap',
                           msg.status === 'nao_lida' && 'bg-amber-50/50 dark:bg-amber-950/10 font-medium',
-                          selected.includes(msg.id) && 'bg-indigo-50/50 dark:bg-indigo-950/10',
+                          selected.includes(msg.id) && 'bg-primary/10',
                         )}
                         onClick={() => setDetailMsg(msg)}
                       >
@@ -884,7 +882,7 @@ export default function DtePage() {
                                   <CheckCircle2 className="h-3.5 w-3.5 mr-2" /> Marcar como lida
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem onClick={() => handleDelete(msg.id)} className="text-destructive">
+                              <DropdownMenuItem onClick={() => handleDelete(msg.id)} className="text-destructive focus:text-destructive">
                                 <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -913,7 +911,6 @@ export default function DtePage() {
                         variant={p === msgPaginaAtual ? 'default' : 'ghost'}
                         size="icon-xs"
                         onClick={() => setMsgPage(p)}
-                        style={p === msgPaginaAtual ? { backgroundColor: MODULE_COLOR } : undefined}
                       >
                         {p}
                       </Button>
@@ -998,7 +995,7 @@ export default function DtePage() {
       {/* ============================================================ */}
       <Dialog open={cnpjModalOpen} onOpenChange={setCnpjModalOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeaderIcon icon={Search} accentColor="var(--mod-fiscal, #0369a1)">
+          <DialogHeaderIcon icon={Search}>
             <DialogTitle>Sincronizar por CNPJ</DialogTitle>
             <DialogDescription>Informe o CNPJ do cliente para sincronizar as mensagens DT-e junto ao portal SEFAZ/ES.</DialogDescription>
           </DialogHeaderIcon>
@@ -1015,7 +1012,7 @@ export default function DtePage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCnpjModalOpen(false)}>Cancelar</Button>
-            <Button style={{ backgroundColor: 'var(--mod-fiscal, #0369a1)' }} className="text-white hover:opacity-90" onClick={confirmarSyncCnpj}>Sincronizar</Button>
+            <Button onClick={confirmarSyncCnpj}>Sincronizar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1041,7 +1038,7 @@ export default function DtePage() {
                     <span>{syncProgress.current}/{syncProgress.total}</span>
                   </div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-300" style={{ width: `${(syncProgress.current / syncProgress.total) * 100}%`, backgroundColor: MODULE_COLOR }} />
+                    <div className="h-full rounded-full transition-all duration-300 bg-primary" style={{ width: `${(syncProgress.current / syncProgress.total) * 100}%` }} />
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
                     <span>{syncProgress.mensagensNovas} nova(s)</span>

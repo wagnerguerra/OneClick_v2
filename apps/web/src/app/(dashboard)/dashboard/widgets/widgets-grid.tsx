@@ -396,7 +396,7 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
               <Button size="sm" variant="ghost" onClick={handleCancelar} disabled={saving} className="gap-1.5">
                 <X className="h-4 w-4" /> Cancelar
               </Button>
-              <Button size="sm" onClick={handleSalvar} disabled={saving} className="gap-1.5">
+              <Button variant="success" size="sm" onClick={handleSalvar} disabled={saving} className="gap-1.5">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Salvar
               </Button>
@@ -861,7 +861,7 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
             <Button variant="outline" onClick={() => setEditingWidgetId(null)}>
               Cancelar
             </Button>
-            <Button onClick={salvarEditar}>
+            <Button variant="success" onClick={salvarEditar}>
               Aplicar
             </Button>
           </DialogFooter>

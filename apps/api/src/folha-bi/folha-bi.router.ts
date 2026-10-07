@@ -43,7 +43,7 @@ export function createFolhaBiRouter(folhaBiService: FolhaBiService) {
         refInicio: z.number().int().min(190001),
         refFim: z.number().int().min(190001),
       }).refine(v => v.refFim >= v.refInicio, {
-        message: 'A competencia final nao pode ser anterior a inicial.',
+        message: 'A competência final não pode ser anterior à inicial.',
         path: ['refFim'],
       }))
       .mutation(({ input, ctx }) =>

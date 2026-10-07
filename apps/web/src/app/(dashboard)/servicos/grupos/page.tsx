@@ -33,8 +33,6 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type D
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // Emerald (Cadastros)
-
 interface ServicoLite {
   id: string
   nome: string
@@ -191,6 +189,7 @@ export default function GruposPage() {
       title: `Remover grupo "${g.nome}"`,
       text: 'Os serviços continuam intactos — só perdem o vínculo com o grupo.',
       confirmText: 'Remover',
+      destructive: true,
     })
     if (!ok) return
     try {
@@ -392,7 +391,7 @@ export default function GruposPage() {
                       <DropdownMenuItem onClick={() => openEdit(g)}>
                         <Edit className="h-3.5 w-3.5 mr-2" />Editar
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(g)}>
+                      <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDelete(g)}>
                         <Trash2 className="h-3.5 w-3.5 mr-2" />Excluir
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -549,7 +548,7 @@ export default function GruposPage() {
           </DialogBody>
           <DialogFooter className="px-6 py-3 shrink-0 border-t border-border/40">
             <Button variant="outline" onClick={() => setModalOpen(false)} disabled={saving}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={saving} className="gap-1.5" style={{ backgroundColor: MODULE_COLOR }}>
+            <Button variant="success" onClick={handleSave} disabled={saving} className="gap-1.5">
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               {editing ? 'Salvar' : 'Criar'}
             </Button>

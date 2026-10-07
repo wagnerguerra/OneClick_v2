@@ -190,7 +190,7 @@ export class CndService {
     const consumerSecret = map.get('CONSUMER_SECRET') || process.env.CONSUMER_SECRET || ''
     const certSenha = map.get('CERTIFICADO_SENHA') || process.env.CERTIFICADO_SENHA || ''
 
-    if (!consumerKey || !consumerSecret) throw new Error('Consumer Key/Secret nao configurados. Acesse Configuracoes > Certificado Digital.')
+    if (!consumerKey || !consumerSecret) throw new Error('Consumer Key/Secret não configurados. Acesse Configurações > Certificado Digital.')
 
     return { consumerKey, consumerSecret, certSenha }
   }
@@ -229,7 +229,7 @@ export class CndService {
     }, postData)
 
     if (res.status !== 200) {
-      throw new Error(`Falha na autenticacao SERPRO: HTTP ${res.status} - ${semSegredos(res.data.slice(0, 200))}`)
+      throw new Error(`Falha na autenticação SERPRO: HTTP ${res.status} - ${semSegredos(res.data.slice(0, 200))}`)
     }
 
     const data = JSON.parse(res.data) as { access_token: string; expires_in?: number }
@@ -736,7 +736,7 @@ export class CndService {
     const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
       `SELECT * FROM certidoes_cnd WHERE id = $1 AND empresa_id = $2`, id, empresaId,
     )
-    if (!rows.length) throw new Error('Registro nao encontrado')
+    if (!rows.length) throw new Error('Registro não encontrado')
     return rows[0]!
   }
 

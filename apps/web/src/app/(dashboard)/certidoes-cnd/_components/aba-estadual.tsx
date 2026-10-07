@@ -23,7 +23,7 @@ export function AbaEstadual({ refreshKey }: { refreshKey: number }) {
       // O endpoint estadual não filtra por situação: os indicadores só informam.
       indicadoresFiltram={false}
       indicadores={t => [
-        { key: '', label: 'Total', count: t.total ?? 0, cor: STATUS_COR.modulo, icon: Shield },
+        { key: '', label: 'Total', count: t.total ?? 0, cor: STATUS_COR.primaria, icon: Shield },
         { key: 'emitidas', label: 'Emitidas', count: t.emitidas ?? 0, cor: STATUS_COR.emerald, icon: CheckCircle2 },
         { key: 'nao_emitidas', label: 'Não emitidas', count: t.naoEmitidas ?? 0, cor: STATUS_COR.red, icon: XCircle },
       ]}

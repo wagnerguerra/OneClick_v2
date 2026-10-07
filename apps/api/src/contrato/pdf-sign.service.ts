@@ -51,7 +51,7 @@ export class PdfSignService {
    */
   extrairInfoCertificado(certPath: string, certPassword: string): CertInfo {
     const p = path.isAbsolute(certPath) ? certPath : path.join(process.cwd(), certPath)
-    if (!fs.existsSync(p)) throw new Error(`Certificado nao encontrado: ${p}`)
+    if (!fs.existsSync(p)) throw new Error(`Certificado não encontrado: ${p}`)
     const buf = fs.readFileSync(p)
     const binary = buf.toString('binary')
     const asn1 = forge.asn1.fromDer(binary)
@@ -146,20 +146,20 @@ export class PdfSignService {
     withTimestamp?: boolean
   }): Promise<{ buffer: Buffer; padesLevel: 'BES' | 'T'; tsaInfo?: string }> {
     if (typeof plainAddPlaceholder !== 'function') {
-      throw new Error('plainAddPlaceholder indisponivel — verifique node-signpdf v3')
+      throw new Error('plainAddPlaceholder indisponível — verifique node-signpdf v3')
     }
     if (!signer || typeof signer.sign !== 'function') {
-      throw new Error('SignPdf signer invalido — verifique node-signpdf')
+      throw new Error('SignPdf signer inválido — verifique node-signpdf')
     }
 
     const certFullPath = opts?.certPath
       ? (path.isAbsolute(opts.certPath) ? opts.certPath : path.join(process.cwd(), opts.certPath))
       : this.resolveCertPath()
     if (!certFullPath) {
-      throw new Error('Certificado PJ nao encontrado. Faça upload em /configuracoes/certificado.')
+      throw new Error('Certificado PJ não encontrado. Faça upload em /configuracoes/certificado.')
     }
     const certPassword = opts?.certPassword || process.env.CERTIFICADO_SENHA
-    if (!certPassword) throw new Error('CERTIFICADO_SENHA nao configurado em /configuracoes')
+    if (!certPassword) throw new Error('CERTIFICADO_SENHA não configurado em /configuracoes')
 
     const certBuffer = fs.readFileSync(certFullPath)
 
@@ -221,7 +221,7 @@ export class PdfSignService {
     const signedData = this.getSignedDataFromContentInfo(asn1)
     const signerInfos = this.getSignerInfos(signedData)
     if (!signerInfos.value || signerInfos.value.length === 0) {
-      throw new Error('SignerInfo nao encontrado no PKCS#7')
+      throw new Error('SignerInfo não encontrado no PKCS#7')
     }
     const signerInfo = signerInfos.value[0]
 
@@ -279,10 +279,10 @@ export class PdfSignService {
   private locateContents(pdf: Buffer): { start: number; length: number; hex: string } {
     const contentsTag = Buffer.from('/Contents <')
     const start = pdf.indexOf(contentsTag)
-    if (start < 0) throw new Error('Tag /Contents nao encontrada no PDF')
+    if (start < 0) throw new Error('Tag /Contents não encontrada no PDF')
     const hexStart = start + contentsTag.length
     const closeRel = pdf.subarray(hexStart).indexOf('>')
-    if (closeRel < 0) throw new Error('Fecha-> de /Contents nao encontrado')
+    if (closeRel < 0) throw new Error('Fecha-> de /Contents não encontrado')
     const hex = pdf.subarray(hexStart, hexStart + closeRel).toString('utf8')
     return { start: hexStart, length: closeRel, hex }
   }
@@ -310,7 +310,7 @@ export class PdfSignService {
         return child
       }
     }
-    throw new Error('SignerInfos SET nao encontrado em SignedData')
+    throw new Error('SignerInfos SET não encontrado em SignedData')
   }
 
   /**
@@ -326,7 +326,7 @@ export class PdfSignService {
         return child.value
       }
     }
-    throw new Error('Signature value (OCTET STRING) nao encontrado em SignerInfo')
+    throw new Error('Signature value (OCTET STRING) não encontrado em SignerInfo')
   }
 
   /**

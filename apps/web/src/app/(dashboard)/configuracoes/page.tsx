@@ -3,13 +3,12 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
   Settings, Save, Eye, EyeOff, HelpCircle, X, Loader2,
-  Shield, Database, Server, Mail, CreditCard, HardDrive,
-  Landmark, Globe, MessageSquare, Bot, Brain, Calendar,
-  FileSearch,
-  Key, Clock, type LucideIcon, Zap, CheckCircle2, XCircle,
+  Database, Server, Mail, HardDrive,
+  Landmark, MessageSquare, Bot, Calendar,
+  Key, Clock, Zap, CheckCircle2, XCircle,
   Play, Terminal, Bookmark, FolderOpen, Trash2, ChevronDown, Search, Pencil, Check, Maximize2, Minimize2,
-  FileSignature, Bell, Lock, Unlock, Headphones, HardDriveDownload, ClipboardCheck,
-  ChevronRight, BadgeCheck,
+  Lock, Unlock, HardDriveDownload,
+  ChevronRight,
 } from 'lucide-react'
 import Link from 'next/link'
 import { Button, Input, Label, Card, CardHeader, cn, Switch } from '@saas/ui'
@@ -25,6 +24,7 @@ import { TicketsSection } from './_components/tickets-section'
 import { GoogleBackupSection } from './_components/google-backup-section'
 import { HelpdeskIaSection } from './_components/helpdesk-ia-section'
 import { CampoCron } from './_components/campo-cron'
+import { TituloGrupo, iconeDoGrupo } from './_components/titulo-grupo'
 
 interface ConfigField {
   key: string; label: string; group: string; type: string
@@ -32,38 +32,11 @@ interface ConfigField {
   subgroup?: string; colSpan?: number
 }
 
-const GROUP_ICONS: Record<string, LucideIcon> = {
-  'Armazenamento (S3)': HardDrive,
-  'Autenticação': Shield,
-  'Banco de Dados': Database,
-  'Carimbo de Tempo (TSA)': Clock,
-  'E-mail (SMTP)': Mail,
-  'Google': Calendar,
-  'Google Calendar': Calendar,
-  'gov.br Assinatura': FileSignature,
-  'SERPRO Neo iD': FileSignature,
-  'Omie ERP': Globe,
-  'OpenAI (ChatGPT)': Brain,
-  'Certificados': BadgeCheck,
-  'SERPRO': Key,
-  'Servidor': Server,
-  'Stripe': CreditCard,
-  'WhatsApp': MessageSquare,
-  'Captcha': Bot,
-  'Dossiê e Imagens': FileSearch,
-  'Abas': Bookmark,
-  'Notificações': Bell,
-  'Helpdesk': Headphones,
-  'Acessórias': Zap,
-  'Calendário': Calendar,
-  'Relatório de QA': ClipboardCheck,
-  'Relatório de Tickets': Headphones,
-}
-
 // Pill especial — não tem campos cadastrados via getCampos, é injetada
 // no fim da lista de groups e tratada com renderer próprio.
 const NOTIFICATIONS_GROUP = 'Notificações'
-const HELPDESK_GROUP = 'Helpdesk'
+// Pill só do front (não é o `group: 'Helpdesk'` das linhas de configuração da API).
+const HELPDESK_GROUP = 'HelpDesk'
 const CALENDARIO_GROUP = 'Calendário'
 const QA_GROUP = 'Relatório de QA'
 const RELATORIO_TICKETS_GROUP = 'Relatório de Tickets'
@@ -629,7 +602,7 @@ export default function ConfiguracoesPage() {
           <div className="w-[200px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
             <div className="space-y-1">
               {groups.map((group) => {
-                const Icon = GROUP_ICONS[group] || Settings
+                const Icon = iconeDoGrupo(group)
                 return (
                   <button
                     key={group}
@@ -641,10 +614,9 @@ export default function ConfiguracoesPage() {
                     className={cn(
                       'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                       activeGroup === group
-                        ? 'text-white shadow-sm'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
                         : 'text-muted-foreground hover:bg-white dark:hover:bg-accent hover:text-foreground'
                     )}
-                    style={activeGroup === group ? { backgroundColor: 'var(--mod-configuracoes, #f97316)' } : undefined}
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0" />
                     {group}
@@ -664,7 +636,7 @@ export default function ConfiguracoesPage() {
               <div className="flex flex-col h-full">
                 {/* Header com título + salvar */}
                 <div className="flex items-center justify-between px-5 py-3 border-b border-hairline">
-                  <h4 className="text-[13px] font-semibold text-foreground">Banco de Dados</h4>
+                  <TituloGrupo grupo="Banco de Dados" />
                   <Button variant="success" size="sm" onClick={handleSave} disabled={saving}>
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     {saving ? 'Salvando...' : 'Salvar'}
@@ -684,7 +656,7 @@ export default function ConfiguracoesPage() {
                           className={cn(
                             'px-4 py-2.5 text-xs font-medium transition-all flex items-center gap-2 border-b-2 -mb-px',
                             dbSubtab === tab.key
-                              ? 'border-orange-500 text-orange-600'
+                              ? 'border-primary-on-surface text-primary-on-surface'
                               : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                           )}
                         >
@@ -796,7 +768,7 @@ export default function ConfiguracoesPage() {
                         {expandedConsole && (
                           <div className="flex items-center justify-between pb-3 border-b border-hairline">
                             <div className="flex items-center gap-2">
-                              <Terminal className="h-4 w-4 text-orange-500" />
+                              <Terminal className="h-4 w-4 text-primary" />
                               <span className="text-sm font-semibold">Console SQL</span>
                               <span className="text-xs text-muted-foreground">— {DB_SUBTABS.find(t => t.key === dbSubtab)?.label}</span>
                             </div>
@@ -813,28 +785,28 @@ export default function ConfiguracoesPage() {
 
                         {/* Painel do template ativo com variáveis */}
                         {activeTemplate[dbSubtab] && Object.keys(templateVars[dbSubtab] || {}).length > 0 && (
-                          <div className="rounded border border-orange-200 bg-orange-50/50 dark:bg-orange-950/20">
-                            <div className="flex items-center justify-between px-3 py-2 border-b border-orange-200/60 dark:border-orange-800/40">
+                          <div className="rounded border border-primary/30 bg-primary/10">
+                            <div className="flex items-center justify-between px-3 py-2 border-b border-primary/20">
                               <div className="flex items-center gap-2">
-                                <Bookmark className="h-3.5 w-3.5 text-orange-500" />
-                                <span className="text-xs font-semibold text-orange-700">{activeTemplate[dbSubtab]!.name}</span>
-                                <span className="text-[10px] text-orange-500 bg-orange-100 px-1.5 py-0.5 rounded">template</span>
+                                <Bookmark className="h-3.5 w-3.5 text-primary" />
+                                <span className="text-xs font-semibold text-primary">{activeTemplate[dbSubtab]!.name}</span>
+                                <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">template</span>
                               </div>
                               <button
                                 type="button"
                                 onClick={() => { setActiveTemplate(prev => ({ ...prev, [dbSubtab]: null })); setTemplateVars(prev => ({ ...prev, [dbSubtab]: {} })) }}
-                                className="text-orange-400 hover:text-orange-600"
+                                className="text-primary/70 hover:text-primary"
                                 title="Desvincular template"
                               >
                                 <X className="h-3.5 w-3.5" />
                               </button>
                             </div>
                             <div className="px-3 py-2.5">
-                              <div className="text-[10px] text-orange-600 font-medium mb-2">Variáveis — preencha os valores para execução:</div>
+                              <div className="text-[10px] text-primary font-medium mb-2">Variáveis — preencha os valores para execução:</div>
                               <div className="grid grid-cols-12 gap-2">
                                 {Object.keys(templateVars[dbSubtab]!).map((varName) => (
                                   <div key={varName} className="col-span-12 md:col-span-4">
-                                    <Label className="text-[11px] text-orange-700 font-mono">{`{{${varName}}}`}</Label>
+                                    <Label className="text-[11px] text-primary font-mono">{`{{${varName}}}`}</Label>
                                     <Input
                                       placeholder={varName.replace(/_/g, ' ')}
                                       value={templateVars[dbSubtab]![varName] || ''}
@@ -848,9 +820,9 @@ export default function ConfiguracoesPage() {
                                 ))}
                               </div>
                               {/* Preview do SQL resolvido */}
-                              <div className="mt-2 pt-2 border-t border-orange-200/60 dark:border-orange-800/40">
-                                <div className="text-[10px] text-orange-600 font-medium mb-1">Preview:</div>
-                                <div className="text-[11px] font-mono text-orange-900 dark:text-orange-200 bg-orange-100/60 dark:bg-orange-900/20 rounded px-2 py-1.5 max-h-[60px] overflow-auto whitespace-pre-wrap nice-scrollbar">
+                              <div className="mt-2 pt-2 border-t border-primary/20">
+                                <div className="text-[10px] text-primary font-medium mb-1">Preview:</div>
+                                <div className="text-[11px] font-mono text-primary bg-primary/10 rounded px-2 py-1.5 max-h-[60px] overflow-auto whitespace-pre-wrap nice-scrollbar">
                                   {resolveTemplate(activeTemplate[dbSubtab]!.sql, templateVars[dbSubtab]!)}
                                 </div>
                               </div>
@@ -902,7 +874,7 @@ export default function ConfiguracoesPage() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => setShowSaveDialog(prev => ({ ...prev, [dbSubtab]: true }))}
-                                  className="flex items-center gap-2 text-orange-600 border-orange-300 hover:bg-orange-50"
+                                  className="flex items-center gap-2 text-primary border-primary/30 hover:bg-primary/10"
                                 >
                                   <Bookmark className="h-3.5 w-3.5" />
                                   Salvar consulta
@@ -992,7 +964,7 @@ export default function ConfiguracoesPage() {
                                       </div>
                                       {editingQueryId !== q.id && (
                                         <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
-                                          <button type="button" onClick={(e) => { e.stopPropagation(); setEditingQueryId(q.id); setEditingQueryName(q.name) }} className="text-muted-foreground hover:text-orange-600" title="Renomear">
+                                          <button type="button" onClick={(e) => { e.stopPropagation(); setEditingQueryId(q.id); setEditingQueryName(q.name) }} className="text-muted-foreground hover:text-primary" title="Renomear">
                                             <Pencil className="h-3.5 w-3.5" />
                                           </button>
                                           <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteSavedQuery(q.id) }} className="text-red-400 hover:text-red-600" title="Excluir consulta">
@@ -1024,10 +996,10 @@ export default function ConfiguracoesPage() {
                                       {/* Templates */}
                                       {templates.length > 0 && (
                                         <>
-                                          <div className="px-3 py-1.5 bg-orange-50/80 dark:bg-orange-950/20 border-b border-orange-100 dark:border-orange-900/40 flex items-center gap-1.5">
-                                            <Bookmark className="h-3 w-3 text-orange-500" />
-                                            <span className="text-[10px] font-semibold text-orange-600 uppercase tracking-wider">Templates</span>
-                                            <span className="text-[10px] text-orange-400">({templates.length})</span>
+                                          <div className="px-3 py-1.5 bg-primary/10 border-b border-primary/20 flex items-center gap-1.5">
+                                            <Bookmark className="h-3 w-3 text-primary-on-surface" />
+                                            <span className="text-[10px] font-semibold text-primary-on-surface uppercase tracking-wider">Templates</span>
+                                            <span className="text-[10px] text-primary-on-surface/70">({templates.length})</span>
                                           </div>
                                           {templates.map(renderQueryItem)}
                                         </>
@@ -1147,7 +1119,7 @@ export default function ConfiguracoesPage() {
               /* ============================================================ */
               <div className="flex flex-col h-full">
                 <div className="flex items-center justify-between px-5 py-3 border-b border-hairline">
-                  <h4 className="text-[13px] font-semibold text-foreground">Google</h4>
+                  <TituloGrupo grupo="Google" />
                   <Button variant="success" size="sm" onClick={handleSave} disabled={saving}>
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     {saving ? 'Salvando...' : 'Salvar'}
@@ -1166,7 +1138,7 @@ export default function ConfiguracoesPage() {
                           className={cn(
                             'px-4 py-2.5 text-xs font-medium transition-all flex items-center gap-2 border-b-2 -mb-px',
                             googleSubtab === tab.key
-                              ? 'border-orange-500 text-orange-600'
+                              ? 'border-primary-on-surface text-primary-on-surface'
                               : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                           )}
                         >
@@ -1210,10 +1182,7 @@ export default function ConfiguracoesPage() {
               /* ============================================================ */
               <div className="flex flex-col h-full">
                 <div className="flex items-center justify-between px-5 py-3 border-b border-hairline">
-                  <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
-                    <Bell className="h-4 w-4 text-orange-500" />
-                    Notificações — controle de remoção pelo usuário
-                  </h4>
+                  <TituloGrupo grupo={NOTIFICATIONS_GROUP}>Notificações — controle de remoção pelo usuário</TituloGrupo>
                   <Button
                     variant="success"
                     size="sm"
@@ -1226,7 +1195,7 @@ export default function ConfiguracoesPage() {
                 </div>
 
                 <div className="flex-1 p-5 space-y-4" style={{ animation: 'fadeSlideIn 0.2s ease-out' }}>
-                  <div className="rounded border border-orange-200/70 bg-orange-50/50 dark:bg-orange-950/20 dark:border-orange-900/40 px-3 py-2.5 text-[11px] text-orange-900 dark:text-orange-200 leading-relaxed">
+                  <div className="rounded border border-primary/30 bg-primary/10 px-3 py-2.5 text-[11px] text-primary-on-surface leading-relaxed">
                     Por origem, define se o usuário pode remover a notificação manualmente
                     do sino. Origens <strong>não removíveis</strong> ficam no painel até a
                     condição que as gerou ser resolvida pelo sistema (ex: o evento da agenda
@@ -1297,7 +1266,7 @@ export default function ConfiguracoesPage() {
                                         type="button"
                                         onClick={() => resetNotifOrigem(o.origem)}
                                         title={`Restaurar padrão (${o.removivelPadrao ? 'removível' : 'não removível'})`}
-                                        className="text-[10px] text-orange-600 hover:underline"
+                                        className="text-[10px] text-primary hover:underline"
                                       >
                                         padrão
                                       </button>
@@ -1319,10 +1288,7 @@ export default function ConfiguracoesPage() {
               /* ============================================================ */
               <div className="flex flex-col h-full">
                 <div className="flex items-center justify-between px-5 py-3 border-b border-hairline">
-                  <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
-                    <Headphones className="h-4 w-4 text-cyan-500" />
-                    HelpDesk
-                  </h4>
+                  <TituloGrupo grupo={HELPDESK_GROUP} />
                   {hdSubtab === 'geral' && (
                     <Button variant="success" size="sm" onClick={handleSaveHd} disabled={hdSaving || !hdDirty || !hdCfg}>
                       {hdSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -1337,7 +1303,7 @@ export default function ConfiguracoesPage() {
                     onClick={() => setHdSubtab('geral')}
                     className={cn(
                       'px-3 py-1.5 text-[12px] font-semibold rounded-t-md transition-colors -mb-px border-b-2',
-                      hdSubtab === 'geral' ? 'text-cyan-600 border-cyan-500' : 'text-muted-foreground border-transparent hover:text-foreground',
+                      hdSubtab === 'geral' ? 'text-primary-on-surface border-primary-on-surface' : 'text-muted-foreground border-transparent hover:text-foreground',
                     )}
                   >
                     Geral
@@ -1347,7 +1313,7 @@ export default function ConfiguracoesPage() {
                     onClick={() => setHdSubtab('ia')}
                     className={cn(
                       'px-3 py-1.5 text-[12px] font-semibold rounded-t-md transition-colors -mb-px border-b-2 inline-flex items-center gap-1.5',
-                      hdSubtab === 'ia' ? 'text-cyan-600 border-cyan-500' : 'text-muted-foreground border-transparent hover:text-foreground',
+                      hdSubtab === 'ia' ? 'text-primary-on-surface border-primary-on-surface' : 'text-muted-foreground border-transparent hover:text-foreground',
                     )}
                   >
                     <Bot className="h-3.5 w-3.5" />
@@ -1422,7 +1388,7 @@ export default function ConfiguracoesPage() {
                         />
                       </section>
 
-                      <div className="rounded border border-cyan-200/70 bg-cyan-50/40 dark:bg-cyan-950/20 dark:border-cyan-900/40 px-3 py-2.5 text-[11px] text-cyan-900 dark:text-cyan-200 leading-relaxed">
+                      <div className={cn('rounded border px-3 py-2.5 text-[11px] leading-relaxed', BADGE.sky)}>
                         <strong>Próximos passos sugeridos:</strong> CRUD completo de categorias (com SLA por categoria
                         e cor customizável) chegará em uma evolução desta pill. Por enquanto, o catálogo TI inicial
                         é gerenciado via seed (<code className="text-[11px]">seed-helpdesk-ti.ts</code>).
@@ -1452,7 +1418,7 @@ export default function ConfiguracoesPage() {
               /* ============================================================ */
               <div className="p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-sm font-semibold">{activeGroup}</h4>
+                  <TituloGrupo grupo={activeGroup} />
                   <Button variant="success" size="sm" onClick={handleSave} disabled={saving}>
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     {saving ? 'Salvando...' : 'Salvar'}

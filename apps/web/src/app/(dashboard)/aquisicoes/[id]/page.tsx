@@ -39,7 +39,7 @@ import { BADGE, TEXT } from '@/lib/color-styles'
  * recebimento POR ITEM: cada item pode chegar em partes, em datas diferentes.
  */
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+const PRIMARY = 'var(--color-primary)'
 const brl = (v: number) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const dataBr = (d: string | null | undefined) => (d ? new Date(d).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : null)
 
@@ -172,12 +172,12 @@ export default function PedidoDetalhePage() {
       {/* Topo — PADRAO_PAGINAS §3.1 */}
       <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
           {editavel && aba === 'detalhes' && <Button variant="success" size="sm" onClick={salvar} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Salvar</Button>}
-          {editavel && <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" disabled={acting} onClick={() => acao(() => (trpc.compra as any).enviar.mutate({ id: c.id }), 'Enviado para aprovação.')}><Send className="h-4 w-4" />Enviar p/ aprovação</Button>}
+          {editavel && <Button size="sm" disabled={acting} onClick={() => acao(() => (trpc.compra as any).enviar.mutate({ id: c.id }), 'Enviado para aprovação.')}><Send className="h-4 w-4" />Enviar p/ aprovação</Button>}
           {c.status === 'AGUARDANDO_APROVACAO' && podeAprovar && <>
             <Button variant="success" size="sm" disabled={acting} onClick={() => acao(() => (trpc.compra as any).aprovar.mutate({ id: c.id }), 'Pedido aprovado.')}><Check className="h-4 w-4" />Aprovar</Button>
             <Button variant="destructive" size="sm" disabled={acting} onClick={() => { setMotivo(''); setReprovarOpen(true) }}><Ban className="h-4 w-4" />Reprovar</Button>
           </>}
-          {recebendo && <Button size="sm" className="bg-indigo-500 hover:bg-indigo-600 text-white" disabled={acting} onClick={() => abrirRecebimento(null)}><PackageCheck className="h-4 w-4" />Registrar recebimento</Button>}
+          {recebendo && <Button size="sm" disabled={acting} onClick={() => abrirRecebimento(null)}><PackageCheck className="h-4 w-4" />Registrar recebimento</Button>}
           {(c.status === 'RECEBIDO' || c.status === 'AVALIADO') && <Button variant="success" size="sm" onClick={() => setAvaliarOpen(true)}><ClipboardCheck className="h-4 w-4" />{c.status === 'AVALIADO' ? 'Rever avaliação' : 'Avaliar'}</Button>}
           {/* Link de navegação, e não fetch+blob: o Content-Disposition da rota
               entrega o arquivo sem esbarrar no bloqueio de download por JS. */}
@@ -203,14 +203,14 @@ export default function PedidoDetalhePage() {
       {/* ═══ Hero — PADRAO_PAGINAS §3.2 ═══ */}
       <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
         <div className="relative overflow-hidden">
-          <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR} 0%, var(--color-primary) 100%)` }} />
+          <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${PRIMARY} 0%, var(--color-primary) 100%)` }} />
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
 
           <div className="relative z-10 px-5 pb-5 pt-24 text-white sm:px-6 sm:pt-28">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
               <div className="flex items-end gap-4 min-w-0">
                 <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-card shadow-lg ring-4 ring-white/50">
-                  <ShoppingCart className="h-10 w-10" style={{ color: MODULE_COLOR }} />
+                  <ShoppingCart className="h-10 w-10 text-primary-on-surface" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -288,7 +288,7 @@ export default function PedidoDetalhePage() {
               actions={editavel
                 ? <Button type="button" variant="outline" size="xs" onClick={addItem} disabled={acting}><Plus className="h-3.5 w-3.5" />Adicionar item</Button>
                 : recebendo
-                  ? <Button type="button" size="xs" className="bg-indigo-500 hover:bg-indigo-600 text-white" onClick={() => abrirRecebimento(null)}><PackageCheck className="h-3.5 w-3.5" />Registrar recebimento</Button>
+                  ? <Button type="button" size="xs" onClick={() => abrirRecebimento(null)}><PackageCheck className="h-3.5 w-3.5" />Registrar recebimento</Button>
                   : undefined}
             >
               {c.itens.length === 0 ? <p className="text-sm text-muted-foreground text-center py-8">Sem itens.</p> : (
@@ -357,7 +357,7 @@ export default function PedidoDetalhePage() {
                                       <DropdownMenuItem onClick={() => abrirRecebimento(it.id)}><PackageCheck className="h-4 w-4" />Receber este item</DropdownMenuItem>
                                     )}
                                     {editavel && (
-                                      <DropdownMenuItem onClick={() => removeItem(it.id)} className={TEXT.rose}><Trash2 className="h-4 w-4" />Remover item</DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => removeItem(it.id)} className="text-destructive focus:text-destructive"><Trash2 className="h-4 w-4" />Remover item</DropdownMenuItem>
                                     )}
                                   </DropdownMenuContent>
                                 </DropdownMenu>
@@ -373,7 +373,7 @@ export default function PedidoDetalhePage() {
               <div className="flex flex-wrap justify-end gap-x-6 gap-y-1 border-t border-border px-5 py-3 text-sm">
                 <span className="text-muted-foreground">Itens: <strong className="tabular-nums text-foreground">{brl(subtotal)}</strong></span>
                 <span className="text-muted-foreground">Frete: <strong className="tabular-nums text-foreground">{brl(c.frete ?? 0)}</strong></span>
-                <span className="text-muted-foreground">Total: <strong className="tabular-nums" style={{ color: MODULE_COLOR }}>{brl(c.total)}</strong></span>
+                <span className="text-muted-foreground">Total: <strong className="tabular-nums text-primary-on-surface">{brl(c.total)}</strong></span>
               </div>
             </SectionCard>
 
@@ -418,7 +418,7 @@ export default function PedidoDetalhePage() {
                                     <Button variant="ghost" size="icon-sm" title="Ações"><MoreVertical className="h-4 w-4" /></Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => estornar(r)} className={TEXT.rose}><Undo2 className="h-4 w-4" />Estornar recebimento</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => estornar(r)} className="text-destructive focus:text-destructive"><Undo2 className="h-4 w-4" />Estornar recebimento</DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               )}
@@ -446,7 +446,7 @@ export default function PedidoDetalhePage() {
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Itens</dt><dd className="tabular-nums">{brl(subtotal)}</dd></div>
               <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Frete</dt><dd className="tabular-nums">{brl(c.frete ?? 0)}</dd></div>
-              <div className="flex justify-between gap-2 border-t border-border pt-2 font-semibold"><dt>Total</dt><dd className="tabular-nums" style={{ color: MODULE_COLOR }}>{brl(c.total)}</dd></div>
+              <div className="flex justify-between gap-2 border-t border-border pt-2 font-semibold"><dt>Total</dt><dd className="tabular-nums text-primary-on-surface">{brl(c.total)}</dd></div>
             </dl>
             {c.itens.length > 0 && !editavel && c.status !== 'AGUARDANDO_APROVACAO' && (
               <div className="mt-4 space-y-1.5">
@@ -489,7 +489,7 @@ export default function PedidoDetalhePage() {
           <DialogHeaderIcon icon={Ban} color="rose"><DialogTitle>Reprovar pedido #{c.code}</DialogTitle></DialogHeaderIcon>
           <DialogBody>
             <Label className="text-[13px] font-semibold">Motivo da reprovação *</Label>
-            <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={3} className="mt-1.5 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" placeholder="Descreva o motivo..." />
+            <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={3} className="mt-1.5 w-full rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" placeholder="Descreva o motivo..." />
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setReprovarOpen(false)}>Cancelar</Button>
