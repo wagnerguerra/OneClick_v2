@@ -64,6 +64,8 @@ interface ExecucaoMinha {
     obrigatorio: boolean
     concluido: boolean
     ignorado: boolean
+    /** Condição "if" não satisfeita — sai das contas (derivado no backend). */
+    naoSeAplica?: boolean
     _count?: { comentarios: number; anexos: number }
   }>
 }
@@ -71,7 +73,7 @@ interface ExecucaoMinha {
 /** Retorna o "passo atual" da execução: primeiro pendente (não concluído, não ignorado),
  *  na ordem. Retorna null se a execução está toda fechada. */
 function passoAtual(passos: ExecucaoMinha['passos']): ExecucaoMinha['passos'][number] | null {
-  return passos.find(p => !p.concluido && !p.ignorado) ?? null
+  return passos.find(p => !p.concluido && !p.ignorado && !p.naoSeAplica) ?? null
 }
 
 type FilterKind = 'todos' | 'em_andamento' | 'atrasados' | 'pausados'
@@ -907,8 +909,8 @@ export default function MeusServicosPage() {
                     <p className="text-xs text-muted-foreground text-center py-6 italic">Vazio</p>
                   )}
                   {col.items.map(exec => {
-                    const totalPassos = exec.passos.length
-                    const cPassos = exec.passos.filter(p => p.concluido).length
+                    const totalPassos = exec.passos.filter(p => !p.naoSeAplica).length
+                    const cPassos = exec.passos.filter(p => p.concluido && !p.naoSeAplica).length
                     const progressPct = totalPassos > 0 ? Math.round((cPassos / totalPassos) * 100) : 0
                     const corPrioridade = PRIORIDADE_COLORS[exec.prioridade]
                     const corBarra = exec.status === 'CANCELADO'
@@ -1165,8 +1167,8 @@ export default function MeusServicosPage() {
                 )
               }
 
-              const totalPassos = exec.passos.length
-              const concluidos = exec.passos.filter(p => p.concluido).length
+              const totalPassos = exec.passos.filter(p => !p.naoSeAplica).length
+              const concluidos = exec.passos.filter(p => p.concluido && !p.naoSeAplica).length
               const progressPct = totalPassos > 0 ? Math.round((concluidos / totalPassos) * 100) : 0
               const tempo = tempoRestante(exec.prazoLimite)
               const corPrioridade = PRIORIDADE_COLORS[exec.prioridade]

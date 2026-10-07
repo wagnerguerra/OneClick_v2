@@ -20,11 +20,11 @@ import {
   type Node, type Edge, type NodeProps,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { Clock, Flag, Layers, Pencil, PlayCircle } from 'lucide-react'
+import { Clock, Diamond, Flag, GitBranch, Layers, Pencil, PlayCircle } from 'lucide-react'
 import { Button, cn } from '@saas/ui'
 import { BADGE } from '@/lib/color-styles'
 
-export interface FluxoPasso {
+export type FluxoPasso = {
   id?: string
   dndId: string
   nome: string
@@ -35,12 +35,17 @@ export interface FluxoPasso {
   permiteIgnorar?: boolean
   materiais?: unknown[]
   _count?: { emailTemplates?: number; lembretes?: number; camposCliente?: number }
-}
-export interface FluxoEtapa {
+  /** Pergunta (decisão) e condição "if" — ver servicos/[id]/_components/pergunta-condicao. */
+  tipo?: 'PASSO' | 'PERGUNTA'
+  perguntaTexto?: string | null
+  perguntaOpcoes?: string[]
+} & CondicaoFluxo
+type CondicaoFluxo = { condicaoPassoId?: string | null; condicaoOpcoes?: string[] }
+export interface FluxoEtapa extends CondicaoFluxo {
   id?: string
   nome: string
   passos: FluxoPasso[]
-  subEtapas: Array<{ id: string; nome: string; ordem: number }>
+  subEtapas: Array<{ id: string; nome: string; ordem: number } & CondicaoFluxo>
 }
 
 const PASSO_W = 260
@@ -62,9 +67,20 @@ const MARCO_W = 120
 const linhas = (texto: string, larguraPx: number, pxPorChar: number) =>
   Math.max(1, Math.ceil((texto.length * pxPorChar) / Math.max(larguraPx, 40)))
 
+/** Etiqueta cabe numa linha do card: corta com reticências (o texto inteiro vai no title). */
+const curto = (t: string, max = 42) => (t.length > max ? `${t.slice(0, max - 1)}…` : t)
+
+/** "<pergunta> = A ou B" de uma condição, ou null. */
+function textoCondicaoFluxo(c: CondicaoFluxo, perguntas: Map<string, string>): string | null {
+  if (!c.condicaoPassoId) return null
+  return `${perguntas.get(c.condicaoPassoId) ?? 'pergunta'} = ${(c.condicaoOpcoes ?? []).join(' ou ')}`
+}
+
 /** Etiquetas (características) do passo, na ordem em que aparecem no card. */
-function etiquetasDoPasso(p: FluxoPasso, numeroDependencia: number | null): Array<{ texto: string; tom: 'rose' | 'slate' | 'amber' | 'sky' | 'violet' }> {
+function etiquetasDoPasso(p: FluxoPasso, numeroDependencia: number | null, condicao: string | null = null): Array<{ texto: string; tom: 'rose' | 'slate' | 'amber' | 'sky' | 'violet' }> {
   const out: Array<{ texto: string; tom: 'rose' | 'slate' | 'amber' | 'sky' | 'violet' }> = []
+  if (p.tipo === 'PERGUNTA') out.push({ texto: curto(`Decide: ${(p.perguntaOpcoes ?? []).join(' / ') || 'sem respostas'}`), tom: 'violet' })
+  if (condicao) out.push({ texto: curto(`se ${condicao}`), tom: 'sky' })
   out.push(p.obrigatorio ? { texto: 'Obrigatório', tom: 'rose' } : { texto: 'Opcional', tom: 'slate' })
   if (p.slaText) out.push({ texto: `SLA ${p.slaText}`, tom: 'slate' })
   if (p.permiteIgnorar) out.push({ texto: 'Pode ser ignorado', tom: 'amber' })
@@ -96,8 +112,8 @@ function alturaPasso(nome: string, numero: number, etiquetas: Array<{ texto: str
 const alturaCabecalho = (titulo: string, largura: number, etapa: boolean) =>
   (etapa ? 14 : 10) + linhas(titulo, largura - 40, etapa ? 7.2 : 6.6) * (etapa ? 15 : 14) + 8
 
-type DadosPasso = { nome: string; numero: number; etiquetas: ReturnType<typeof etiquetasDoPasso>; onClick?: () => void }
-type DadosGrupo = { titulo: string; qtd: number; tipo: 'etapa' | 'sub' }
+type DadosPasso = { nome: string; numero: number; etiquetas: ReturnType<typeof etiquetasDoPasso>; pergunta?: string | null; condicao?: string | null; onClick?: () => void }
+type DadosGrupo = { titulo: string; qtd: number; tipo: 'etapa' | 'sub'; condicao?: string | null }
 type DadosMarco = { rotulo: string; tipo: 'inicio' | 'fim' }
 
 function NoPasso({ data }: NodeProps<Node<DadosPasso>>) {
@@ -106,13 +122,21 @@ function NoPasso({ data }: NodeProps<Node<DadosPasso>>) {
     <button
       type="button"
       onClick={data.onClick}
-      className="nodrag flex h-full w-full flex-col justify-start gap-1.5 rounded-lg border border-border bg-card px-2.5 py-2 text-left shadow-sm transition-colors hover:border-primary"
-      title="Editar este passo na aba Etapas e passos"
+      className={cn(
+        'nodrag flex h-full w-full flex-col justify-start gap-1.5 rounded-lg border bg-card px-2.5 py-2 text-left shadow-sm transition-colors hover:border-primary',
+        data.pergunta ? 'border-dashed border-violet-400 dark:border-violet-500/70' : 'border-border',
+      )}
+      title={[
+        data.pergunta ? `Pergunta: ${data.pergunta}` : null,
+        data.condicao ? `Só vale se ${data.condicao}` : null,
+        'Editar este passo na aba Etapas e passos',
+      ].filter(Boolean).join('\n')}
     >
       <Handle type="target" position={Position.Top} id="t" className="!h-1.5 !w-1.5 !border-0 !bg-muted-foreground/40" />
       <Handle type="target" position={Position.Left} id="l" className="!h-1.5 !w-1.5 !border-0 !bg-muted-foreground/40" />
       {/* Nome inteiro — quebra linha em vez de cortar; o card tem a altura calculada para ele. */}
       <span className="whitespace-normal break-words text-[12px] font-medium leading-[15px] text-foreground">
+        {data.pergunta && <Diamond className="mr-1 inline h-3 w-3 -translate-y-px fill-violet-100 text-violet-600 dark:fill-violet-950 dark:text-violet-400" aria-label="Pergunta" />}
         <span className="mr-1 tabular-nums text-muted-foreground">{data.numero}.</span>{data.nome || 'Passo sem nome'}
       </span>
       <span className="flex flex-wrap items-center gap-1">
@@ -138,7 +162,14 @@ function NoGrupo({ data }: NodeProps<Node<DadosGrupo>>) {
         title={data.titulo}
       >
         {!etapa && <Layers className="mt-0.5 h-3 w-3 shrink-0" />}
-        <span className={cn('min-w-0 whitespace-normal break-words', etapa && 'text-foreground')}>{data.titulo}</span>
+        <span className={cn('min-w-0 whitespace-normal break-words', etapa && 'text-foreground')}>
+          {data.titulo}
+          {data.condicao && (
+            <span className="ml-1.5 inline-flex items-center gap-0.5 font-medium normal-case tracking-normal text-sky-700 dark:text-sky-400">
+              <GitBranch className="h-2.5 w-2.5" /> se {data.condicao}
+            </span>
+          )}
+        </span>
         <span className="shrink-0 font-normal normal-case tabular-nums">· {data.qtd}</span>
       </div>
     </div>
@@ -161,10 +192,10 @@ function NoMarco({ data }: NodeProps<Node<DadosMarco>>) {
 const nodeTypes = { passo: NoPasso, grupo: NoGrupo, marco: NoMarco }
 
 /** Ordem real: passos diretos, depois cada sub-etapa na ordem (espelha agruparPassos). */
-function ordemReal(etapa: FluxoEtapa): Array<{ sub: { id: string; nome: string } | null; passos: FluxoPasso[] }> {
+function ordemReal(etapa: FluxoEtapa): Array<{ sub: FluxoEtapa['subEtapas'][number] | null; passos: FluxoPasso[] }> {
   const subs = etapa.subEtapas.slice().sort((a, b) => a.ordem - b.ordem)
   const ids = new Set(subs.map(s => s.id))
-  const blocos: Array<{ sub: { id: string; nome: string } | null; passos: FluxoPasso[] }> = [
+  const blocos: Array<{ sub: FluxoEtapa['subEtapas'][number] | null; passos: FluxoPasso[] }> = [
     { sub: null, passos: etapa.passos.filter(p => !p.subEtapaId || !ids.has(p.subEtapaId)) },
   ]
   for (const s of subs) blocos.push({ sub: s, passos: etapa.passos.filter(p => p.subEtapaId === s.id) })
@@ -193,14 +224,21 @@ function montar(etapas: FluxoEtapa[], onEditarPasso?: (dndId: string) => void): 
     let n = 0
     for (const et of etapas) for (const b of ordemReal(et)) for (const pp of b.passos) { n++; if (pp.id) numeroPorId.set(pp.id, n) }
   }
+  const textoPergunta = new Map<string, string>()
+  for (const et of etapas) for (const pp of et.passos) if (pp.id && pp.tipo === 'PERGUNTA') textoPergunta.set(pp.id, pp.perguntaTexto || pp.nome)
   const dadosPasso = (pp: FluxoPasso, n: number) => {
-    const etiquetas = etiquetasDoPasso(pp, pp.dependeDoPassoId ? numeroPorId.get(pp.dependeDoPassoId) ?? null : null)
-    return { etiquetas, altura: alturaPasso(pp.nome, n, etiquetas) }
+    const condicao = textoCondicaoFluxo(pp, textoPergunta)
+    const etiquetas = etiquetasDoPasso(pp, pp.dependeDoPassoId ? numeroPorId.get(pp.dependeDoPassoId) ?? null : null, condicao)
+    return {
+      etiquetas, altura: alturaPasso(pp.nome, n, etiquetas), condicao,
+      pergunta: pp.tipo === 'PERGUNTA' ? `${pp.perguntaTexto || pp.nome} (${(pp.perguntaOpcoes ?? []).join(' / ')})` : null,
+    }
   }
   etapas.forEach((et, ei) => {
     const etapaId = `etapa-${et.id ?? ei}`
     const tituloEtapa = `${ei + 1}. ${et.nome || 'Etapa'}`
-    const cabEtapa = Math.max(ETAPA_HEADER, alturaCabecalho(tituloEtapa, etapaW, true))
+    const condEtapa = textoCondicaoFluxo(et, textoPergunta)
+    const cabEtapa = Math.max(ETAPA_HEADER, alturaCabecalho(condEtapa ? `${tituloEtapa} se ${condEtapa}` : tituloEtapa, etapaW, true))
     let y = cabEtapa
     const passosOrdem: Layout['passosOrdem'] = []
     const filhos: Node[] = []
@@ -213,7 +251,7 @@ function montar(etapas: FluxoEtapa[], onEditarPasso?: (dndId: string) => void): 
           filhos.push({
             id: nodeId, type: 'passo', parentId: etapaId, extent: 'parent', draggable: false,
             position: { x: ETAPA_PAD + SUB_PAD, y }, style: { width: PASSO_W, height: d.altura },
-            data: { nome: p.nome, numero, etiquetas: d.etiquetas, onClick: onEditarPasso ? () => onEditarPasso(p.dndId) : undefined },
+            data: { nome: p.nome, numero, etiquetas: d.etiquetas, pergunta: d.pergunta, condicao: d.condicao, onClick: onEditarPasso ? () => onEditarPasso(p.dndId) : undefined },
           })
           passosOrdem.push({ p, nodeId })
           y += d.altura + GAP
@@ -221,14 +259,15 @@ function montar(etapas: FluxoEtapa[], onEditarPasso?: (dndId: string) => void): 
         continue
       }
       const subId = `sub-${bloco.sub.id}`
-      const cabSub = Math.max(SUB_HEADER, alturaCabecalho(bloco.sub.nome, innerW, false))
+      const condSub = textoCondicaoFluxo(bloco.sub, textoPergunta)
+      const cabSub = Math.max(SUB_HEADER, alturaCabecalho(condSub ? `${bloco.sub.nome} se ${condSub}` : bloco.sub.nome, innerW, false))
       const nBase = numero
       const alturas = bloco.passos.map((pp, k) => dadosPasso(pp, nBase + k + 1).altura)
       const subH = cabSub + (alturas.length ? alturas.reduce((a, b) => a + b + GAP, 0) - GAP : PASSO_H) + SUB_PAD
       filhos.push({
         id: subId, type: 'grupo', parentId: etapaId, extent: 'parent', draggable: false, selectable: false,
         position: { x: ETAPA_PAD, y }, style: { width: innerW, height: subH },
-        data: { titulo: bloco.sub.nome, qtd: bloco.passos.length, tipo: 'sub' },
+        data: { titulo: bloco.sub.nome, qtd: bloco.passos.length, tipo: 'sub', condicao: condSub },
       })
       let sy = cabSub
       for (const p of bloco.passos) {
@@ -238,7 +277,7 @@ function montar(etapas: FluxoEtapa[], onEditarPasso?: (dndId: string) => void): 
         filhos.push({
           id: nodeId, type: 'passo', parentId: subId, extent: 'parent', draggable: false,
           position: { x: SUB_PAD, y: sy }, style: { width: PASSO_W, height: d.altura },
-          data: { nome: p.nome, numero, etiquetas: d.etiquetas, onClick: onEditarPasso ? () => onEditarPasso(p.dndId) : undefined },
+          data: { nome: p.nome, numero, etiquetas: d.etiquetas, pergunta: d.pergunta, condicao: d.condicao, onClick: onEditarPasso ? () => onEditarPasso(p.dndId) : undefined },
         })
         passosOrdem.push({ p, nodeId })
         sy += d.altura + GAP
@@ -250,7 +289,7 @@ function montar(etapas: FluxoEtapa[], onEditarPasso?: (dndId: string) => void): 
     nodes.push({
       id: etapaId, type: 'grupo', draggable: false, selectable: false,
       position: { x, y: 0 }, style: { width: etapaW, height: h },
-      data: { titulo: tituloEtapa, qtd: et.passos.length, tipo: 'etapa' },
+      data: { titulo: tituloEtapa, qtd: et.passos.length, tipo: 'etapa', condicao: condEtapa },
     }, ...filhos)
     layouts.push({ etapaId, h, passosOrdem })
     x += etapaW + COL_GAP

@@ -37,6 +37,7 @@ import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
 // seletor de serviço do HelpDesk filtra por isso.
 import { HELPDESK_TIPO_LABELS } from '@saas/types'
 import { FluxoDoServico } from './_components/fluxo-do-servico'
+import { PerguntaCondicaoDialog, SeloCondicaoCadastro, textoCondicao, type AlvoCondicao, type PerguntaDisponivel } from './_components/pergunta-condicao'
 import { MateriaisSection, type Material } from './_components/materiais-section'
 import { NotificacoesSection } from './_components/notificacoes-section'
 import { PassoEmailsSection } from './_components/passo-emails-section'
@@ -80,6 +81,14 @@ interface Passo {
   camposClienteCount?: number
   /** Sub-etapa (opcional) da mesma etapa. null = passo direto na etapa. */
   subEtapaId: string | null
+  /** PERGUNTA = respondida na execução; decide o que vale adiante (condições "if"). */
+  tipo?: 'PASSO' | 'PERGUNTA'
+  perguntaTexto?: string | null
+  perguntaOpcoes?: string[]
+  perguntaMultipla?: boolean
+  /** Condição: só vale se a pergunta `condicaoPassoId` = alguma de `condicaoOpcoes`. */
+  condicaoPassoId?: string | null
+  condicaoOpcoes?: string[]
 }
 
 /** Sub-etapa: agrupamento opcional de passos dentro da etapa (um nível). */
@@ -87,6 +96,8 @@ interface SubEtapa {
   id: string
   nome: string
   ordem: number
+  condicaoPassoId?: string | null
+  condicaoOpcoes?: string[]
 }
 
 /**
@@ -219,6 +230,8 @@ interface Etapa {
   subEtapas: SubEtapa[]
   /** Materiais de apoio anexados a esta etapa no template. */
   materiais?: Material[]
+  condicaoPassoId?: string | null
+  condicaoOpcoes?: string[]
 }
 
 /** SLA total da etapa em minutos = SOMA do tempo de todos os passos.
@@ -522,12 +535,14 @@ export default function ServicoDetailPage() {
           setVencimentosMensais(mapa)
         })
         .catch(() => {})
-      const etapasFromServer = (s.etapas || []).map((et: { id: string; nome: string; ordem: number; materiais?: Material[]; subEtapas?: SubEtapa[]; passos: Array<{ id: string; nome: string; ordem: number; obrigatorio: boolean; permiteIgnorar?: boolean; slaHoras: number | null; slaMinutos?: number | null; dependeDoPassoId?: string | null; subEtapaId?: string | null; materiais?: Material[]; _count?: { emailTemplates?: number; lembretes?: number; camposCliente?: number } }> }) => ({
+      const etapasFromServer = (s.etapas || []).map((et: { id: string; nome: string; ordem: number; materiais?: Material[]; subEtapas?: SubEtapa[]; condicaoPassoId?: string | null; condicaoOpcoes?: string[]; passos: Array<{ id: string; nome: string; ordem: number; obrigatorio: boolean; permiteIgnorar?: boolean; slaHoras: number | null; slaMinutos?: number | null; dependeDoPassoId?: string | null; subEtapaId?: string | null; materiais?: Material[]; _count?: { emailTemplates?: number; lembretes?: number; camposCliente?: number }; tipo?: string; perguntaTexto?: string | null; perguntaOpcoes?: string[]; perguntaMultipla?: boolean; condicaoPassoId?: string | null; condicaoOpcoes?: string[] }> }) => ({
         id: et.id,
         nome: et.nome,
         ordem: et.ordem,
         materiais: et.materiais ?? [],
-        subEtapas: (et.subEtapas ?? []).map(se => ({ id: se.id, nome: se.nome, ordem: se.ordem })),
+        condicaoPassoId: et.condicaoPassoId ?? null,
+        condicaoOpcoes: et.condicaoOpcoes ?? [],
+        subEtapas: (et.subEtapas ?? []).map(se => ({ id: se.id, nome: se.nome, ordem: se.ordem, condicaoPassoId: se.condicaoPassoId ?? null, condicaoOpcoes: se.condicaoOpcoes ?? [] })),
         passos: agruparPassos((et.passos || []).map(p => {
           // slaMinutos é a fonte canônica; fallback pra slaHoras * 60 em registros antigos
           const min = p.slaMinutos ?? (p.slaHoras != null ? p.slaHoras * 60 : null)
@@ -545,6 +560,12 @@ export default function ServicoDetailPage() {
             lembretesCount: p._count?.lembretes ?? 0,
             camposClienteCount: p._count?.camposCliente ?? 0,
             subEtapaId: p.subEtapaId ?? null,
+            tipo: p.tipo === 'PERGUNTA' ? 'PERGUNTA' as const : 'PASSO' as const,
+            perguntaTexto: p.perguntaTexto ?? null,
+            perguntaOpcoes: p.perguntaOpcoes ?? [],
+            perguntaMultipla: p.perguntaMultipla ?? false,
+            condicaoPassoId: p.condicaoPassoId ?? null,
+            condicaoOpcoes: p.condicaoOpcoes ?? [],
           }
         }), (et.subEtapas ?? []).map(se => ({ id: se.id, nome: se.nome, ordem: se.ordem }))),
       }))
@@ -1063,6 +1084,47 @@ export default function ServicoDetailPage() {
       setFocusPassoDndId(null)
     }
   }, [etapas, focusPassoDndId])
+
+  // ── Perguntas e condições ("if") ──
+  const [alvoCondicao, setAlvoCondicao] = useState<AlvoCondicao | null>(null)
+  /** Sequência real (etapas em ordem; dentro, diretos e depois sub-etapas — já agrupado). */
+  const sequenciaPassos = etapas.flatMap((et, ei) => et.passos.map(p => ({ p, ei, et })))
+  const perguntasPorId = new Map(
+    sequenciaPassos
+      .map((x, i) => ({ ...x, numero: i + 1 }))
+      .filter(x => x.p.id && x.p.tipo === 'PERGUNTA')
+      .map(x => [x.p.id!, { id: x.p.id!, texto: x.p.perguntaTexto || x.p.nome, opcoes: x.p.perguntaOpcoes ?? [], numero: x.numero }] as const),
+  )
+  /** Perguntas que vêm ANTES do alvo — as únicas que podem condicioná-lo (o servidor confere de novo). */
+  function perguntasAntesDe(alvo: AlvoCondicao | null): PerguntaDisponivel[] {
+    if (!alvo) return []
+    let limite: (x: { p: Passo; ei: number; et: Etapa }, i: number) => boolean
+    if (alvo.tipo === 'etapa') {
+      const ei = etapas.findIndex(e => e.id === alvo.id)
+      limite = x => x.ei < ei
+    } else if (alvo.tipo === 'sub') {
+      const ei = etapas.findIndex(e => e.subEtapas.some(se => se.id === alvo.id))
+      const ordemSub = etapas[ei]?.subEtapas.find(se => se.id === alvo.id)?.ordem ?? 0
+      limite = x => x.ei < ei || (x.ei === ei && (!x.p.subEtapaId || (x.et.subEtapas.find(se => se.id === x.p.subEtapaId)?.ordem ?? 0) < ordemSub))
+    } else {
+      const pos = sequenciaPassos.findIndex(x => x.p.id === alvo.id)
+      limite = (_x, i) => i < pos
+    }
+    return sequenciaPassos
+      .filter((x, i) => limite(x, i) && x.p.id && perguntasPorId.has(x.p.id))
+      .map(x => perguntasPorId.get(x.p.id!)!)
+  }
+  const seloDe = (c: { condicaoPassoId?: string | null; condicaoOpcoes?: string[] }) =>
+    textoCondicao({ condicaoPassoId: c.condicaoPassoId ?? null, condicaoOpcoes: c.condicaoOpcoes ?? [] }, perguntasPorId)
+  const condicaoDe = (c: { condicaoPassoId?: string | null; condicaoOpcoes?: string[] }) =>
+    ({ condicaoPassoId: c.condicaoPassoId ?? null, condicaoOpcoes: c.condicaoOpcoes ?? [] })
+  function abrirCondicaoPasso(p: Passo) {
+    if (!p.id) return
+    setAlvoCondicao({
+      tipo: 'passo', id: p.id, nome: p.nome, condicao: condicaoDe(p),
+      pergunta: { tipo: p.tipo ?? 'PASSO', perguntaTexto: p.perguntaTexto ?? null, perguntaOpcoes: p.perguntaOpcoes ?? [], perguntaMultipla: p.perguntaMultipla ?? false },
+    })
+  }
 
   // Adiciona um passo apenas LOCALMENTE (draft = sem id). O servidor é
   // chamado só no onBlur, quando o user terminar de digitar. Se sair em
@@ -2253,6 +2315,17 @@ export default function ServicoDetailPage() {
                             </div>
                             {/* Materiais de apoio inline — chips + botão "+ Material" à direita do input da etapa.
                                 Só pra etapas salvas (com id). */}
+                            {et.id && (() => {
+                              const selo = seloDe(et)
+                              const abrir = () => setAlvoCondicao({ tipo: 'etapa', id: et.id!, nome: et.nome, condicao: condicaoDe(et) })
+                              return selo ? (
+                                <SeloCondicaoCadastro texto={selo} onClick={abrir} className="h-9 shrink-0 text-[11px]" />
+                              ) : (
+                                <Button variant="ghost" size="icon-sm" className="h-9 w-9 shrink-0 text-muted-foreground" onClick={abrir} title="Condição: esta etapa só vale para certas respostas de uma pergunta">
+                                  <GitBranch className="h-3.5 w-3.5" />
+                                </Button>
+                              )
+                            })()}
                             {et.id && (
                               <MateriaisSection
                                 materiais={et.materiais ?? []}
@@ -2346,6 +2419,19 @@ export default function ServicoDetailPage() {
                                 className="w-[9rem] bg-transparent px-1 text-[11px] font-medium text-foreground focus:outline-none"
                               />
                               <span className="text-[10px] tabular-nums text-muted-foreground" title="Passos nesta sub-etapa">{qtd}</span>
+                              {(() => {
+                                const selo = seloDe(se)
+                                return (
+                                  <Button
+                                    variant="ghost" size="icon-xs"
+                                    className={cn('h-5 w-5', selo ? TEXT.sky : 'text-muted-foreground opacity-60 hover:opacity-100')}
+                                    onClick={() => setAlvoCondicao({ tipo: 'sub', id: se.id, nome: se.nome, condicao: condicaoDe(se) })}
+                                    title={selo ? `Só vale ${selo} — clique para alterar` : 'Condição: esta sub-etapa só vale para certas respostas de uma pergunta'}
+                                  >
+                                    <GitBranch className="h-3 w-3" />
+                                  </Button>
+                                )
+                              })()}
                               <Button variant="ghost" size="icon-xs" className="h-5 w-5 text-destructive opacity-60 hover:opacity-100" onClick={() => { void excluirSubEtapa(ei, se) }} title="Excluir sub-etapa (os passos voltam para a etapa)">
                                 <X className="h-3 w-3" />
                               </Button>
@@ -2413,6 +2499,23 @@ export default function ServicoDetailPage() {
                                   formando um único "input group". Cada chip só renderiza se count > 0;
                                   clique abre o dialog correspondente. Border-l ausente nos chips
                                   internos pra formar fila contínua. */}
+                              {p.id && p.tipo === 'PERGUNTA' && (
+                                <button
+                                  type="button"
+                                  onClick={() => abrirCondicaoPasso(p)}
+                                  className={cn('h-8 inline-flex items-center gap-1 px-2 text-[10px] font-medium border-y border-r border-input transition-colors shrink-0', BADGE.violet)}
+                                  title={`Pergunta: ${p.perguntaTexto ?? ''} — ${(p.perguntaOpcoes ?? []).join(' / ')}${p.perguntaMultipla ? ' (várias respostas)' : ''}`}
+                                >
+                                  <HelpCircle className="h-3 w-3" />
+                                  <span>Pergunta · {(p.perguntaOpcoes ?? []).length}</span>
+                                </button>
+                              )}
+                              {p.id && (() => {
+                                const selo = seloDe(p)
+                                return selo ? (
+                                  <SeloCondicaoCadastro texto={selo} onClick={() => abrirCondicaoPasso(p)} className="h-8 shrink-0 rounded-none border-l-0 max-w-[180px]" />
+                                ) : null
+                              })()}
                               {p.id && (() => {
                                 const notas = (p.materiais ?? []).filter(m => m.tipo === 'NOTA').length
                                 return notas > 0 ? (
@@ -2554,6 +2657,13 @@ export default function ServicoDetailPage() {
                                     label: 'Vincular campo',
                                     iconClassName: TEXT.sky,
                                     onSelect: () => setOpenCamposClientePasso(p.id!),
+                                  },
+                                  {
+                                    key: 'pergunta-condicao',
+                                    icon: GitBranch,
+                                    label: 'Pergunta e condição',
+                                    iconClassName: TEXT.violet,
+                                    onSelect: () => abrirCondicaoPasso(p),
                                   },
                                 ]}
                               />
@@ -2898,6 +3008,14 @@ export default function ServicoDetailPage() {
       </Tabs>
 
       {/* Modal de Encadeamento (Adicionar/Editar) */}
+      {/* Pergunta (tipo do passo) e condição "if" de etapa / sub-etapa / passo */}
+      <PerguntaCondicaoDialog
+        alvo={alvoCondicao}
+        perguntas={perguntasAntesDe(alvoCondicao)}
+        onOpenChange={v => { if (!v) setAlvoCondicao(null) }}
+        onSalvo={() => { void fetchServico() }}
+      />
+
       <Dialog open={encModalOpen} onOpenChange={setEncModalOpen}>
         <DialogContent className="sm:max-w-[560px]">
           <DialogHeaderIcon icon={Network} color={editingEnc ? 'sky' : 'emerald'}>
