@@ -15,7 +15,7 @@ import {
   Play, Pause, FileText, Layers, GitBranch, History, ListChecks,
   GripVertical, Clock, ChevronRight, ChevronDown, Network, Repeat, Zap, Type, Check, Search, Users,
   Bell, Mail, CircleDollarSign, AlignLeft, Info, Settings, CalendarDays, Lock, Unlock, ShieldCheck, Database, HelpCircle,
-  StickyNote, Link as LinkIcon, Paperclip, ChevronUp, X,
+  StickyNote, Link as LinkIcon, Paperclip, X,
 } from 'lucide-react'
 import Link from 'next/link'
 import {
@@ -100,6 +100,38 @@ function agruparPassos(passos: Passo[], subEtapas: SubEtapa[]): Passo[] {
   const pos = new Map(subEtapas.slice().sort((a, b) => a.ordem - b.ordem).map((s, i) => [s.id, i]))
   const grupo = (p: Passo) => (p.subEtapaId && pos.has(p.subEtapaId) ? pos.get(p.subEtapaId)! : -1)
   return passos.map((p, i) => ({ p, i })).sort((a, b) => grupo(a.p) - grupo(b.p) || a.i - b.i).map(x => x.p)
+}
+
+/** Prefixo dos ids de cabeçalho de grupo na lista arrastável de uma etapa. */
+const GRP = 'grp:'
+const GRP_DIRETO = `${GRP}__direto`
+
+/**
+ * Lista plana arrastável de UMA etapa: cabeçalhos de grupo + passos, na ordem
+ * de exibição. Sem sub-etapas é só a lista de passos (como antes). Com
+ * sub-etapas: "Direto na etapa" (alvo, não arrastável) + passos diretos, e para
+ * cada sub-etapa o cabeçalho (arrastável — leva os passos junto) + os passos dela.
+ */
+function itensArrastaveis(passos: Passo[], subEtapas: SubEtapa[]): string[] {
+  if (subEtapas.length === 0) return passos.map(p => p.dndId)
+  const subs = subEtapas.slice().sort((a, b) => a.ordem - b.ordem)
+  const ids = new Set(subs.map(x => x.id))
+  const out = [GRP_DIRETO, ...passos.filter(p => !p.subEtapaId || !ids.has(p.subEtapaId)).map(p => p.dndId)]
+  for (const se of subs) out.push(`${GRP}${se.id}`, ...passos.filter(p => p.subEtapaId === se.id).map(p => p.dndId))
+  return out
+}
+
+/** Cabeçalhos imediatamente antes de um passo na lista plana. */
+function cabecalhosAntes(flat: string[], dndId: string): string[] {
+  const out: string[] = []
+  for (let k = flat.indexOf(dndId) - 1; k >= 0 && flat[k]!.startsWith(GRP); k--) out.unshift(flat[k]!)
+  return out
+}
+/** Cabeçalhos depois do último passo (sub-etapas vazias no fim, etapa sem passos). */
+function cabecalhosNoFim(flat: string[]): string[] {
+  const out: string[] = []
+  for (let k = flat.length - 1; k >= 0 && flat[k]!.startsWith(GRP); k--) out.unshift(flat[k]!)
+  return out
 }
 
 /** Parseia formatos amigáveis ("1h 30m", "45m", "2h", "1.5h", "90") em minutos totais.
@@ -902,30 +934,76 @@ export default function ServicoDetailPage() {
     void etapaIdx
   }
 
+  /**
+   * Arraste dentro de uma etapa — passos e sub-etapas na MESMA lista:
+   * - cabeçalho de sub-etapa: move a sub-etapa inteira (com os passos);
+   * - passo solto sobre um cabeçalho: entra naquele grupo (vale para sub-etapa
+   *   vazia e para "Direto na etapa");
+   * - passo entre passos: adota o grupo do cabeçalho mais próximo acima.
+   */
   function handlePassosDragEnd(etapaIdx: number, e: DragEndEvent) {
     const { active, over } = e
     if (!over || active.id === over.id) return
     const etapa = etapas[etapaIdx]
     if (!etapa) return
-    const oldIdx = etapa.passos.findIndex(p => p.dndId === active.id)
-    const newIdx = etapa.passos.findIndex(p => p.dndId === over.id)
+    const aId = String(active.id)
+    const oId = String(over.id)
+    const flat = itensArrastaveis(etapa.passos, etapa.subEtapas)
+    const oldIdx = flat.indexOf(aId)
+    const newIdx = flat.indexOf(oId)
     if (oldIdx === -1 || newIdx === -1) return
-    const movido = arrayMove(etapa.passos, oldIdx, newIdx)
-    // Arrastar para dentro de outro grupo (sub-etapa) muda a sub-etapa do passo:
-    // ele adota o grupo do vizinho de cima (ou de baixo, se caiu no topo).
-    const passoMovido = movido[newIdx]!
-    const vizinho = movido[newIdx - 1] ?? movido[newIdx + 1]
-    const novoGrupo = vizinho ? vizinho.subEtapaId : passoMovido.subEtapaId
-    const mudouGrupo = novoGrupo !== passoMovido.subEtapaId
-    if (mudouGrupo) movido[newIdx] = { ...passoMovido, subEtapaId: novoGrupo }
-    const reordered = agruparPassos(movido, etapa.subEtapas).map((p, i) => ({ ...p, ordem: i }))
+
+    // ── Sub-etapa arrastada: reordena os cabeçalhos (o "Direto" fica sempre no topo).
+    if (aId.startsWith(GRP)) {
+      const cabecalhos = flat.filter(x => x.startsWith(GRP) && x !== GRP_DIRETO)
+      const de = cabecalhos.indexOf(aId)
+      // Alvo: o cabeçalho do grupo onde caiu (passo → grupo dele; "Direto" → topo).
+      let alvoCab = oId
+      if (!oId.startsWith(GRP)) {
+        for (let k = newIdx; k >= 0; k--) { if (flat[k]!.startsWith(GRP)) { alvoCab = flat[k]!; break } }
+      }
+      const para = alvoCab === GRP_DIRETO ? 0 : cabecalhos.indexOf(alvoCab)
+      if (de === -1 || para === -1 || de === para) return
+      const novaOrdem = arrayMove(cabecalhos, de, para).map(c => c.slice(GRP.length))
+      const subEtapas = etapa.subEtapas.map(se => ({ ...se, ordem: novaOrdem.indexOf(se.id) }))
+      const passos = agruparPassos(etapa.passos, subEtapas).map((p, i) => ({ ...p, ordem: i }))
+      setEtapas(prev => prev.map((x, i) => i === etapaIdx ? { ...x, subEtapas, passos } : x))
+      void Promise.all(subEtapas.map(se => (trpc.servico as any).updateSubEtapa.mutate({ id: se.id, ordem: se.ordem })))
+        .then(() => reordenarPassos(etapaIdx, passos.map(p => p.id).filter((x): x is string => !!x)))
+        .catch((err: Error) => { alerts.error('Erro ao reordenar sub-etapas', err.message); void fetchServico() })
+      return
+    }
+
+    // ── Passo arrastado.
+    const passoMovido = etapa.passos.find(p => p.dndId === aId)
+    if (!passoMovido) return
+    let novaLista: string[]
+    let novoGrupo: string | null
+    if (oId.startsWith(GRP)) {
+      // Solto sobre um cabeçalho: vai para o começo daquele grupo.
+      novoGrupo = oId === GRP_DIRETO ? null : oId.slice(GRP.length)
+      const semEle = flat.filter(x => x !== aId)
+      const pos = semEle.indexOf(oId) + 1
+      novaLista = [...semEle.slice(0, pos), aId, ...semEle.slice(pos)]
+    } else {
+      novaLista = arrayMove(flat, oldIdx, newIdx)
+      const i = novaLista.indexOf(aId)
+      let cab: string | null = null
+      for (let k = i - 1; k >= 0; k--) { if (novaLista[k]!.startsWith(GRP)) { cab = novaLista[k]!; break } }
+      novoGrupo = !cab || cab === GRP_DIRETO ? null : cab.slice(GRP.length)
+      if (etapa.subEtapas.length === 0) novoGrupo = passoMovido.subEtapaId
+    }
+    const porDnd = new Map(etapa.passos.map(p => [p.dndId, p]))
+    const ordenados = novaLista.filter(x => !x.startsWith(GRP)).map(x => porDnd.get(x)!)
+      .map(p => (p.dndId === aId ? { ...p, subEtapaId: novoGrupo } : p))
+    const reordered = agruparPassos(ordenados, etapa.subEtapas).map((p, i) => ({ ...p, ordem: i }))
     setEtapas(prev => prev.map((x, i) => i === etapaIdx ? { ...x, passos: reordered } : x))
+    const mudouGrupo = novoGrupo !== passoMovido.subEtapaId
     if (mudouGrupo && passoMovido.id) {
       void (trpc.servico as any).updatePasso.mutate({ id: passoMovido.id, data: { subEtapaId: novoGrupo } })
         .catch((err: Error) => { alerts.error('Erro ao mover passo', err.message); void fetchServico() })
     }
-    const ids = reordered.map(p => p.id).filter((x): x is string => !!x)
-    void reordenarPassos(etapaIdx, ids)
+    void reordenarPassos(etapaIdx, reordered.map(p => p.id).filter((x): x is string => !!x))
   }
 
   // ── Sub-etapas ──────────────────────────────────────────────
@@ -956,22 +1034,6 @@ export default function ServicoDetailPage() {
     setEtapas(prev => prev.map((x, i) => i === etapaIdx ? { ...x, subEtapas: x.subEtapas.map(se => se.id === subId ? { ...se, nome: v } : se) } : x))
     try { await (trpc.servico as any).updateSubEtapa.mutate({ id: subId, nome: v }) }
     catch (err) { alerts.error('Erro ao renomear sub-etapa', (err as Error).message); void fetchServico() }
-  }
-
-  async function moverSubEtapa(etapaIdx: number, subId: string, dir: -1 | 1) {
-    const etapa = etapas[etapaIdx]
-    if (!etapa) return
-    const lista = etapa.subEtapas.slice().sort((a, b) => a.ordem - b.ordem)
-    const i = lista.findIndex(x => x.id === subId)
-    const j = i + dir
-    if (i < 0 || j < 0 || j >= lista.length) return
-    const nova = arrayMove(lista, i, j).map((x, k) => ({ ...x, ordem: k }))
-    setEtapas(prev => prev.map((x, k) => k === etapaIdx ? { ...x, subEtapas: nova, passos: agruparPassos(x.passos, nova).map((p, n) => ({ ...p, ordem: n })) } : x))
-    try {
-      await Promise.all(nova.map(x => (trpc.servico as any).updateSubEtapa.mutate({ id: x.id, ordem: x.ordem })))
-      const ids = agruparPassos(etapa.passos, nova).map(p => p.id).filter((x): x is string => !!x)
-      await reordenarPassos(etapaIdx, ids)
-    } catch (err) { alerts.error('Erro ao reordenar sub-etapas', (err as Error).message); void fetchServico() }
   }
 
   async function excluirSubEtapa(etapaIdx: number, sub: SubEtapa) {
@@ -2295,7 +2357,7 @@ export default function ServicoDetailPage() {
                         {et.subEtapas.length === 0 && (
                           <span className="text-[11px] text-muted-foreground/80">nenhuma — os passos ficam direto na etapa</span>
                         )}
-                        {et.subEtapas.slice().sort((a, b) => a.ordem - b.ordem).map((se, si, arr) => {
+                        {et.subEtapas.slice().sort((a, b) => a.ordem - b.ordem).map((se) => {
                           const qtd = et.passos.filter(pp => pp.subEtapaId === se.id).length
                           return (
                             <span key={se.id} className="inline-flex items-center gap-0.5 rounded-md border border-border bg-muted/40 py-0.5 pl-1.5 pr-0.5">
@@ -2308,12 +2370,6 @@ export default function ServicoDetailPage() {
                                 className="w-[9rem] bg-transparent px-1 text-[11px] font-medium text-foreground focus:outline-none"
                               />
                               <span className="text-[10px] tabular-nums text-muted-foreground" title="Passos nesta sub-etapa">{qtd}</span>
-                              <Button variant="ghost" size="icon-xs" className="h-5 w-5" disabled={si === 0} onClick={() => { void moverSubEtapa(ei, se.id, -1) }} title="Subir">
-                                <ChevronUp className="h-3 w-3" />
-                              </Button>
-                              <Button variant="ghost" size="icon-xs" className="h-5 w-5" disabled={si === arr.length - 1} onClick={() => { void moverSubEtapa(ei, se.id, 1) }} title="Descer">
-                                <ChevronDown className="h-3 w-3" />
-                              </Button>
                               <Button variant="ghost" size="icon-xs" className="h-5 w-5 text-destructive opacity-60 hover:opacity-100" onClick={() => { void excluirSubEtapa(ei, se) }} title="Excluir sub-etapa (os passos voltam para a etapa)">
                                 <X className="h-3 w-3" />
                               </Button>
@@ -2326,7 +2382,7 @@ export default function ServicoDetailPage() {
                       </div>
                     )}
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(ev) => handlePassosDragEnd(ei, ev)}>
-                      <SortableContext items={et.passos.map(p => p.dndId)} strategy={verticalListSortingStrategy}>
+                      <SortableContext items={itensArrastaveis(et.passos, et.subEtapas)} strategy={verticalListSortingStrategy}>
                     <div className="ml-7 space-y-1.5">
                       {(() => {
                         const passoLayers = computePassoLayers(et.passos)
@@ -2335,13 +2391,10 @@ export default function ServicoDetailPage() {
                           const layerCls = getLayerBgClass(layer)
                           return (
                         <Fragment key={p.dndId}>
-                        {p.subEtapaId && p.subEtapaId !== et.passos[pi - 1]?.subEtapaId && (
-                          <div className="flex items-center gap-1.5 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            <Layers className="h-3 w-3" />
-                            {et.subEtapas.find(se => se.id === p.subEtapaId)?.nome ?? 'Sub-etapa'}
-                            <span className="h-px flex-1 bg-border" aria-hidden />
-                          </div>
-                        )}
+                        {/* Cabeçalhos de grupo que vêm logo antes deste passo na lista arrastável */}
+                        {cabecalhosAntes(itensArrastaveis(et.passos, et.subEtapas), p.dndId).map(c => (
+                          <CabecalhoGrupo key={c} id={c} etapa={et} />
+                        ))}
                         <SortablePasso id={p.dndId} layerClass={layerCls} exiting={!!p.id && exitingPassoIds.has(p.id)}>
                           <SortablePassoHandle numero={pi + 1} />
                           <div className="flex items-center gap-2 min-w-0">
@@ -2398,6 +2451,9 @@ export default function ServicoDetailPage() {
                                   </button>
                                 ) : null
                               })()}
+                      {cabecalhosNoFim(itensArrastaveis(et.passos, et.subEtapas)).map(c => (
+                        <CabecalhoGrupo key={c} id={c} etapa={et} />
+                      ))}
                               {p.id && (() => {
                                 const links = (p.materiais ?? []).filter(m => m.tipo === 'LINK').length
                                 return links > 0 ? (
@@ -3076,6 +3132,57 @@ function SortableEtapaHandle() {
     >
       <GripVertical className="h-4 w-4" />
     </button>
+  )
+}
+
+/** Cabeçalho de grupo (sub-etapa ou "Direto na etapa") na lista arrastável da etapa. */
+function CabecalhoGrupo({ id, etapa }: { id: string; etapa: { passos: Array<{ subEtapaId: string | null }>; subEtapas: Array<{ id: string; nome: string }> } }) {
+  const direto = id === GRP_DIRETO
+  const subId = direto ? null : id.slice(GRP.length)
+  const nome = direto ? 'Direto na etapa' : (etapa.subEtapas.find(x => x.id === subId)?.nome ?? 'Sub-etapa')
+  const qtd = etapa.passos.filter(p => (direto ? !p.subEtapaId : p.subEtapaId === subId)).length
+  return <SortableGrupo id={id} nome={nome} qtd={qtd} fixo={direto} />
+}
+
+/**
+ * Cabeçalho arrastável de sub-etapa: arrastar pela alça move a sub-etapa com os
+ * passos; soltar um passo sobre ele coloca o passo no grupo (também quando está
+ * vazio). "Direto na etapa" (`fixo`) é só alvo — não se arrasta.
+ */
+function SortableGrupo({ id, nome, qtd, fixo }: { id: string; nome: string; qtd: number; fixo?: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } = useSortable({
+    id, disabled: fixo ? { draggable: true } : undefined,
+  })
+  const style: React.CSSProperties = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'flex items-center gap-1.5 rounded px-1 pt-2 pb-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground',
+        isOver && 'bg-muted/60',
+      )}
+    >
+      {fixo ? (
+        <span className="w-4" aria-hidden />
+      ) : (
+        <button
+          type="button"
+          {...(attributes as unknown as React.HTMLAttributes<HTMLButtonElement>)}
+          {...(listeners as unknown as React.HTMLAttributes<HTMLButtonElement>)}
+          className="cursor-grab text-muted-foreground/50 hover:text-muted-foreground active:cursor-grabbing"
+          title="Arrastar a sub-etapa (leva os passos junto)"
+          aria-label={`Arrastar a sub-etapa ${nome}`}
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+      )}
+      <Layers className="h-3 w-3" />
+      <span className={cn(fixo && 'normal-case font-medium')}>{nome}</span>
+      <span className="font-normal normal-case tabular-nums text-muted-foreground/70">· {qtd} passo{qtd !== 1 ? 's' : ''}</span>
+      <span className="h-px flex-1 bg-border" aria-hidden />
+      {qtd === 0 && !fixo && <span className="font-normal normal-case text-muted-foreground/70">solte um passo aqui</span>}
+    </div>
   )
 }
 
