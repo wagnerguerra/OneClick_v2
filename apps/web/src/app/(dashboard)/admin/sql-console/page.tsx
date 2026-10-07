@@ -30,10 +30,10 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
   loading: () => <div className="h-[220px] bg-muted flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>,
 })
 
-const MODULE_COLOR = 'var(--color-primary)'
+const PRIMARY = 'var(--color-primary)'
 /** Primária como TEXTO sobre superfície (badges, abas) — legível no dark. */
 const ON_SURFACE = 'var(--color-primary-on-surface)'
-const tint = (pct: number) => `color-mix(in srgb, ${MODULE_COLOR} ${pct}%, transparent)`
+const tint = (pct: number) => `color-mix(in srgb, ${PRIMARY} ${pct}%, transparent)`
 
 type RunResult =
   | { ok: true; type: 'rows'; columns: string[]; rows: Array<Record<string, unknown>>; rowCount: number; ms: number }
@@ -178,7 +178,7 @@ export default function SqlConsolePage() {
         {/* Sidebar — árvore de tabelas */}
         <div className="w-72 shrink-0 flex flex-col rounded-xl border border-border bg-card shadow-sm overflow-hidden min-h-0">
           <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border" style={{ background: tint(10) }}>
-            <TableProperties className="h-4 w-4 shrink-0" style={{ color: MODULE_COLOR }} />
+            <TableProperties className="h-4 w-4 shrink-0" style={{ color: PRIMARY }} />
             <span className="text-[13px] font-semibold">Tabelas</span>
             <span className="ml-auto text-[11px] font-medium tabular-nums px-1.5 py-0.5 rounded-full" style={{ background: tint(18), color: ON_SURFACE }}>{schema.length}</span>
             <button onClick={carregarSchema} title="Recarregar" className="text-muted-foreground hover:text-foreground transition-colors">
@@ -209,7 +209,7 @@ export default function SqlConsolePage() {
                       <button onClick={() => toggle(t.table)} className="text-muted-foreground hover:text-foreground shrink-0">
                         {aberta.has(t.table) ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                       </button>
-                      <Table2 className="h-4 w-4 shrink-0" style={{ color: MODULE_COLOR }} />
+                      <Table2 className="h-4 w-4 shrink-0" style={{ color: PRIMARY }} />
                       <button onClick={() => abrirDados(t.table)} title="Ver dados" className="flex-1 text-left text-[13px] font-medium truncate" style={ativa ? { color: ON_SURFACE } : undefined}>
                         {t.table}
                       </button>
@@ -263,7 +263,7 @@ export default function SqlConsolePage() {
             <div className="flex-1 flex flex-col min-h-0">
               {sel && (
                 <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border shrink-0" style={{ background: tint(8) }}>
-                  <Table2 className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} />
+                  <Table2 className="h-3.5 w-3.5" style={{ color: PRIMARY }} />
                   <span className="text-[13px] font-semibold font-mono">{sel}</span>
                   {dadosResult?.ok && dadosResult.type === 'rows' && (
                     <span className="text-[11px] text-muted-foreground">
@@ -302,7 +302,7 @@ export default function SqlConsolePage() {
               <div className="shrink-0 border-b border-border">
                 <div className="flex items-center justify-between px-3 py-1.5 bg-muted/60 border-b border-border">
                   <span className="flex items-center gap-1.5 text-[12px] font-medium text-foreground/80">
-                    <Terminal className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Query
+                    <Terminal className="h-3.5 w-3.5" style={{ color: PRIMARY }} /> Query
                   </span>
                   <div className="flex items-center gap-3">
                     <span className="text-[10px] text-muted-foreground">Ctrl / Cmd + Enter</span>

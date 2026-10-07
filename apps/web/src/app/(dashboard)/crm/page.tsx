@@ -1618,7 +1618,6 @@ export default function CrmPage() {
                     acoes={tarefasCrm}
                     carregando={tarefasLoading}
                     meuId={profile?.id}
-                    moduleColor={PRIMARY}
                     onChanged={refreshTarefasCrm}
                   />
                 )}

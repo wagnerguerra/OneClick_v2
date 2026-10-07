@@ -31,9 +31,6 @@ import {
 } from './_components/app-screens'
 import { ChangesPanel } from './_components/changes-panel'
 
-// Cor do bloco interno/admin (violet) — chrome da página web.
-const MODULE_COLOR = '#8b5cf6'
-
 // Atalhos de tela exibidos nos controles do simulador (fora da moldura).
 const TELAS: { tela: AppTela; label: string; Icon: typeof Home }[] = [
   { tela: 'login', label: 'Login', Icon: LogIn },
@@ -155,9 +152,8 @@ export default function AppMobileSimuladorPage() {
                       onClick={() => irPara(t.tela)}
                       className={cn(
                         'w-full flex items-center gap-2 px-3 py-2 rounded-md text-[12px] font-medium text-left transition-colors',
-                        !active && 'text-foreground/70 hover:bg-muted/60 hover:text-foreground',
+                        active ? 'bg-primary text-primary-foreground' : 'text-foreground/70 hover:bg-muted/60 hover:text-foreground',
                       )}
-                      style={active ? { backgroundColor: MODULE_COLOR, color: 'white' } : undefined}
                     >
                       <t.Icon className="h-3.5 w-3.5" />
                       {t.label}

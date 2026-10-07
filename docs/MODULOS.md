@@ -109,4 +109,4 @@ Lista canônica dos módulos do SaaS ERP/CRM, agrupados por bloco. Referenciada 
 ## Cores por bloco (slugs de `module_colors`)
 `cadastros`, `comercial`, `corporativo`, `administrativo`, `legalizacao`, `trabalhista`, `fiscal`, `contabil`, `ferramentas`, `ti`, `qualidade`, `configuracoes`, `ajuda`, `perfil` (fonte: `DEFAULT_MODULE_COLORS` em `apps/api/src/theme/theme.service.ts`).
 
-> A cor do bloco é só **indicador de módulo** — sidebar, widgets do dashboard, FAQ, grupos de permissão e nós do editor de fluxo. O conteúdo das telas usa a cor primária (ver `PADRAO_CORES_E_TEMA.md` §6). A **cobertura** de uma varredura por bloco segue o GRUPO da sidebar (`navigation.ts`).
+> A cor do bloco é só **indicador de módulo** — sidebar, widgets do dashboard, FAQ, grupos de permissão, nós do editor de fluxo e balão de feedback. O conteúdo das telas usa a cor primária (ver `PADRAO_CORES_E_TEMA.md` §6). A **cobertura** de uma varredura por bloco segue o GRUPO da sidebar (`navigation.ts`).

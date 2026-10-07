@@ -16,10 +16,9 @@ interface Props {
   onClose: () => void
   status: string
   statusLabel: string
-  moduleColor: string
 }
 
-export function RelatorioColunaModal({ open, onClose, status, statusLabel, moduleColor }: Props) {
+export function RelatorioColunaModal({ open, onClose, status, statusLabel }: Props) {
   const CAMPOS = getCampos(statusLabel)
 
   const [dataInicio, setDataInicio] = useState('')
@@ -119,8 +118,7 @@ export function RelatorioColunaModal({ open, onClose, status, statusLabel, modul
                       type="button"
                       onClick={() => toggleArea(a.areaId)}
                       className={cn('px-2.5 h-7 rounded-full text-xs font-medium border transition-colors',
-                        active ? 'text-white border-transparent' : 'bg-card border-border text-muted-foreground hover:bg-muted/50')}
-                      style={active ? { backgroundColor: moduleColor } : undefined}
+                        active ? 'bg-primary text-primary-foreground border-transparent' : 'bg-card border-border text-muted-foreground hover:bg-muted/50')}
                     >
                       {a.nome}
                     </button>
@@ -136,7 +134,7 @@ export function RelatorioColunaModal({ open, onClose, status, statusLabel, modul
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 rounded-lg border border-border bg-muted/20 p-3">
               {CAMPOS.map(c => (
                 <label key={c.key} className="flex items-center gap-2 text-xs cursor-pointer select-none">
-                  <Checkbox accentColor={moduleColor} checked={campos.has(c.key)} onCheckedChange={() => toggleCampo(c.key)} />
+                  <Checkbox checked={campos.has(c.key)} onCheckedChange={() => toggleCampo(c.key)} />
                   <span className="truncate">{c.label}</span>
                 </label>
               ))}
@@ -146,7 +144,7 @@ export function RelatorioColunaModal({ open, onClose, status, statusLabel, modul
 
         <DialogFooter>
           <Button variant="ghost" size="sm" onClick={onClose}>Cancelar</Button>
-          <Button size="sm" style={{ backgroundColor: moduleColor }} className="text-white gap-1.5" onClick={gerar} disabled={camposSelecionados.length === 0}>
+          <Button size="sm" className="gap-1.5" onClick={gerar} disabled={camposSelecionados.length === 0}>
             <BarChart3 className="h-4 w-4" />
             Gerar relatório
           </Button>

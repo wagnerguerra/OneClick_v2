@@ -7,7 +7,11 @@ import { RichContent } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl } from '@/lib/api-url'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+/* Acento: a primária, que acompanha o tema do aparelho (o visitante externo
+   não troca skin, então para ele é sempre a padrão). Sólido para fundo; o
+   "on-surface" para texto, legível no dark. */
+const ACCENT_COLOR = 'var(--color-primary)'
+const ACCENT_TEXT_COLOR = 'var(--color-primary-on-surface)'
 
 interface Item {
   id: string
@@ -215,7 +219,7 @@ export default function PublicOrcamentoPage() {
           {orc.empresa?.logoUrl ? (
             <img src={resolveAssetUrl(orc.empresa.logoUrl)} alt={empresaNome} className="h-16 sm:h-20 w-auto object-contain" />
           ) : (
-            <div className="h-16 w-16 rounded-lg flex items-center justify-center text-white text-2xl font-bold" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
+            <div className="h-16 w-16 rounded-lg flex items-center justify-center text-white text-2xl font-bold" style={{ background: `linear-gradient(135deg, ${ACCENT_COLOR}, color-mix(in srgb, ${ACCENT_COLOR} 87%, transparent))` }}>
               {empresaNome[0]?.toUpperCase()}
             </div>
           )}
@@ -262,7 +266,7 @@ export default function PublicOrcamentoPage() {
         <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
           <div>
             <p className="text-xs uppercase text-muted-foreground tracking-wider">Proposta Comercial</p>
-            <h2 className="text-2xl font-bold" style={{ color: MODULE_COLOR }}>#{String(orc.numero).padStart(4, '0')}</h2>
+            <h2 className="text-2xl font-bold" style={{ color: ACCENT_TEXT_COLOR }}>#{String(orc.numero).padStart(4, '0')}</h2>
           </div>
           <div className="text-right text-sm">
             <p className="flex items-center gap-1.5 text-muted-foreground">
@@ -331,7 +335,7 @@ export default function PublicOrcamentoPage() {
             )}
             <div className="pt-2 mt-2 border-t border-slate-200 dark:border-slate-700 flex justify-between text-lg font-bold">
               <span>Total</span>
-              <span style={{ color: MODULE_COLOR }}>{formatCurrency(orc.totalGeral)}</span>
+              <span style={{ color: ACCENT_TEXT_COLOR }}>{formatCurrency(orc.totalGeral)}</span>
             </div>
             {orc.formaPagamento && (
               <div className="flex justify-between pt-1.5">
