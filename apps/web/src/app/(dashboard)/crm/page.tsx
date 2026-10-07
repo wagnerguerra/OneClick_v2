@@ -22,7 +22,7 @@ import {
   RichContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT, STRONG, BADGE } from '@/lib/color-styles'
+import { TEXT, STRONG, BADGE, PILL } from '@/lib/color-styles'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -1539,7 +1539,7 @@ export default function CrmPage() {
                       <TemperaturaBadge temperatura={detail.temperatura} score={detail.score} />
                       {detail.origem === 'lead-ia' && <span className="inline-flex items-center gap-1 font-medium text-muted-foreground"><Sparkles className="h-3 w-3" /> Captado pela IA</span>}
                       {valorDetalhe > 0 && (
-                        <span className="rounded-md bg-primary/10 px-1.5 py-0.5 font-semibold tabular-nums text-primary-on-surface">
+                        <span className={cn('rounded-md px-1.5 py-0.5 font-semibold tabular-nums', PILL.emerald)}>
                           {valorDetalhe.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </span>
                       )}
@@ -2495,7 +2495,7 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
         <LinhaCard icone={Target}>
           <span className="truncate">{op.titulo}</span>
           {valor > 0 && (
-            <span className="ml-auto shrink-0 pl-2 font-semibold tabular-nums text-primary-on-surface">
+            <span className={cn('ml-auto shrink-0 pl-2 font-semibold tabular-nums', TEXT.emerald)}>
               {valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </span>
           )}
