@@ -4944,6 +4944,8 @@ model OrcamentoMensagem {
   mensagem           String    @db.Text
   // Visibilidade — vazio = todos veem
   acessoUsuarios     String[]  @default([]) @map("acesso_usuarios")
+  /// Usuários notificados por e-mail ao enviar a mensagem — exibidos no card (#HLP0417).
+  notificados        String[]  @default([])
   restritoFinanceiro Boolean   @default(false) @map("restrito_financeiro")
   viaEmail           Boolean   @default(false) @map("via_email") // enviada/recebida por e-mail
   autorExterno       String?   @map("autor_externo") // remetente externo (cliente) quando userId é null

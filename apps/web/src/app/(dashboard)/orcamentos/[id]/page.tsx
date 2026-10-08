@@ -139,6 +139,8 @@ interface OrcamentoMensagem {
   userId?: string | null
   parentId?: string | null
   acessoUsuarios?: string[]
+  /** Usuários notificados por e-mail ao enviar (#HLP0417). */
+  notificados?: string[]
   restritoFinanceiro?: boolean
   /** Aparece para o cliente no portal (orçamento pedido pelo portal). */
   visivelCliente?: boolean
@@ -4265,6 +4267,9 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
     ? editadoEm.toLocaleString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : null
 
+  const notificadosNomes = (msg.notificados ?? [])
+    .map(id => usuarios.find(u => u.id === id)?.name)
+    .filter(Boolean) as string[]
   const restritaIds = msg.acessoUsuarios ?? []
   const restritaNomes = restritaIds
     .map(id => usuarios.find(u => u.id === id)?.name)
@@ -4364,6 +4369,16 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
             {msg.visivelCliente && !msg.viaPortal && (
               <span className={cn('inline-flex items-center gap-1 text-[10px] rounded-full px-2 py-0.5 font-semibold', BADGE.emerald)} title="O cliente lê esta mensagem no portal">
                 Visível ao cliente
+              </span>
+            )}
+            {/* Para quem a mensagem foi enviada por e-mail (#HLP0417). */}
+            {notificadosNomes.length > 0 && (
+              <span
+                className={cn('inline-flex items-center gap-1 text-[10px] rounded-full px-2 py-0.5', BADGE.amber)}
+                title={`Notificado por e-mail: ${notificadosNomes.join(', ')}`}
+              >
+                <Bell className="h-2.5 w-2.5" />
+                Notificado: {notificadosNomes.slice(0, 3).join(', ')}{notificadosNomes.length > 3 ? ` +${notificadosNomes.length - 3}` : ''}
               </span>
             )}
             {restritaIds.length > 0 && (

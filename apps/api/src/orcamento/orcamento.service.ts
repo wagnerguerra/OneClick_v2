@@ -4093,6 +4093,8 @@ export class OrcamentoService {
         userId,
         mensagem,
         acessoUsuarios: opts?.acessoUsuarios || [],
+        // Quem foi notificado fica registrado para aparecer na mensagem (#HLP0417).
+        notificados: [...new Set((opts?.notificarUsuarios || []).filter(Boolean))],
         restritoFinanceiro: opts?.restritoFinanceiro ?? false,
         parentId: opts?.parentId || null,
         visivelCliente,
