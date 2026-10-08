@@ -26,8 +26,8 @@ export function createSocioRouter(socioService: SocioService, cnpjService: CnpjS
 
     // Socios por cliente (para aba Legalizacao)
     listByCliente: readProcedure()
-      .input(z.object({ clienteId: z.string() }))
-      .query(({ input }) => socioService.listByCliente(input.clienteId)),
+      .input(z.object({ clienteId: z.string(), incluirMatriz: z.boolean().optional() }))
+      .query(({ input }) => socioService.listByCliente(input.clienteId, input.incluirMatriz ?? false)),
 
     create: writeProcedure()
       .input(createSocioSchema)

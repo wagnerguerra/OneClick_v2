@@ -1242,6 +1242,8 @@ export function createClienteRouter(
                   participacao,
                   valorQuotas,
                   clienteId: input.clienteId,
+                  // Sem a empresa o sócio dava "Acesso negado" ao editar (#HLP0391).
+                  empresaId: (await prisma.cliente.findUnique({ where: { id: input.clienteId }, select: { empresaId: true } }))?.empresaId ?? null,
                   observacoes: `Importado do OneClick — ${s.qualificacao || ''}${s.representante_nome ? ' | Rep: ' + s.representante_nome : ''}`,
                 },
               })

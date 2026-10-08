@@ -41,6 +41,9 @@ interface Socio {
   tipoSocio: string
   participacao: number | null
   createdAt: string
+  /** Vem da matriz (este cliente é filial e a matriz também é cliente) — #HLP0391. */
+  daMatriz?: boolean
+  matrizNome?: string | null
 }
 
 const TIPO_SOCIO_LABELS: Record<string, string> = {
@@ -121,7 +124,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
     // Re-fetch DIRETO do que a importação altera (sócios, CNAEs, capital). NÃO usar o
     // truque de setXxx([]) → o lazy-load só re-dispara quando o length MUDA, então se a
     // lista já estava vazia antes do import ele não recarregava (dados só apareciam após F5).
-    ;(trpc.socio as any).listByCliente.query({ clienteId }).then((d: Socio[]) => setSocios(d)).catch(() => {})
+    ;(trpc.socio as any).listByCliente.query({ clienteId, incluirMatriz: true }).then((d: Socio[]) => setSocios(d)).catch(() => {})
     ;(trpc.cliente as any).listCnaes?.query({ clienteId }).then((d: typeof cnaes) => setCnaes(d)).catch(() => {})
     ;(trpc.cliente as { getCapitalSocial: { query: (i: { clienteId: string }) => Promise<{ capitalSocial: number | null }> } }).getCapitalSocial.query({ clienteId }).then((cs) => setCapitalSocial(cs.capitalSocial)).catch(() => {})
   }
@@ -130,9 +133,11 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
   const [capitalSocial, setCapitalSocial] = useState<number | null>(null)
   // Seleção múltipla de sócios (exclusão em massa)
   const [selectedSocioIds, setSelectedSocioIds] = useState<Set<string>>(new Set())
-  const allSociosSelected = socios.length > 0 && socios.every(s => selectedSocioIds.has(s.id))
+  // Sócio da matriz não entra na exclusão em massa da filial: excluí-lo apagaria da matriz.
+  const sociosProprios = socios.filter(s => !s.daMatriz)
+  const allSociosSelected = sociosProprios.length > 0 && sociosProprios.every(s => selectedSocioIds.has(s.id))
   const toggleSocioSelected = (id: string) => setSelectedSocioIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
-  const toggleSelectAllSocios = () => setSelectedSocioIds(prev => (socios.length > 0 && socios.every(s => prev.has(s.id))) ? new Set() : new Set(socios.map(s => s.id)))
+  const toggleSelectAllSocios = () => setSelectedSocioIds(prev => (sociosProprios.length > 0 && sociosProprios.every(s => prev.has(s.id))) ? new Set() : new Set(sociosProprios.map(s => s.id)))
   async function handleBulkDeleteSocios() {
     const ids = [...selectedSocioIds]
     if (!ids.length) return
@@ -140,7 +145,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
     if (!ok) return
     try {
       await (trpc.socio as any).deleteMany.mutate({ ids })
-      const data = await (trpc.socio as any).listByCliente.query({ clienteId }) as Socio[]
+      const data = await (trpc.socio as any).listByCliente.query({ clienteId, incluirMatriz: true }) as Socio[]
       setSocios(data)
       setSelectedSocioIds(new Set())
       alerts.success('Excluídos', `${ids.length} sócio(s) removido(s).`)
@@ -216,7 +221,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
   // Carregar contagens ao montar (para badges)
   useEffect(() => {
     if (!clienteId) return
-    ;(trpc.socio as any).listByCliente.query({ clienteId }).then((d: Socio[]) => setSocios(d)).catch(() => {})
+    ;(trpc.socio as any).listByCliente.query({ clienteId, incluirMatriz: true }).then((d: Socio[]) => setSocios(d)).catch(() => {})
     ;(trpc.cliente as any).getCapitalSocial.query({ clienteId }).then((r: { capitalSocial: number | null }) => setCapitalSocial(r.capitalSocial)).catch(() => {})
     ;(trpc.cliente as any).listAcessos.query({ clienteId }).then((d: typeof acessos) => setAcessos(d)).catch(() => {})
     ;(trpc.cliente as any).listVencimentos.query({ clienteId }).then((d: typeof vencimentos) => setVencimentos(d)).catch(() => {})
@@ -231,7 +236,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
   useEffect(() => {
     if (activeTab === 'socios' && clienteId && socios.length === 0) {
       setSociosLoading(true)
-      ;(trpc.socio as any).listByCliente.query({ clienteId })
+      ;(trpc.socio as any).listByCliente.query({ clienteId, incluirMatriz: true })
         .then((data: unknown) => setSocios(data as Socio[]))
         .catch(() => {})
         .finally(() => setSociosLoading(false))
@@ -715,6 +720,11 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     <h4 className="text-[13px] font-semibold text-foreground">Sócios vinculados</h4>
                     <div className="flex items-center gap-3">
                       {capitalSocial != null && <p className="text-[10px] text-muted-foreground">Capital Social: <strong>R$ {capitalSocial.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></p>}
+                      {socios.some(s => s.daMatriz) && (
+                        <p className="text-[10px] text-muted-foreground">
+                          Sócios da matriz <strong>{socios.find(s => s.daMatriz)?.matrizNome}</strong> — alterações valem para todas as unidades.
+                        </p>
+                      )}
                       {socios.length > 0 && <p className="text-[10px] text-muted-foreground">Última consulta: <strong>{new Date(Math.max(...socios.map(s => new Date(s.createdAt).getTime()))).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong></p>}
                     </div>
                   </div>
@@ -775,10 +785,17 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                           return (
                           <tr key={s.id} className={cn('hover:bg-muted/20', selectedSocioIds.has(s.id) && 'bg-primary/5')}>
                             <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
-                              <Checkbox className="cursor-pointer align-middle" checked={selectedSocioIds.has(s.id)}
-                                onCheckedChange={() => toggleSocioSelected(s.id)} />
+                              {!s.daMatriz && (
+                                <Checkbox className="cursor-pointer align-middle" checked={selectedSocioIds.has(s.id)}
+                                  onCheckedChange={() => toggleSocioSelected(s.id)} />
+                              )}
                             </td>
-                            <td className="px-3 py-2 font-medium text-foreground">{s.nomeCompleto}</td>
+                            <td className="px-3 py-2 font-medium text-foreground">
+                              {s.nomeCompleto}
+                              {s.daMatriz && (
+                                <span className={cn('ml-1.5 rounded border px-1 py-0 text-[9.5px] font-semibold align-middle', BADGE.sky)} title={`Cadastrado na matriz ${s.matrizNome ?? ''}`}>Matriz</span>
+                              )}
+                            </td>
                             <td className="px-3 py-2 font-mono text-muted-foreground">{fmtDocumento(s.cpf)}</td>
                             <td className="px-3 py-2 text-right text-muted-foreground">{pct != null ? `${pct.toFixed(2)}%` : '--'}</td>
                             <td className="px-3 py-2 text-right text-muted-foreground">{valor != null ? `R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '--'}</td>
@@ -805,7 +822,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                                     <Pencil className="h-3.5 w-3.5" />
                                     Editar
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem
+                                  {!s.daMatriz && <DropdownMenuItem
                                     onClick={async e => {
                                       e.stopPropagation()
                                       const ok = await alerts.confirm({
@@ -818,7 +835,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                                       if (!ok) return
                                       try {
                                         await (trpc.socio as any).delete.mutate({ id: s.id })
-                                        const data = await (trpc.socio as any).listByCliente.query({ clienteId }) as typeof socios
+                                        const data = await (trpc.socio as any).listByCliente.query({ clienteId, incluirMatriz: true }) as typeof socios
                                         setSocios(data)
                                         alerts.success('Excluído', 'Sócio removido com sucesso.')
                                       } catch (err) { alerts.error('Erro', (err as Error).message) }
@@ -827,7 +844,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
                                     Excluir
-                                  </DropdownMenuItem>
+                                  </DropdownMenuItem>}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </td>
@@ -1589,7 +1606,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
         onClose={() => setEditSocioId(null)}
         onSaved={async () => {
           setEditSocioId(null)
-          const data = await (trpc.socio as any).listByCliente.query({ clienteId }) as Socio[]
+          const data = await (trpc.socio as any).listByCliente.query({ clienteId, incluirMatriz: true }) as Socio[]
           setSocios(data)
         }}
       />
@@ -1602,7 +1619,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
         onClose={() => setNovoSocioOpen(false)}
         onSaved={async () => {
           setNovoSocioOpen(false)
-          const data = await (trpc.socio as any).listByCliente.query({ clienteId }) as Socio[]
+          const data = await (trpc.socio as any).listByCliente.query({ clienteId, incluirMatriz: true }) as Socio[]
           setSocios(data)
         }}
       />

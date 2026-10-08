@@ -198,6 +198,8 @@ export class ImportOneclickService {
       .filter((s) => s.nome)
     const totalValor = socLegado.reduce((acc, s) => acc + (s.valor || 0), 0)
 
+    // Sem a empresa o sócio dava "Acesso negado" ao editar (#HLP0391).
+    const empresaDoCliente = (await prisma.cliente.findUnique({ where: { id: clienteId }, select: { empresaId: true } }).catch(() => null))?.empresaId ?? null
     for (const s of socLegado) {
       const pct = totalValor > 0 && s.valor != null ? Number(((s.valor / totalValor) * 100).toFixed(4)) : undefined
       // Casa por DOCUMENTO (QSA e v1 divergem em acentos no nome → nome é frágil) e cai pro nome.
@@ -215,7 +217,7 @@ export class ImportOneclickService {
           })
         } else {
           await prisma.socio.create({
-            data: { nomeCompleto: s.nome, cpf: s.doc, tipoSocio: 'SOCIO_QUOTISTA', valorQuotas: s.valor, participacao: pct, clienteId, observacoes: 'Participação importada do OneClick (legado)' },
+            data: { nomeCompleto: s.nome, cpf: s.doc, tipoSocio: 'SOCIO_QUOTISTA', valorQuotas: s.valor, participacao: pct, clienteId, empresaId: empresaDoCliente, observacoes: 'Participação importada do OneClick (legado)' },
           })
         }
         sociosCount++

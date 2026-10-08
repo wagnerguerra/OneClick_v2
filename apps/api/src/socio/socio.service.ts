@@ -1,9 +1,34 @@
 import { Injectable } from '@nestjs/common'
 import { prisma, buildPaginatedResponse, getPrismaSkipTake, scoped, Prisma } from '@saas/db'
 import type { CreateSocioInput, UpdateSocioInput, ListSocioInput } from '@saas/types'
+import { ehMatrizCnpj, limparCnpj } from '@saas/types'
 
 function empresaFilter(_isMaster: boolean, empresaId?: string): Prisma.SocioWhereInput {
   return empresaId ? { empresaId } : {}
+}
+
+/**
+ * O sócio é da empresa do usuário? Vale a empresa gravada no sócio e, se ela
+ * faltar, a do cliente a que ele pertence. #HLP0391: dois caminhos de cadastro
+ * (QSA na tela do cliente e importação do OneClick antigo) não gravavam a
+ * empresa, e esses sócios davam "Acesso negado" ao editar para todos menos o master.
+ */
+async function socioDaEmpresa(
+  db: { cliente: { findUnique: (a: { where: { id: string }; select: { empresaId: true } }) => Promise<{ empresaId: string | null } | null> } },
+  socio: { empresaId: string | null; clienteId: string | null },
+  empresaId: string,
+): Promise<boolean> {
+  if (socio.empresaId) return socio.empresaId === empresaId
+  if (!socio.clienteId) return false
+  const cli = await db.cliente.findUnique({ where: { id: socio.clienteId }, select: { empresaId: true } })
+  return cli?.empresaId === empresaId
+}
+
+/** Sócio na aba Legalização. `daMatriz` = vem da matriz (o cliente é filial). */
+export type SocioDoCliente = {
+  id: string; nomeCompleto: string; cpf: string; tipoSocio: string
+  participacao: Prisma.Decimal | null; createdAt: Date
+  daMatriz: boolean; matrizNome: string | null
 }
 
 @Injectable()
@@ -51,7 +76,7 @@ export class SocioService {
           cliente: { select: { id: true, razaoSocial: true, nomeFantasia: true } },
         },
       })
-      if (!isMaster && empresaId && socio.empresaId !== empresaId) {
+      if (!isMaster && empresaId && !(await socioDaEmpresa(db, socio, empresaId))) {
         throw new Error('Acesso negado.')
       }
       return socio
@@ -105,7 +130,7 @@ export class SocioService {
   async update(id: string, input: UpdateSocioInput, userId?: string, isMaster?: boolean, empresaId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, async (db) => {
       const existing = await db.socio.findUniqueOrThrow({ where: { id } })
-      if (!isMaster && empresaId && existing.empresaId !== empresaId) throw new Error('Acesso negado.')
+      if (!isMaster && empresaId && !(await socioDaEmpresa(db, existing, empresaId))) throw new Error('Acesso negado.')
 
       const changes: Record<string, { from: unknown; to: unknown }> = {}
       const data: Prisma.SocioUpdateInput = {}
@@ -151,7 +176,7 @@ export class SocioService {
   async delete(id: string, userId?: string, isMaster?: boolean, empresaId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, async (db) => {
       const existing = await db.socio.findUniqueOrThrow({ where: { id } })
-      if (!isMaster && empresaId && existing.empresaId !== empresaId) throw new Error('Acesso negado.')
+      if (!isMaster && empresaId && !(await socioDaEmpresa(db, existing, empresaId))) throw new Error('Acesso negado.')
       if (!existing.isActive) return existing // já inativo — idempotente
       const newVersion = existing.version + 1
       const updated = await db.socio.update({ where: { id }, data: { isActive: false, version: newVersion } })
@@ -288,12 +313,48 @@ export class SocioService {
 
   // ============================================================
 
-  async listByCliente(clienteId: string) {
-    return prisma.socio.findMany({
-      where: { clienteId, isActive: true },
-      select: { id: true, nomeCompleto: true, cpf: true, tipoSocio: true, participacao: true, createdAt: true },
-      orderBy: { nomeCompleto: 'asc' },
+  async listByCliente(clienteId: string, incluirMatriz = false): Promise<SocioDoCliente[]> {
+    const sel = { id: true, nomeCompleto: true, cpf: true, tipoSocio: true, participacao: true, createdAt: true } as const
+    const proprios = await prisma.socio.findMany({ where: { clienteId, isActive: true }, select: sel, orderBy: { nomeCompleto: 'asc' } })
+    const daFilial = proprios.map(s => ({ ...s, daMatriz: false, matrizNome: null }))
+    if (!incluirMatriz) return daFilial
+
+    // #HLP0391: os sócios são da sociedade inteira, não só da matriz. Se este
+    // cliente é FILIAL e a matriz também é cliente (mesma empresa), a filial
+    // mostra os sócios da matriz — o MESMO registro, não uma cópia, para que
+    // uma alteração valha para todas as unidades. Matriz que não é cliente: nada muda.
+    const matriz = await this.matrizClienteDe(clienteId)
+    if (!matriz) return daFilial
+    const daMatrizRows = await prisma.socio.findMany({ where: { clienteId: matriz.id, isActive: true }, select: sel, orderBy: { nomeCompleto: 'asc' } })
+    const docsMatriz = new Set(daMatrizRows.map(s => limparCnpj(s.cpf)).filter(Boolean))
+    const nomesMatriz = new Set(daMatrizRows.map(s => s.nomeCompleto.trim().toUpperCase()))
+    // Sócio que já estava cadastrado na própria filial (ex.: QSA da filial) e é o
+    // mesmo da matriz não aparece duas vezes — prevalece o da matriz.
+    const soDaFilial = daFilial.filter(s => {
+      const d = limparCnpj(s.cpf)
+      return d ? !docsMatriz.has(d) : !nomesMatriz.has(s.nomeCompleto.trim().toUpperCase())
     })
+    return [
+      ...daMatrizRows.map(s => ({ ...s, daMatriz: true, matrizNome: matriz.nome })),
+      ...soDaFilial,
+    ]
+  }
+
+  /** Matriz do cliente (mesma raiz de CNPJ, mesma empresa, ativa), se o cliente for filial. */
+  private async matrizClienteDe(clienteId: string): Promise<{ id: string; nome: string } | null> {
+    const cli = await prisma.cliente.findUnique({
+      where: { id: clienteId },
+      select: { documento: true, tipoDocumento: true, ehMatriz: true, empresaId: true },
+    })
+    if (!cli || !cli.empresaId) return null
+    const doc = limparCnpj(cli.documento)
+    if (doc.length !== 14 || ehMatrizCnpj(cli.documento, cli.ehMatriz, cli.tipoDocumento)) return null
+    const candidatos = await prisma.$queryRaw<Array<{ id: string; razao_social: string; documento: string; tipo_documento: string; eh_matriz: boolean | null }>>`
+      SELECT id, razao_social, documento, tipo_documento::text, eh_matriz FROM clientes
+       WHERE empresa_id = ${cli.empresaId} AND is_active AND id <> ${clienteId}
+         AND left(regexp_replace(upper(documento), '[^0-9A-Z]', '', 'g'), 8) = ${doc.slice(0, 8)}`
+    const m = candidatos.find(c => ehMatrizCnpj(c.documento, c.eh_matriz, c.tipo_documento))
+    return m ? { id: m.id, nome: m.razao_social } : null
   }
 
   async findByNameAndCliente(nome: string, clienteId: string) {
