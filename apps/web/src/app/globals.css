@@ -769,6 +769,22 @@ html:has([data-portal-root]) { scroll-behavior: smooth; }
     border: 0;
   }
 
+  /* Campo que PARECE TEXTO até o clique (nomes editáveis na árvore de etapas e
+     passos, como no cadastro de clientes). Mesma razão do .campo-nu: a regra base
+     acima vence utilitários do Tailwind por especificidade. No foco volta a ser
+     campo (borda primária + ring, pela regra de :focus abaixo). */
+  input.campo-inline:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) {
+    padding: 0 0.25rem;
+    border-color: transparent;
+    background-color: transparent;
+    border-radius: 0.375rem;
+    height: 1.5rem;
+  }
+  input.campo-inline:not(:focus):hover { background-color: color-mix(in srgb, var(--color-muted) 60%, transparent); }
+  .dark input.campo-inline:not(:focus) { background-color: transparent; border-color: transparent; }
+  .dark input.campo-inline:not(:focus):hover { background-color: color-mix(in srgb, var(--color-muted) 50%, transparent); }
+  input.campo-inline:focus { background-color: var(--color-card); }
+
   /* Foco no padrao do modelo: borda primaria + ring suave translucido. */
   input:focus, textarea:focus, select:focus,
   [role="combobox"]:focus, button[role="combobox"]:focus {

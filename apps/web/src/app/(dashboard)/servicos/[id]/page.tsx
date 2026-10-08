@@ -3164,7 +3164,7 @@ function SortableEtapa({ id, children }: { id: string; children: React.ReactNode
     zIndex: isDragging ? 10 : undefined,
   }
   return (
-    <div ref={setNodeRef} style={style} className="rounded-lg border bg-muted/10 p-3">
+    <div ref={setNodeRef} style={style} className="rounded-lg px-1 py-0.5" /* sem borda por linha: a árvore se organiza pelo recuo e pelas linhas-guia */>
       <SortableHandleContext.Provider
         value={{
           attributes: attributes as unknown as Record<string, unknown>,
@@ -3272,7 +3272,7 @@ function SortableGrupo({ id, nome, qtd, fixo, recolhida, selecionada, selo, selo
         onBlur={e => { if (e.target.value !== nome) onRenomear?.(e.target.value) }}
         onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
         aria-label="Nome da sub-etapa"
-        className="h-6 min-w-0 flex-1 rounded bg-transparent px-1 text-[13px] font-medium text-foreground hover:bg-background/60 focus:bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+        className="campo-inline min-w-0 flex-1 text-[13px] font-medium text-foreground"
       />
       {selo && <SeloCondicaoCadastro texto={selo} foraDeOrdem={seloForaDeOrdem} onClick={() => onCondicao?.()} className="h-5 max-w-[180px] text-[10px]" />}
       <span className="shrink-0 px-1 text-[10.5px] tabular-nums text-muted-foreground" title="Passos nesta sub-etapa">
@@ -3306,7 +3306,8 @@ const NomeInline = forwardRef<HTMLInputElement, {
       aria-label={ariaLabel}
       title={value}
       className={cn(
-        'h-6 w-full min-w-0 rounded bg-transparent px-1 text-[13px] text-foreground placeholder:text-muted-foreground/70 hover:bg-background/60 focus:bg-background focus:outline-none focus:ring-1 focus:ring-ring',
+        // campo-inline (globals.css): sem borda até o clique — a regra base de input vence o Tailwind.
+        'campo-inline w-full min-w-0 text-[13px] text-foreground placeholder:text-muted-foreground/70',
         forte && 'font-semibold',
       )}
     />
