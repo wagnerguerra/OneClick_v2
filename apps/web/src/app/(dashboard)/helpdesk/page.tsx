@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import {
-  Plus, Loader2, Search, AlertTriangle, MessageSquare,
+  Plus, Loader2, Search, MessageSquare,
   CheckCircle2, LayoutGrid, List as ListIcon, Inbox, Settings, Archive,
   Paperclip, Bot, BarChart3, XCircle, MoreVertical, ExternalLink, X, FilterX, SlidersHorizontal,
   ListChecks, Bug, ClipboardList, HelpCircle, Lightbulb, Flag, Tag, Layers, UserCog, Clock,
@@ -1088,8 +1088,8 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
   // Badge informativo: o que pede atenção, do mais urgente ao menos.
   const avisos: Array<{ curto: string; label: string; detalhe?: string; Icon: typeof Bug; cor: string }> = []
   if (ticket.aguardandoResposta) avisos.push({ curto: 'Respondeu', label: 'Solicitante respondeu', detalhe: 'Aguardando o agente', Icon: MessageSquare, cor: 'var(--color-primary-on-surface)' })
-  if (sla?.estado === 'vencido') avisos.push({ curto: 'SLA vencido', label: 'SLA vencido', detalhe: sla.texto, Icon: AlertTriangle, cor: '#e11d48' })
-  else if (sla?.estado === 'vencendo') avisos.push({ curto: 'SLA vencendo', label: 'SLA vencendo', detalhe: sla.texto, Icon: Clock, cor: '#d97706' })
+  // SLA não vira selo no cabeçalho: o rodapé do card já mostra o prazo
+  // ("vencido 5d", em vermelho) — o selo repetia a informação.
   if (ticket.prioridade === 'URGENTE' || ticket.prioridade === 'ALTA') {
     avisos.push({ curto: HELPDESK_PRIORIDADE_LABELS[ticket.prioridade], label: `Prioridade ${HELPDESK_PRIORIDADE_LABELS[ticket.prioridade].toLowerCase()}`, Icon: Flag, cor: corPrioridade })
   }
