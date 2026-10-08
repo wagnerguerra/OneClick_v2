@@ -13,6 +13,7 @@ import {
   assinarWebPkiSchema,
   aceitarPropostaSchema,
   contratoStatusSchema,
+  PAINEL_COMERCIAL_SLUG,
 } from '@saas/types'
 import { ContratoService } from './contrato.service'
 
@@ -91,8 +92,8 @@ export function createContratoRouter(svc: ContratoService) {
       .input(z.object({ status: z.string().optional(), clienteId: z.string().optional() }).optional())
       .query(({ input, ctx }) => svc.listContratos({ ...input, empresaId: ctx.empresaId })),
 
-    // Relatorio consolidado p/ o Painel de Gestao a Vista (comercial)
-    reportComercial: readProcedure(MODULE)
+    // Relatorio consolidado p/ o Painel Comercial — só ele usa: exige a permissão do painel.
+    reportComercial: readProcedure(PAINEL_COMERCIAL_SLUG)
       .input(periodoSchema.optional())
       // Com data inicial/final (/comercial), tudo segue o período; sem, hoje.
       .query(({ input, ctx }) => svc.reportComercial(ctx.empresaId, input?.de || input?.ate ? janelaDoPeriodo(input) : undefined)),

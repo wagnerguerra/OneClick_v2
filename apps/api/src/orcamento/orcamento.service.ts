@@ -4678,16 +4678,18 @@ export class OrcamentoService {
    * (gestor+) — se o user não for privilegiado, retorna { permitido: false }
    * e o widget mostra empty state com mensagem.
    */
-  async getDashboardStats(userId: string, empresaId?: string, janela?: Janela) {
+  async getDashboardStats(userId: string, empresaId?: string, janela?: Janela, opts?: { temPainel?: boolean }) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { role: true, profile: true, isMaster: true, isEmpresaMaster: true },
     })
     if (!user) return { permitido: false as const }
 
+    // Cargo gestor+ OU permissão do Painel Comercial (quem tem o painel o vê inteiro).
     const isPriv =
       user.isMaster
       || user.isEmpresaMaster
+      || opts?.temPainel === true
       || ['GESTOR', 'COORDENADOR', 'DIRETOR'].includes(user.role as string)
       || ['GERENTE', 'ADMIN'].includes(user.profile as unknown as string)
     if (!isPriv) return { permitido: false as const }

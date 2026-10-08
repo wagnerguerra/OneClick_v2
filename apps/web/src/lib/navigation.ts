@@ -134,7 +134,7 @@ export const navigation: NavGroup[] = [
     label: 'Comercial',
     icon: Store,
     items: [
-      { label: 'Painel Comercial', href: '/comercial', icon: Gauge },
+      { label: 'Painel Comercial', href: '/comercial-relatorios', icon: Gauge },
       {
         label: 'CRM',
         href: '/crm',

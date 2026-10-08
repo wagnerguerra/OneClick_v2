@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { router, readProcedure, writeProcedure, deleteProcedure } from '../trpc/trpc.service'
-import { createOportunidadeSchema, updateOportunidadeSchema, listOportunidadeSchema, listForaDoFunilSchema, updateCrmEtapaSchema } from '@saas/types'
+import { createOportunidadeSchema, updateOportunidadeSchema, listOportunidadeSchema, listForaDoFunilSchema, updateCrmEtapaSchema, PAINEL_COMERCIAL_SLUG } from '@saas/types'
 import { CrmService } from './crm.service'
 import { ImportComercialService } from './import-comercial.service'
 import type { AgendaTarefaService } from '../agenda/agenda-tarefa.service'
@@ -295,26 +295,28 @@ export function createCrmRouter(crmService: CrmService, tarefaService: AgendaTar
       .mutation(({ input, ctx }) => crmService.saveConfig(input.key, input.value, ctx.empresaId)),
 
     // ── Estatisticas ───────────────────────────────────────
-    getStats: readProcedure(MODULE)
+    // Servem à tela do CRM E ao Painel Comercial: CRM ou o painel.
+    getStats: readProcedure([MODULE, PAINEL_COMERCIAL_SLUG])
       .query(({ ctx }) => crmService.getStats(ctx.isMaster ?? false, ctx.empresaId)),
 
     // ── Relatorios ────────────────────────────────────────
     // `de`/`ate` (painel /comercial) vencem `dias` (demais telas).
-    reportFunil: readProcedure(MODULE)
+    reportFunil: readProcedure([MODULE, PAINEL_COMERCIAL_SLUG])
       .input(periodoSchema.extend({ apenasAtivos: z.boolean().optional() }))
       .query(({ input, ctx }) => crmService.reportFunil(ctx.empresaId, periodoOuDias(input), undefined, { apenasAtivos: input.apenasAtivos })),
 
-    reportDesempenho: readProcedure(MODULE)
+    reportDesempenho: readProcedure([MODULE, PAINEL_COMERCIAL_SLUG])
       .input(periodoSchema)
       .query(({ input, ctx }) => crmService.reportDesempenho(ctx.empresaId, periodoOuDias(input))),
 
-    /** Qualificação e Fechamento do /comercial — ver indicadores-comerciais.ts. */
-    indicadoresComerciais: readProcedure(MODULE)
+    /** Qualificação e Fechamento do /comercial — ver indicadores-comerciais.ts.
+     *  Só o Painel Comercial usa: exige a permissão do painel. */
+    indicadoresComerciais: readProcedure(PAINEL_COMERCIAL_SLUG)
       .input(periodoSchema)
       .query(({ input, ctx }) => crmService.indicadoresComerciais(ctx.empresaId, input)),
 
     /** Lista por trás de um número do funil (clique no total ou na pessoa). */
-    indicadorDetalhe: readProcedure(MODULE)
+    indicadorDetalhe: readProcedure(PAINEL_COMERCIAL_SLUG)
       .input(periodoSchema.extend({
         campo: z.enum(CAMPOS_INDICADOR),
         /** Omitido = todos; '' = sem responsável. */

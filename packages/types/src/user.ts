@@ -63,7 +63,7 @@ export const MODULE_SLUGS = [
   'fornecedores', 'grupos-empresariais', 'obrigacoes', 'obrigacoes-fixas', 'obrigacoes-demanda',
   'servicos', 'socios', 'usuarios',
   // Comercial
-  'crm', 'whatsapp', 'clausulas', 'comercial', 'contratos', 'contrato-templates',
+  'crm', 'whatsapp', 'clausulas', 'contratos', 'contrato-templates',
   'custeio-clientes', 'graficos-contrato-erp',
   'orcamentos', 'pesquisas', 'comercial-relatorios', 'contratos-relatorios',
   // Administrativo
@@ -93,6 +93,17 @@ export const MODULE_SLUGS = [
 export type ModuleSlug = (typeof MODULE_SLUGS)[number]
 
 /**
+ * Permissão de acesso ao Painel Comercial — mesmo slug da rota
+ * (/comercial-relatorios), como as demais telas. Quem a tem vê o painel
+ * INTEIRO — todas as abas, sem precisar de CRM/Orçamentos/Contratos; "Editar"
+ * libera a única ação do painel (marcar contrato fechado). As análises que só
+ * existem no painel (MRR, ranking, descontos, funil unificado…) exigem ESTA
+ * permissão; as que também servem às telas dos módulos aceitam o módulo de
+ * origem OU esta.
+ */
+export const PAINEL_COMERCIAL_SLUG = 'comercial-relatorios' satisfies ModuleSlug
+
+/**
  * Módulos de administração da PLATAFORMA (config de sistema global que afeta
  * TODOS os tenants: integrações Stripe/SMTP/Banco/SERPRO/OpenAI/S3, métricas e
  * backup). Acesso restrito ao MASTER global — jamais concedidos a roles de
@@ -112,12 +123,12 @@ export const MODULE_LABELS: Record<string, string> = {
   servicos: 'Serviços', socios: 'Sócios', usuarios: 'Usuários',
   // Comercial
   crm: 'CRM', whatsapp: 'WhatsApp',
-  clausulas: 'Cláusulas', comercial: 'Comercial', contratos: 'Contratos',
+  clausulas: 'Cláusulas', contratos: 'Contratos',
   'contrato-templates': 'Modelos de Contrato',
   'custeio-clientes': 'Custeio por Cliente',
   'graficos-contrato-erp': 'Gráficos Contrato x ERP', orcamentos: 'Orçamentos',
   pesquisas: 'Pesquisa de Satisfação',
-  'comercial-relatorios': 'Relatórios Comerciais', 'contratos-relatorios': 'Relatórios de Contratos',
+  'comercial-relatorios': 'Painel Comercial', 'contratos-relatorios': 'Relatórios de Contratos',
   // Administrativo
   agenda: 'Agenda Corporativa', 'coleta-documentos': 'Coleta e Recebimento',
   contatos: 'Contatos', estoque: 'Controle de Estoque',
@@ -158,7 +169,7 @@ export const MODULE_LABELS: Record<string, string> = {
 
 export const MODULE_GROUPS = {
   'Cadastros': ['areas', 'cargos', 'clientes', 'colaboradores', 'empresas', 'fornecedores', 'grupos-empresariais', 'obrigacoes', 'obrigacoes-fixas', 'obrigacoes-demanda', 'servicos', 'socios', 'usuarios'],
-  'Comercial': ['crm', 'whatsapp', 'clausulas', 'comercial', 'contratos', 'contrato-templates', 'custeio-clientes', 'graficos-contrato-erp', 'orcamentos', 'pesquisas', 'comercial-relatorios', 'contratos-relatorios'],
+  'Comercial': ['comercial-relatorios', 'crm', 'whatsapp', 'clausulas', 'contratos', 'contrato-templates', 'custeio-clientes', 'graficos-contrato-erp', 'orcamentos', 'pesquisas', 'contratos-relatorios'],
   'Administrativo': ['agenda', 'acessorias', 'coleta-documentos', 'contatos', 'estoque', 'gestao-arquivos', 'meus-servicos', 'minhas-obrigacoes', 'organograma', 'processos'],
   'Legalização': ['beneficios-fiscais', 'gestao-certificados', 'quadro-societario'],
   'Trabalhista': ['banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento', 'folha-bi'],

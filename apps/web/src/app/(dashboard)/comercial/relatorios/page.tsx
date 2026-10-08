@@ -13,5 +13,5 @@ const ABA_DO_RELATORIO: Record<string, string> = {
 
 export default async function ComercialRelatoriosRedirect({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const { tab } = await searchParams
-  redirect(`/comercial?aba=${ABA_DO_RELATORIO[tab ?? ''] ?? 'funil-unificado'}`)
+  redirect(`/comercial-relatorios?aba=${ABA_DO_RELATORIO[tab ?? ''] ?? 'funil-unificado'}`)
 }

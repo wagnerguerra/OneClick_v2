@@ -47,11 +47,6 @@ export function useNavegacaoPermitida(): { grupos: NavGroup[]; podeFerramentas: 
       if (item.masterOnly) return false
       // FAQ é conteúdo de ajuda — sempre visível.
       if (item.href === '/faq') return true
-      // Painel Comercial consolida CRM/Orçamentos/Contratos — visível a quem tem
-      // leitura em qualquer um deles (os dados são gateados no backend).
-      if (item.href === '/comercial') {
-        return ['crm', 'orcamentos', 'contratos'].some((s) => allowedSlugs.includes(s))
-      }
       // Benefícios: líder de setor lança os apontamentos do próprio setor.
       if (item.href === '/beneficios' && ehLiderSetor) return true
       if (item.href.startsWith('/ferramentas/')) {
