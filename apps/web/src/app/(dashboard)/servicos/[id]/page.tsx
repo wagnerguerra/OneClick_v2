@@ -2346,24 +2346,24 @@ export default function ServicoDetailPage() {
                           {/* ── Linha da etapa (pasta) ── */}
                           <div
                             className={cn(
-                              'group/linha flex items-start gap-1 rounded-md px-1.5 py-1 hover:bg-muted/50',
+                              'group/linha flex items-center gap-1 rounded-md px-1.5 py-1 hover:bg-muted/50',
                               selecionadaEtapa && 'bg-primary/10 hover:bg-primary/10',
                             )}
                           >
-                            <span className="mt-0.5 opacity-0 transition-opacity group-hover/linha:opacity-100"><SortableEtapaHandle /></span>
+                            <span className="opacity-0 transition-opacity group-hover/linha:opacity-100"><SortableEtapaHandle /></span>
                             <button
                               type="button"
                               onClick={() => toggleEtapaCollapse(sortKey)}
-                              className="mt-0.5 inline-flex h-6 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                              className="inline-flex h-6 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
                               title={collapsed ? 'Abrir etapa' : 'Fechar etapa'}
                               aria-expanded={!collapsed}
                             >
                               <ChevronRight className={cn('h-3.5 w-3.5 transition-transform duration-150', !collapsed && 'rotate-90')} />
                             </button>
                             {collapsed
-                              ? <Folder className={cn('mt-1 h-4 w-4 shrink-0', TEXT.amber)} />
-                              : <FolderOpen className={cn('mt-1 h-4 w-4 shrink-0', TEXT.amber)} />}
-                            <span className="mt-1 w-5 shrink-0 text-right text-[11px] font-bold tabular-nums text-muted-foreground">{ei + 1}.</span>
+                              ? <Folder className={cn('h-4 w-4 shrink-0', TEXT.amber)} />
+                              : <FolderOpen className={cn('h-4 w-4 shrink-0', TEXT.amber)} />}
+                            <span className="w-5 shrink-0 text-right text-[11px] font-bold tabular-nums text-muted-foreground">{ei + 1}.</span>
                             <div className="relative min-w-0 flex-1">
                               <NomeInline
                                 ref={el => {
@@ -2383,11 +2383,11 @@ export default function ServicoDetailPage() {
                                 onBlur={v => { if (!et.id && draftKey) void flushEtapaDraft(draftKey, v) }}
                               />
                               {et.id && savingKeys.has(`etapa-${et.id}-nome`) && (
-                                <Loader2 className="absolute right-1 top-1.5 h-3 w-3 animate-spin text-muted-foreground" />
+                                <Loader2 className="absolute right-1 top-1/2 h-3 w-3 -translate-y-1/2 animate-spin text-muted-foreground" />
                               )}
                             </div>
                             {/* Etiquetas curtas da etapa */}
-                            <div className="mt-0.5 flex shrink-0 flex-wrap items-center justify-end gap-1">
+                            <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
                               {seloEtapa && (
                                 <SeloCondicaoCadastro texto={seloEtapa} foraDeOrdem={condicaoForaDeOrdem({ tipo: 'etapa', id: et.id! }, et.condicaoPassoId)} onClick={() => setAlvoCondicao({ tipo: 'etapa', id: et.id!, nome: et.nome, condicao: condicaoDe(et) })} className="h-6 max-w-[200px] text-[10.5px]" />
                               )}
@@ -2404,7 +2404,7 @@ export default function ServicoDetailPage() {
                               </span>
                             </div>
                             {/* Ações: aparecem ao passar o mouse */}
-                            <div className="mt-0.5 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/linha:opacity-100">
+                            <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/linha:opacity-100">
                               {et.id && (
                                 <>
                                   <Button variant="ghost" size="icon-xs" className="h-6 w-6" onClick={() => { if (collapsed) toggleEtapaCollapse(sortKey); addPasso(et) }} title="Adicionar passo">
@@ -2476,10 +2476,10 @@ export default function ServicoDetailPage() {
                                     return (
                                       <div key={p.dndId} data-passo={p.dndId} className={cn(dentroDeSub && 'ml-[22px] border-l border-border pl-1.5')}>
                                         <SortablePasso id={p.dndId} exiting={!!p.id && exitingPassoIds.has(p.id)} selecionado={selecionado}>
-                                          <span className="mt-1 w-6 shrink-0 text-right"><SortablePassoHandle numero={pi + 1} /></span>
+                                          <span className="w-6 shrink-0 text-right"><SortablePassoHandle numero={pi + 1} /></span>
                                           {p.tipo === 'PERGUNTA'
-                                            ? <HelpCircle className={cn('mt-1 h-4 w-4 shrink-0', TEXT.violet)} />
-                                            : <CheckSquare className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />}
+                                            ? <HelpCircle className={cn('h-4 w-4 shrink-0', TEXT.violet)} />
+                                            : <CheckSquare className="h-4 w-4 shrink-0 text-muted-foreground" />}
                                           <div className="relative min-w-0 flex-1">
                                             <NomeInline
                                               ref={el => {
@@ -2501,11 +2501,11 @@ export default function ServicoDetailPage() {
                                               }}
                                             />
                                             {p.id && savingKeys.has(`passo-${p.id}-nome`) && (
-                                              <Loader2 className="absolute right-1 top-1.5 h-3 w-3 animate-spin text-muted-foreground" />
+                                              <Loader2 className="absolute right-1 top-1/2 h-3 w-3 -translate-y-1/2 animate-spin text-muted-foreground" />
                                             )}
                                           </div>
                                           {/* Etiquetas curtas */}
-                                          <div className="mt-0.5 flex shrink-0 flex-wrap items-center justify-end gap-0.5">
+                                          <div className="flex shrink-0 flex-wrap items-center justify-end gap-0.5">
                                             {p.id && (
                                               <button
                                                 type="button"
@@ -2545,7 +2545,7 @@ export default function ServicoDetailPage() {
                                             {contador(p.lembretesCount ?? 0, Bell, 'Lembretes na agenda', () => abrirPainel(() => setOpenLembretesPasso(p.id!)))}
                                             {contador(p.camposClienteCount ?? 0, Database, 'Campos do cliente', () => abrirPainel(() => setOpenCamposClientePasso(p.id!)))}
                                           </div>
-                                          <div className="mt-0.5 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/linha:opacity-100">
+                                          <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/linha:opacity-100">
                                             {p.id && (
                                               <Button variant="ghost" size="icon-xs" className="h-6 w-6" onClick={() => abrirPainel()} title="Configurar passo (SLA, condição, materiais, e-mails, lembretes, campos)">
                                                 <Settings2 className="h-3.5 w-3.5" />
@@ -3340,7 +3340,7 @@ function SortablePasso({ id, children, exiting, selecionado }: { id: string; chi
       ref={setNodeRef}
       style={style}
       className={cn(
-        'group/linha flex items-start gap-1 rounded-md px-1 py-0.5 hover:bg-muted/50',
+        'group/linha flex items-center gap-1 rounded-md px-1 py-0.5 hover:bg-muted/50',
         selecionado && 'bg-primary/10 hover:bg-primary/10',
       )}
     >
