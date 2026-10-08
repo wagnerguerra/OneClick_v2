@@ -513,8 +513,13 @@ export class OrcamentoService {
     // servicos-do-orcamento.ts) — a tela avisa em vez de o sistema pular etapa.
     const servicos = await this.situacaoServicos(id).catch(() => null)
 
+    // #HLP0289 — quais itens ficaram fora do total (serviço mensal). A tela
+    // marca o item e soma igual ao recalcularTotais, sem refazer a regra.
+    const foraDoTotal = await this.itensMensaisForaDoTotal(orc.empresaId, orc.itens)
+    const itens = orc.itens.map(i => ({ ...i, foraDoTotal: foraDoTotal.has(i.id) }))
+
     return {
-      ...orc, arquivos, mensagens, eventos, cliente, empresa, solicitante, responsavel,
+      ...orc, itens, arquivos, mensagens, eventos, cliente, empresa, solicitante, responsavel,
       areas,
       responsaveis,
       servicos,
@@ -4028,17 +4033,23 @@ export class OrcamentoService {
     const orc = await prisma.orcamento.findUnique({ where: { id: orcamentoId }, include: { itens: true } })
     if (!orc) return
 
+    // #HLP0289 — serviço MENSAL (recorrente) é cobrança do mês, não do
+    // orçamento: por padrão fica fora dos totais e vai para totalMensalSeparado.
+    // A config "Somar serviços mensais nos totais" devolve ao comportamento antigo.
+    const foraDoTotal = await this.itensMensaisForaDoTotal(orc.empresaId, orc.itens)
+
     // totalServicos/Taxas/Despesas somam os BRUTOS (sem desconto), como sempre.
     // descontoItens acumula o desconto por item (#HLP0302) — só serviço tem, e
     // cada item é limitado ao próprio subtotal para nunca ficar negativo.
-    let totalServicos = 0, totalTaxas = 0, totalDespesas = 0, descontoItens = 0
+    let totalServicos = 0, totalTaxas = 0, totalDespesas = 0, descontoItens = 0, totalMensalSeparado = 0
     for (const item of orc.itens) {
       const subtotal = Number(item.quantidade) * Number(item.valorUnitario)
       if (item.tipo === 'SERVICO') {
-        totalServicos += subtotal
         const dPct = Number(item.descontoPct || 0)
         const dFix = Number(item.descontoValor || 0)
-        const dItem = Math.min(subtotal, subtotal * dPct / 100 + dFix)
+        const dItem = Math.max(0, Math.min(subtotal, subtotal * dPct / 100 + dFix))
+        if (foraDoTotal.has(item.id)) { totalMensalSeparado += subtotal - dItem; continue }
+        totalServicos += subtotal
         if (dItem > 0) descontoItens += dItem
       }
       else if (item.tipo === 'TAXA') totalTaxas += subtotal
@@ -4068,8 +4079,30 @@ export class OrcamentoService {
         totalDespesas: Math.round(totalDespesas * 100) / 100,
         descontoAplicado,
         totalGeral: Math.max(0, totalGeral),
+        totalMensalSeparado: Math.round(totalMensalSeparado * 100) / 100,
       },
     })
+  }
+
+  /**
+   * Ids dos itens de serviço MENSAL que ficam fora do total (#HLP0289). Vazio
+   * quando a config manda somar. Mensal = natureza do serviço do catálogo
+   * (`recorrenteMensal` / categoria MENSAL), a mesma regra de derivarNaturezaEmLote.
+   */
+  private async itensMensaisForaDoTotal(
+    empresaId: string | null,
+    itens: Array<{ id: string; tipo: string; catalogoId: string | null }>,
+  ): Promise<Set<string>> {
+    const ids = [...new Set(itens.filter(i => i.tipo === 'SERVICO' && i.catalogoId).map(i => i.catalogoId!))]
+    if (!ids.length) return new Set()
+    const cfg = await this.getConfig(empresaId ?? undefined).catch(() => null)
+    if (cfg?.somarServicosMensais) return new Set()
+    const mensais = await prisma.servico.findMany({
+      where: { id: { in: ids }, OR: [{ recorrenteMensal: true }, { categoriaServico: 'MENSAL' }] },
+      select: { id: true },
+    }).catch(() => [] as Array<{ id: string }>)
+    const set = new Set(mensais.map(s => s.id))
+    return new Set(itens.filter(i => i.tipo === 'SERVICO' && i.catalogoId && set.has(i.catalogoId)).map(i => i.id))
   }
 
   // ── Mensagens ─────────────────────────────────────────────
@@ -5487,6 +5520,9 @@ export class OrcamentoService {
       // geral fica bloqueado e só o por-item vale. Desmarcada = os dois somam.
       // Default '1' (travado por padrão, conforme decisão do Wagner).
       apenasDescontoItem: (config.apenas_desconto_item ?? '1') === '1',
+      // #HLP0289 — "Somar serviços mensais nos totais". Desmarcada (padrão) = o
+      // serviço recorrente fica fora do total do orçamento, mostrado à parte.
+      somarServicosMensais: config.somar_servicos_mensais === '1',
       // #HLP0411 — roteiro que abre no Detalhamento ao pedir orçamento. null =
       // nunca configurado (a tela usa o roteiro padrão); '' = configurado vazio
       // (sem roteiro, de propósito).
@@ -5518,6 +5554,9 @@ export class OrcamentoService {
   }
 
   async saveConfig(data: Record<string, string | undefined>, empresaId?: string) {
+    const somavaMensais = data.somar_servicos_mensais !== undefined
+      ? (await this.getConfig(empresaId).catch(() => null))?.somarServicosMensais ?? false
+      : null
     for (const [key, value] of Object.entries(data)) {
       if (value === undefined) continue // chaves opcionais ausentes — não persiste "undefined"
       const existing = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
@@ -5531,6 +5570,16 @@ export class OrcamentoService {
           `${key}=${value}`, empresaId || null
         )
       }
+    }
+    // #HLP0289 — mudou "Somar serviços mensais": refaz os totais dos orçamentos
+    // ainda em negociação. Aprovados em diante mantêm o valor fechado com o
+    // cliente (só mudam se forem reeditados).
+    if (somavaMensais !== null && somavaMensais !== (data.somar_servicos_mensais === '1')) {
+      const abertos = await prisma.orcamento.findMany({
+        where: { status: { in: ['NOVO', 'A_ENVIAR', 'ENVIADO'] }, ...(empresaId ? { empresaId } : {}) },
+        select: { id: true },
+      })
+      for (const o of abertos) await this.recalcularTotais(o.id).catch(() => {})
     }
     return { ok: true }
   }

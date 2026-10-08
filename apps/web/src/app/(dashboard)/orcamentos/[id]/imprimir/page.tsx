@@ -35,6 +35,8 @@ interface Orcamento {
   totalDespesas: number | string
   descontoAplicado: number | string
   totalGeral: number | string
+  /** Serviços mensais fora do total (#HLP0289). */
+  totalMensalSeparado?: number | string | null
   formaPagamento: string | null
   createdAt: string
   // Decisão do cliente pelo link público — alimenta o carimbo de aceite.
@@ -752,6 +754,12 @@ export default function ImprimirOrcamentoPage() {
               <span className="lbl">Total</span>
               <span className="val">{formatCurrency(totalOrcamento)}</span>
             </div>
+            {Number(orc.totalMensalSeparado) > 0 && (
+              <div className="totals-row">
+                <span className="lbl">Serviços mensais (cobrança mensal, fora do total)</span>
+                <span className="val">{formatCurrency(Number(orc.totalMensalSeparado))}/mês</span>
+              </div>
+            )}
           </div>
         </div>
 

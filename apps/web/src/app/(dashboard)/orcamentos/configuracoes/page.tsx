@@ -42,6 +42,8 @@ interface ConfigState {
   emailLembretes: string
   // #HLP0302 — "Usar apenas desconto por item". true (padrão) = desconto geral bloqueado.
   apenasDescontoItem: boolean
+  // #HLP0289 — "Somar serviços mensais nos totais". false (padrão) = mensais à parte.
+  somarServicosMensais: boolean
   // #HLP0411 — roteiro do Detalhamento ao pedir orçamento. null = nunca
   // configurado (vale o padrão do sistema).
   roteiroSolicitacao: string | null
@@ -69,6 +71,7 @@ const DEFAULT_CONFIG: ConfigState = {
   followupTipoEventoId: '',
   emailLembretes: '',
   apenasDescontoItem: true,
+  somarServicosMensais: false,
   roteiroSolicitacao: null,
 }
 
@@ -147,6 +150,7 @@ export default function OrcamentosConfiguracoesPage() {
         followup_tipo_evento_id: config.followupTipoEventoId,
         email_lembretes: config.emailLembretes,
         apenas_desconto_item: config.apenasDescontoItem ? '1' : '0',
+        somar_servicos_mensais: config.somarServicosMensais ? '1' : '0',
         // Só grava depois que alguém editou: até lá a empresa segue o padrão
         // do sistema (e recebe melhorias nele).
         ...(config.roteiroSolicitacao !== null ? { roteiro_solicitacao: config.roteiroSolicitacao } : {}),
@@ -353,6 +357,17 @@ export default function OrcamentosConfiguracoesPage() {
                       <Checkbox checked={config.apenasDescontoItem} onCheckedChange={v => setConfig(c => ({ ...c, apenasDescontoItem: v === true }))} accentColor="var(--color-primary)" className="mt-0.5" />
                       <span className="text-[11px] text-muted-foreground">
                         <strong className="text-foreground font-medium">Usar apenas desconto por item.</strong> Marcado, o desconto é aplicado item a item (só serviços) e o desconto geral do orçamento fica desativado. Desmarcado, o desconto por item e o desconto geral <strong className="text-foreground font-medium">somam</strong>.
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* #HLP0289 — serviços mensais nos totais */}
+                  <div className="col-span-12 border-t border-border pt-4 mt-1 space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground block">Serviços mensais</label>
+                    <label className="flex items-start gap-2 cursor-pointer select-none">
+                      <Checkbox checked={config.somarServicosMensais} onCheckedChange={v => setConfig(c => ({ ...c, somarServicosMensais: v === true }))} accentColor="var(--color-primary)" className="mt-0.5" />
+                      <span className="text-[11px] text-muted-foreground">
+                        <strong className="text-foreground font-medium">Somar serviços mensais nos totais.</strong> Desmarcado (padrão), os serviços recorrentes ficam fora do total do orçamento e aparecem à parte, como valor mensal. Marcado, entram no total junto com os extras. Ao salvar, os orçamentos ainda em negociação (Novo, A enviar, Enviado) são recalculados.
                       </span>
                     </label>
                   </div>

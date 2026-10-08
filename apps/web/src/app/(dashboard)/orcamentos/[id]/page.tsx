@@ -89,6 +89,8 @@ interface OrcamentoItem {
   catalogoTexto?: { id: string; titulo: string } | null
   situacao?: string
   ordem?: number
+  /** Serviço mensal deixado fora do total (#HLP0289) — o backend decide. */
+  foraDoTotal?: boolean
 }
 
 // Desconto líquido de um item de serviço (limitado ao próprio subtotal).
@@ -170,6 +172,8 @@ interface Orcamento {
   totalDespesas?: number | string | null
   descontoAplicado?: number | string | null
   totalGeral?: number | string | null
+  /** Soma dos serviços mensais fora do total (#HLP0289). */
+  totalMensalSeparado?: number | string | null
   validadeDias: number
   formaPagamento: string | null
   textoInterno: string | null
@@ -1780,7 +1784,10 @@ export default function OrcamentoDetailPage() {
 
   // ── Totals ──
 
-  const totalServicos = orc?.itens.filter(i => i.tipo === 'SERVICO').reduce((s, i) => s + (i.valorTotal || i.quantidade * i.valorUnitario), 0) ?? 0
+  // Serviço mensal fora do total (#HLP0289) não entra em nenhuma soma do resumo.
+  const itensNoTotal = orc?.itens.filter(i => !i.foraDoTotal)
+  const totalMensalSeparado = Number(orc?.totalMensalSeparado ?? 0) || 0
+  const totalServicos = itensNoTotal?.filter(i => i.tipo === 'SERVICO').reduce((s, i) => s + (i.valorTotal || i.quantidade * i.valorUnitario), 0) ?? 0
   const totalTaxas = orc?.itens.filter(i => i.tipo === 'TAXA').reduce((s, i) => s + (i.valorTotal || i.quantidade * i.valorUnitario), 0) ?? 0
   const totalDespesas = orc?.itens.filter(i => i.tipo === 'DESPESA').reduce((s, i) => s + (i.valorTotal || i.quantidade * i.valorUnitario), 0) ?? 0
   const subtotal = totalServicos + totalTaxas + totalDespesas
@@ -1803,7 +1810,7 @@ export default function OrcamentoDetailPage() {
   // (importação antiga, orçamento que nunca passou pelo recalcularTotais) e
   // agora inclui o desconto por item, com a mesma regra do backend: geral
   // incide sobre SERVIÇOS, e o total nunca passa da base.
-  const descontoItensLocal = orc?.itens.reduce((acc, i) => acc + descontoDoItem(i), 0) ?? 0
+  const descontoItensLocal = itensNoTotal?.reduce((acc, i) => acc + descontoDoItem(i), 0) ?? 0
   const descontoGeralLocal = descontoValorNum || (descontoPctNum > 0 ? totalServicos * descontoPctNum / 100 : 0)
   const descontoLocal = Math.min(totalServicos, descontoItensLocal + descontoGeralLocal)
 
@@ -2660,7 +2667,12 @@ export default function OrcamentoDetailPage() {
                                 <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{idx + 1}</TableCell>
                                 <TableCell className="whitespace-nowrap"><TipoBadge tipo={item.tipo} /></TableCell>
                                 <TableCell className="text-sm cursor-pointer" onClick={() => startEditItem(item)}>
-                                  <div className="whitespace-nowrap">{item.descricao}</div>
+                                  <div className="whitespace-nowrap">
+                                    {item.descricao}
+                                    {item.foraDoTotal && (
+                                      <span className={cn('ml-1.5 rounded border px-1 py-0 text-[9.5px] font-semibold align-middle', BADGE.sky)} title="Serviço mensal: cobrado todo mês, fora do total do orçamento (#HLP0289).">Mensal</span>
+                                    )}
+                                  </div>
                                   {/* A variação escolhida dentro do serviço. Em linha
                                       própria, e não colada na descrição: a descrição é
                                       editável à mão, e o vínculo continua valendo mesmo
@@ -3325,6 +3337,12 @@ export default function OrcamentoDetailPage() {
                 <span className="text-sm font-semibold">Total Geral</span>
                 <span className="text-base font-bold" style={{ color: PRIMARY }}>{formatCurrency(totalGeral)}</span>
               </div>
+              {totalMensalSeparado > 0 && (
+                <div className="flex items-center justify-between text-xs" title="Serviços recorrentes ficam fora do total (Configurações do módulo → Somar serviços mensais nos totais).">
+                  <span className="text-muted-foreground">Serviços mensais <span className="text-[10px]">(fora do total)</span></span>
+                  <span className="font-medium">{formatCurrency(totalMensalSeparado)}/mês</span>
+                </div>
+              )}
             </div>
           </Card>
 

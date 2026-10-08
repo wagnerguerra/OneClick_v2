@@ -428,6 +428,8 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
         followup_tipo_evento_id: z.string().optional(),
         // #HLP0302 — "Usar apenas desconto por item" ('1' marcada / '0' desmarcada).
         apenas_desconto_item: z.string().optional(),
+        // #HLP0289 — "Somar serviços mensais nos totais" ('1' soma / '0' separa).
+        somar_servicos_mensais: z.string().optional(),
         // #HLP0411 — roteiro do Detalhamento ao pedir orçamento (HTML).
         roteiro_solicitacao: z.string().optional(),
       }))

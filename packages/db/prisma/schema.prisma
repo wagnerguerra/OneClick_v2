@@ -4839,6 +4839,10 @@ model Orcamento {
   totalDespesas          Decimal         @default(0) @map("total_despesas") @db.Decimal(12, 2)
   descontoAplicado       Decimal         @default(0) @map("desconto_aplicado") @db.Decimal(12, 2)
   totalGeral             Decimal         @default(0) @map("total_geral") @db.Decimal(12, 2)
+  /// Soma (líquida do desconto por item) dos serviços MENSAIS deixados fora do
+  /// total — config "Somar serviços mensais" desmarcada (#HLP0289). 0 quando
+  /// eles somam; null = orçamento ainda não recalculado por essa regra.
+  totalMensalSeparado    Decimal?        @map("total_mensal_separado") @db.Decimal(12, 2)
   // Controle
   arquivado              Boolean         @default(false)
   arquivadoEm            DateTime?       @map("arquivado_em")

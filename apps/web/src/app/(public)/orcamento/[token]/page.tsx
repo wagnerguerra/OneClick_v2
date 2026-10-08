@@ -40,6 +40,8 @@ interface Orcamento {
   totalDespesas: number | string
   descontoAplicado: number | string
   totalGeral: number | string
+  /** Serviços mensais fora do total (#HLP0289). */
+  totalMensalSeparado?: number | string | null
   decisaoTipo: string | null
   decisaoEm: string | null
   decisaoNome: string | null
@@ -337,6 +339,12 @@ export default function PublicOrcamentoPage() {
               <span>Total</span>
               <span style={{ color: ACCENT_TEXT_COLOR }}>{formatCurrency(orc.totalGeral)}</span>
             </div>
+            {Number(orc.totalMensalSeparado) > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Serviços mensais <span className="text-xs">(cobrança mensal, fora do total)</span></span>
+                <span className="font-semibold">{formatCurrency(Number(orc.totalMensalSeparado))}/mês</span>
+              </div>
+            )}
             {orc.formaPagamento && (
               <div className="flex justify-between pt-1.5">
                 <span className="text-muted-foreground">Forma de pagamento</span>
