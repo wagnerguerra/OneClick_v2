@@ -286,9 +286,8 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService, aiAgent: 
 
     // ── Triagem IA (config + stats) ──────────────────────────────
     /**
-     * Só o liga/desliga da triagem — o kanban esconde as colunas da IA
-     * ("Aguardando auditoria" e "Aguardando avaliação") quando ela está
-     * desligada e a coluna está vazia.
+     * Só o liga/desliga da triagem — o kanban esconde a coluna da IA
+     * ("Aguardando auditoria") quando ela está desligada e a coluna está vazia.
      */
     triagemIaAtiva: protectedProcedure
       .query(async () => ({ ativa: (await aiAgent.getConfig()).enabled })),

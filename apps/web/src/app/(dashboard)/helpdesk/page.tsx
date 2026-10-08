@@ -127,7 +127,7 @@ export default function HelpdeskPage() {
   // o link de indicadores pra quem não é agente (chefia). O agente também vê o
   // link, mas cai na visão "minhas avaliações" se não tiver esta permissão.
   const [podeVerMetricas, setPodeVerMetricas] = useState<boolean | null>(null)
-  // Triagem IA ligada? Desligada, as colunas da IA somem do kanban (ver colunasVisiveis).
+  // Triagem IA ligada? Desligada, a coluna da IA some do kanban (ver colunasVisiveis).
   const [triagemIaAtiva, setTriagemIaAtiva] = useState(true)
   const [items, setItems] = useState<Ticket[]>([])
   // Arquivados — quadro inferior na visão de lista (#HLP0318). Fica separado
@@ -502,12 +502,12 @@ export default function HelpdeskPage() {
     return map
   }, [items])
 
-  // Com a triagem IA desligada, "Aguardando auditoria" e "Aguardando avaliação"
-  // saem do kanban — mas só quando vazias: chamado nessas etapas nunca some do
-  // quadro (a avaliação do solicitante continua valendo sem a IA).
+  // Com a triagem IA desligada, "Aguardando auditoria" (etapa da IA) sai do
+  // kanban — só quando vazia, pra nenhum chamado sumir do quadro. "Aguardando
+  // avaliação" (RESOLVIDO) é o CSAT do solicitante, não da IA: fica sempre.
   const colunasVisiveis = useMemo(
     () => COLUNAS.filter(s => triagemIaAtiva
-      || (s !== 'AGUARDANDO_AUDITORIA' && s !== 'RESOLVIDO')
+      || s !== 'AGUARDANDO_AUDITORIA'
       || (porStatus.get(s)?.length ?? 0) > 0),
     [triagemIaAtiva, porStatus],
   )
