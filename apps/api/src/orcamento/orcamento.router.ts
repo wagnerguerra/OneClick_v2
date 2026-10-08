@@ -1,8 +1,8 @@
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
-import { router, readProcedure, writeProcedure, deleteProcedure, publicProcedure, writeSubProcedure, deleteSubProcedure, protectedProcedure } from '../trpc/trpc.service'
-import { createOrcamentoSchema, updateOrcamentoSchema, listOrcamentoSchema, createOrcamentoItemSchema, updateOrcamentoItemSchema, resolveOrcamentoScope, ORCAMENTO_SCOPE_DEFAULT, type OrcamentoScope, DESTAQUE_CORES } from '@saas/types'
+import { router, readProcedure, writeProcedure, deleteProcedure, publicProcedure, writeSubProcedure, deleteSubProcedure, protectedProcedure, getUserPermissions } from '../trpc/trpc.service'
+import { createOrcamentoSchema, updateOrcamentoSchema, listOrcamentoSchema, createOrcamentoItemSchema, updateOrcamentoItemSchema, resolveOrcamentoScope, ORCAMENTO_SCOPE_DEFAULT, type OrcamentoScope, DESTAQUE_CORES, PAINEL_COMERCIAL_SLUG } from '@saas/types'
 import { OrcamentoService } from './orcamento.service'
 import { janelaDoPeriodo, periodoSchema, type Periodo } from '../common/periodo-br'
 
@@ -579,15 +579,17 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ dataInicio: z.string(), dataFim: z.string() }))
       .query(({ input, ctx }) => orcamentoService.reportIndicadores(ctx.empresaId, input.dataInicio, input.dataFim)),
 
-    reportFunilComercial: readProcedure(MODULE)
+    // Análises que só existem no Painel Comercial: exigem a permissão do painel.
+    reportFunilComercial: readProcedure(PAINEL_COMERCIAL_SLUG)
       .input(periodoSchema.optional())
       .query(({ input, ctx }) => orcamentoService.reportFunilComercial(ctx.empresaId, periodoOuDias(input))),
 
     /**
      * "Contrato fechado" informado no Painel Comercial — alimenta o indicador
-     * Contratos assinados. `fechadoEm` nulo desfaz a marca.
+     * Contratos assinados. `fechadoEm` nulo desfaz a marca. Única ação do
+     * painel: "Editar" na permissão dele.
      */
-    marcarContratoFechado: writeProcedure(MODULE)
+    marcarContratoFechado: writeProcedure(PAINEL_COMERCIAL_SLUG)
       .input(z.object({ id: z.string(), fechadoEm: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable() }))
       .mutation(async ({ input, ctx }) => {
         const r = await orcamentoService.marcarContratoFechado(input.id, input.fechadoEm, ctx.userId, ctx.empresaId)
@@ -604,16 +606,16 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
         return r
       }),
 
-    reportMrrAvulso: readProcedure(MODULE)
+    reportMrrAvulso: readProcedure(PAINEL_COMERCIAL_SLUG)
       .input(periodoSchema.optional())
       // `de`/`ate` (painel /comercial) vencem `dias` (relatórios).
       .query(({ input, ctx }) => orcamentoService.reportMrrAvulso(ctx.empresaId, periodoOuDias(input))),
 
-    reportRankingVendedores: readProcedure(MODULE)
+    reportRankingVendedores: readProcedure(PAINEL_COMERCIAL_SLUG)
       .input(periodoSchema.optional())
       .query(({ input, ctx }) => orcamentoService.reportRankingVendedores(ctx.empresaId, periodoOuDias(input))),
 
-    reportDescontosMargem: readProcedure(MODULE)
+    reportDescontosMargem: readProcedure(PAINEL_COMERCIAL_SLUG)
       .input(periodoSchema.optional())
       .query(({ input, ctx }) => orcamentoService.reportDescontosMargem(ctx.empresaId, periodoOuDias(input))),
 
@@ -723,13 +725,18 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .mutation(({ input }) => orcamentoService.removeCatalogoTexto(input.id)),
 
     // ── Estatisticas ───────────────────────────────────────
-    getStats: readProcedure(MODULE)
+    // Só o Painel Comercial usa.
+    getStats: readProcedure(PAINEL_COMERCIAL_SLUG)
       .input(periodoSchema.optional())
       .query(({ input, ctx }) => orcamentoService.getStats(ctx.empresaId, input?.de || input?.ate ? janelaDoPeriodo(input) : undefined)),
 
-    // Stats compactas pro widget do dashboard — inclui checagem de cargo gestor+
-    getDashboardStats: readProcedure(MODULE)
+    // Stats compactas pro widget do dashboard E pro Painel Comercial. Os valores
+    // saem para cargo gestor+ OU para quem tem o painel: o painel se vê inteiro.
+    getDashboardStats: readProcedure([MODULE, PAINEL_COMERCIAL_SLUG])
       .input(periodoSchema.optional())
-      .query(({ input, ctx }) => orcamentoService.getDashboardStats(ctx.userId, ctx.empresaId, input?.de || input?.ate ? janelaDoPeriodo(input) : undefined)),
+      .query(async ({ input, ctx }) => {
+        const temPainel = (await getUserPermissions(ctx.userId)).some(p => p.moduleSlug === PAINEL_COMERCIAL_SLUG && p.canRead)
+        return orcamentoService.getDashboardStats(ctx.userId, ctx.empresaId, input?.de || input?.ate ? janelaDoPeriodo(input) : undefined, { temPainel })
+      }),
   })
 }

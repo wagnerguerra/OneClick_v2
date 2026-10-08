@@ -425,8 +425,11 @@ export function scopedEmpresaId(
 // ── Permission-based procedures ─────────────────────────────
 // isMaster e isEmpresaMaster sempre têm acesso total.
 // Outros usuários precisam da permissão correspondente no módulo.
+// Lista de módulos = basta a permissão em QUALQUER um deles (ex.: dado que
+// serve tanto à tela do CRM quanto ao Painel Comercial).
 
-function createPermissionMiddleware(moduleSlug: string, action: 'canRead' | 'canWrite' | 'canDelete') {
+function createPermissionMiddleware(moduleSlug: string | readonly string[], action: 'canRead' | 'canWrite' | 'canDelete') {
+  const slugs: readonly string[] = typeof moduleSlug === 'string' ? [moduleSlug] : moduleSlug
   return t.middleware(async ({ ctx, next }) => {
     if (!ctx.userId) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
@@ -440,13 +443,13 @@ function createPermissionMiddleware(moduleSlug: string, action: 'canRead' | 'can
     }
 
     const permissions = await getUserPermissions(ctx.userId)
-    const modulePerm = permissions.find(p => p.moduleSlug === moduleSlug)
+    const permitido = permissions.some(p => slugs.includes(p.moduleSlug) && p[action])
 
-    if (!modulePerm || !modulePerm[action]) {
+    if (!permitido) {
       const actionLabels = { canRead: 'leitura', canWrite: 'escrita', canDelete: 'exclusão' }
       throw new TRPCError({
         code: 'FORBIDDEN',
-        message: `Sem permissão de ${actionLabels[action]} no módulo "${moduleSlug}"`,
+        message: `Sem permissão de ${actionLabels[action]} no módulo ${slugs.map(s => `"${s}"`).join(' ou ')}`,
       })
     }
 
@@ -454,18 +457,18 @@ function createPermissionMiddleware(moduleSlug: string, action: 'canRead' | 'can
   })
 }
 
-/** Procedure que exige permissão de leitura no módulo */
-export function readProcedure(moduleSlug: string) {
+/** Procedure que exige permissão de leitura no módulo (ou em qualquer um da lista) */
+export function readProcedure(moduleSlug: string | readonly string[]) {
   return t.procedure.use(createPermissionMiddleware(moduleSlug, 'canRead'))
 }
 
-/** Procedure que exige permissão de escrita no módulo */
-export function writeProcedure(moduleSlug: string) {
+/** Procedure que exige permissão de escrita no módulo (ou em qualquer um da lista) */
+export function writeProcedure(moduleSlug: string | readonly string[]) {
   return t.procedure.use(createPermissionMiddleware(moduleSlug, 'canWrite'))
 }
 
-/** Procedure que exige permissão de exclusão no módulo */
-export function deleteProcedure(moduleSlug: string) {
+/** Procedure que exige permissão de exclusão no módulo (ou em qualquer um da lista) */
+export function deleteProcedure(moduleSlug: string | readonly string[]) {
   return t.procedure.use(createPermissionMiddleware(moduleSlug, 'canDelete'))
 }
 

@@ -153,7 +153,7 @@ export default function CusteioPage() {
             {recalculando ? 'Recalculando…' : 'Recalcular mês'}
           </Button>
           <Button variant="outline" size="icon-sm" onClick={abrirParams} title="Parâmetros de custeio"><Settings2 className="h-4 w-4" /></Button>
-          <BackButton href="/comercial" label="Voltar" />
+          <BackButton href="/comercial-relatorios" label="Voltar" />
         </>}
       >
         <h1 className="truncate">Custeio de Clientes</h1>

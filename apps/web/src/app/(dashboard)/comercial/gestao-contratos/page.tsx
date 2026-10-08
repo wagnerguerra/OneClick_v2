@@ -311,7 +311,7 @@ export default function GestaoContratosPage() {
           <Button variant="outline" size="sm" className="gap-1.5" onClick={exportarCsv} disabled={loading || total === 0}>
             <FileDown className="h-4 w-4" /> CSV
           </Button>
-          <BackButton href="/comercial" label="Voltar" />
+          <BackButton href="/comercial-relatorios" label="Voltar" />
         </>}
       >
         <h1 className="truncate">Gestão de Contratos</h1>
