@@ -2544,22 +2544,23 @@ export class ClienteService {
   // ============================================================
 
   async listAcessos(clienteId: string) {
-    type Row = { id: string; portal: string; usuario: string | null; senha: string | null; observacoes: string | null; created_at: Date }
+    // observacoes = Link do acesso (nome histórico); anotacoes = Observações.
+    type Row = { id: string; portal: string; usuario: string | null; senha: string | null; observacoes: string | null; anotacoes: string | null; created_at: Date }
     return prisma.$queryRawUnsafe<Row[]>(
-      `SELECT id, portal, usuario, senha, observacoes, created_at FROM cliente_acessos WHERE cliente_id = $1 ORDER BY portal ASC`, clienteId,
+      `SELECT id, portal, usuario, senha, observacoes, anotacoes, created_at FROM cliente_acessos WHERE cliente_id = $1 ORDER BY portal ASC`, clienteId,
     )
   }
 
-  async addAcesso(clienteId: string, data: { portal: string; usuario?: string; senha?: string; observacoes?: string }) {
+  async addAcesso(clienteId: string, data: { portal: string; usuario?: string; senha?: string; observacoes?: string; anotacoes?: string }) {
     await prisma.$executeRawUnsafe(
-      `INSERT INTO cliente_acessos (id, cliente_id, portal, usuario, senha, observacoes, created_at, updated_at)
-       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, NOW(), NOW())`,
-      clienteId, data.portal, data.usuario || null, data.senha || null, data.observacoes || null,
+      `INSERT INTO cliente_acessos (id, cliente_id, portal, usuario, senha, observacoes, anotacoes, created_at, updated_at)
+       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, NOW(), NOW())`,
+      clienteId, data.portal, data.usuario || null, data.senha || null, data.observacoes || null, data.anotacoes?.trim() || null,
     )
     return { created: true }
   }
 
-  async updateAcesso(id: string, data: { portal?: string; usuario?: string; senha?: string; observacoes?: string }) {
+  async updateAcesso(id: string, data: { portal?: string; usuario?: string; senha?: string; observacoes?: string; anotacoes?: string }) {
     const sets: string[] = ['updated_at = NOW()']
     const vals: unknown[] = []
     let idx = 1
@@ -2567,6 +2568,7 @@ export class ClienteService {
     if (data.usuario !== undefined) { sets.push(`usuario = $${idx}`); vals.push(data.usuario || null); idx++ }
     if (data.senha !== undefined) { sets.push(`senha = $${idx}`); vals.push(data.senha || null); idx++ }
     if (data.observacoes !== undefined) { sets.push(`observacoes = $${idx}`); vals.push(data.observacoes || null); idx++ }
+    if (data.anotacoes !== undefined) { sets.push(`anotacoes = $${idx}`); vals.push(data.anotacoes.trim() || null); idx++ }
     vals.push(id)
     await prisma.$executeRawUnsafe(`UPDATE cliente_acessos SET ${sets.join(', ')} WHERE id = $${idx}`, ...vals)
     return { updated: true }

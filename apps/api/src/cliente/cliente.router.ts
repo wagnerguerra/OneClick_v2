@@ -588,6 +588,7 @@ export function createClienteRouter(
         usuario: z.string().optional(),
         senha: z.string().optional(),
         observacoes: z.string().optional(),
+        anotacoes: z.string().max(2000).optional(),
       }))
       .mutation(({ input }) => clienteService.addAcesso(input.clienteId, input)),
 
@@ -598,6 +599,7 @@ export function createClienteRouter(
         usuario: z.string().optional(),
         senha: z.string().optional(),
         observacoes: z.string().optional(),
+        anotacoes: z.string().max(2000).optional(),
       }))
       .mutation(({ input }) => clienteService.updateAcesso(input.id, input)),
 
@@ -1312,7 +1314,7 @@ export function createClienteRouter(
         })
 
         const acessos = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-          `SELECT portal, usuario, observacoes FROM cliente_acessos WHERE cliente_id = $1 ORDER BY portal`, input.clienteId,
+          `SELECT portal, usuario, observacoes, anotacoes FROM cliente_acessos WHERE cliente_id = $1 ORDER BY portal`, input.clienteId,
         ).catch(() => [])
 
         const vencimentos = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(

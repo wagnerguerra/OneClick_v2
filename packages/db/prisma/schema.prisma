@@ -1559,7 +1559,10 @@ model ClienteAcesso {
   portal      String
   usuario     String?
   senha       String?
+  /// Na tela é o "Link" do acesso (nome histórico da coluna).
   observacoes String?  @db.Text
+  /// Observações livres do acesso (ex.: "Exportada" nos que vieram do OneClick v1 — #HLP0424).
+  anotacoes   String?  @db.Text
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   cliente     Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)

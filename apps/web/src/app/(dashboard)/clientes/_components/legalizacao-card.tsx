@@ -66,7 +66,8 @@ const LINKS_RAPIDOS = [
   { label: 'Agência Virtual SEFAZ', url: 'https://agenciavirtual.sefaz.es.gov.br' },
 ]
 
-interface Acesso { id: string; portal: string; usuario: string | null; senha: string | null; observacoes: string | null }
+/** `observacoes` é o Link do acesso (nome histórico da coluna); `anotacoes` são as Observações. */
+interface Acesso { id: string; portal: string; usuario: string | null; senha: string | null; observacoes: string | null; anotacoes: string | null }
 interface Vencimento { id: string; descricao: string; data_vencimento: string; alerta_dias: number; observacoes: string | null; concluido: boolean }
 
 export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoCardProps) {
@@ -186,7 +187,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
   // Modal Acesso
   const [aceModalOpen, setAceModalOpen] = useState(false)
   const [aceEditId, setAceEditId] = useState<string | null>(null)
-  const [aceForm, setAceForm] = useState({ portal: '', usuario: '', senha: '', link: '' })
+  const [aceForm, setAceForm] = useState({ portal: '', usuario: '', senha: '', link: '', anotacoes: '' })
   // Modal Vencimento
   const [vncModalOpen, setVncModalOpen] = useState(false)
   const [vncEditId, setVncEditId] = useState<string | null>(null)
@@ -343,10 +344,10 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
   function openAceModal(acesso?: typeof acessos[0]) {
     if (acesso) {
       setAceEditId(acesso.id)
-      setAceForm({ portal: acesso.portal, usuario: acesso.usuario || '', senha: '', link: acesso.observacoes || '' })
+      setAceForm({ portal: acesso.portal, usuario: acesso.usuario || '', senha: '', link: acesso.observacoes || '', anotacoes: acesso.anotacoes || '' })
     } else {
       setAceEditId(null)
-      setAceForm({ portal: '', usuario: '', senha: '', link: '' })
+      setAceForm({ portal: '', usuario: '', senha: '', link: '', anotacoes: '' })
     }
     setAceModalOpen(true)
   }
@@ -354,9 +355,9 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
     if (!clienteId || !aceForm.portal) return
     try {
       if (aceEditId) {
-        await (trpc.cliente as any).updateAcesso.mutate({ id: aceEditId, portal: aceForm.portal, usuario: aceForm.usuario || undefined, senha: aceForm.senha || undefined, observacoes: aceForm.link || undefined })
+        await (trpc.cliente as any).updateAcesso.mutate({ id: aceEditId, portal: aceForm.portal, usuario: aceForm.usuario || undefined, senha: aceForm.senha || undefined, observacoes: aceForm.link || undefined, anotacoes: aceForm.anotacoes })
       } else {
-        await (trpc.cliente as any).addAcesso.mutate({ clienteId, portal: aceForm.portal, usuario: aceForm.usuario || undefined, senha: aceForm.senha || undefined, observacoes: aceForm.link || undefined })
+        await (trpc.cliente as any).addAcesso.mutate({ clienteId, portal: aceForm.portal, usuario: aceForm.usuario || undefined, senha: aceForm.senha || undefined, observacoes: aceForm.link || undefined, anotacoes: aceForm.anotacoes || undefined })
       }
       setAceModalOpen(false)
       setAcessos([])
@@ -548,8 +549,8 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                   ${soc.map(s => `<tr><td style="${tdStyle}">${s.nomeCompleto}</td><td style="${tdStyle}">${s.cpf || '—'}</td><td style="${tdStyle}">${s.tipoSocio}</td><td style="${tdStyle}">${s.participacao != null ? Number(s.participacao).toFixed(2) + '%' : '—'}</td></tr>`).join('')}</table>` : ''}
 
                   ${ace.length > 0 ? `<h2 style="${h2Style}">Acessos</h2>
-                  <table style="${tableStyle}"><tr><th style="${thStyle}">Portal</th><th style="${thStyle}">Usuário</th><th style="${thStyle}">Observações</th></tr>
-                  ${ace.map(a => `<tr><td style="${tdStyle}">${a.portal || ''}</td><td style="${tdStyle}">${a.usuario || '—'}</td><td style="${tdStyle}">${a.observacoes || '—'}</td></tr>`).join('')}</table>` : ''}
+                  <table style="${tableStyle}"><tr><th style="${thStyle}">Portal</th><th style="${thStyle}">Usuário</th><th style="${thStyle}">Link</th><th style="${thStyle}">Observações</th></tr>
+                  ${ace.map(a => `<tr><td style="${tdStyle}">${a.portal || ''}</td><td style="${tdStyle}">${a.usuario || '—'}</td><td style="${tdStyle}">${a.observacoes || '—'}</td><td style="${tdStyle}">${a.anotacoes || '—'}</td></tr>`).join('')}</table>` : ''}
 
                   ${ven.length > 0 ? `<h2 style="${h2Style}">Vencimentos</h2>
                   <table style="${tableStyle}"><tr><th style="${thStyle}">Descrição</th><th style="${thStyle}">Vencimento</th><th style="${thStyle}">Status</th></tr>
@@ -868,7 +869,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     {acessos.length > 0 && (
                       <Button type="button" variant="ghost" size="sm" className="h-7 text-[11px] gap-1" onClick={(e) => {
                         e.preventDefault(); e.stopPropagation()
-                        const csv = ['Portal;Usuário;Link', ...acessos.map(a => `${a.portal};${a.usuario || ''};${(a.observacoes || '').replace(/\n/g, ' ')}`)].join('\n')
+                        const csv = ['Portal;Usuário;Link;Observações', ...acessos.map(a => `${a.portal};${a.usuario || ''};${(a.observacoes || '').replace(/\n/g, ' ')};${(a.anotacoes || '').replace(/\n/g, ' ')}`)].join('\n')
                         const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
                         const url = URL.createObjectURL(blob)
                         const a = document.createElement('a'); a.href = url; a.download = 'acessos.csv'; a.click()
@@ -891,6 +892,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                         <th className="text-left px-3 py-2 font-medium">Link</th>
                         <th className="text-left px-3 py-2 font-medium">Usuário</th>
                         <th className="text-left px-3 py-2 font-medium">Senha</th>
+                        <th className="text-left px-3 py-2 font-medium">Observações</th>
                         <th className="text-right px-3 py-2 font-medium w-[80px]">Ações</th>
                       </tr></thead>
                       <tbody>
@@ -909,6 +911,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                                   arrastando a janela para a tela maior (#HLP0408). */}
                               {a.senha && <BotaoCopiar texto={a.senha} rotulo="senha" />}
                             </td>
+                            <td className="px-3 py-2 text-muted-foreground max-w-[220px] truncate" title={a.anotacoes || ''}>{a.anotacoes || '—'}</td>
                             <td className="px-3 py-2 text-right">
                               <button type="button" className="rounded p-1 hover:bg-muted mr-1" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openAceModal(a) }}><Pencil className="h-3 w-3 text-muted-foreground" /></button>
                               <button type="button" className="rounded p-1 hover:bg-muted" onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeAcesso(a.id) }}><Trash2 className="h-3 w-3 text-muted-foreground" /></button>
@@ -1481,6 +1484,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           <div><Label className="text-xs">Usuário</Label><Input value={aceForm.usuario} onChange={e => setAceForm(p => ({ ...p, usuario: e.target.value }))} className="text-xs mt-1" /></div>
           <div><Label className="text-xs">Senha {aceEditId ? '(vazio = não alterar)' : ''}</Label><Input value={aceForm.senha} onChange={e => setAceForm(p => ({ ...p, senha: e.target.value }))} placeholder={aceEditId ? 'Deixar vazio para não alterar' : ''} className="text-xs mt-1" /></div>
           <div><Label className="text-xs">Link</Label><Input value={aceForm.link} onChange={e => setAceForm(p => ({ ...p, link: e.target.value }))} placeholder="https://" className="text-xs mt-1" /></div>
+          <div><Label className="text-xs">Observações</Label><textarea value={aceForm.anotacoes} onChange={e => setAceForm(p => ({ ...p, anotacoes: e.target.value }))} rows={3} maxLength={2000} className="w-full rounded-md px-3 py-2 text-xs mt-1 resize-none" /></div>
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="outline" size="sm" onClick={() => setAceModalOpen(false)}>Fechar</Button>
