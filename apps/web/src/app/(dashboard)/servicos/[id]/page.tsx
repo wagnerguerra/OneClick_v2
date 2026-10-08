@@ -1627,6 +1627,8 @@ export default function ServicoDetailPage() {
                               {areas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                             </SelectContent>
                           </Select>
+                          {/* #HLP0277: quem tem mais de uma área procurava aqui e não achava. */}
+                          <p className="text-[11px] text-muted-foreground">Classifica o serviço. Mais de uma área atende? Adicione-as em <strong>Setores</strong>, na Atribuição de responsáveis.</p>
                         </div>
                         <div className="col-span-12 md:col-span-3 space-y-1.5">
                           <Label className="text-xs font-medium">Prioridade</Label>
@@ -1878,6 +1880,7 @@ export default function ServicoDetailPage() {
                           {/* Áreas — multi-select */}
                           <div className="col-span-12 md:col-span-6 space-y-1.5">
                             <Label className="text-xs font-medium">Setores</Label>
+                            <p className="text-[11px] text-muted-foreground">Uma ou várias áreas responsáveis: todos os usuários ativos delas viram candidatos.</p>
                             <Select
                               value="__add__"
                               onValueChange={v => {
