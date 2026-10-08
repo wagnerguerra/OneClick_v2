@@ -2350,7 +2350,7 @@ export default function ServicoDetailPage() {
                               selecionadaEtapa && 'bg-primary/10 hover:bg-primary/10',
                             )}
                           >
-                            <span className="opacity-0 transition-opacity group-hover/linha:opacity-100"><SortableEtapaHandle /></span>
+                            <span className="inline-flex items-center opacity-0 transition-opacity group-hover/linha:opacity-100"><SortableEtapaHandle /></span>
                             <button
                               type="button"
                               onClick={() => toggleEtapaCollapse(sortKey)}
@@ -2476,7 +2476,7 @@ export default function ServicoDetailPage() {
                                     return (
                                       <div key={p.dndId} data-passo={p.dndId} className={cn(dentroDeSub && 'ml-[22px] border-l border-border pl-1.5')}>
                                         <SortablePasso id={p.dndId} exiting={!!p.id && exitingPassoIds.has(p.id)} selecionado={selecionado}>
-                                          <span className="w-6 shrink-0 text-right"><SortablePassoHandle numero={pi + 1} /></span>
+                                          <span className="inline-flex w-6 shrink-0 items-center justify-end"><SortablePassoHandle numero={pi + 1} /></span>
                                           {p.tipo === 'PERGUNTA'
                                             ? <HelpCircle className={cn('h-4 w-4 shrink-0', TEXT.violet)} />
                                             : <CheckSquare className="h-4 w-4 shrink-0 text-muted-foreground" />}
@@ -3204,7 +3204,7 @@ function SortableEtapaHandle() {
       type="button"
       {...(ctx.attributes as React.HTMLAttributes<HTMLButtonElement>)}
       {...(ctx.listeners as React.HTMLAttributes<HTMLButtonElement>)}
-      className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground shrink-0 -ml-1"
+      className="-ml-1 inline-flex h-6 shrink-0 cursor-grab items-center text-muted-foreground/40 hover:text-muted-foreground active:cursor-grabbing"
       title="Arrastar para reordenar"
       aria-label="Arrastar etapa"
     >
