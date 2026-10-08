@@ -83,6 +83,7 @@ const COLUNAS: HelpdeskStatus[] = [
   'NOVO',
   'AGUARDANDO_AUDITORIA',
   'EM_ANDAMENTO',
+  'PENDENTE',
   'RESOLVIDO',
   'CONCLUIDO',
   'CANCELADO',
@@ -126,6 +127,8 @@ export default function HelpdeskPage() {
   // o link de indicadores pra quem não é agente (chefia). O agente também vê o
   // link, mas cai na visão "minhas avaliações" se não tiver esta permissão.
   const [podeVerMetricas, setPodeVerMetricas] = useState<boolean | null>(null)
+  // Triagem IA ligada? Desligada, as colunas da IA somem do kanban (ver colunasVisiveis).
+  const [triagemIaAtiva, setTriagemIaAtiva] = useState(true)
   const [items, setItems] = useState<Ticket[]>([])
   // Arquivados — quadro inferior na visão de lista (#HLP0318). Fica separado
   // de `items` (ativos) pra renderizar os dois quadros: ativos em cima,
@@ -191,6 +194,9 @@ export default function HelpdeskPage() {
         (trpc.helpdesk as any).probeMetricasCompletas.query(),
       ])
       if (cancelled) return
+      ;(trpc.helpdesk as any).triagemIaAtiva.query()
+        .then((r: { ativa: boolean }) => { if (!cancelled) setTriagemIaAtiva(r.ativa) })
+        .catch(() => { /* sem a config, mantém as colunas */ })
       const agente = acc.status === 'fulfilled'
       setIsAgente(agente)
       setPodeAtuar(atuar.status === 'fulfilled' ? !!(atuar.value as { ok?: boolean })?.ok : false)
@@ -495,6 +501,16 @@ export default function HelpdeskPage() {
     }
     return map
   }, [items])
+
+  // Com a triagem IA desligada, "Aguardando auditoria" e "Aguardando avaliação"
+  // saem do kanban — mas só quando vazias: chamado nessas etapas nunca some do
+  // quadro (a avaliação do solicitante continua valendo sem a IA).
+  const colunasVisiveis = useMemo(
+    () => COLUNAS.filter(s => triagemIaAtiva
+      || (s !== 'AGUARDANDO_AUDITORIA' && s !== 'RESOLVIDO')
+      || (porStatus.get(s)?.length ?? 0) > 0),
+    [triagemIaAtiva, porStatus],
+  )
 
   if (isAgente === null) {
     return (
@@ -817,7 +833,7 @@ export default function HelpdeskPage() {
             {/* `w-max` no lugar do minWidth calculado: a largura vem das colunas,
                 que têm medida fixa — mesmo trilho do /orcamentos. */}
             <div className="flex h-full w-max gap-4 px-1">
-              {COLUNAS.map(status => (
+              {colunasVisiveis.map(status => (
                 <KanbanColumn
                   key={status}
                   status={status}
@@ -1067,6 +1083,9 @@ const TIPO_ICONE: Record<Ticket['tipo'], typeof Bug> = {
  */
 function slaDoTicket(ticket: Ticket): { curto: string; cor: string; titulo: string; texto: string; estado: 'ok' | 'vencendo' | 'vencido' } | null {
   if (!ticket.prazoSla || ['CONCLUIDO', 'CANCELADO', 'RESOLVIDO'].includes(ticket.status)) return null
+  // Pendente = aguarda o solicitante: o relógio está parado (o tempo é devolvido
+  // ao prazo quando o chamado sai daqui), então não há contagem a mostrar.
+  if (ticket.status === 'PENDENTE') return { curto: 'SLA pausado', cor: 'text-muted-foreground', titulo: 'SLA pausado', texto: 'Aguardando o solicitante — o prazo volta a correr quando o chamado sair de Pendente.', estado: 'ok' }
   const prazo = new Date(ticket.prazoSla)
   const diff = prazo.getTime() - Date.now()
   const abs = Math.abs(diff)

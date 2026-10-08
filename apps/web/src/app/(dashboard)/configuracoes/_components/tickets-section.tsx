@@ -49,6 +49,7 @@ const PRIO_STYLE: Record<HelpdeskPrioridade, string> = {
 const STATUS_STYLE: Record<HelpdeskStatus, string> = {
   NOVO: TEXT.sky,
   EM_ANDAMENTO: TEXT.violet,
+  PENDENTE: TEXT.orange,
   AGUARDANDO_AUDITORIA: TEXT.amber,
   RESOLVIDO: TEXT.cyan,
   CONCLUIDO: TEXT.emerald,

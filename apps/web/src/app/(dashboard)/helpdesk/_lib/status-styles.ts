@@ -19,6 +19,7 @@ import { STRONG } from '@/lib/color-styles'
 //   NOVO         → azul       (entrada, aguardando triagem)
 //   AGUARDANDO_AUDITORIA → ciano (IA respondeu, aguarda revisão)
 //   EM_ANDAMENTO → âmbar      (trabalho ativo)
+//   PENDENTE     → laranja    (aguarda o solicitante; SLA pausado)
 //   RESOLVIDO    → violeta    (aguardando confirmação/CSAT do solicitante;
 //                  o label visível é 'Aguardando avaliação')
 //   CONCLUIDO    → verde      (sucesso, fechado)
@@ -27,6 +28,7 @@ export const HELPDESK_STATUS_COR: Record<HelpdeskStatus, string> = {
   NOVO: '#3b82f6',                 // blue-500
   AGUARDANDO_AUDITORIA: '#06b6d4', // cyan-500
   EM_ANDAMENTO: '#f59e0b',         // amber-500
+  PENDENTE: '#f97316',             // orange-500
   RESOLVIDO: '#a855f7',            // purple-500
   CONCLUIDO: '#10b981',            // emerald-500
   CANCELADO: '#ef4444',            // red-500
@@ -38,6 +40,7 @@ export const HELPDESK_STATUS_BADGE: Record<HelpdeskStatus, string> = {
   NOVO: STRONG.blue,
   AGUARDANDO_AUDITORIA: STRONG.cyan,
   EM_ANDAMENTO: STRONG.amber,
+  PENDENTE: STRONG.orange,
   RESOLVIDO: STRONG.purple,
   CONCLUIDO: STRONG.emerald,
   CANCELADO: STRONG.red,

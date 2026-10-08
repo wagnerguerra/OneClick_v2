@@ -7314,6 +7314,7 @@ model ChatConfig {
 enum HelpdeskStatus {
   NOVO
   EM_ANDAMENTO
+  PENDENTE // aguarda interação do solicitante; SLA pausado
   AGUARDANDO_AUDITORIA // IA respondeu, aguarda revisão humana antes de fechar
   RESOLVIDO // técnico declarou; janela X dias pra confirmação/CSAT (UI exibe como "Pendente")
   CONCLUIDO // CSAT preenchido ou auto-fechado

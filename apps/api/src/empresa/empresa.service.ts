@@ -168,7 +168,7 @@ export class EmpresaService {
       prisma.oportunidade.count({ where: { ...e, isActive: true } }),
       prisma.servicoExecucao.count({ where: { ...e, arquivado: false, status: 'EM_ANDAMENTO' } }),
       prisma.servicoExecucao.count({ where: e }),
-      prisma.helpdeskTicket.count({ where: { ...e, ativo: true, arquivado: false, status: { in: ['NOVO', 'EM_ANDAMENTO', 'AGUARDANDO_AUDITORIA', 'RESOLVIDO'] } } }),
+      prisma.helpdeskTicket.count({ where: { ...e, ativo: true, arquivado: false, status: { in: ['NOVO', 'EM_ANDAMENTO', 'PENDENTE', 'AGUARDANDO_AUDITORIA', 'RESOLVIDO'] } } }),
       prisma.helpdeskTicket.count({ where: e }),
       prisma.certificadoDigital.count({ where: { ...e, arquivado: false } }),
       prisma.danfe.count({ where: e }),

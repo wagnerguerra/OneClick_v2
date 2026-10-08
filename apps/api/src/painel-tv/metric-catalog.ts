@@ -36,7 +36,7 @@ export interface MetricDef {
 
 const PALETTE = ['#fb7185', '#60a5fa', '#34d399', '#fbbf24', '#a78bfa', '#f97316', '#22d3ee', '#f472b6']
 const STATUS_HD: Record<string, string> = {
-  NOVO: '#3b82f6', AGUARDANDO_AUDITORIA: '#06b6d4', EM_ANDAMENTO: '#f59e0b',
+  NOVO: '#3b82f6', AGUARDANDO_AUDITORIA: '#06b6d4', EM_ANDAMENTO: '#f59e0b', PENDENTE: '#f97316',
   RESOLVIDO: '#a855f7', CONCLUIDO: '#10b981', CANCELADO: '#ef4444',
 }
 const CSAT_COR: Record<number, string> = { 1: '#ef4444', 2: '#f59e0b', 3: '#eab308', 4: '#84cc16', 5: '#10b981' }

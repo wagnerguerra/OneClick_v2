@@ -4,6 +4,7 @@ import { z } from 'zod'
 export const HELPDESK_STATUS = [
   'NOVO',
   'EM_ANDAMENTO',
+  'PENDENTE',
   'AGUARDANDO_AUDITORIA',
   'RESOLVIDO',
   'CONCLUIDO',
@@ -21,6 +22,9 @@ export type HelpdeskTipo = (typeof HELPDESK_TIPO)[number]
 export const HELPDESK_STATUS_LABELS: Record<HelpdeskStatus, string> = {
   NOVO: 'Novo',
   EM_ANDAMENTO: 'Em andamento',
+  // Aguarda interação do solicitante (informação, teste, retorno). Não confundir
+  // com RESOLVIDO, que já foi "Pendente" e virou "Aguardando avaliação".
+  PENDENTE: 'Pendente',
   AGUARDANDO_AUDITORIA: 'Aguardando auditoria',
   // "Pendente" fazia o solicitante ler o estado como "ainda não mexeram nisso" e
   // estranhar receber a pesquisa de satisfação (#HLP0180). O estado É a janela de
@@ -53,10 +57,10 @@ export const HELPDESK_PRIORIDADE_COLORS: Record<HelpdeskPrioridade, string> = {
   URGENTE: '#ef4444',
 }
 
-// Status onde o SLA está pausado (relógio congelado). Vazio atualmente — o
-// status que pausava (AGUARDANDO_RESPONSAVEL) foi removido. Mantido como
-// array tipado pra não quebrar callers e pra facilitar reintroduzir no futuro.
-export const HELPDESK_STATUS_PAUSADOS: HelpdeskStatus[] = []
+// Status onde o SLA está pausado (relógio congelado): PENDENTE espera o
+// solicitante, então o prazo não corre contra a TI. Ao sair dele o tempo parado
+// é somado ao prazo (helpdesk.service → update).
+export const HELPDESK_STATUS_PAUSADOS: HelpdeskStatus[] = ['PENDENTE']
 
 // Status finais (não conta como aberto)
 export const HELPDESK_STATUS_FINAIS: HelpdeskStatus[] = ['CONCLUIDO', 'CANCELADO']
