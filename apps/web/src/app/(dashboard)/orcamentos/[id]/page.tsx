@@ -4436,17 +4436,23 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
           )}
         </div>
 
-        {/* Balao de fala com cauda angular (quina viva) no canto superior esquerdo.
-            - Bubble com `rounded-tl-none` -> canto superior esquerdo reto (a cauda
-              "nasce" daqui prolongando a borda superior).
-            - SVG da cauda:
-              * Top edge horizontal (continua a borda superior do balao para a esquerda)
-              * Hipotenusa em 45 graus voltando para a borda esquerda do balao
-              * Tip = quina viva no encontro dos dois traços
-            - Fill cobre 1px dentro do balao no eixo vertical, ocultando a borda
-              esquerda do balao na area do encaixe da cauda. */}
+        {/* Balão de fala com cauda no canto superior esquerdo, desenhado em
+            DUAS camadas para a borda sair contínua (antes era um SVG por cima
+            de um div com borda: as duas bordas translúcidas se sobrepunham e
+            a emenda aparecia).
+            - Camada de borda: o balão (padding de 1px) e a cauda (triângulo
+              via clip-path) pintados na cor da borda — um só contorno.
+            - Camada de fundo, opaca: o miolo do balão e um triângulo menor,
+              recuado 1px de cada lado (√2 na diagonal de 45°), cobrindo a
+              emenda entre a cauda e o lado esquerdo. */}
         <div className="relative">
-          <div className="relative -ml-px bg-muted/60 dark:bg-muted/30 rounded-2xl rounded-tl-none px-4 py-3 border border-rose-300/50 dark:border-rose-700/40">
+          <div className="relative -ml-px rounded-2xl rounded-tl-none bg-rose-300/50 p-px dark:bg-rose-700/40">
+            <span aria-hidden className="pointer-events-none absolute bg-rose-300/50 dark:bg-rose-700/40" style={{ left: -12, top: 0, width: 12, height: 12, clipPath: 'polygon(0 0, 100% 0, 100% 100%)' }} />
+            <span aria-hidden className="pointer-events-none absolute overflow-hidden bg-card" style={{ left: -12 + Math.SQRT2 + 1, top: 1, width: 12 - Math.SQRT2, height: 12 - Math.SQRT2, clipPath: 'polygon(0 0, 100% 0, 100% 100%)' }}>
+              <span className="absolute inset-0 bg-muted/60 dark:bg-muted/30" />
+            </span>
+          <div className="relative rounded-[15px] rounded-tl-none bg-card">
+          <div className="rounded-[15px] rounded-tl-none bg-muted/60 px-4 py-3 dark:bg-muted/30">
             {editando ? (
               <div className="space-y-2">
                 <RichEditor
@@ -4477,37 +4483,8 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
               />
             )}
           </div>
-          <svg
-            className="absolute pointer-events-none overflow-visible"
-            style={{ left: -11, top: 0 }}
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            aria-hidden
-          >
-            {/* Backdrop OPACO + fill translucido. A diagonal de fechamento do
-                poligono usa exatamente os mesmos pontos da hipotenusa do stroke
-                ((12,13) e (0,0)) para que nao haja sliver entre stroke e fill.
-                O vertice extra em (12,14) cria a "bota" que estende o fill
-                ate cobrir a borda inferior tambem. */}
-            <path
-              d="M 0 0 L 14 0 L 14 14 L 12 14 L 12 13 Z"
-              className="fill-card"
-            />
-            <path
-              d="M 0 0 L 14 0 L 14 14 L 12 14 L 12 13 Z"
-              className="fill-muted/60 dark:fill-muted/30"
-            />
-            {/* Stroke: top edge (com 1px de overlap dentro do balao em x=13) +
-                hipotenusa em 45 graus exatos ((0,0) -> (12,13)). */}
-            <path
-              d="M 12 13 L 0 0 L 13 0"
-              className="stroke-rose-300/50 dark:stroke-rose-700/40"
-              fill="none"
-              strokeWidth="1"
-              strokeLinejoin="miter"
-            />
-          </svg>
+          </div>
+          </div>
         </div>
 
         {/* Form inline de resposta (somente em mensagens top-level) */}
