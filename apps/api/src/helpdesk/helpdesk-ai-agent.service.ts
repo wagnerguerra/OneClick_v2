@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import Anthropic from '@anthropic-ai/sdk'
 import { prisma } from '@saas/db'
+import { mensagemErroIa } from '../common/erro-ia'
 
 /**
  * Triagem automática de tickets do helpdesk usando Claude (Anthropic API).
@@ -1153,7 +1154,8 @@ ${arquivosNaoEncontrados.length > 0 ? `\n## Arquivos sem match no repo\n${arquiv
       if (!toolUse || toolUse.type !== 'tool_use') throw new Error('Resposta sem tool_use')
       resultadoFinal = toolUse.input as Record<string, unknown>
     } catch (e) {
-      onEvent({ type: 'error', message: (e as Error).message })
+      console.error('[HelpdeskAI] Falha na IA:', (e as Error).message)
+      onEvent({ type: 'error', message: mensagemErroIa(e) })
       return
     }
 

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import Anthropic from '@anthropic-ai/sdk'
+import { mensagemErroIa } from '../common/erro-ia'
 
 /**
  * Geração do parecer narrativo da Reforma Tributária (Claude / Anthropic).
@@ -115,6 +116,10 @@ export class ReformaAiService {
       max_tokens: 2500,
       system: sistema,
       messages: [{ role: 'user', content: this.montarContexto(simulacao) }],
+    }).catch((e: unknown) => {
+      // Corpo cru da Anthropic não vai para a tela — vira texto em português.
+      console.error('[IA] Falha na chamada:', (e as Error).message)
+      throw new Error(mensagemErroIa(e))
     })
 
     const texto = resp.content

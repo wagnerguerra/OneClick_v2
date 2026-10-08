@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import Anthropic from '@anthropic-ai/sdk'
 import { OrcamentoService } from './orcamento.service'
+import { mensagemErroIa } from '../common/erro-ia'
 
 /**
  * Assistente de IA do orçamento (Claude / Anthropic).
@@ -343,7 +344,8 @@ ${contexto}`
       tokensIn = finalMessage.usage.input_tokens
       tokensOut = finalMessage.usage.output_tokens
     } catch (e) {
-      onEvent({ type: 'error', message: (e as Error).message })
+      console.error('[OrcamentoAI] Falha na IA:', (e as Error).message)
+      onEvent({ type: 'error', message: mensagemErroIa(e) })
       return
     }
 

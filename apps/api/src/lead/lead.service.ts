@@ -8,6 +8,7 @@ import { CrmService } from '../crm/crm.service'
 import { AgendaService } from '../agenda/agenda.service'
 import { AgendaLembreteService } from '../agenda/agenda-lembrete.service'
 import { NotificationService } from '../notification/notification.service'
+import { mensagemErroIa } from '../common/erro-ia'
 
 type StreamEvent = { type: string; [k: string]: unknown }
 type LeadDados = Record<string, unknown> & {
@@ -389,7 +390,8 @@ ${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
         convo.push({ role: 'user', content: results })
       }
     } catch (e) {
-      onEvent({ type: 'error', message: (e as Error).message }); return
+      console.error('[LeadAI] Falha na IA:', (e as Error).message)
+      onEvent({ type: 'error', message: mensagemErroIa(e) }); return
     }
 
     // Persiste o turno (última msg do usuário + resposta)

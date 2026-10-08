@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import Anthropic from '@anthropic-ai/sdk'
 import { fluxoRoteiroSchema, type FluxoRoteiro, type GerarFluxoIaInput } from '@saas/types'
+import { mensagemErroIa } from '../common/erro-ia'
 
 /**
  * Geração por IA do rascunho de fluxo de um serviço (Claude / Anthropic).
@@ -104,6 +105,10 @@ export class ServicoFluxoAiService {
       }],
       tool_choice: { type: 'tool', name: 'montar_roteiro' },
       messages: [{ role: 'user', content: userMsg }],
+    }).catch((e: unknown) => {
+      // Corpo cru da Anthropic não vai para a tela — vira texto em português.
+      console.error('[IA] Falha na chamada:', (e as Error).message)
+      throw new Error(mensagemErroIa(e))
     })
 
     const bloco = resp.content.find(c => c.type === 'tool_use')
