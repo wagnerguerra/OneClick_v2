@@ -73,7 +73,11 @@ function ResizableImageView({ node, updateAttributes, selected, editor }: NodeVi
           'max-w-full rounded inline-block',
           selected && editable && 'ring-2 ring-primary ring-offset-1',
         )}
-        style={{ maxHeight: 400, ...(width ? { width: `${width}px` } : {}) }}
+        // #HLP0303: com `maxHeight: 400` fixo, arrastar o canto só alargava — a
+        // altura travava em 400px e a imagem esticava para o lado. Com largura
+        // definida a altura acompanha (proporção mantida); sem largura, o teto de
+        // 400px continua só como tamanho inicial (largura automática, sem distorcer).
+        style={width ? { width: `${width}px`, height: 'auto', maxHeight: 'none' } : { maxHeight: 400, width: 'auto', height: 'auto' }}
       />
       {/* Handles — só renderizam quando selected + editável */}
       {selected && editable && (

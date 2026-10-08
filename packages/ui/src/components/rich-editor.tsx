@@ -194,7 +194,10 @@ export function RichEditor({
       ResizableImage.configure({
         inline: true,
         allowBase64: true,
-        HTMLAttributes: { class: 'max-w-full rounded inline-block', style: 'max-height: 400px;' },
+        // Sem `max-height` gravado no HTML (#HLP0303): ele ia junto com o texto
+        // salvo e achatava a imagem redimensionada na exibição. O tamanho inicial
+        // fica no NodeView (resizable-image) e no RichContent.
+        HTMLAttributes: { class: 'max-w-full rounded inline-block' },
       }),
     ],
     content: value ?? '',

@@ -1,6 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import { cn } from '../lib/utils'
+import { Dialog, DialogContent, DialogTitle } from './dialog'
 
 /**
  * Renderiza o HTML produzido pelo <RichEditor>, com o MESMO visual do editor.
@@ -25,14 +27,25 @@ import { cn } from '../lib/utils'
  * As regras abaixo espelham o bloco `<style>` do `rich-editor.tsx`. Mexeu lá,
  * mexa aqui.
  */
-export function RichContent({ html, className, style }: {
+export function RichContent({ html, className, style, ampliarImagens = true }: {
   html: string
   className?: string
   style?: React.CSSProperties
+  /** Clicar numa imagem abre em tamanho real (#HLP0303). */
+  ampliarImagens?: boolean
 }) {
+  const [ampliada, setAmpliada] = useState<{ src: string; alt: string } | null>(null)
   return (
+    <>
     <div
       style={style}
+      onClick={ampliarImagens ? (e) => {
+        const alvo = e.target as HTMLElement
+        if (alvo.tagName !== 'IMG' || alvo.closest('a')) return
+        const img = alvo as HTMLImageElement
+        e.preventDefault()
+        setAmpliada({ src: img.currentSrc || img.src, alt: img.alt })
+      } : undefined}
       className={cn(
         // Parágrafo SEM margem — de propósito. Dentro do editor o preflight do
         // Tailwind zera a margem de <p>, então lá dois parágrafos seguidos ficam
@@ -69,9 +82,28 @@ export function RichContent({ html, className, style }: {
         // superfície) e vence a classe `text-primary` que o editor gravava no
         // HTML antigo — [&_a] é mais específico que a classe no próprio <a>.
         '[&_a]:underline [&_a]:text-primary-on-surface [&_img]:max-w-full [&_img]:rounded',
+        // Imagens (#HLP0303): altura sempre proporcional. O HTML antigo trazia
+        // `style="max-height: 400px"` junto com a largura escolhida no editor —
+        // a imagem saía achatada. Com largura definida, o teto sai (`!` vence o
+        // style inline); sem largura, 400px seguem como tamanho de exibição.
+        '[&_img]:h-auto [&_img[width]]:!max-h-none [&_img:not([width])]:max-h-[400px] [&_img:not([width])]:w-auto',
+        ampliarImagens && '[&_img]:cursor-zoom-in',
         className,
       )}
       dangerouslySetInnerHTML={{ __html: html }}
     />
+    {ampliarImagens && (
+      <Dialog open={!!ampliada} onOpenChange={(v) => { if (!v) setAmpliada(null) }}>
+        {/* Visualizador de imagem: sem cabeçalho de modal de propósito — a
+            imagem ocupa a janela; fecha com Esc, clique fora ou o X. */}
+        <DialogContent className="w-auto max-w-[95vw] border-0 bg-transparent shadow-none">
+          <DialogTitle className="sr-only">{ampliada?.alt || 'Imagem ampliada'}</DialogTitle>
+          {ampliada && (
+            <img src={ampliada.src} alt={ampliada.alt} className="mx-auto max-h-[85vh] max-w-full rounded-md bg-card object-contain" />
+          )}
+        </DialogContent>
+      </Dialog>
+    )}
+    </>
   )
 }
