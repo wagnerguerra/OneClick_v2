@@ -40,6 +40,11 @@ const COLUMN_FIELD_LABELS: Record<keyof TreatmentDefinition['columnMapping'], st
   documento: 'CNPJ/CPF do participante',
   documentoFixo: 'CNPJ/CPF do participante (valor fixo)',
 }
+const ACEITA_VAZIO_LABELS: Record<keyof TreatmentDefinition['aceitaVazio'], string> = {
+  participante: 'Participante aceita em branco',
+  numeroNf: 'Número da NF aceita em branco',
+  documento: 'CNPJ/CPF aceita em branco',
+}
 
 const DC_TIPO_LABEL: Record<TreatmentDefinition['debitoCredito']['tipo'], string> = {
   COLUNA: 'Por coluna',
@@ -127,6 +132,10 @@ export function computeDiff(base: TreatmentDefinition, target: TreatmentDefiniti
     const out: DiffChange[] = []
     ;(Object.keys(COLUMN_FIELD_LABELS) as Array<keyof TreatmentDefinition['columnMapping']>).forEach((k) => {
       cmpScalar(COLUMN_FIELD_LABELS[k], base.columnMapping[k] ?? '', target.columnMapping[k] ?? '', out)
+    })
+    ;(Object.keys(ACEITA_VAZIO_LABELS) as Array<keyof TreatmentDefinition['aceitaVazio']>).forEach((k) => {
+      const sn = (v: boolean) => (v ? 'Sim' : 'Não')
+      cmpScalar(ACEITA_VAZIO_LABELS[k], sn(base.aceitaVazio[k]), sn(target.aceitaVazio[k]), out)
     })
     if (out.length) groups.push({ section: 'De/Para de colunas', changes: out })
   }

@@ -208,10 +208,24 @@ export type JurosDescontoTipo = 'JURO' | 'DESC'
 /** Termo gravado no histórico do SCI para cada tipo (após RECEB/PGTO). */
 export const JUROS_DESCONTOS_HISTORICO: Record<JurosDescontoTipo, string> = { JURO: 'JUROS', DESC: 'DESC' }
 
+// ---- Colunas opcionais que aceitam valor em branco -------------------------
+// Uma coluna opcional do De/Para que foi SELECIONADA precisa, por padrão, ter
+// valor em toda linha (vazia = pendência CAMPO_VAZIO). Marcada aqui, a célula
+// vazia é aceita e o lançamento sai sem aquele dado (ex.: histórico sem o
+// participante, sem "DCTO", sem CNPJ/CPF). Modelos antigos não têm o bloco →
+// tudo false (comportamento de antes).
+export const aceitaVazioSchema = z.object({
+  participante: z.boolean().default(false),
+  numeroNf: z.boolean().default(false),
+  documento: z.boolean().default(false),
+})
+export type AceitaVazio = z.infer<typeof aceitaVazioSchema>
+
 // ---- Definição completa (corpo do Modelo — snapshot em JSON) ---------------
 export const treatmentDefinitionSchema = z.object({
   contasCorrentes: contasCorrentesSchema,
   columnMapping: columnMappingSchema,
+  aceitaVazio: aceitaVazioSchema.default({}),
   debitoCredito: debitoCreditoSchema,
   jurosDescontos: jurosDescontosSchema,
   contrapartida: contrapartidaSchema,
@@ -222,6 +236,7 @@ export type TreatmentDefinition = z.infer<typeof treatmentDefinitionSchema>
 export const EMPTY_TREATMENT_DEFINITION: TreatmentDefinition = {
   contasCorrentes: { modo: 'UNICA', unica: '', coluna: '', mapa: [] },
   columnMapping: { descricao: '', participante: '', valor: '', data: '', numeroNf: '', documento: '', documentoFixo: '' },
+  aceitaVazio: { participante: false, numeroNf: false, documento: false },
   debitoCredito: { tipo: 'COLUNA', coluna: '', mapa: [] },
   jurosDescontos: { ativo: false, modo: 'UNIFICADA', colunaJuros: '', colunaDescontos: '', colunaUnificada: '', sinalJuros: 'POSITIVO', contaJuros: '', contaDescontos: '' },
   contrapartida: { modo: 'PALAVRA_CHAVE', palavraChave: [], descricao: [] },

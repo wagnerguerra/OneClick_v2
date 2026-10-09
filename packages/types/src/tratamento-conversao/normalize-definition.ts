@@ -15,6 +15,7 @@ export function normalizeDefinition(raw: unknown): TreatmentDefinition {
     contaCorrente?: unknown // legado (modelos antigos com conta única em string)
     contasCorrentes?: unknown
     columnMapping?: Partial<TreatmentDefinition['columnMapping']>
+    aceitaVazio?: Partial<TreatmentDefinition['aceitaVazio']>
     debitoCredito?: unknown
     jurosDescontos?: Partial<TreatmentDefinition['jurosDescontos']>
     contrapartida?: { modo?: string; itens?: unknown[]; palavraChave?: unknown[]; descricao?: unknown[] }
@@ -47,6 +48,8 @@ export function normalizeDefinition(raw: unknown): TreatmentDefinition {
   return {
     contasCorrentes,
     columnMapping: { ...base.columnMapping, ...(r.columnMapping ?? {}) },
+    // Colunas opcionais que aceitam vazio: bloco opcional (antigos → nenhuma).
+    aceitaVazio: { ...base.aceitaVazio, ...(r.aceitaVazio ?? {}) },
     debitoCredito,
     jurosDescontos,
     contrapartida,

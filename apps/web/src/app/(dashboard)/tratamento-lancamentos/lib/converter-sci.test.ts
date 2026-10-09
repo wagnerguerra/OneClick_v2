@@ -42,6 +42,39 @@ describe('converterParaSci', () => {
   })
 })
 
+describe('colunas opcionais "aceitar em branco"', () => {
+  const tabela = {
+    headers: ['Data', 'Histórico', 'Valor', 'Cliente', 'NF', 'CNPJ'],
+    rows: [
+      { Data: '02/01/2026', Histórico: 'TARIFA', Valor: '10,00', Cliente: 'ACME', NF: '123', CNPJ: '11.222.333/0001-81' },
+      { Data: '03/01/2026', Histórico: 'TARIFA', Valor: '20,00', Cliente: '', NF: null, CNPJ: '' },
+    ],
+  }
+  const def = {
+    ...DEF_LEGADA,
+    columnMapping: { ...DEF_LEGADA.columnMapping, participante: 'Cliente', numeroNf: 'NF', documento: 'CNPJ' },
+  }
+
+  it('sem a marcação, coluna opcional vazia vira pendência', () => {
+    const r = converterParaSci(tabela, def, 'x')
+    expect(r.sciText).toBeNull()
+    expect(r.pendencias.map((p) => p.campo).sort()).toEqual(['CNPJ', 'Cliente', 'NF'])
+  })
+
+  it('marcada, a célula vazia passa e o lançamento sai sem o dado', () => {
+    const r = converterParaSci(tabela, { ...def, aceitaVazio: { participante: true, numeroNf: true, documento: true } }, 'x')
+    expect(r.pendencias).toEqual([])
+    const [comDados, semDados] = r.sciText!.split('\r\n')
+    expect(comDados).toContain('VR REF RECEB NF Nº 123 - ACME,DCTO123,,11222333000181')
+    expect(semDados).toMatch(/,VR REF RECEB,,,$/)
+  })
+
+  it('a marcação vale por coluna', () => {
+    const r = converterParaSci(tabela, { ...def, aceitaVazio: { numeroNf: true } }, 'x')
+    expect(r.pendencias.map((p) => p.campo).sort()).toEqual(['CNPJ', 'Cliente'])
+  })
+})
+
 describe('sciTextToBytes', () => {
   it('codifica em latin1 (um byte por caractere)', () => {
     expect([...sciTextToBytes('AÇÃO')]).toEqual([0x41, 0xc7, 0xc3, 0x4f])

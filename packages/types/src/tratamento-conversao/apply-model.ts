@@ -128,6 +128,7 @@ function lerJurosDescontos(row: Record<string, CellValue>, jd: JurosDescontosRul
 
 export function applyModel(table: ExtractedTableInput, def: TreatmentDefinition, anoCompetencia?: number, trace?: TraceRow[]): ConversionResult {
   const cm = def.columnMapping
+  const av = def.aceitaVazio
   const dcMapa = new Map(def.debitoCredito.mapa.map((m) => [m.valor, m.direcao]))
   const cc = def.contasCorrentes
   const ccMapa = new Map(cc.mapa.map((m) => [m.valor, m.conta]))
@@ -203,10 +204,11 @@ export function applyModel(table: ExtractedTableInput, def: TreatmentDefinition,
 
     if (!descricao && !faltantes.has(cm.descricao)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.descricao, mensagem: 'Descrição vazia. Não foi possível determinar a contrapartida.' })
     // Colunas opcionais do De/Para: se SELECIONADAS (e presentes), também precisam
-    // ter valor na linha (concepção: qualquer coluna escolhida precisa ter valor).
-    if (cm.participante && !participante && !faltantes.has(cm.participante)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.participante, mensagem: 'Nome do participante vazio.' })
-    if (cm.numeroNf && !numeroNf && !faltantes.has(cm.numeroNf)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.numeroNf, mensagem: 'Número da NF vazio.' })
-    if (cm.documento && !documento && !faltantes.has(cm.documento)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.documento, mensagem: 'CNPJ/CPF vazio.' })
+    // ter valor na linha — salvo as marcadas "aceita em branco" (`aceitaVazio`), em
+    // que a célula vazia passa e o lançamento sai sem aquele dado.
+    if (cm.participante && !participante && !av.participante && !faltantes.has(cm.participante)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.participante, mensagem: 'Nome do participante vazio.' })
+    if (cm.numeroNf && !numeroNf && !av.numeroNf && !faltantes.has(cm.numeroNf)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.numeroNf, mensagem: 'Número da NF vazio.' })
+    if (cm.documento && !documento && !av.documento && !faltantes.has(cm.documento)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.documento, mensagem: 'CNPJ/CPF vazio.' })
 
     // Data (campo obrigatório)
     const dataStr = cell(row, cm.data)
