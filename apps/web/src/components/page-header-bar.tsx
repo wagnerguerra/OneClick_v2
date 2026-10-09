@@ -40,9 +40,10 @@ export function PageHeaderBar({
     if (!fixa || !el) return
     const publica = () => root.style.setProperty('--page-bar-offset', `${el.offsetHeight}px`)
     publica()
-    const ro = new ResizeObserver(publica)
-    ro.observe(el)
-    return () => { ro.disconnect(); root.style.removeProperty('--page-bar-offset') }
+    // Sem ResizeObserver (ex.: jsdom dos testes), publica uma vez e não observa.
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(publica) : null
+    ro?.observe(el)
+    return () => { ro?.disconnect(); root.style.removeProperty('--page-bar-offset') }
   }, [fixa])
 
   return (
