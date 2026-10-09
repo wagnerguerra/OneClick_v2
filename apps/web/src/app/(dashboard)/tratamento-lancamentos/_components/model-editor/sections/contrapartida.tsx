@@ -522,7 +522,7 @@ function BadgeRegra({ n }: { n: number }) {
  */
 function PainelCorrespondencia({ descricoes, itens, totalLinhas, truncated, onCriar }: {
   descricoes: DescricaoContagem[]
-  itens: ReadonlyArray<{ palavraChave: string }>
+  itens: ReadonlyArray<{ palavraChave: string; conta: string; pular?: boolean }>
   totalLinhas: number
   truncated?: boolean
   onCriar?: (texto: string) => void
@@ -609,7 +609,7 @@ function PainelCorrespondencia({ descricoes, itens, totalLinhas, truncated, onCr
       </button>
 
       <Dialog open={aberto} onOpenChange={setAberto}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-5xl">
           <DialogHeaderIcon icon={ListChecks} color="fuchsia">
             <DialogTitle>Correspondência de descrições</DialogTitle>
             <DialogDescription>
@@ -638,6 +638,7 @@ function PainelCorrespondencia({ descricoes, itens, totalLinhas, truncated, onCr
                     <TableHead className="w-[96px] text-right">Ocorrências</TableHead>
                     <TableHead className="w-[168px]">Status</TableHead>
                     <TableHead className="w-[180px]">Palavra-chave</TableHead>
+                    <TableHead className="w-[130px]">Contrapartida</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -664,12 +665,24 @@ function PainelCorrespondencia({ descricoes, itens, totalLinhas, truncated, onCr
                           <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
+                      {/* Conta da palavra-chave que corresponde (a que a conversão usará). */}
+                      <TableCell className="max-w-[130px] truncate text-xs">
+                        {d.idx < 0 ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : itens[d.idx]!.pular ? (
+                          <span className="italic text-muted-foreground">linha pulada</span>
+                        ) : itens[d.idx]!.conta.trim() ? (
+                          <span className="font-mono tabular-nums text-foreground" title={itens[d.idx]!.conta}>{itens[d.idx]!.conta}</span>
+                        ) : (
+                          <span className={cn('italic', TEXT.amber)}>sem conta</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                     )
                   })}
                   {!visible.length && (
                     <TableRow>
-                      <TableCell colSpan={4} className="py-6 text-center text-xs text-muted-foreground">
+                      <TableCell colSpan={5} className="py-6 text-center text-xs text-muted-foreground">
                         {query.trim() ? (
                           `Nenhuma descrição para "${query.trim()}".`
                         ) : soSem ? (
