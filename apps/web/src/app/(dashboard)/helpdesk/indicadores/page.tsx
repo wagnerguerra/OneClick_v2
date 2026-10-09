@@ -284,7 +284,7 @@ function AvaliacoesCompletasCard({ responsaveis, inicio, fim }: {
   const [carregando, setCarregando] = useState(false)
 
   // UX: ao selecionar um filtro, traz o cabeçalho da seção para logo abaixo do
-  // header fixo (scroll-mt-[var(--app-header-offset)] no wrapper). Só rola quando
+  // header e da barra de título fixos (scroll-mt-[var(--app-sticky-top)] no wrapper). Só rola quando
   // um filtro MUDA de fato — compara com o valor anterior em vez de "pular o
   // primeiro render": no StrictMode o efeito roda 2x na montagem, a 1ª consumia
   // o pulo e a 2ª rolava a página até o fim a cada acesso.
@@ -326,7 +326,7 @@ function AvaliacoesCompletasCard({ responsaveis, inicio, fim }: {
   const slice = filtradas.slice((pagina - 1) * HIST_PAGE_SIZE, pagina * HIST_PAGE_SIZE)
 
   return (
-    <div ref={cardRef} className="scroll-mt-[var(--app-header-offset)]">
+    <div ref={cardRef} className="scroll-mt-[var(--app-sticky-top)]">
     <Card><CardContent className="p-4">
       {/* Cabeçalho */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">

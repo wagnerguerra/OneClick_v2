@@ -562,7 +562,7 @@ function ModuleColorsEditor() {
         </div>
 
         {/* Coluna 2: log lateral */}
-        <div className="rounded-md border border-border bg-card overflow-hidden h-fit sticky top-4">
+        <div className="rounded-md border border-border bg-card overflow-hidden h-fit sticky top-[calc(var(--app-sticky-top)_+_1rem)]">
           <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/40">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Log de eventos</p>
             {logs.length > 0 && (

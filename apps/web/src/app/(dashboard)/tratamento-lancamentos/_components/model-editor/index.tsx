@@ -1001,7 +1001,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     <>
       {secDados}
       {secArquivo}
-      <div id="rev-depara" className="scroll-mt-[var(--app-header-offset)]">{secDePara}</div>
+      <div id="rev-depara" className="scroll-mt-[var(--app-sticky-top)]">{secDePara}</div>
       <SecaoRevisao ativo={modoRevisao} problems={revProbs.cc} id="rev-cc">{secContasCorrentes}</SecaoRevisao>
       <SecaoRevisao ativo={modoRevisao} problems={revProbs.jd} id="rev-jd">{secJurosDescontos}</SecaoRevisao>
       <SecaoRevisao ativo={modoRevisao} problems={revProbs.dc} id="rev-dc">{secDC}</SecaoRevisao>
@@ -1181,7 +1181,7 @@ function RevisaoCallout({ problems }: { problems: string[] }) {
 function SecaoRevisao({ ativo, problems, id, children }: { ativo: boolean; problems: string[]; id: string; children: ReactNode }) {
   if (!ativo || !problems.length) return <>{children}</>
   return (
-    <div id={id} className="space-y-2 scroll-mt-[var(--app-header-offset)]">
+    <div id={id} className="space-y-2 scroll-mt-[var(--app-sticky-top)]">
       <RevisaoCallout problems={problems} />
       <div className="rounded-lg ring-2 ring-destructive/50 ring-offset-2 ring-offset-background">{children}</div>
     </div>
