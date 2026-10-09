@@ -325,42 +325,14 @@ export type UpdateTreatmentModelInput = z.infer<typeof updateTreatmentModelSchem
 export type ListTreatmentModelInput = z.infer<typeof listTreatmentModelSchema>
 
 // ---- Tabela extraída (no CLIENTE) ------------------------------------------
-// A extração roda no NAVEGADOR (ver apps/web/.../tratamento-lancamentos/lib) e o
-// cliente envia a tabela pronta ao servidor (convert/debugExtract), que só aplica
-// o modelo — nunca re-extrai. Este é o contrato compartilhado da tabela: `headers`
+// A extração e a conversão rodam no NAVEGADOR (extract-tabela no web + motor em
+// ./tratamento-conversao). Este é o contrato da tabela entre as duas: `headers`
 // + `rows` (o que o `applyModel` consome). `CellValue` é o valor de cada célula.
-const cellValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()])
-export type CellValue = z.infer<typeof cellValueSchema>
-export const extractedTableSchema = z.object({
-  headers: z.array(z.string()),
-  rows: z.array(z.record(cellValueSchema)),
-})
-export type ExtractedTableInput = z.infer<typeof extractedTableSchema>
-
-// ---- Conversão para o SCI ("Exportação para o SCI") ------------------------
-export const convertSchema = z.object({
-  modelId: z.string().min(1),
-  filename: z.string().min(1),
-  // Tabela extraída NO CLIENTE (a extração não ocorre mais no servidor).
-  table: extractedTableSchema,
-  // Ano de competência p/ datas "dd/mm" sem ano (ex.: Sicoob). Se ausente e o
-  // arquivo tiver datas sem ano, a conversão devolve `needsCompetenciaAno`.
-  competenciaAno: z.coerce.number().int().min(1900).max(2200).optional(),
-})
-export type ConvertInput = z.infer<typeof convertSchema>
-
-// ---- Visualizador de debug (tabela extraída) -------------------------------
-// Ferramenta escondida (via ?debug=1) para inspecionar como o arquivo foi
-// tabelado e interpretado pelo modelo. `modelId` é OPCIONAL: sem ele, devolve só
-// a tabela extraída crua; com ele, também o traço do de/para + pendências.
-export const debugExtractSchema = z.object({
-  // Tabela extraída no cliente (mesma coisa do convert).
-  table: extractedTableSchema,
-  filename: z.string().min(1),
-  modelId: z.string().optional(),
-  competenciaAno: z.coerce.number().int().min(1900).max(2200).optional(),
-})
-export type DebugExtractInput = z.infer<typeof debugExtractSchema>
+export type CellValue = string | number | boolean | null
+export interface ExtractedTableInput {
+  headers: string[]
+  rows: Array<Record<string, CellValue>>
+}
 
 /**
  * Stringify estável (chaves ordenadas recursivamente). Usado para comparar

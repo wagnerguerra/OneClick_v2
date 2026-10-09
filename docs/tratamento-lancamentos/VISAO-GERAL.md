@@ -67,6 +67,11 @@ a visão inicial está sendo atingida, não para refletir o estado atual. Cobre,
   não o `prisma` global. Autor resolvido via `prisma.user` global (schema public).
 - **Fronteira única de extração:** `extractTabela(input) → ExtractedTable` — qualquer
   fonte (xlsx/csv/pdf/futuro IA) devolve o mesmo `ExtractedTable`; nada a jusante muda.
+- **Extração e conversão no navegador:** o motor (`applyModel`, parsers, formato
+  SCI, `converterParaSci`) vive em `packages/types/src/tratamento-conversao/` e roda
+  no cliente; da API vem só a definição do modelo (`getById`). A tabela de um
+  arquivo grande (14 mil linhas ≈ 8,5 MB de JSON) nunca atravessa a rede — enviada
+  à API, ela travava em produção (proxy + retentativa) sem nunca exibir o resultado.
 - **Direção = Débito/Crédito** (renomeado de Entrada/Saída). Enum `DIRECAO` =
   `{ DEBITO, CREDITO }`; chave da definição `debitoCredito`; pendência `DC_NAO_MAPEADO`.
   Mapeamento: DÉBITO → RECEB / conta corrente no campo `<3>`; CRÉDITO → PGTO.

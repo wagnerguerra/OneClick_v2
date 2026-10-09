@@ -3,6 +3,10 @@
 // e produz o conteúdo SCI — ou a lista de PENDÊNCIAS, quando algum lançamento
 // não pôde ser interpretado.
 //
+// Roda NO NAVEGADOR (assim como a extração): a tabela de um arquivo grande não
+// atravessa a rede nem esbarra nos limites do proxy/servidor de produção. Por
+// isso vive em @saas/types, sem dependência de Node.
+//
 // Tipos de pendência (alinhados ao plano):
 //   DC_NAO_MAPEADO              valor da coluna de débito/crédito sem direção definida
 //   CONTA_NAO_MAPEADA           sem conta de contrapartida para a descrição/palavra-chave
@@ -13,9 +17,9 @@
 //   COLUNA_NAO_ENCONTRADA      coluna selecionada no De/Para ausente no arquivo
 // ============================================================
 
-import { matchPalavraChaveIndex, resolveHistorico, JUROS_DESCONTOS_HISTORICO, type TreatmentDefinition, type JurosDescontosRule, type JurosDescontoTipo, type ExtractedTableInput, type CellValue } from '@saas/types'
+import { matchPalavraChaveIndex, resolveHistorico, JUROS_DESCONTOS_HISTORICO, type Direcao, type TreatmentDefinition, type JurosDescontosRule, type JurosDescontoTipo, type ExtractedTableInput, type CellValue } from '../tratamento-lancamentos'
 import { parseData, parseValor } from './parsers'
-import { buildSciLine, buildSciFile, type Direcao } from './sci-format'
+import { buildSciLine, buildSciFile } from './sci-format'
 
 export type PendenciaTipo = 'DC_NAO_MAPEADO' | 'CONTA_NAO_MAPEADA' | 'CONTA_CORRENTE_NAO_MAPEADA' | 'CAMPO_VAZIO' | 'DATA_INVALIDA' | 'VALOR_INVALIDO' | 'COLUNA_NAO_ENCONTRADA'
 

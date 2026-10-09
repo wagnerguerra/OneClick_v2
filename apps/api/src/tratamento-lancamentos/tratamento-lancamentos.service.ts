@@ -6,33 +6,13 @@ import {
   type UpdateTreatmentModelInput,
   type ListTreatmentModelInput,
   type TreatmentDefinition,
-  type ConvertInput,
-  type DebugExtractInput,
   stableStringify,
 } from '@saas/types'
-import { applyModel, type TraceRow } from './lib/apply-model'
-import { parseData } from './lib/parsers'
 
-// A EXTRAÇÃO do arquivo (XLSX/PDF) roda no CLIENTE (ver apps/web/.../tratamento-
-// lancamentos/lib). O servidor só APLICA o modelo sobre a tabela já extraída que o
-// cliente envia (convert/debugExtract) — não abre arquivo nem depende de motor de
-// PDF. Foi isso que tirou o pico de memória da API (origem do OOM em PDFs grandes).
-
-/** Teto de linhas no visualizador de debug (limita payload; é ferramenta interna). */
-const DEBUG_MAX_ROWS = 5000
-/** Teto do traço "Dados processados" devolvido pelo convert (limita payload). */
-const CONVERT_TRACE_MAX = 5000
-
-// Traço enxuto para a aba "Dados processados" (sem os campos "parsed").
-type ConvertTraceRow = Pick<TraceRow, 'linha' | 'data' | 'valor' | 'descricao' | 'participante' | 'numeroNf' | 'documento' | 'direcao' | 'contaContrapartida' | 'contaCorrente' | 'status'>
-function projectTrace(t: TraceRow): ConvertTraceRow {
-  return {
-    linha: t.linha, data: t.data, valor: t.valor, descricao: t.descricao,
-    participante: t.participante, numeroNf: t.numeroNf, documento: t.documento,
-    direcao: t.direcao, contaContrapartida: t.contaContrapartida,
-    contaCorrente: t.contaCorrente, status: t.status,
-  }
-}
+// A EXTRAÇÃO do arquivo (XLSX/PDF) e a CONVERSÃO para o SCI rodam no NAVEGADOR
+// (extract-tabela no web + motor `converterParaSci` em @saas/types). Este serviço
+// só guarda e entrega os modelos: a tabela de um arquivo grande nunca atravessa a
+// rede, então os limites do proxy/servidor de produção não alcançam a geração.
 
 function empresaFilter(_isMaster: boolean, empresaId?: string): Prisma.TreatmentModelWhereInput {
   return empresaId ? { empresaId } : {}
@@ -335,108 +315,6 @@ export class TratamentoLancamentosService {
         },
       })
     })
-  }
-
-  /**
-   * Converte um arquivo de lançamentos aplicando um Modelo → conteúdo SCI
-   * (base64, ANSI/latin1) ou lista de pendências quando algo não pôde ser
-   * interpretado. "Exportação para o SCI".
-   */
-  async convert(input: ConvertInput, isMaster: boolean, empresaId?: string, tenantSchema?: string) {
-    // A tabela já vem EXTRAÍDA DO CLIENTE — a API não abre o arquivo, só aplica o
-    // modelo (`applyModel` consome apenas headers/rows).
-    const table = input.table
-
-    const model = await scoped(tenantSchema, async (db) => {
-      const m = await db.treatmentModel.findUniqueOrThrow({ where: { id: input.modelId } })
-      assertScope(m.empresaId, isMaster, empresaId)
-      const cv = m.currentVersionId
-        ? await db.treatmentModelVersion.findUnique({ where: { id: m.currentVersionId } })
-        : null
-      return { nome: m.nome, definition: (cv?.definition ?? null) as TreatmentDefinition | null }
-    })
-
-    const def = model.definition ?? EMPTY_TREATMENT_DEFINITION
-    // Colunas opcionais do De/Para que o modelo mapeou → a aba "Dados processados"
-    // mostra uma coluna para cada uma (mesmo que o valor venha vazio em algumas linhas).
-    const colunasOpcionais = {
-      participante: !!def.columnMapping.participante,
-      numeroNf: !!def.columnMapping.numeroNf,
-      documento: !!def.columnMapping.documento,
-    }
-
-    // Datas "dd/mm" sem ano (ex.: Sicoob): sem a competência informada, avisa o
-    // front para pedir o ano (popup) e reenviar — não gera o arquivo ainda.
-    const dataCol = def.columnMapping.data
-    const precisaAno = !input.competenciaAno && !!dataCol && table.rows.some((r) => parseData(r[dataCol]).semAno)
-    if (precisaAno) {
-      return { needsCompetenciaAno: true, totalLancamentos: 0, pendencias: [], fileBase64: null, fileName: '', trace: [] as ConvertTraceRow[], traceTotal: 0, okTotal: 0, colunasOpcionais }
-    }
-
-    // Coleta o traço por-linha (como o modelo interpretou cada lançamento) para a
-    // aba "Dados processados". Projeta só os campos exibidos (sem os "parsed").
-    const trace: TraceRow[] = []
-    const result = applyModel(table, def, input.competenciaAno, trace)
-    const safe = model.nome.replace(/[^a-zA-Z0-9-_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'lancamentos'
-    return {
-      needsCompetenciaAno: false,
-      totalLancamentos: result.totalLancamentos,
-      pendencias: result.pendencias,
-      // .txt em ANSI (latin1); null quando há pendências.
-      fileBase64: result.sciText !== null ? Buffer.from(result.sciText, 'latin1').toString('base64') : null,
-      fileName: `SCI_${safe}.txt`,
-      trace: trace.slice(0, CONVERT_TRACE_MAX).map(projectTrace),
-      traceTotal: trace.length,
-      // Total de linhas OK sobre TODO o traço (não só o fatiado) → contagem exata.
-      okTotal: trace.reduce((n, t) => (t.status === 'ok' ? n + 1 : n), 0),
-      colunasOpcionais,
-    }
-  }
-
-  /**
-   * Visualizador de DEBUG (ferramenta interna, via atalho de teclado): recebe a
-   * tabela extraída no cliente e, se um modelo for informado, aplica o modelo com
-   * traço por-linha (como cada lançamento foi mapeado no de/para, e o que foi
-   * pulado/ignorado/pendente). Diagnóstico — não altera o fluxo de geração.
-   */
-  async debugExtract(input: DebugExtractInput, isMaster: boolean, empresaId?: string, tenantSchema?: string) {
-    // Tabela já extraída no cliente (a API não abre o arquivo).
-    const table = input.table
-    const totalRows = table.rows.length
-
-    const base = {
-      headers: table.headers,
-      rows: table.rows.slice(0, DEBUG_MAX_ROWS),
-      totalRows,
-      truncated: totalRows > DEBUG_MAX_ROWS,
-    }
-
-    // Sem modelo → só a tabela crua (view 1). Com modelo → também de/para + traço.
-    if (!input.modelId) {
-      return { ...base, modelNome: null, columnMapping: null, trace: [] as TraceRow[], pendencias: [], totalLancamentos: table.rows.length }
-    }
-
-    const modelId = input.modelId
-    const model = await scoped(tenantSchema, async (db) => {
-      const m = await db.treatmentModel.findUniqueOrThrow({ where: { id: modelId } })
-      assertScope(m.empresaId, isMaster, empresaId)
-      const cv = m.currentVersionId
-        ? await db.treatmentModelVersion.findUnique({ where: { id: m.currentVersionId } })
-        : null
-      return { nome: m.nome, definition: (cv?.definition ?? null) as TreatmentDefinition | null }
-    })
-    const def = model.definition ?? EMPTY_TREATMENT_DEFINITION
-    const trace: TraceRow[] = []
-    const result = applyModel(table, def, input.competenciaAno, trace)
-
-    return {
-      ...base,
-      modelNome: model.nome,
-      columnMapping: def.columnMapping,
-      trace: trace.slice(0, DEBUG_MAX_ROWS),
-      pendencias: result.pendencias,
-      totalLancamentos: result.totalLancamentos,
-    }
   }
 
   async listForSelect(isMaster: boolean, empresaId?: string, tenantSchema?: string) {

@@ -57,7 +57,6 @@ interface Props {
   headers: string[]
   rows: Array<Record<string, CellValue>>
   trace: TraceItem[]
-  traceTotal: number
   okTotal: number
   colunasOpcionais: ColunasOpcionais
   canManage: boolean
@@ -130,11 +129,14 @@ function scrollToCenter(container: HTMLElement | null, el: HTMLElement) {
   }
 }
 
-export function PendenciasPanel({ pendencias, totalLancamentos, headers, rows, trace, traceTotal, okTotal, colunasOpcionais, canManage, onEditModel, onDownload }: Props) {
+export function PendenciasPanel({ pendencias, totalLancamentos, headers, rows, trace, okTotal, colunasOpcionais, canManage, onEditModel, onDownload }: Props) {
   const temPendencias = pendencias.length > 0
   const [aberto, setAberto] = useState(temPendencias) // sucesso → retraído
   const [tab, setTab] = useState(temPendencias ? 'pend' : 'proc')
   const [expanded, setExpanded] = useState<Set<number>>(new Set())
+  // Pendências renderizadas (um arquivo grande pode ter dezenas de milhares): de
+  // MAX_RENDER em MAX_RENDER, via "Mostrar mais" ou ao saltar até uma pendência.
+  const [pendLimite, setPendLimite] = useState(MAX_RENDER)
   const [flashPend, setFlashPend] = useState<number | null>(null)
   const [pendingPend, setPendingPend] = useState<number | null>(null)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -172,6 +174,7 @@ export function PendenciasPanel({ pendencias, totalLancamentos, headers, rows, t
     const idx = linhaToPendIdx.get(linha)
     if (idx == null) return
     setTab('pend')
+    setPendLimite((n) => Math.max(n, idx + 1))
     setPendingPend(idx)
   }, [linhaToPendIdx])
 
@@ -240,7 +243,7 @@ export function PendenciasPanel({ pendencias, totalLancamentos, headers, rows, t
           </button>
           {aberto && (
             <div className="px-5 pb-5 pt-1">
-              <DadosProcessados trace={trace} traceTotal={traceTotal} colunasOpcionais={colunasOpcionais} temPendencias={false} onIrParaPendencia={() => { /* sem pendências */ }} />
+              <DadosProcessados trace={trace} colunasOpcionais={colunasOpcionais} temPendencias={false} onIrParaPendencia={() => { /* sem pendências */ }} />
             </div>
           )}
         </div>
@@ -310,7 +313,7 @@ export function PendenciasPanel({ pendencias, totalLancamentos, headers, rows, t
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {pendencias.map((p, i) => (
+                          {pendencias.slice(0, pendLimite).map((p, i) => (
                             <PendenciaRow
                               key={i}
                               idx={i}
@@ -326,6 +329,14 @@ export function PendenciasPanel({ pendencias, totalLancamentos, headers, rows, t
                           ))}
                         </TableBody>
                       </Table>
+                      {pendencias.length > pendLimite && (
+                        <div className="flex items-center justify-center gap-3 border-t border-border/60 px-4 py-2.5 text-[11px] text-muted-foreground">
+                          Exibindo {pendLimite} de {pendencias.length} pendências.
+                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setPendLimite((n) => n + MAX_RENDER)}>
+                            Mostrar mais {Math.min(MAX_RENDER, pendencias.length - pendLimite)}
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -352,7 +363,6 @@ export function PendenciasPanel({ pendencias, totalLancamentos, headers, rows, t
               <TabsContent value="proc" forceMount className="mt-4 data-[state=inactive]:hidden">
                 <DadosProcessados
                   trace={trace}
-                  traceTotal={traceTotal}
                   colunasOpcionais={colunasOpcionais}
                   temPendencias={temPendencias}
                   onIrParaPendencia={irParaPendencia}
@@ -455,10 +465,9 @@ function PendenciaRow({
 
 // --- Dados processados (como o modelo interpretou cada lançamento) ----------
 function DadosProcessados({
-  trace, traceTotal, colunasOpcionais, temPendencias, onIrParaPendencia,
+  trace, colunasOpcionais, temPendencias, onIrParaPendencia,
 }: {
   trace: TraceItem[]
-  traceTotal: number
   colunasOpcionais: ColunasOpcionais
   temPendencias: boolean
   onIrParaPendencia: (linha: number) => void
@@ -466,6 +475,7 @@ function DadosProcessados({
   // Tooltip que segue o mouse nas linhas de pendência (portal p/ escapar do
   // overflow da tabela; posição fixa no cursor).
   const [tip, setTip] = useState<{ x: number; y: number } | null>(null)
+  const traceTotal = trace.length
   const shown = trace.slice(0, MAX_RENDER)
   if (shown.length === 0) {
     return (

@@ -18,15 +18,12 @@ import { PendenciasPanel } from './_components/pendencias-panel'
 import { fileToBase64 } from '@/lib/file'
 import { extractClient } from './lib/extract-client'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { converterParaSci, sciTextToBytes, type CellValue, type ConversaoSci } from '@saas/types'
 
 interface ModelOption { id: string; nome: string; code: number }
-// Tipo do retorno de `convert` inferido do tRPC — nomeado p/ uso na UI, sem
-// duplicar nem castar o shape do backend (mudanças no backend propagam aqui).
-type ConvertResult = Awaited<ReturnType<typeof trpc.tratamentoLancamentos.convert.mutate>>
-type CellValue = string | number | boolean | null
-// Tabela extraída no preview (pós-upload) que o cliente CARREGA: reenviada no
-// convert (evita re-extração) e usada pelo painel de pendências.
-interface ExtractedTable { headers: string[]; rows: Array<Record<string, CellValue>>; truncated: boolean }
+// Tabela extraída no preview (pós-upload) que o cliente CARREGA: é dela que a
+// conversão parte (sem re-extração) e é ela que o painel de pendências exibe.
+interface ExtractedTable { headers: string[]; rows: Array<Record<string, CellValue>> }
 
 const ACCEPT = ['.xlsx', '.xls', '.csv', '.pdf']
 const extOk = (name: string) => ACCEPT.some((e) => name.toLowerCase().endsWith(e))
@@ -59,7 +56,7 @@ export default function TratamentoLancamentosPage() {
   const [file, setFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [converting, setConverting] = useState(false)
-  const [result, setResult] = useState<ConvertResult | null>(null)
+  const [result, setResult] = useState<ConversaoSci | null>(null)
   // Muda a cada nova conversão → reseta o estado (colapso/aba) do painel via key.
   const [resultSeq, setResultSeq] = useState(0)
   // base64 lido na seleção do arquivo — reaproveitado na geração e ao criar modelo.
@@ -100,7 +97,7 @@ export default function TratamentoLancamentosPage() {
       setFileBase64(base64)
       const table = await extractClient(f)
       setDetectedRows(table.rows.length)
-      setExtracted({ headers: table.headers, rows: table.rows, truncated: false })
+      setExtracted({ headers: table.headers, rows: table.rows })
     } catch {
       // Se o preview falhar, mantém o arquivo restaurado mesmo assim.
     } finally {
@@ -130,7 +127,7 @@ export default function TratamentoLancamentosPage() {
       const table = await extractClient(f)
       setFileBase64(base64)
       setDetectedRows(table.rows.length)
-      setExtracted({ headers: table.headers, rows: table.rows, truncated: false })
+      setExtracted({ headers: table.headers, rows: table.rows })
     } catch {
       alerts.error('Falha ao ler o arquivo', 'Não foi possível detectar uma tabela de lançamentos no arquivo.')
       setFile(null)
@@ -155,9 +152,9 @@ export default function TratamentoLancamentosPage() {
     router.push(`/tratamento-lancamentos/modelos/${id}?from=${FROM}`)
   }
 
-  const download = useCallback((base64: string, fileName: string) => {
-    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
-    const blob = new Blob([bytes], { type: 'text/plain;charset=iso-8859-1' })
+  // .txt do SCI em ANSI (latin1), gerado no navegador.
+  const download = useCallback((sciText: string, fileName: string) => {
+    const blob = new Blob([sciTextToBytes(sciText)], { type: 'text/plain;charset=iso-8859-1' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url; a.download = fileName; a.click()
@@ -165,21 +162,18 @@ export default function TratamentoLancamentosPage() {
   }, [])
 
   async function handleExport(competenciaAno?: number) {
-    if (!file || !modelId || !fileBase64) return
+    if (!file || !modelId || !extracted) return
     setConverting(true)
     setResult(null)
-    // A extração roda no cliente: o backend recebe a tabela pronta e não re-extrai
-    // (o convert exige `table`; o fallback de reenvio do arquivo bruto saiu do contrato).
-    let res: ConvertResult
+    // Extração E conversão rodam no navegador: da API vem só a definição do modelo
+    // (pequena). A tabela — que num arquivo grande passa de vários MB — não
+    // atravessa a rede, então os limites do proxy/servidor de produção não a alcançam.
+    let res: ConversaoSci
     try {
-      res = await trpc.tratamentoLancamentos.convert.mutate({
-        modelId,
-        filename: file.name,
-        competenciaAno,
-        table: { headers: extracted!.headers, rows: extracted!.rows },
-      })
+      const model = await trpc.tratamentoLancamentos.getById.query({ id: modelId })
+      res = converterParaSci(extracted, model.definition, model.nome, competenciaAno)
     } catch {
-      alerts.error('Falha ao gerar o arquivo', 'Não foi possível ler o arquivo ou aplicar o modelo. Verifique o arquivo e tente novamente.')
+      alerts.error('Falha ao gerar o arquivo', 'Não foi possível carregar o modelo ou aplicá-lo ao arquivo. Tente novamente.')
       setConverting(false)
       return
     }
@@ -206,8 +200,8 @@ export default function TratamentoLancamentosPage() {
 
     setResult(res)
     setResultSeq((s) => s + 1)
-    if (res.fileBase64) {
-      download(res.fileBase64, res.fileName)
+    if (res.sciText !== null) {
+      download(res.sciText, res.fileName)
       await alerts.success('Arquivo gerado', `${res.totalLancamentos} lançamentos convertidos para o SCI.`)
     }
   }
@@ -218,7 +212,7 @@ export default function TratamentoLancamentosPage() {
   // menores ela pode nascer fora da área visível.
   const pendenciasRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (result && !result.fileBase64 && (result.pendencias?.length ?? 0) > 0) {
+    if (result && result.sciText === null && result.pendencias.length > 0) {
       pendenciasRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
   }, [result])
@@ -343,10 +337,9 @@ export default function TratamentoLancamentosPage() {
               totalLancamentos={result.totalLancamentos}
               headers={extracted?.headers ?? []}
               rows={extracted?.rows ?? []}
-              trace={result.trace ?? []}
-              traceTotal={result.traceTotal ?? 0}
-              okTotal={result.okTotal ?? 0}
-              colunasOpcionais={result.colunasOpcionais ?? { participante: false, numeroNf: false, documento: false }}
+              trace={result.trace}
+              okTotal={result.okTotal}
+              colunasOpcionais={result.colunasOpcionais}
               canManage={canManage}
               onEditModel={() => {
                 // Abre o editor em "modo revisão": realça pendências de modelo (vermelho)
@@ -354,7 +347,7 @@ export default function TratamentoLancamentosPage() {
                 try { sessionStorage.setItem('tl:revisar', '1') } catch { /* ignore */ }
                 goEditModel(modelId)
               }}
-              onDownload={result.fileBase64 ? () => download(result.fileBase64!, result.fileName) : undefined}
+              onDownload={result.sciText !== null ? () => download(result.sciText!, result.fileName) : undefined}
             />
           </div>
         )}

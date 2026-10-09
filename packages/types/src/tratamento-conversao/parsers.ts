@@ -20,7 +20,7 @@ export interface ParsedDate {
   semAno?: boolean
 }
 
-import { extrairMarcadorDC } from '@saas/types'
+import { extrairMarcadorDC } from '../tratamento-lancamentos'
 
 export interface ParsedValue {
   valid: boolean
@@ -31,11 +31,6 @@ export interface ParsedValue {
 
 function isEmpty(raw: unknown): boolean {
   return raw === null || raw === undefined || String(raw).trim() === ''
-}
-
-/** Remove tudo que não é dígito — usado para CNPJ/CPF no campo <8> do SCI. */
-export function onlyDigits(raw: unknown): string {
-  return String(raw ?? '').replace(/\D/g, '')
 }
 
 // 25569 = dias entre a época do Excel (1899-12-30, já com o bug do ano 1900)

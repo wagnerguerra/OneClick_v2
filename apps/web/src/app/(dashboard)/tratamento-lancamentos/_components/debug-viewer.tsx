@@ -16,14 +16,20 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   cn,
 } from '@saas/ui'
+import { applyModel, EMPTY_TREATMENT_DEFINITION, type CellValue, type Pendencia, type TraceRow } from '@saas/types'
 import { TEXT, BADGE, type ColorName } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { extractClient } from '../lib/extract-client'
 
-type DebugResult = Awaited<ReturnType<typeof trpc.tratamentoLancamentos.debugExtract.mutate>>
-type TraceRow = DebugResult['trace'][number]
+interface DebugResult {
+  headers: string[]
+  rows: Array<Record<string, CellValue>>
+  modelNome: string | null
+  trace: TraceRow[]
+  pendencias: Pendencia[]
+}
 
-// Teto de linhas RENDERIZADAS no DOM (o backend já limita o payload).
+// Teto de linhas RENDERIZADAS no DOM.
 const MAX_RENDER = 500
 
 const STATUS_LABEL: Record<TraceRow['status'], string> = {
@@ -58,13 +64,19 @@ export function DebugViewer({ fileBase64, filename, modelId, competenciaAno }: P
   const load = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      // Extração NO CLIENTE (igual ao fluxo real); a API só aplica o modelo.
+      // Extração e aplicação do modelo NO CLIENTE (igual ao fluxo real); da API
+      // vem só a definição do modelo.
       const bytes = Uint8Array.from(atob(fileBase64), (c) => c.charCodeAt(0))
       const table = await extractClient(new File([bytes], filename))
-      const res = await trpc.tratamentoLancamentos.debugExtract.mutate({
-        table: { headers: table.headers, rows: table.rows }, filename, modelId, competenciaAno,
-      })
-      setData(res)
+      const base = { headers: table.headers, rows: table.rows }
+      if (!modelId) {
+        setData({ ...base, modelNome: null, trace: [], pendencias: [] })
+        return
+      }
+      const model = await trpc.tratamentoLancamentos.getById.query({ id: modelId })
+      const trace: TraceRow[] = []
+      const result = applyModel(base, model.definition ?? EMPTY_TREATMENT_DEFINITION, competenciaAno, trace)
+      setData({ ...base, modelNome: model.nome, trace, pendencias: result.pendencias })
     } catch (e) {
       setError((e as Error).message || 'Falha ao extrair a tabela.')
       setData(null)
@@ -90,9 +102,9 @@ export function DebugViewer({ fileBase64, filename, modelId, competenciaAno }: P
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-foreground">Visualizador de debug</p>
           <p className="text-[11px] text-muted-foreground truncate">
-            Estrutura da tabela lida do arquivo{data ? ` · ${data.totalRows} linha${data.totalRows === 1 ? '' : 's'}` : ''}
+            Estrutura da tabela lida do arquivo{data ? ` · ${data.rows.length} linha${data.rows.length === 1 ? '' : 's'}` : ''}
             {data?.modelNome ? ` · modelo: ${data.modelNome}` : ' · (sem modelo selecionado)'}
-            {data?.truncated ? ` · exibindo as primeiras ${MAX_RENDER}` : ''}
+            {data && data.rows.length > MAX_RENDER ? ` · exibindo as primeiras ${MAX_RENDER}` : ''}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading} className="shrink-0">
