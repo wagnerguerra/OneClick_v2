@@ -1,12 +1,12 @@
 import {
   EXPORT_FORMATO,
   EXPORT_VERSAO_FORMATO,
+  normalizeDefinition,
   treatmentDefinitionSchema,
   treatmentModelExportSchema,
   type TipoArquivoModelo,
   type TreatmentModelExport,
 } from '@saas/types'
-import { normalizeDefinition } from '../_components/treatment-definition'
 
 // Exportação de Modelos de Tratamento em JSON — contrato `treatmentModelExportSchema`
 // (@saas/types), importado pelo Centria. Montado todo no navegador a partir do que

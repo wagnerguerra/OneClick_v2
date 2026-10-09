@@ -14,9 +14,8 @@ import { BADGE, TEXT } from '@/lib/color-styles'
 import type { TreatmentDefinition, TipoArquivoModelo } from '@saas/types'
 import {
   EMPTY_TREATMENT_DEFINITION, formatValorExibicao, extrairMarcadorDC, matchPalavraChaveIndex,
-  TIPO_ARQUIVO_MODELO, TIPO_ARQUIVO_MODELO_LABELS,
+  TIPO_ARQUIVO_MODELO, TIPO_ARQUIVO_MODELO_LABELS, normalizeDefinition,
 } from '@saas/types'
-import { normalizeDefinition } from '../treatment-definition'
 import { DetectedRowsStatus } from '../detected-rows-status'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'

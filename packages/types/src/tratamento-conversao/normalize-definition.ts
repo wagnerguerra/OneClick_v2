@@ -1,12 +1,12 @@
-import type { TreatmentDefinition, ContrapartidaRule } from '@saas/types'
-import { EMPTY_TREATMENT_DEFINITION } from '@saas/types'
+import { EMPTY_TREATMENT_DEFINITION, type TreatmentDefinition, type ContrapartidaRule } from '../tratamento-lancamentos'
 
 /**
  * Normaliza a definição vinda do banco para o formato atual. Tolerante a
- * modelos antigos cuja contrapartida era { modo, itens } (só o modo ativo) ou
- * cujos arrays (mapa/palavraChave/descricao) estavam ausentes. Garante que toda
- * lista existe — usado pelo editor E pelo diff/visão geral do histórico (snapshots
- * antigos quebravam o diff por terem campos não-iteráveis).
+ * modelos antigos cuja contrapartida era { modo, itens } (só o modo ativo), cujos
+ * arrays (mapa/palavraChave/descricao) estavam ausentes ou que não têm blocos
+ * criados depois deles (ex.: juros/descontos). Garante que toda lista existe —
+ * usado pela conversão, pelo editor, pela exportação e pelo diff/visão geral do
+ * histórico (snapshots antigos quebravam por terem campos ausentes).
  */
 export function normalizeDefinition(raw: unknown): TreatmentDefinition {
   const base = EMPTY_TREATMENT_DEFINITION

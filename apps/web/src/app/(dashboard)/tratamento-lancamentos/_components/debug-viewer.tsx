@@ -16,7 +16,7 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   cn,
 } from '@saas/ui'
-import { applyModel, EMPTY_TREATMENT_DEFINITION, type CellValue, type Pendencia, type TraceRow } from '@saas/types'
+import { applyModel, normalizeDefinition, type CellValue, type Pendencia, type TraceRow } from '@saas/types'
 import { TEXT, BADGE, type ColorName } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { extractClient } from '../lib/extract-client'
@@ -75,7 +75,7 @@ export function DebugViewer({ fileBase64, filename, modelId, competenciaAno }: P
       }
       const model = await trpc.tratamentoLancamentos.getById.query({ id: modelId })
       const trace: TraceRow[] = []
-      const result = applyModel(base, model.definition ?? EMPTY_TREATMENT_DEFINITION, competenciaAno, trace)
+      const result = applyModel(base, normalizeDefinition(model.definition), competenciaAno, trace)
       setData({ ...base, modelNome: model.nome, trace, pendencias: result.pendencias })
     } catch (e) {
       setError((e as Error).message || 'Falha ao extrair a tabela.')

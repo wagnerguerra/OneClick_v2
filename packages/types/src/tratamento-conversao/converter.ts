@@ -4,8 +4,9 @@
 // Roda no navegador — ver o cabeçalho de apply-model.ts.
 // ============================================================
 
-import { EMPTY_TREATMENT_DEFINITION, type TreatmentDefinition, type ExtractedTableInput } from '../tratamento-lancamentos'
+import type { ExtractedTableInput } from '../tratamento-lancamentos'
 import { applyModel, type Pendencia, type TraceRow } from './apply-model'
+import { normalizeDefinition } from './normalize-definition'
 import { parseData } from './parsers'
 
 /** Colunas opcionais do De/Para que o modelo mapeou (viram colunas em "Dados processados"). */
@@ -25,13 +26,17 @@ export interface ConversaoSci {
   colunasOpcionais: ColunasOpcionaisSci
 }
 
+/**
+ * `definition` é a definição CRUA do banco (JSON): normalizada aqui, porque um
+ * modelo salvo antes de um bloco existir (ex.: juros/descontos) não o traz.
+ */
 export function converterParaSci(
   table: ExtractedTableInput,
-  definition: TreatmentDefinition | null,
+  definition: unknown,
   nomeModelo: string,
   competenciaAno?: number,
 ): ConversaoSci {
-  const def = definition ?? EMPTY_TREATMENT_DEFINITION
+  const def = normalizeDefinition(definition)
   // Colunas opcionais do De/Para que o modelo mapeou → a aba "Dados processados"
   // mostra uma coluna para cada uma (mesmo que o valor venha vazio em algumas linhas).
   const colunasOpcionais = {
