@@ -41,6 +41,12 @@
      sticky de seção (top-[…]) e por alvos de autoscroll (scroll-mt-[…]).
      Mudar SÓ aqui reflete em todos os consumidores. */
   --app-header-offset: 4rem;
+  /* Topo livre para um elemento sticky do CONTEÚDO: abaixo do header E da barra
+     de título da página quando ela também está fixa (preferência de layout). A
+     altura da barra é publicada pelo próprio <PageHeaderBar> em --page-bar-offset
+     (0 quando não está fixa). Use este, e não o --app-header-offset, para o que
+     precisa ficar VISÍVEL ao grudar — senão ele gruda atrás da barra de título. */
+  --app-sticky-top: calc(var(--app-header-offset) + var(--page-bar-offset, 0px));
   --color-sidebar: #ffffff;
   --color-sidebar-foreground: #1a1a1a;
   --color-sidebar-border: #e5e5e5;

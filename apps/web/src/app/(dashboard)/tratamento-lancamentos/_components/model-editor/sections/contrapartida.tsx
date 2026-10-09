@@ -566,7 +566,7 @@ function PainelCorrespondencia({ descricoes, itens, totalLinhas, truncated, onCr
       <button
         type="button"
         onClick={() => { setSoSem(distintasSem > 0); setAberto(true) }}
-        className="group sticky top-[calc(var(--app-header-offset)_+_8px)] z-10 flex w-full cursor-pointer items-center gap-5 rounded-[4px] border border-border bg-card px-4 py-2.5 text-left shadow-sm ring-1 ring-transparent transition-all hover:border-fuchsia-400/60 hover:ring-fuchsia-400/20"
+        className="group sticky top-[calc(var(--app-sticky-top)_+_8px)] z-10 flex w-full cursor-pointer items-center gap-5 rounded-[4px] border border-border bg-card px-4 py-2.5 text-left shadow-sm ring-1 ring-transparent transition-all hover:border-fuchsia-400/60 hover:ring-fuchsia-400/20"
       >
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
