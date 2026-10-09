@@ -245,7 +245,7 @@ function BatchInput({ placeholder, numeric, variaveis, onApply }: { placeholder:
  * busca aplica a todas as linhas; com busca, só aos resultados.
  */
 function ContrapartidaTabela<T extends CpItemComum>({
-  itens, onUpdate, onBatchUpdate, onRemove, onAdd, addLabel, dcByDescricao, headers, primeiraColuna, searchText, searchPlaceholder, revisar, emptyText, rowClassName, removeMode = 'inline',
+  itens, onUpdate, onBatchUpdate, onRemove, onAdd, addLabel, novoItem, dcByDescricao, headers, primeiraColuna, searchText, searchPlaceholder, revisar, emptyText, rowClassName, removeMode = 'inline',
 }: {
   itens: T[]
   onUpdate: (i: number, patch: Partial<T>) => void
@@ -253,6 +253,11 @@ function ContrapartidaTabela<T extends CpItemComum>({
   onRemove?: (i: number) => void
   onAdd?: () => void
   addLabel?: string
+  /** `seq` incrementa a cada item que o usuário ACRESCENTA ao fim da lista (botão
+   *  Adicionar, criar pelo modal de correspondências): a tabela limpa a busca e vai
+   *  à página do item novo — ele nasce para ser preenchido. `rolar` também rola a
+   *  página até a linha e a destaca (quem adiciona de longe, ex.: pelo modal). */
+  novoItem?: { seq: number; rolar: boolean }
   dcByDescricao: boolean
   headers: string[]
   primeiraColuna: { header: string; className?: string; cellClassName?: string; render: (it: T, i: number) => ReactNode }
@@ -276,8 +281,10 @@ function ContrapartidaTabela<T extends CpItemComum>({
     return q ? withIdx.filter(({ it }) => searchText(it).toLowerCase().includes(q)) : withIdx
   }, [itens, query, searchText])
 
-  // Reseta a página ao mudar a busca (evita ficar numa página que sumiu).
-  useEffect(() => { setPage(0) }, [query])
+  // Digitar na busca volta à 1ª página (evita ficar numa página que sumiu). No
+  // onChange, e não num efeito sobre `query`: limpar a busca ao adicionar um item
+  // não pode desfazer a ida à página dele.
+  const buscar = (q: string) => { setQuery(q); setPage(0) }
 
   const effSize = pageSize === 'all' ? Math.max(1, filtered.length) : pageSize
 
@@ -316,13 +323,27 @@ function ContrapartidaTabela<T extends CpItemComum>({
     onBatchUpdate?.(filtered.map((f) => f.i), patch)
   }
 
-  function handleAdd() {
-    // Ao adicionar, limpa o filtro e vai pra última página, pra a nova linha aparecer.
+  // Item novo no fim da lista (ver `novoItemSeq`): limpa a busca e vai à página
+  // dele — a última, no tamanho de página atual. Roda depois do reposicionamento
+  // do modo revisão (declarado antes), então prevalece sobre ele.
+  const [destaque, setDestaque] = useState<number | null>(null) // índice ORIGINAL da linha
+  const bodyRef = useRef<HTMLTableSectionElement>(null)
+  useEffect(() => {
+    if (!novoItem?.seq) return
     marcaMexeu()
     setQuery('')
-    setPage(Math.floor(itens.length / effSize))
-    onAdd?.()
-  }
+    setPage(pageSize === 'all' ? 0 : Math.floor((itens.length - 1) / pageSize))
+    if (novoItem.rolar) setDestaque(itens.length - 1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [novoItem?.seq])
+  // Com a página do item já renderizada: rola até a linha (centro da tela) e a
+  // destaca por um instante, para o olho achá-la.
+  useEffect(() => {
+    if (destaque === null) return
+    bodyRef.current?.querySelector(`[data-linha="${destaque}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const t = setTimeout(() => setDestaque(null), 1600)
+    return () => clearTimeout(t)
+  }, [destaque])
 
   const batchable = !!onBatchUpdate && filtered.length > 0
   const colSpan = 3 + (dcByDescricao ? 1 : 0) + (onRemove ? 1 : 0)
@@ -338,7 +359,7 @@ function ContrapartidaTabela<T extends CpItemComum>({
                 className="h-8 pl-7 text-xs"
                 placeholder={searchPlaceholder ?? 'Buscar...'}
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => buscar(e.target.value)}
               />
             </div>
           ) : <span />}
@@ -419,11 +440,11 @@ function ContrapartidaTabela<T extends CpItemComum>({
               {onRemove && <TableHead className="w-[52px]" />}
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody ref={bodyRef}>
             {visible.map(({ it, i }) => {
               const pular = !!it.pular
               return (
-              <TableRow key={i} className={rowClassName}>
+              <TableRow key={i} data-linha={i} className={cn(rowClassName, 'transition-colors duration-500', destaque === i && 'bg-primary/10 hover:bg-primary/10')}>
                 <TableCell className={primeiraColuna.cellClassName}>{primeiraColuna.render(it, i)}</TableCell>
                 {dcByDescricao && (
                   <TableCell>
@@ -469,7 +490,7 @@ function ContrapartidaTabela<T extends CpItemComum>({
       </div>
 
       {onAdd && (
-        <Button variant="soft" size="sm" onClick={handleAdd}><Plus className="h-4 w-4" /> {addLabel ?? 'Adicionar'}</Button>
+        <Button variant="soft" size="sm" onClick={onAdd}><Plus className="h-4 w-4" /> {addLabel ?? 'Adicionar'}</Button>
       )}
 
       {showPager && (
@@ -743,8 +764,12 @@ export function ContrapartidaPalavraChave({ def, setDef, dcByDescricao, headers 
       return { ...d, contrapartida: { ...d.contrapartida, palavraChave: next } }
     })
   }, [setDef])
+  // Cada palavra-chave acrescentada pelo usuário sinaliza a tabela p/ ir à página
+  // dela; a criada pelo modal também rola até a linha (o usuário está longe dela).
+  const [novoItem, setNovoItem] = useState({ seq: 0, rolar: false })
   const add = useCallback(() => {
     setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, palavraChave: [...d.contrapartida.palavraChave, { palavraChave: '', conta: '', historicoFixo: '' }] } }))
+    setNovoItem((n) => ({ seq: n.seq + 1, rolar: false }))
   }, [setDef])
   const remove = useCallback((i: number) => {
     setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, palavraChave: d.contrapartida.palavraChave.filter((_, idx) => idx !== i) } }))
@@ -754,6 +779,7 @@ export function ContrapartidaPalavraChave({ def, setDef, dcByDescricao, headers 
   // apagando palavras na tabela e vê a correspondência subir.
   const criarDaDescricao = useCallback((texto: string) => {
     setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, palavraChave: [...d.contrapartida.palavraChave, { palavraChave: texto, conta: '', historicoFixo: '' }] } }))
+    setNovoItem((n) => ({ seq: n.seq + 1, rolar: true }))
   }, [setDef])
 
   return (
@@ -761,7 +787,7 @@ export function ContrapartidaPalavraChave({ def, setDef, dcByDescricao, headers 
       <p className="text-[12px] text-muted-foreground">Adicione palavras-chave abaixo, a serem detectadas nas descrições dos lançamentos.</p>
       {totalLinhas > 0 && <PainelCorrespondencia descricoes={descricoes} itens={itensContagem} totalLinhas={totalLinhas} truncated={truncated} onCriar={criarDaDescricao} />}
       <ContrapartidaTabela
-        itens={itens} onUpdate={update} onBatchUpdate={batchUpdate} onRemove={remove} onAdd={add} addLabel="Adicionar palavra-chave"
+        itens={itens} onUpdate={update} onBatchUpdate={batchUpdate} onRemove={remove} onAdd={add} addLabel="Adicionar palavra-chave" novoItem={novoItem}
         dcByDescricao={dcByDescricao} headers={headers} revisar={revisar} rowClassName={totalLinhas > 0 ? '[&>td]:py-5' : undefined}
         emptyText="Nenhuma palavra-chave adicionada ainda — comece adicionando uma no botão abaixo."
         searchText={(it) => it.palavraChave} searchPlaceholder="Buscar palavra-chave..."
