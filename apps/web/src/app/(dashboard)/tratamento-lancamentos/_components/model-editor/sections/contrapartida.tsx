@@ -553,7 +553,15 @@ function PainelCorrespondencia({ descricoes, itens, totalLinhas, truncated, onCr
     return [...arr].sort((a, b) => b.count - a.count) // mais frequentes primeiro
   }, [enriquecidas, soSem, query])
 
-  useEffect(() => { setPage(0) }, [query, soSem, aberto])
+  // Volta à 1ª página só quando a LISTA muda (busca/filtro). Fechar e reabrir o
+  // modal mantém página, filtro, busca e a posição de scroll — o usuário retoma
+  // de onde parou. O conteúdo do modal desmonta ao fechar: a posição fica num ref
+  // e volta quando o corpo rolável remonta.
+  useEffect(() => { setPage(0) }, [query, soSem])
+  const scrollTop = useRef(0)
+  const restauraScroll = useCallback((el: HTMLDivElement | null) => {
+    if (el) el.scrollTop = scrollTop.current
+  }, [])
 
   const pageCount = Math.max(1, Math.ceil(filtradas.length / LIST_PAGE_SIZE))
   const pageSafe = Math.min(page, pageCount - 1)
@@ -565,7 +573,8 @@ function PainelCorrespondencia({ descricoes, itens, totalLinhas, truncated, onCr
           Cara de "linha clicável" já em repouso: card elevado + chevron à direita. */}
       <button
         type="button"
-        onClick={() => { setSoSem(distintasSem > 0); setAberto(true) }}
+        // Mantém o filtro escolhido; só sai de "Sem correspondência" se ela ficou vazia.
+        onClick={() => { if (distintasSem === 0) setSoSem(false); setAberto(true) }}
         className="group sticky top-[calc(var(--app-sticky-top)_+_8px)] z-10 flex w-full cursor-pointer items-center gap-5 rounded-[4px] border border-border bg-card px-4 py-2.5 text-left shadow-sm ring-1 ring-transparent transition-all hover:border-fuchsia-400/60 hover:ring-fuchsia-400/20"
       >
         <div className="min-w-0 flex-1">
@@ -607,7 +616,7 @@ function PainelCorrespondencia({ descricoes, itens, totalLinhas, truncated, onCr
               {pct}% dos lançamentos correspondidos · {distintasSem} {distintasSem === 1 ? 'descrição sem correspondência' : 'descrições sem correspondência'}
             </DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-2">
+          <DialogBody className="space-y-2" ref={restauraScroll} onScroll={(e) => { scrollTop.current = e.currentTarget.scrollTop }}>
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative w-full max-w-xs sm:flex-1">
                 <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
