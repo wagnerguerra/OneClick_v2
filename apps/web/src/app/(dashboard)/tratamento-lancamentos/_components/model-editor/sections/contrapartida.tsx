@@ -245,12 +245,14 @@ function BatchInput({ placeholder, numeric, variaveis, onApply }: { placeholder:
  * busca aplica a todas as linhas; com busca, só aos resultados.
  */
 function ContrapartidaTabela<T extends CpItemComum>({
-  itens, onUpdate, onBatchUpdate, onRemove, onAdd, addLabel, novoItem, dcByDescricao, headers, primeiraColuna, searchText, searchPlaceholder, revisar, emptyText, rowClassName, removeMode = 'inline',
+  itens, onUpdate, onBatchUpdate, onRemove, onRemoveMany, onAdd, addLabel, novoItem, dcByDescricao, headers, primeiraColuna, searchText, searchPlaceholder, revisar, emptyText, rowClassName, removeMode = 'inline',
 }: {
   itens: T[]
   onUpdate: (i: number, patch: Partial<T>) => void
   onBatchUpdate?: (indices: number[], patch: Partial<T>) => void
   onRemove?: (i: number) => void
+  /** Exclui as linhas SELECIONADAS (índices originais). Quem passa confirma. */
+  onRemoveMany?: (indices: number[]) => void
   onAdd?: () => void
   addLabel?: string
   /** `seq` incrementa a cada item que o usuário ACRESCENTA ao fim da lista (botão
@@ -314,13 +316,34 @@ function ContrapartidaTabela<T extends CpItemComum>({
   const showSearch = itens.length > SEARCH_THRESHOLD
   const showPageSize = itens.length > DEFAULT_PAGE_SIZE
   const showPager = pageCount > 1
-  const scopeLabel = query.trim()
-    ? `${filtered.length} ${filtered.length === 1 ? 'linha do filtro' : 'linhas do filtro'}`
-    : (filtered.length === 1 ? 'a única linha' : `todas as ${filtered.length} linhas`)
+
+  // Seleção de linhas (índices ORIGINAIS). Com seleção, o preenchimento em lote dos
+  // cabeçalhos aplica só às selecionadas; sem, ao filtro/todas como antes. Remoções
+  // deslocam os índices → a seleção é descartada quando a lista encolhe.
+  const [sel, setSel] = useState<Set<number>>(new Set())
+  const lenAnterior = useRef(itens.length)
+  useEffect(() => {
+    if (itens.length < lenAnterior.current) setSel(new Set())
+    lenAnterior.current = itens.length
+  }, [itens.length])
+  const selecionavel = !!onBatchUpdate || !!onRemoveMany
+  const toggleSel = (i: number, v: boolean) => setSel((s) => { const n = new Set(s); if (v) n.add(i); else n.delete(i); return n })
+  const paginaToda = visible.length > 0 && visible.every(({ i }) => sel.has(i))
+  const togglePagina = (v: boolean) => setSel((s) => {
+    const n = new Set(s)
+    for (const { i } of visible) { if (v) n.add(i); else n.delete(i) }
+    return n
+  })
+
+  const scopeLabel = sel.size
+    ? (sel.size === 1 ? 'a linha selecionada' : `as ${sel.size} linhas selecionadas`)
+    : query.trim()
+      ? `${filtered.length} ${filtered.length === 1 ? 'linha do filtro' : 'linhas do filtro'}`
+      : (filtered.length === 1 ? 'a única linha' : `todas as ${filtered.length} linhas`)
 
   function batchApply(patch: Partial<T>) {
     marcaMexeu()
-    onBatchUpdate?.(filtered.map((f) => f.i), patch)
+    onBatchUpdate?.(sel.size ? [...sel] : filtered.map((f) => f.i), patch)
   }
 
   // Item novo no fim da lista (ver `novoItemSeq`): limpa a busca e vai à página
@@ -346,7 +369,7 @@ function ContrapartidaTabela<T extends CpItemComum>({
   }, [destaque])
 
   const batchable = !!onBatchUpdate && filtered.length > 0
-  const colSpan = 3 + (dcByDescricao ? 1 : 0) + (onRemove ? 1 : 0)
+  const colSpan = 3 + (selecionavel ? 1 : 0) + (dcByDescricao ? 1 : 0) + (onRemove ? 1 : 0)
 
   return (
     <div className="space-y-2">
@@ -380,9 +403,35 @@ function ContrapartidaTabela<T extends CpItemComum>({
       )}
 
       <div className="rounded-[2px] border border-border/60 overflow-hidden">
+        {/* Barra de seleção — mesmo padrão de /gestao-certificados. */}
+        {sel.size > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b bg-primary/10 px-4 py-2">
+            <div className="text-sm">
+              <span className="font-medium">{sel.size} {sel.size === 1 ? 'linha selecionada' : 'linhas selecionadas'}</span>
+              {batchable && (
+                <span className="ml-2 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                  · o preenchimento em lote (<Wand2 className="h-3 w-3" />) dos cabeçalhos aplica só a elas
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setSel(new Set())}>Limpar seleção</Button>
+              {onRemoveMany && (
+                <Button variant="soft-destructive" size="sm" onClick={() => onRemoveMany([...sel])}>
+                  <Trash2 className="h-3.5 w-3.5" /> Excluir {sel.size}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
         <Table>
           <TableHeader>
             <TableRow>
+              {selecionavel && (
+                <TableHead className="w-[44px]">
+                  <Checkbox checked={paginaToda} onCheckedChange={(v) => togglePagina(!!v)} disabled={!visible.length} aria-label="Selecionar as linhas desta página" />
+                </TableHead>
+              )}
               <TableHead className={primeiraColuna.className}>{primeiraColuna.header}</TableHead>
               {dcByDescricao && (
                 <TableHead className="w-[180px]">
@@ -444,7 +493,12 @@ function ContrapartidaTabela<T extends CpItemComum>({
             {visible.map(({ it, i }) => {
               const pular = !!it.pular
               return (
-              <TableRow key={i} data-linha={i} className={cn(rowClassName, 'transition-colors duration-500', destaque === i && 'bg-primary/10 hover:bg-primary/10')}>
+              <TableRow key={i} data-linha={i} className={cn(rowClassName, 'transition-colors duration-500', (destaque === i || sel.has(i)) && 'bg-primary/10 hover:bg-primary/10')}>
+                {selecionavel && (
+                  <TableCell>
+                    <Checkbox checked={sel.has(i)} onCheckedChange={(v) => toggleSel(i, !!v)} aria-label="Selecionar linha" />
+                  </TableCell>
+                )}
                 <TableCell className={primeiraColuna.cellClassName}>{primeiraColuna.render(it, i)}</TableCell>
                 {dcByDescricao && (
                   <TableCell>
@@ -774,6 +828,19 @@ export function ContrapartidaPalavraChave({ def, setDef, dcByDescricao, headers 
   const remove = useCallback((i: number) => {
     setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, palavraChave: d.contrapartida.palavraChave.filter((_, idx) => idx !== i) } }))
   }, [setDef])
+  // Exclusão das selecionadas: em lote, então confirma (a individual é direta).
+  const removeMany = useCallback(async (indices: number[]) => {
+    const n = indices.length
+    const ok = await alerts.confirm({
+      title: n === 1 ? 'Excluir a palavra-chave selecionada?' : `Excluir as ${n} palavras-chave selecionadas?`,
+      text: 'Os lançamentos que elas cobriam voltam a ficar sem correspondência.',
+      confirmText: 'Excluir',
+      destructive: true,
+    })
+    if (!ok) return
+    const set = new Set(indices)
+    setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, palavraChave: d.contrapartida.palavraChave.filter((_, idx) => !set.has(idx)) } }))
+  }, [setDef])
   // Cria uma palavra-chave já pré-preenchida com a descrição (clique numa descoberta
   // no modal). O texto inteiro nasce correspondendo àquela linha; o usuário generaliza
   // apagando palavras na tabela e vê a correspondência subir.
@@ -787,7 +854,7 @@ export function ContrapartidaPalavraChave({ def, setDef, dcByDescricao, headers 
       <p className="text-[12px] text-muted-foreground">Adicione palavras-chave abaixo, a serem detectadas nas descrições dos lançamentos.</p>
       {totalLinhas > 0 && <PainelCorrespondencia descricoes={descricoes} itens={itensContagem} totalLinhas={totalLinhas} truncated={truncated} onCriar={criarDaDescricao} />}
       <ContrapartidaTabela
-        itens={itens} onUpdate={update} onBatchUpdate={batchUpdate} onRemove={remove} onAdd={add} addLabel="Adicionar palavra-chave" novoItem={novoItem}
+        itens={itens} onUpdate={update} onBatchUpdate={batchUpdate} onRemove={remove} onRemoveMany={removeMany} onAdd={add} addLabel="Adicionar palavra-chave" novoItem={novoItem}
         dcByDescricao={dcByDescricao} headers={headers} revisar={revisar} rowClassName={totalLinhas > 0 ? '[&>td]:py-5' : undefined}
         emptyText="Nenhuma palavra-chave adicionada ainda — comece adicionando uma no botão abaixo."
         searchText={(it) => it.palavraChave} searchPlaceholder="Buscar palavra-chave..."
@@ -858,13 +925,25 @@ export function ContrapartidaDescricao({ def, setDef, dcByDescricao, headers = [
     if (!res.isConfirmed) return
     setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, descricao: d.contrapartida.descricao.filter((_, idx) => idx !== i) } }))
   }, [itens, setDef])
+  const removeManyComConfirmacao = useCallback(async (indices: number[]) => {
+    const n = indices.length
+    const ok = await alerts.confirm({
+      title: n === 1 ? 'Excluir a descrição selecionada?' : `Excluir as ${n} descrições selecionadas?`,
+      text: 'Elas estão aqui porque foram detectadas num arquivo lido anteriormente. Se aparecerem de novo num próximo arquivo, será necessário mapeá-las outra vez.',
+      confirmText: 'Excluir',
+      destructive: true,
+    })
+    if (!ok) return
+    const set = new Set(indices)
+    setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, descricao: d.contrapartida.descricao.filter((_, idx) => !set.has(idx)) } }))
+  }, [setDef])
 
   if (!itens.length) return null
   return (
     <div className="space-y-2">
       <p className="text-[12px] text-muted-foreground">Cada descrição distinta recebe uma conta de contrapartida.</p>
       <ContrapartidaTabela
-        itens={itens} onUpdate={update} onBatchUpdate={batchUpdate} onRemove={removeComConfirmacao} removeMode="kebab"
+        itens={itens} onUpdate={update} onBatchUpdate={batchUpdate} onRemove={removeComConfirmacao} onRemoveMany={removeManyComConfirmacao} removeMode="kebab"
         dcByDescricao={dcByDescricao} headers={headers} revisar={revisar}
         searchText={(it) => it.descricao} searchPlaceholder="Buscar descrição..."
         primeiraColuna={{
