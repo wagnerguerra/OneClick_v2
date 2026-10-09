@@ -24,6 +24,7 @@ import { alerts } from '@/lib/alerts'
 import { ImportModal } from './_components/import-modal'
 import { InlineEditCell } from '@/components/ui/inline-edit-cell'
 import { CopyPermissionsModal } from './_components/copy-permissions-modal'
+import { CadastroRapidoModal } from './_components/cadastro-rapido-modal'
 import { exportToExcel, type ExportColumn } from '@/lib/export-data'
 
 interface UserRow {
@@ -101,6 +102,7 @@ export default function UsuariosPage() {
   const [loading, setLoading] = useState(true)
   const [importOpen, setImportOpen] = useState(false)
   const [copyPermsOpen, setCopyPermsOpen] = useState(false)
+  const [cadastroRapidoOpen, setCadastroRapidoOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [importingV1, setImportingV1] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -394,8 +396,8 @@ export default function UsuariosPage() {
       {/* Barra da página — PADRAO_PAGINAS §1.1 (referência /clientes) */}
       <PageHeaderBar
         actions={<>
-          <Button size="sm" asChild className="gap-1.5">
-            <Link href="/usuarios/new"><Plus className="h-4 w-4" />Novo Usuário</Link>
+          <Button size="sm" className="gap-1.5" onClick={() => setCadastroRapidoOpen(true)}>
+            <Plus className="h-4 w-4" />Novo Usuário
           </Button>
           <Button variant="outline" size="sm" asChild className="gap-1.5">
             <Link href="/usuarios/permissoes"><ShieldCheck className="h-4 w-4" />Permissões em massa</Link>
@@ -756,6 +758,11 @@ export default function UsuariosPage() {
       <CopyPermissionsModal
         open={copyPermsOpen}
         onClose={() => setCopyPermsOpen(false)}
+        onSuccess={fetchUsers}
+      />
+      <CadastroRapidoModal
+        open={cadastroRapidoOpen}
+        onClose={() => setCadastroRapidoOpen(false)}
         onSuccess={fetchUsers}
       />
     </div>
