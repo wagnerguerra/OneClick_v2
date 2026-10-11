@@ -489,7 +489,7 @@ export default function AssinaturaTemplatePage() {
         )}
 
         {/* PREVIEW (sempre visível, lado direito) */}
-        <Card className="xl:sticky xl:top-4 xl:self-start">
+        <Card className="xl:sticky xl:top-[calc(var(--app-sticky-top)_+_1rem)] xl:self-start">
           <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">
             <Eye className="h-4 w-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold flex-1">Preview ao vivo</h3>

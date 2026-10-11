@@ -14,9 +14,8 @@ import { BADGE, TEXT } from '@/lib/color-styles'
 import type { TreatmentDefinition, TipoArquivoModelo } from '@saas/types'
 import {
   EMPTY_TREATMENT_DEFINITION, formatValorExibicao, extrairMarcadorDC, matchPalavraChaveIndex,
-  TIPO_ARQUIVO_MODELO, TIPO_ARQUIVO_MODELO_LABELS,
+  TIPO_ARQUIVO_MODELO, TIPO_ARQUIVO_MODELO_LABELS, normalizeDefinition,
 } from '@saas/types'
-import { normalizeDefinition } from '../treatment-definition'
 import { DetectedRowsStatus } from '../detected-rows-status'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -42,12 +41,47 @@ import { JurosDescontosSection } from './sections/juros-descontos'
 // palavra. Vive só enquanto o alerta está aberto (sem tocar no globals).
 const SWAL_TITLE_FIX = '<style>.swal2-title{word-break:normal;overflow-wrap:break-word}</style>'
 
+// "Aceitar valores em branco" de uma coluna OPCIONAL do De/Para: marcada, a célula
+// vazia não vira pendência — o lançamento sai sem aquele dado. Só aparece com uma
+// coluna selecionada (sem coluna, não há o que validar); limpar a coluna desmarca.
+function AceitaVazioCheck({ checked, onChange, efeito }: { checked: boolean; onChange: (v: boolean) => void; efeito: string }) {
+  return (
+    <OpcaoCheck
+      label="Aceitar valores em branco" checked={checked} onChange={onChange}
+      ajuda={`Se marcado, linhas com esta coluna vazia não causarão erro: o lançamento será gerado ${efeito}. Se desmarcado, toda linha precisa ter este dado.`}
+    />
+  )
+}
+
+// Opção (checkbox) de um campo do De/Para, logo abaixo do select — mesmo formato
+// para "Aceitar valores em branco" e "Valor fixo".
+function OpcaoCheck({ label, checked, onChange, ajuda }: { label: string; checked: boolean; onChange: (v: boolean) => void; ajuda: string }) {
+  return (
+    <label className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] text-muted-foreground">
+      <Checkbox checked={checked} onCheckedChange={(v) => onChange(!!v)} />
+      {label}
+      <HelpTip text={ajuda} />
+    </label>
+  )
+}
+
+// Marcação "Opcional" inline no label do campo, precedida da dica do campo
+// (quando há o que explicar).
+function OpcionalTag({ ajuda }: { ajuda?: string }) {
+  return (
+    <>
+      {ajuda && <span className="ml-1 inline-flex align-middle"><HelpTip text={ajuda} /></span>}
+      <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">Opcional</span>
+    </>
+  )
+}
+
 // Campo "CNPJ/CPF do participante" do De/Para. Diferente dos demais: o dado pode
 // vir de uma COLUNA do arquivo OU de um VALOR FIXO (alternativas exclusivas). O
 // valor fixo atende importações de extrato bancário, onde esse dado não vem no
 // arquivo mas precisa ser informado. Trocar de modo limpa o outro (exclusividade).
 function CampoDocumento({
-  headers, coluna, fixo, foraCol, samples, ativo, onAtivoChange, onColuna, onFixo,
+  headers, coluna, fixo, foraCol, samples, ativo, onAtivoChange, onColuna, onFixo, aceitaVazio, onAceitaVazio,
 }: {
   headers: string[]
   coluna: string
@@ -58,31 +92,37 @@ function CampoDocumento({
   onAtivoChange: (v: boolean) => void
   onColuna: (v: string) => void
   onFixo: (v: string) => void
+  aceitaVazio: boolean
+  onAceitaVazio: (v: boolean) => void
 }) {
   // Trocar de modo limpa o outro (coluna e valor fixo são exclusivos).
   const toggle = (v: boolean) => { if (v) { onColuna(''); onAtivoChange(true) } else { onFixo(''); onAtivoChange(false) } }
   return (
     <div className="space-y-1.5">
-      <div className="relative mb-0">
-        <Label className="text-[13px] font-semibold">CNPJ/CPF do participante {ativo && <span className="text-destructive">*</span>}</Label>
-        <label className="absolute right-0 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 whitespace-nowrap text-[12px] text-muted-foreground cursor-pointer">
-          Valor fixo
-          <HelpTip text="Use apenas em importações de extrato bancário, em que o CNPJ/CPF não vem no arquivo mas precisa ser informado. O mesmo valor será usado em todos os lançamentos." />
-          <Checkbox checked={ativo} onCheckedChange={(v) => toggle(!!v)} />
-        </label>
-      </div>
+      <Label className="text-[13px] font-semibold">
+        CNPJ/CPF do participante{' '}
+        {ativo ? <span className="text-destructive">*</span> : <OpcionalTag ajuda='Pré-selecionado se houver coluna "CNPJ".' />}
+      </Label>
       {ativo ? (
         <Input className="h-9 text-sm" placeholder="Digite o CNPJ/CPF..." value={fixo} onChange={(e) => onFixo(e.target.value)} />
       ) : (
+        <ColumnSelect headers={headers} value={coluna} optional onChange={onColuna}
+          className={foraCol ? 'border-amber-400 ring-1 ring-amber-400/40' : undefined} />
+      )}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <OpcaoCheck
+          label="Valor fixo" checked={ativo} onChange={toggle}
+          ajuda="Use apenas em importações de extrato bancário, em que o CNPJ/CPF não vem no arquivo mas precisa ser informado. O mesmo valor será usado em todos os lançamentos."
+        />
+        {!ativo && coluna && <AceitaVazioCheck checked={aceitaVazio} onChange={onAceitaVazio} efeito="sem CNPJ/CPF" />}
+      </div>
+      {!ativo && (
         <>
-          <ColumnSelect headers={headers} value={coluna} optional onChange={onColuna}
-            className={foraCol ? 'border-amber-400 ring-1 ring-amber-400/40' : undefined} />
           {foraCol && (
             <p className={cn('flex items-center gap-1 text-[11px]', TEXT.amber)}>
               <AlertTriangle className="h-3 w-3 shrink-0" /> A coluna &quot;{foraCol}&quot; não está no arquivo enviado.
             </p>
           )}
-          <p className="text-[11px] text-muted-foreground">Opcional — pré-selecionado se houver coluna &quot;CNPJ&quot;.</p>
           {samples.length > 0 && (
             <div className="text-[11px] text-muted-foreground/80">
               <span className="font-medium">Prévia de dados:</span>
@@ -382,8 +422,15 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       const dc = d.debitoCredito
       const preSelSinal = key === 'valor' && !!value && colunaTemSinais(value)
         && dc.tipo === 'COLUNA' && !dc.coluna.trim() && dc.mapa.length === 0
-      return { ...d, columnMapping, debitoCredito: preSelSinal ? { ...dc, tipo: 'SINAL' } : dc }
+      // Coluna opcional limpa → desmarca "Aceitar valores em branco" (a opção some
+      // junto com a coluna; não fica marcada escondida).
+      const aceitaVazio = !value && key in d.aceitaVazio ? { ...d.aceitaVazio, [key]: false } : d.aceitaVazio
+      return { ...d, columnMapping, aceitaVazio, debitoCredito: preSelSinal ? { ...dc, tipo: 'SINAL' } : dc }
     })
+  }
+
+  function setAceitaVazio(key: keyof TreatmentDefinition['aceitaVazio'], value: boolean) {
+    setDef((d) => ({ ...d, aceitaVazio: { ...d.aceitaVazio, [key]: value } }))
   }
 
   // Troca só o tipo — mantém coluna+mapa (persistido), p/ não perder ao reverter.
@@ -777,7 +824,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       {headers.length === 0 ? (
         <EmptyHint>Envie um arquivo de exemplo para listar as colunas.</EmptyHint>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
           {MAP_FIELDS.map((f) => {
             const value = def.columnMapping[f.key] || ''
             // Na coluna de Valor, mostra o valor como será interpretado — com o
@@ -789,15 +836,21 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
             return (
               <div key={f.key} className="space-y-1.5">
                 <Label className="text-[13px] font-semibold">
-                  {f.label} {f.req && <span className="text-destructive">*</span>}
+                  {f.label} {f.req ? <span className="text-destructive">*</span> : <OpcionalTag ajuda={f.hint} />}
                 </Label>
                 <ColumnSelect headers={headers} value={value} optional={!f.req} onChange={(v) => setMap(f.key, v)} className={foraCol ? 'border-amber-400 ring-1 ring-amber-400/40' : undefined} />
+                {f.aceitaVazio && value && (
+                  <AceitaVazioCheck
+                    checked={def.aceitaVazio[f.aceitaVazio.key]}
+                    onChange={(v) => setAceitaVazio(f.aceitaVazio!.key, v)}
+                    efeito={f.aceitaVazio.efeito}
+                  />
+                )}
                 {foraCol && (
                   <p className={cn('flex items-center gap-1 text-[11px]', TEXT.amber)}>
                     <AlertTriangle className="h-3 w-3 shrink-0" /> A coluna &quot;{foraCol}&quot; não está no arquivo enviado.
                   </p>
                 )}
-                {f.hint && <p className="text-[11px] text-muted-foreground">{f.hint}</p>}
                 {samples.length > 0 && (
                   <div className="text-[11px] text-muted-foreground/80">
                     <span className="font-medium">Prévia de dados:</span>
@@ -817,6 +870,8 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
             onAtivoChange={setDocFixoAtivo}
             onColuna={(v) => setMap('documento', v)}
             onFixo={(v) => setMap('documentoFixo', v)}
+            aceitaVazio={def.aceitaVazio.documento}
+            onAceitaVazio={(v) => setAceitaVazio('documento', v)}
           />
         </div>
       )}
@@ -1002,7 +1057,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     <>
       {secDados}
       {secArquivo}
-      <div id="rev-depara" className="scroll-mt-[var(--app-header-offset)]">{secDePara}</div>
+      <div id="rev-depara" className="scroll-mt-[var(--app-sticky-top)]">{secDePara}</div>
       <SecaoRevisao ativo={modoRevisao} problems={revProbs.cc} id="rev-cc">{secContasCorrentes}</SecaoRevisao>
       <SecaoRevisao ativo={modoRevisao} problems={revProbs.jd} id="rev-jd">{secJurosDescontos}</SecaoRevisao>
       <SecaoRevisao ativo={modoRevisao} problems={revProbs.dc} id="rev-dc">{secDC}</SecaoRevisao>
@@ -1182,7 +1237,7 @@ function RevisaoCallout({ problems }: { problems: string[] }) {
 function SecaoRevisao({ ativo, problems, id, children }: { ativo: boolean; problems: string[]; id: string; children: ReactNode }) {
   if (!ativo || !problems.length) return <>{children}</>
   return (
-    <div id={id} className="space-y-2 scroll-mt-[var(--app-header-offset)]">
+    <div id={id} className="space-y-2 scroll-mt-[var(--app-sticky-top)]">
       <RevisaoCallout problems={problems} />
       <div className="rounded-lg ring-2 ring-destructive/50 ring-offset-2 ring-offset-background">{children}</div>
     </div>

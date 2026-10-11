@@ -9,12 +9,11 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
-import type { TreatmentDefinition } from '@saas/types'
+import { normalizeDefinition, type TreatmentDefinition } from '@saas/types'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { computeDiff } from './version-diff'
-import { normalizeDefinition } from './treatment-definition'
 import { VersionOverview } from './version-overview'
 import { buildModeloJson, downloadModeloJson } from '../lib/export-modelos'
 

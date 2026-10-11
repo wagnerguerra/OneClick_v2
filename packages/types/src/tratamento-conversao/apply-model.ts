@@ -3,6 +3,10 @@
 // e produz o conteúdo SCI — ou a lista de PENDÊNCIAS, quando algum lançamento
 // não pôde ser interpretado.
 //
+// Roda NO NAVEGADOR (assim como a extração): a tabela de um arquivo grande não
+// atravessa a rede nem esbarra nos limites do proxy/servidor de produção. Por
+// isso vive em @saas/types, sem dependência de Node.
+//
 // Tipos de pendência (alinhados ao plano):
 //   DC_NAO_MAPEADO              valor da coluna de débito/crédito sem direção definida
 //   CONTA_NAO_MAPEADA           sem conta de contrapartida para a descrição/palavra-chave
@@ -13,9 +17,9 @@
 //   COLUNA_NAO_ENCONTRADA      coluna selecionada no De/Para ausente no arquivo
 // ============================================================
 
-import { matchPalavraChaveIndex, resolveHistorico, JUROS_DESCONTOS_HISTORICO, type TreatmentDefinition, type JurosDescontosRule, type JurosDescontoTipo, type ExtractedTableInput, type CellValue } from '@saas/types'
+import { matchPalavraChaveIndex, resolveHistorico, JUROS_DESCONTOS_HISTORICO, type Direcao, type TreatmentDefinition, type JurosDescontosRule, type JurosDescontoTipo, type ExtractedTableInput, type CellValue } from '../tratamento-lancamentos'
 import { parseData, parseValor } from './parsers'
-import { buildSciLine, buildSciFile, type Direcao } from './sci-format'
+import { buildSciLine, buildSciFile } from './sci-format'
 
 export type PendenciaTipo = 'DC_NAO_MAPEADO' | 'CONTA_NAO_MAPEADA' | 'CONTA_CORRENTE_NAO_MAPEADA' | 'CAMPO_VAZIO' | 'DATA_INVALIDA' | 'VALOR_INVALIDO' | 'COLUNA_NAO_ENCONTRADA'
 
@@ -124,6 +128,7 @@ function lerJurosDescontos(row: Record<string, CellValue>, jd: JurosDescontosRul
 
 export function applyModel(table: ExtractedTableInput, def: TreatmentDefinition, anoCompetencia?: number, trace?: TraceRow[]): ConversionResult {
   const cm = def.columnMapping
+  const av = def.aceitaVazio
   const dcMapa = new Map(def.debitoCredito.mapa.map((m) => [m.valor, m.direcao]))
   const cc = def.contasCorrentes
   const ccMapa = new Map(cc.mapa.map((m) => [m.valor, m.conta]))
@@ -199,10 +204,11 @@ export function applyModel(table: ExtractedTableInput, def: TreatmentDefinition,
 
     if (!descricao && !faltantes.has(cm.descricao)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.descricao, mensagem: 'Descrição vazia. Não foi possível determinar a contrapartida.' })
     // Colunas opcionais do De/Para: se SELECIONADAS (e presentes), também precisam
-    // ter valor na linha (concepção: qualquer coluna escolhida precisa ter valor).
-    if (cm.participante && !participante && !faltantes.has(cm.participante)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.participante, mensagem: 'Nome do participante vazio.' })
-    if (cm.numeroNf && !numeroNf && !faltantes.has(cm.numeroNf)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.numeroNf, mensagem: 'Número da NF vazio.' })
-    if (cm.documento && !documento && !faltantes.has(cm.documento)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.documento, mensagem: 'CNPJ/CPF vazio.' })
+    // ter valor na linha — salvo as marcadas "aceita em branco" (`aceitaVazio`), em
+    // que a célula vazia passa e o lançamento sai sem aquele dado.
+    if (cm.participante && !participante && !av.participante && !faltantes.has(cm.participante)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.participante, mensagem: 'Nome do participante vazio.' })
+    if (cm.numeroNf && !numeroNf && !av.numeroNf && !faltantes.has(cm.numeroNf)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.numeroNf, mensagem: 'Número da NF vazio.' })
+    if (cm.documento && !documento && !av.documento && !faltantes.has(cm.documento)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.documento, mensagem: 'CNPJ/CPF vazio.' })
 
     // Data (campo obrigatório)
     const dataStr = cell(row, cm.data)

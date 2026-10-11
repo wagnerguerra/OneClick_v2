@@ -13,7 +13,7 @@
 //   <8> CNPJ/CPF só dígitos, senão vazio
 //
 // Arquivo final: encoding ANSI (latin1) + quebra de linha Windows (CRLF) —
-// aplicados na entrega (controller), aqui produzimos a string.
+// o CRLF sai daqui; o latin1 é aplicado na entrega (`sciTextToBytes`).
 //
 // Confirmado em importação real (com a gestora do contábil): campos de texto
 // vazios = vazio puro (",,"), valor sempre com 2 casas, e o mapeamento de
@@ -24,13 +24,13 @@
 // `sanitizeCampo` remove esses caracteres antes de montar a linha.
 // ============================================================
 
-export type Direcao = 'DEBITO' | 'CREDITO'
+import type { Direcao } from '../tratamento-lancamentos'
 
 /**
  * Higieniza um campo de texto que vai para a linha SCI: remove vírgulas e
  * quebras de linha (que quebrariam o layout de campos separados por vírgula) e
- * colapsa espaços. Rede de segurança no servidor — vale também para valores que
- * vêm do arquivo de origem (participante, nº NF), fora do controle do front.
+ * colapsa espaços. Vale também para valores que vêm do arquivo de origem
+ * (participante, nº NF), fora do controle do editor de modelos.
  */
 export function sanitizeCampo(s: string): string {
   return s.replace(/[\r\n,]+/g, ' ').replace(/\s+/g, ' ').trim()
@@ -89,4 +89,15 @@ export function buildSciLine(l: SciLancamento): string {
 /** Junta as linhas no conteúdo final do arquivo (CRLF; latin1 aplicado na entrega). */
 export function buildSciFile(lines: string[]): string {
   return lines.join('\r\n')
+}
+
+/**
+ * Bytes do .txt em ANSI (latin1): um byte por caractere, como o
+ * `Buffer.from(texto, 'latin1')` do Node (caractere fora do latin1 fica com o
+ * byte baixo do código).
+ */
+export function sciTextToBytes(texto: string): Uint8Array<ArrayBuffer> {
+  const bytes = new Uint8Array(texto.length)
+  for (let i = 0; i < texto.length; i++) bytes[i] = texto.charCodeAt(i) & 0xff
+  return bytes
 }

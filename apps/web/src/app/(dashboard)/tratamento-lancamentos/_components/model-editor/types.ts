@@ -26,13 +26,19 @@ export const PULAR_LINHA_HINT =
   'arquivo SCI. Útil para linhas do extrato que não são lançamentos (ex.: "Saldo do ' +
   'dia", "Saldo anterior"). Quando marcado, os demais campos deste item são dispensados.'
 
-// Campos do de/para. `req` marca os obrigatórios.
-export const MAP_FIELDS: Array<{ key: keyof TreatmentDefinition['columnMapping']; label: string; req?: boolean; hint?: string }> = [
+// Campos do de/para. `req` marca os obrigatórios (os demais levam "Opcional" no
+// label; `hint` vira a dica ao lado). `aceitaVazio` liga, nos
+// opcionais, a opção "Aceitar valores em branco" (chave em def.aceitaVazio + o que
+// acontece com o lançamento quando a célula vem vazia).
+export const MAP_FIELDS: Array<{
+  key: keyof TreatmentDefinition['columnMapping']; label: string; req?: boolean; hint?: string
+  aceitaVazio?: { key: keyof TreatmentDefinition['aceitaVazio']; efeito: string }
+}> = [
   { key: 'descricao', label: 'Descrição do lançamento', req: true },
   { key: 'valor', label: 'Valor', req: true },
   { key: 'data', label: 'Data', req: true },
-  { key: 'participante', label: 'Nome do participante', hint: 'Opcional — usado no histórico do SCI' },
-  { key: 'numeroNf', label: 'Número da NF', hint: 'Opcional' },
+  { key: 'participante', label: 'Nome do participante', hint: 'Usado no histórico do SCI.', aceitaVazio: { key: 'participante', efeito: 'sem o participante no histórico' } },
+  { key: 'numeroNf', label: 'Número da NF', aceitaVazio: { key: 'numeroNf', efeito: 'sem o número da NF' } },
   // `documento` (CNPJ/CPF) é renderizado à parte (CampoDocumento) por ter o modo
   // "coluna vs. valor fixo"; não entra neste loop genérico.
 ]

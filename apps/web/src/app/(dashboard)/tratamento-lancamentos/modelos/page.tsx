@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Pencil, Trash2, Copy, History, MoreVertical, FileJson, Download, Loader2,
+  Plus, Pencil, Trash2, Copy, History, MoreVertical, FileJson, Download, Loader2, FileUp,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react'
@@ -20,6 +20,7 @@ import { alerts } from '@/lib/alerts'
 import { BackButton } from '@/components/ui/back-button'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { VersionHistoryDialog } from '../_components/version-history-dialog'
+import { ImportarModelosDialog } from '../_components/importar-modelos-dialog'
 import {
   buildModeloJson, downloadModeloJson, downloadArquivo, exportarModelosZip, nomeZipModelos,
 } from '../lib/export-modelos'
@@ -54,6 +55,8 @@ export default function ModelosTratamentoPage() {
   // Modelos selecionados para exportar (id → nome) e progresso da exportação (null = parado).
   const [selected, setSelected] = useState<Map<string, string>>(new Map())
   const [exportProgress, setExportProgress] = useState<{ feitos: number; total: number } | null>(null)
+  // Modal de importação de modelos (.json/.zip exportados) — mesma UX de /areas.
+  const [importOpen, setImportOpen] = useState(false)
   const router = useRouter()
 
   // Gerenciar Modelos é restrito à sub-permissão "gerenciar_modelos".
@@ -238,6 +241,9 @@ export default function ModelosTratamentoPage() {
       {/* Header */}
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
+          <Button variant="soft" size="sm" onClick={() => setImportOpen(true)}>
+            <FileUp className="h-4 w-4" />Importar
+          </Button>
           <Button variant="success" size="sm" onClick={openCreate}>
             <Plus className="h-4 w-4" />Novo Modelo
           </Button>
@@ -439,6 +445,8 @@ export default function ModelosTratamentoPage() {
           onRestored={fetchModels}
         />
       )}
+
+      <ImportarModelosDialog open={importOpen} onClose={() => setImportOpen(false)} onSuccess={fetchModels} />
     </div>
   )
 }

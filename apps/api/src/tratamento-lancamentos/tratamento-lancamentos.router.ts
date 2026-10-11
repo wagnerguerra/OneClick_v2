@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { router, readProcedure, writeSubProcedure, deleteSubProcedure } from '../trpc/trpc.service'
-import { createTreatmentModelSchema, updateTreatmentModelSchema, listTreatmentModelSchema, convertSchema, debugExtractSchema } from '@saas/types'
+import { createTreatmentModelSchema, updateTreatmentModelSchema, listTreatmentModelSchema } from '@saas/types'
 import { TratamentoLancamentosService } from './tratamento-lancamentos.service'
 
 const MODULE = 'tratamento-lancamentos'
@@ -33,17 +33,6 @@ export function createTratamentoLancamentosRouter(service: TratamentoLancamentos
 
     listForSelect: readProcedure(MODULE)
       .query(({ ctx }) => service.listForSelect(ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
-
-    // Conversão para o SCI (aplica o modelo à tabela extraída no cliente). Só leitura.
-    convert: readProcedure(MODULE)
-      .input(convertSchema)
-      .mutation(({ input, ctx }) => service.convert(input, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
-
-    // Visualizador de debug (ferramenta interna, via atalho de teclado): recebe a
-    // tabela extraída no cliente e devolve o traço do de/para. Só leitura.
-    debugExtract: readProcedure(MODULE)
-      .input(debugExtractSchema)
-      .mutation(({ input, ctx }) => service.debugExtract(input, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
     create: writeSubProcedure(MODULE, MANAGE, MANAGE_LABEL)
       .input(createTreatmentModelSchema)

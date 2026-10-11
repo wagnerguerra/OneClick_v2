@@ -334,7 +334,7 @@ export default function FaqHubPage() {
         </section>
 
         {/* Barra lateral acompanha a rolagem: a lista é longa. */}
-        <aside className="space-y-4 lg:sticky lg:top-[calc(var(--app-header-offset)_+_1.5rem)] lg:self-start">
+        <aside className="space-y-4 lg:sticky lg:top-[calc(var(--app-sticky-top)_+_1.5rem)] lg:self-start">
           {comecePorAqui.length > 0 && (
             <Card className="rounded-2xl">
               <CardContent className="p-5">

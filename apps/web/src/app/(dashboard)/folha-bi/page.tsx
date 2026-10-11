@@ -432,7 +432,7 @@ export default function FolhaBiPage() {
             )}
           </div>
 
-          <aside className="space-y-3 lg:sticky lg:top-4 lg:self-start">
+          <aside className="space-y-3 lg:sticky lg:top-[calc(var(--app-sticky-top)_+_1rem)] lg:self-start">
             {lote.total > 1 && (
               <Card className="p-3 text-sm">
                 <div className="flex items-center gap-2">

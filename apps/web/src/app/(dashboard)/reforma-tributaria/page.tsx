@@ -354,7 +354,7 @@ export default function ReformaTributariaPage() {
               navegação flutuava sobre o fundo da página, sem borda nem
               superfície, e por isso não se lia como um bloco — parecia texto
               solto ao lado do conteúdo. */}
-          <nav className="lg:sticky lg:top-4 lg:self-start">
+          <nav className="lg:sticky lg:top-[calc(var(--app-sticky-top)_+_1rem)] lg:self-start">
             <Card className="space-y-4 p-3">
               {NAV.map((g, gi) => (
                 <div key={gi}>

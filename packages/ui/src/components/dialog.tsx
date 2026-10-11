@@ -66,7 +66,9 @@ const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
   <div className={cn('shrink-0 border-b border-border/60 bg-muted/30 px-5 py-4 text-left', className)} {...props} />
 )
 
-const DialogBody = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+// `ref` (React 19: prop comum) dá acesso ao container rolável — ex.: guardar e
+// restaurar a posição de scroll entre aberturas do modal.
+const DialogBody = ({ className, ...props }: React.ComponentProps<'div'>) => (
   <div className={cn('flex-1 overflow-y-auto nice-scrollbar px-5 py-4', className)} {...props} />
 )
 

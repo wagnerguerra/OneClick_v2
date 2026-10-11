@@ -42,6 +42,12 @@ const COLUMN_LABELS: Record<keyof TreatmentDefinition['columnMapping'], string> 
   participante: 'Participante', numeroNf: 'Número da NF',
   documento: 'CNPJ/CPF do participante', documentoFixo: 'CNPJ/CPF do participante (valor fixo)',
 }
+const ACEITA_VAZIO_LABELS: Record<keyof TreatmentDefinition['aceitaVazio'], string> = {
+  participante: 'Participante aceita em branco',
+  numeroNf: 'Número da NF aceita em branco',
+  documento: 'CNPJ/CPF aceita em branco',
+}
+const simNao = (v?: boolean) => (v ? 'Sim' : 'Não')
 
 interface Props {
   def: TreatmentDefinition
@@ -105,6 +111,19 @@ export function VersionOverview({ def, compareTo, compareLabel = 'versão atual'
               compareLabel={compareLabel}
             />
           ))}
+          {/* "Aceita em branco" só das colunas opcionais em uso (em algum dos lados). */}
+          {(Object.keys(ACEITA_VAZIO_LABELS) as Array<keyof TreatmentDefinition['aceitaVazio']>)
+            .filter((k) => def.columnMapping[k] || compareTo?.columnMapping[k])
+            .map((k) => (
+              <ReadField
+                key={`av-${k}`}
+                label={ACEITA_VAZIO_LABELS[k]}
+                value={simNao(def.aceitaVazio[k])}
+                current={compareTo && simNao(compareTo.aceitaVazio[k])}
+                hasCompare={cmp}
+                compareLabel={compareLabel}
+              />
+            ))}
         </FieldGrid>
       </Section>
 

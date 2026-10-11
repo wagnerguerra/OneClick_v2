@@ -245,14 +245,21 @@ function BatchInput({ placeholder, numeric, variaveis, onApply }: { placeholder:
  * busca aplica a todas as linhas; com busca, só aos resultados.
  */
 function ContrapartidaTabela<T extends CpItemComum>({
-  itens, onUpdate, onBatchUpdate, onRemove, onAdd, addLabel, dcByDescricao, headers, primeiraColuna, searchText, searchPlaceholder, revisar, emptyText, rowClassName, removeMode = 'inline',
+  itens, onUpdate, onBatchUpdate, onRemove, onRemoveMany, onAdd, addLabel, novoItem, dcByDescricao, headers, primeiraColuna, searchText, searchPlaceholder, revisar, emptyText, rowClassName, removeMode = 'inline',
 }: {
   itens: T[]
   onUpdate: (i: number, patch: Partial<T>) => void
   onBatchUpdate?: (indices: number[], patch: Partial<T>) => void
   onRemove?: (i: number) => void
+  /** Exclui as linhas SELECIONADAS (índices originais). Quem passa confirma. */
+  onRemoveMany?: (indices: number[]) => void
   onAdd?: () => void
   addLabel?: string
+  /** `seq` incrementa a cada item que o usuário ACRESCENTA ao fim da lista (botão
+   *  Adicionar, criar pelo modal de correspondências): a tabela limpa a busca e vai
+   *  à página do item novo — ele nasce para ser preenchido. `rolar` também rola a
+   *  página até a linha e a destaca (quem adiciona de longe, ex.: pelo modal). */
+  novoItem?: { seq: number; rolar: boolean }
   dcByDescricao: boolean
   headers: string[]
   primeiraColuna: { header: string; className?: string; cellClassName?: string; render: (it: T, i: number) => ReactNode }
@@ -276,8 +283,10 @@ function ContrapartidaTabela<T extends CpItemComum>({
     return q ? withIdx.filter(({ it }) => searchText(it).toLowerCase().includes(q)) : withIdx
   }, [itens, query, searchText])
 
-  // Reseta a página ao mudar a busca (evita ficar numa página que sumiu).
-  useEffect(() => { setPage(0) }, [query])
+  // Digitar na busca volta à 1ª página (evita ficar numa página que sumiu). No
+  // onChange, e não num efeito sobre `query`: limpar a busca ao adicionar um item
+  // não pode desfazer a ida à página dele.
+  const buscar = (q: string) => { setQuery(q); setPage(0) }
 
   const effSize = pageSize === 'all' ? Math.max(1, filtered.length) : pageSize
 
@@ -307,25 +316,60 @@ function ContrapartidaTabela<T extends CpItemComum>({
   const showSearch = itens.length > SEARCH_THRESHOLD
   const showPageSize = itens.length > DEFAULT_PAGE_SIZE
   const showPager = pageCount > 1
-  const scopeLabel = query.trim()
-    ? `${filtered.length} ${filtered.length === 1 ? 'linha do filtro' : 'linhas do filtro'}`
-    : (filtered.length === 1 ? 'a única linha' : `todas as ${filtered.length} linhas`)
+
+  // Seleção de linhas (índices ORIGINAIS). Com seleção, o preenchimento em lote dos
+  // cabeçalhos aplica só às selecionadas; sem, ao filtro/todas como antes. Remoções
+  // deslocam os índices → a seleção é descartada quando a lista encolhe.
+  const [sel, setSel] = useState<Set<number>>(new Set())
+  const lenAnterior = useRef(itens.length)
+  useEffect(() => {
+    if (itens.length < lenAnterior.current) setSel(new Set())
+    lenAnterior.current = itens.length
+  }, [itens.length])
+  const selecionavel = !!onBatchUpdate || !!onRemoveMany
+  const toggleSel = (i: number, v: boolean) => setSel((s) => { const n = new Set(s); if (v) n.add(i); else n.delete(i); return n })
+  const paginaToda = visible.length > 0 && visible.every(({ i }) => sel.has(i))
+  const togglePagina = (v: boolean) => setSel((s) => {
+    const n = new Set(s)
+    for (const { i } of visible) { if (v) n.add(i); else n.delete(i) }
+    return n
+  })
+
+  const scopeLabel = sel.size
+    ? (sel.size === 1 ? 'a linha selecionada' : `as ${sel.size} linhas selecionadas`)
+    : query.trim()
+      ? `${filtered.length} ${filtered.length === 1 ? 'linha do filtro' : 'linhas do filtro'}`
+      : (filtered.length === 1 ? 'a única linha' : `todas as ${filtered.length} linhas`)
 
   function batchApply(patch: Partial<T>) {
     marcaMexeu()
-    onBatchUpdate?.(filtered.map((f) => f.i), patch)
+    onBatchUpdate?.(sel.size ? [...sel] : filtered.map((f) => f.i), patch)
   }
 
-  function handleAdd() {
-    // Ao adicionar, limpa o filtro e vai pra última página, pra a nova linha aparecer.
+  // Item novo no fim da lista (ver `novoItemSeq`): limpa a busca e vai à página
+  // dele — a última, no tamanho de página atual. Roda depois do reposicionamento
+  // do modo revisão (declarado antes), então prevalece sobre ele.
+  const [destaque, setDestaque] = useState<number | null>(null) // índice ORIGINAL da linha
+  const bodyRef = useRef<HTMLTableSectionElement>(null)
+  useEffect(() => {
+    if (!novoItem?.seq) return
     marcaMexeu()
     setQuery('')
-    setPage(Math.floor(itens.length / effSize))
-    onAdd?.()
-  }
+    setPage(pageSize === 'all' ? 0 : Math.floor((itens.length - 1) / pageSize))
+    if (novoItem.rolar) setDestaque(itens.length - 1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [novoItem?.seq])
+  // Com a página do item já renderizada: rola até a linha (centro da tela) e a
+  // destaca por um instante, para o olho achá-la.
+  useEffect(() => {
+    if (destaque === null) return
+    bodyRef.current?.querySelector(`[data-linha="${destaque}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const t = setTimeout(() => setDestaque(null), 1600)
+    return () => clearTimeout(t)
+  }, [destaque])
 
   const batchable = !!onBatchUpdate && filtered.length > 0
-  const colSpan = 3 + (dcByDescricao ? 1 : 0) + (onRemove ? 1 : 0)
+  const colSpan = 3 + (selecionavel ? 1 : 0) + (dcByDescricao ? 1 : 0) + (onRemove ? 1 : 0)
 
   return (
     <div className="space-y-2">
@@ -338,7 +382,7 @@ function ContrapartidaTabela<T extends CpItemComum>({
                 className="h-8 pl-7 text-xs"
                 placeholder={searchPlaceholder ?? 'Buscar...'}
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => buscar(e.target.value)}
               />
             </div>
           ) : <span />}
@@ -359,9 +403,35 @@ function ContrapartidaTabela<T extends CpItemComum>({
       )}
 
       <div className="rounded-[2px] border border-border/60 overflow-hidden">
+        {/* Barra de seleção — mesmo padrão de /gestao-certificados. */}
+        {sel.size > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b bg-primary/10 px-4 py-2">
+            <div className="text-sm">
+              <span className="font-medium">{sel.size} {sel.size === 1 ? 'linha selecionada' : 'linhas selecionadas'}</span>
+              {batchable && (
+                <span className="ml-2 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                  · o preenchimento em lote (<Wand2 className="h-3 w-3" />) dos cabeçalhos aplica só a elas
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setSel(new Set())}>Limpar seleção</Button>
+              {onRemoveMany && (
+                <Button variant="soft-destructive" size="sm" onClick={() => onRemoveMany([...sel])}>
+                  <Trash2 className="h-3.5 w-3.5" /> Excluir {sel.size}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
         <Table>
           <TableHeader>
             <TableRow>
+              {selecionavel && (
+                <TableHead className="w-[44px]">
+                  <Checkbox checked={paginaToda} onCheckedChange={(v) => togglePagina(!!v)} disabled={!visible.length} aria-label="Selecionar as linhas desta página" />
+                </TableHead>
+              )}
               <TableHead className={primeiraColuna.className}>{primeiraColuna.header}</TableHead>
               {dcByDescricao && (
                 <TableHead className="w-[180px]">
@@ -419,11 +489,16 @@ function ContrapartidaTabela<T extends CpItemComum>({
               {onRemove && <TableHead className="w-[52px]" />}
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody ref={bodyRef}>
             {visible.map(({ it, i }) => {
               const pular = !!it.pular
               return (
-              <TableRow key={i} className={rowClassName}>
+              <TableRow key={i} data-linha={i} className={cn(rowClassName, 'transition-colors duration-500', (destaque === i || sel.has(i)) && 'bg-primary/10 hover:bg-primary/10')}>
+                {selecionavel && (
+                  <TableCell>
+                    <Checkbox checked={sel.has(i)} onCheckedChange={(v) => toggleSel(i, !!v)} aria-label="Selecionar linha" />
+                  </TableCell>
+                )}
                 <TableCell className={primeiraColuna.cellClassName}>{primeiraColuna.render(it, i)}</TableCell>
                 {dcByDescricao && (
                   <TableCell>
@@ -469,7 +544,7 @@ function ContrapartidaTabela<T extends CpItemComum>({
       </div>
 
       {onAdd && (
-        <Button variant="soft" size="sm" onClick={handleAdd}><Plus className="h-4 w-4" /> {addLabel ?? 'Adicionar'}</Button>
+        <Button variant="soft" size="sm" onClick={onAdd}><Plus className="h-4 w-4" /> {addLabel ?? 'Adicionar'}</Button>
       )}
 
       {showPager && (
@@ -522,7 +597,7 @@ function BadgeRegra({ n }: { n: number }) {
  */
 function PainelCorrespondencia({ descricoes, itens, totalLinhas, truncated, onCriar }: {
   descricoes: DescricaoContagem[]
-  itens: ReadonlyArray<{ palavraChave: string }>
+  itens: ReadonlyArray<{ palavraChave: string; conta: string; pular?: boolean }>
   totalLinhas: number
   truncated?: boolean
   onCriar?: (texto: string) => void
@@ -553,7 +628,15 @@ function PainelCorrespondencia({ descricoes, itens, totalLinhas, truncated, onCr
     return [...arr].sort((a, b) => b.count - a.count) // mais frequentes primeiro
   }, [enriquecidas, soSem, query])
 
-  useEffect(() => { setPage(0) }, [query, soSem, aberto])
+  // Volta à 1ª página só quando a LISTA muda (busca/filtro). Fechar e reabrir o
+  // modal mantém página, filtro, busca e a posição de scroll — o usuário retoma
+  // de onde parou. O conteúdo do modal desmonta ao fechar: a posição fica num ref
+  // e volta quando o corpo rolável remonta.
+  useEffect(() => { setPage(0) }, [query, soSem])
+  const scrollTop = useRef(0)
+  const restauraScroll = useCallback((el: HTMLDivElement | null) => {
+    if (el) el.scrollTop = scrollTop.current
+  }, [])
 
   const pageCount = Math.max(1, Math.ceil(filtradas.length / LIST_PAGE_SIZE))
   const pageSafe = Math.min(page, pageCount - 1)
@@ -565,8 +648,9 @@ function PainelCorrespondencia({ descricoes, itens, totalLinhas, truncated, onCr
           Cara de "linha clicável" já em repouso: card elevado + chevron à direita. */}
       <button
         type="button"
-        onClick={() => { setSoSem(distintasSem > 0); setAberto(true) }}
-        className="group sticky top-[calc(var(--app-header-offset)_+_8px)] z-10 flex w-full cursor-pointer items-center gap-5 rounded-[4px] border border-border bg-card px-4 py-2.5 text-left shadow-sm ring-1 ring-transparent transition-all hover:border-fuchsia-400/60 hover:ring-fuchsia-400/20"
+        // Mantém o filtro escolhido; só sai de "Sem correspondência" se ela ficou vazia.
+        onClick={() => { if (distintasSem === 0) setSoSem(false); setAberto(true) }}
+        className="group sticky top-[calc(var(--app-sticky-top)_+_8px)] z-10 flex w-full cursor-pointer items-center gap-5 rounded-[4px] border border-border bg-card px-4 py-2.5 text-left shadow-sm ring-1 ring-transparent transition-all hover:border-fuchsia-400/60 hover:ring-fuchsia-400/20"
       >
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
@@ -600,14 +684,14 @@ function PainelCorrespondencia({ descricoes, itens, totalLinhas, truncated, onCr
       </button>
 
       <Dialog open={aberto} onOpenChange={setAberto}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-5xl">
           <DialogHeaderIcon icon={ListChecks} color="fuchsia">
             <DialogTitle>Correspondência de descrições</DialogTitle>
             <DialogDescription>
               {pct}% dos lançamentos correspondidos · {distintasSem} {distintasSem === 1 ? 'descrição sem correspondência' : 'descrições sem correspondência'}
             </DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-2">
+          <DialogBody className="space-y-2" ref={restauraScroll} onScroll={(e) => { scrollTop.current = e.currentTarget.scrollTop }}>
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative w-full max-w-xs sm:flex-1">
                 <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -629,6 +713,7 @@ function PainelCorrespondencia({ descricoes, itens, totalLinhas, truncated, onCr
                     <TableHead className="w-[96px] text-right">Ocorrências</TableHead>
                     <TableHead className="w-[168px]">Status</TableHead>
                     <TableHead className="w-[180px]">Palavra-chave</TableHead>
+                    <TableHead className="w-[130px]">Contrapartida</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -655,12 +740,24 @@ function PainelCorrespondencia({ descricoes, itens, totalLinhas, truncated, onCr
                           <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
+                      {/* Conta da palavra-chave que corresponde (a que a conversão usará). */}
+                      <TableCell className="max-w-[130px] truncate text-xs">
+                        {d.idx < 0 ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : itens[d.idx]!.pular ? (
+                          <span className="italic text-muted-foreground">linha pulada</span>
+                        ) : itens[d.idx]!.conta.trim() ? (
+                          <span className="font-mono tabular-nums text-foreground" title={itens[d.idx]!.conta}>{itens[d.idx]!.conta}</span>
+                        ) : (
+                          <span className={cn('italic', TEXT.amber)}>sem conta</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                     )
                   })}
                   {!visible.length && (
                     <TableRow>
-                      <TableCell colSpan={4} className="py-6 text-center text-xs text-muted-foreground">
+                      <TableCell colSpan={5} className="py-6 text-center text-xs text-muted-foreground">
                         {query.trim() ? (
                           `Nenhuma descrição para "${query.trim()}".`
                         ) : soSem ? (
@@ -721,17 +818,35 @@ export function ContrapartidaPalavraChave({ def, setDef, dcByDescricao, headers 
       return { ...d, contrapartida: { ...d.contrapartida, palavraChave: next } }
     })
   }, [setDef])
+  // Cada palavra-chave acrescentada pelo usuário sinaliza a tabela p/ ir à página
+  // dela; a criada pelo modal também rola até a linha (o usuário está longe dela).
+  const [novoItem, setNovoItem] = useState({ seq: 0, rolar: false })
   const add = useCallback(() => {
     setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, palavraChave: [...d.contrapartida.palavraChave, { palavraChave: '', conta: '', historicoFixo: '' }] } }))
+    setNovoItem((n) => ({ seq: n.seq + 1, rolar: false }))
   }, [setDef])
   const remove = useCallback((i: number) => {
     setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, palavraChave: d.contrapartida.palavraChave.filter((_, idx) => idx !== i) } }))
+  }, [setDef])
+  // Exclusão das selecionadas: em lote, então confirma (a individual é direta).
+  const removeMany = useCallback(async (indices: number[]) => {
+    const n = indices.length
+    const ok = await alerts.confirm({
+      title: n === 1 ? 'Excluir a palavra-chave selecionada?' : `Excluir as ${n} palavras-chave selecionadas?`,
+      text: 'Os lançamentos que elas cobriam voltam a ficar sem correspondência.',
+      confirmText: 'Excluir',
+      destructive: true,
+    })
+    if (!ok) return
+    const set = new Set(indices)
+    setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, palavraChave: d.contrapartida.palavraChave.filter((_, idx) => !set.has(idx)) } }))
   }, [setDef])
   // Cria uma palavra-chave já pré-preenchida com a descrição (clique numa descoberta
   // no modal). O texto inteiro nasce correspondendo àquela linha; o usuário generaliza
   // apagando palavras na tabela e vê a correspondência subir.
   const criarDaDescricao = useCallback((texto: string) => {
     setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, palavraChave: [...d.contrapartida.palavraChave, { palavraChave: texto, conta: '', historicoFixo: '' }] } }))
+    setNovoItem((n) => ({ seq: n.seq + 1, rolar: true }))
   }, [setDef])
 
   return (
@@ -739,7 +854,7 @@ export function ContrapartidaPalavraChave({ def, setDef, dcByDescricao, headers 
       <p className="text-[12px] text-muted-foreground">Adicione palavras-chave abaixo, a serem detectadas nas descrições dos lançamentos.</p>
       {totalLinhas > 0 && <PainelCorrespondencia descricoes={descricoes} itens={itensContagem} totalLinhas={totalLinhas} truncated={truncated} onCriar={criarDaDescricao} />}
       <ContrapartidaTabela
-        itens={itens} onUpdate={update} onBatchUpdate={batchUpdate} onRemove={remove} onAdd={add} addLabel="Adicionar palavra-chave"
+        itens={itens} onUpdate={update} onBatchUpdate={batchUpdate} onRemove={remove} onRemoveMany={removeMany} onAdd={add} addLabel="Adicionar palavra-chave" novoItem={novoItem}
         dcByDescricao={dcByDescricao} headers={headers} revisar={revisar} rowClassName={totalLinhas > 0 ? '[&>td]:py-5' : undefined}
         emptyText="Nenhuma palavra-chave adicionada ainda — comece adicionando uma no botão abaixo."
         searchText={(it) => it.palavraChave} searchPlaceholder="Buscar palavra-chave..."
@@ -810,13 +925,25 @@ export function ContrapartidaDescricao({ def, setDef, dcByDescricao, headers = [
     if (!res.isConfirmed) return
     setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, descricao: d.contrapartida.descricao.filter((_, idx) => idx !== i) } }))
   }, [itens, setDef])
+  const removeManyComConfirmacao = useCallback(async (indices: number[]) => {
+    const n = indices.length
+    const ok = await alerts.confirm({
+      title: n === 1 ? 'Excluir a descrição selecionada?' : `Excluir as ${n} descrições selecionadas?`,
+      text: 'Elas estão aqui porque foram detectadas num arquivo lido anteriormente. Se aparecerem de novo num próximo arquivo, será necessário mapeá-las outra vez.',
+      confirmText: 'Excluir',
+      destructive: true,
+    })
+    if (!ok) return
+    const set = new Set(indices)
+    setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, descricao: d.contrapartida.descricao.filter((_, idx) => !set.has(idx)) } }))
+  }, [setDef])
 
   if (!itens.length) return null
   return (
     <div className="space-y-2">
       <p className="text-[12px] text-muted-foreground">Cada descrição distinta recebe uma conta de contrapartida.</p>
       <ContrapartidaTabela
-        itens={itens} onUpdate={update} onBatchUpdate={batchUpdate} onRemove={removeComConfirmacao} removeMode="kebab"
+        itens={itens} onUpdate={update} onBatchUpdate={batchUpdate} onRemove={removeComConfirmacao} onRemoveMany={removeManyComConfirmacao} removeMode="kebab"
         dcByDescricao={dcByDescricao} headers={headers} revisar={revisar}
         searchText={(it) => it.descricao} searchPlaceholder="Buscar descrição..."
         primeiraColuna={{
