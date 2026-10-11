@@ -17,6 +17,11 @@
  *     identifier = `desktop-handshake:<uuid>`, value = userId, expira em 5 min.
  *   - desktop-consume cria uma SESSAO NOVA via prisma.session (não compartilha
  *     com a sessão web — assim logout web não derruba o desktop e vice-versa).
+ *
+ * Apps desktop atendidos (o `?app=` do /login escolhe o deep-link de retorno):
+ *   - OneClick Chat (padrão)  → oneclick-chat://auth?token=X
+ *   - OneClick Viewer (viewer) → oneclick-viewer://auth?token=X — usa a sessão
+ *     como `Authorization: Bearer` nas rotas tRPC `viewer.*`.
  */
 
 import { Body, Controller, ForbiddenException, Post, Req } from '@nestjs/common'
@@ -28,6 +33,8 @@ import { AuthService } from './auth.service'
 const HANDSHAKE_PREFIX = 'desktop-handshake:'
 const HANDSHAKE_TTL_MS = 5 * 60 * 1000 // 5 min
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 dias (= Better Auth default)
+// userAgent gravado na sessão: identifica o app na lista de sessões do usuário
+const USER_AGENT_POR_APP: Record<string, string> = { chat: 'OneClickChatDesktop', viewer: 'OneClickViewer' }
 
 @Controller('api/auth')
 export class AuthDesktopController {
@@ -62,7 +69,7 @@ export class AuthDesktopController {
    * dados pra criar o cookie better-auth.session_token na sua BrowserWindow.
    */
   @Post('desktop-consume')
-  async consume(@Body() body: { token?: string }) {
+  async consume(@Body() body: { token?: string; app?: string }) {
     const token = (body?.token ?? '').trim()
     if (!token) throw new ForbiddenException('Token ausente')
 
@@ -86,7 +93,7 @@ export class AuthDesktopController {
         token: sessionToken,
         expiresAt,
         ipAddress: 'desktop-app',
-        userAgent: 'OneClickChatDesktop',
+        userAgent: USER_AGENT_POR_APP[body?.app ?? 'chat'] ?? USER_AGENT_POR_APP.chat,
       },
     })
 
