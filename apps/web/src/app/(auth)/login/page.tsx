@@ -19,7 +19,11 @@ export default function LoginPage() {
   // joga pra /login/2fa sem query string).
   const isDesktopFlow = searchParams.get('desktop') === '1'
   if (typeof window !== 'undefined') {
-    if (isDesktopFlow) sessionStorage.setItem('oc-desktop-flow', '1')
+    if (isDesktopFlow) {
+      sessionStorage.setItem('oc-desktop-flow', '1')
+      // Qual app desktop receberá a sessão (chat | viewer) — ver /desktop-handshake
+      sessionStorage.setItem('oc-desktop-app', searchParams.get('app') === 'viewer' ? 'viewer' : 'chat')
+    }
   }
   const redirectAfterLogin = isDesktopFlow ? '/desktop-handshake' : '/dashboard'
 

@@ -213,6 +213,7 @@ import { createThemeRouter } from '../theme/theme.router'
 import { DanfeService } from '../danfe/danfe.service'
 import { DanfeLoteService } from '../danfe/danfe-lote.service'
 import { createDanfeRouter } from '../danfe/danfe.router'
+import { createViewerRouter } from '../viewer/viewer.router'
 import { DriveSyncService } from '../drive-sync/drive-sync.service'
 import { createDriveSyncRouter } from '../drive-sync/drive-sync.router'
 import { NfeDistService } from '../nfe-dist/nfe-dist.service'
@@ -993,6 +994,7 @@ export class TrpcService {
       clientError: createClientErrorRouter(this.clientErrorService),
       theme: createThemeRouter(this.themeService),
       danfe: createDanfeRouter(this.danfeService, this.danfeLoteService),
+      viewer: createViewerRouter(this.danfeService),
       drive: createDriveSyncRouter(this.driveSyncService),
       nfeDist: createNfeDistRouter(this.nfeDistService),
       nfseDist: createNfseDistRouter(this.nfseDistService),
